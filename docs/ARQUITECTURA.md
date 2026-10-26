@@ -2,37 +2,50 @@
 
 ## Resumen
 
-KRONOX es una aplicación web estática de una sola página. `index.html` contiene la estructura, estilos, datos del sistema solar, lógica de simulación y componentes de interfaz. No usa servidor de aplicación ni paso de compilación.
+KRONOX es una aplicación React de una sola página, compilada con Vite. La interfaz, los datos y la escena tridimensional viven en módulos independientes. No hay servidor backend.
 
 ## Tecnologías
 
-- HTML y CSS nativos.
-- React y ReactDOM 18.3.1 en builds UMD, usados sin JSX.
-- Three.js 0.128.0 para la escena y renderizado WebGL.
-- `OrbitControls.js` de Three.js para la cámara orbital.
-- APIs del navegador para entrada, animación, fecha, audio HTML y eventos.
+- React 18 y ReactDOM 18.
+- Vite 8 y `@vitejs/plugin-react` para desarrollo y build.
+- Three.js 0.128.0 y `OrbitControls` para WebGL y cámara orbital.
+- HTML, CSS, módulos JavaScript y JSX.
 
-Las bibliotecas se importan desde jsDelivr. Las fichas cargan imágenes de NASA y la voz reproduce MP3 generados por el endpoint de Google Translate.
+## Mapa de módulos
 
-## Organización de `index.html`
+- `src/main.jsx`: crea el React root e inicia `App`.
+- `src/App.jsx`: estado compartido, notificaciones, callbacks y composición general de la aplicación.
+- `src/components/KronoxWidget.jsx`: guía persistente, control de voz y selección de acento.
+- `src/components/ToastNotification.jsx`: avisos de estado separados del panel de guía.
+- `src/components/PlanetInfoModal.jsx`: ficha y referencias de un planeta.
+- `src/components/QuickTravelMenu.jsx`: destinos rápidos y accesos a planetas.
+- `src/data/planetData.js`: catálogo de cuerpos, datos informativos y cálculo kepleriano.
+- `src/scene/createScene.js`: escena Three.js, texturas procedurales, controles, movimiento y render loop.
+- `src/styles.css`: estilos de interfaz y animaciones CSS.
+- `vite.config.js`: plugin React, ruta base de GitHub Pages y división de paquetes.
 
-- **Estilos iniciales:** paneles, HUD, avisos, ficha planetaria y animaciones CSS.
-- **Dependencias y datos:** bibliotecas externas, constantes físicas, planetas, órbitas y contenido de las fichas.
-- **`App`:** estado de React y composición del panel, menú de viajes, controles, avisos y modales.
-- **`setup`:** escena Three.js, cuerpos celestes, iluminación, cámara, teclado, puntero y bucle de animación.
-- **Voz de Kronox:** genera solicitudes de audio en español, las divide en fragmentos breves, reproduce los fragmentos en orden y cancela la reproducción anterior al anunciar otro mensaje.
+## Ciclo de la escena
 
-La app conserva el estado principalmente en memoria; recargar la página vuelve a iniciar la experiencia.
+`App` crea la escena al montar el contenedor del canvas. El módulo de escena devuelve los métodos que usa la interfaz (cambiar cámara, velocidad, opciones, foco y destinos). Al desmontar la aplicación, React cancela el render loop, retira listeners, libera los controles y elimina el renderer.
 
-## Modificar el proyecto
+La simulación actualiza órbitas y cuerpos por frame. Los elementos visuales se generan con geometría de Three.js, CanvasTextures, shaders y puntos de estrellas. Las texturas planetarias y la Vía Láctea son procedurales; no son mapas científicos de superficie.
 
-1. Edita `index.html`.
-2. Mantén actualizados README, las guías y el registro de cambios si cambia el comportamiento visible.
-3. Comprueba que el JavaScript incrustado parsea correctamente y abre la página en un navegador para revisar la escena y los controles.
-4. Comprueba separadamente dependencias de CDN, imágenes externas y reproducción de voz, ya que dependen de red y de políticas del navegador.
+## Desarrollo
 
-No se requiere `npm install` ni un proceso de build. Si el proyecto crece, conviene separar el HTML, CSS, módulos de simulación y datos en archivos independientes, y fijar una estrategia de dependencias antes de incorporar un bundler.
+```bash
+npm ci
+npm run dev
+```
+
+Para build de producción y vista previa:
+
+```bash
+npm run build
+npm run preview
+```
+
+`npm run format` aplica Prettier al proyecto. Mantén los cambios en el módulo correspondiente y actualiza README, guía de usuario y changelog si cambia el comportamiento visible. Al modificar el render loop, conserva el ciclo de limpieza para evitar listeners o animaciones duplicadas al desmontar la escena.
 
 ## Publicación
 
-El sitio puede publicarse con GitHub Pages desde la rama `main` y la carpeta raíz (`/`). `index.html` es el punto de entrada. La publicación requiere acceso a internet para descargar dependencias y recursos externos.
+Vite genera los archivos estáticos en `dist/`. La base configurada para el sitio de proyecto es `/KRONOX/`. Para GitHub Pages, publica ese directorio con un workflow de Actions. Otros alojamientos estáticos pueden requerir ajustar `base` en `vite.config.js`.

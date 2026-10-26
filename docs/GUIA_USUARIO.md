@@ -1,31 +1,42 @@
 # Guía de usuario
 
-## Inicio
+## Instalación y arranque
 
-Abre `index.html` en un navegador moderno con conexión a internet. La app carga bibliotecas, imágenes y audio desde servicios externos; por eso no funciona completamente sin conexión.
+Necesitas Node.js 20.19+ o 22.12+ y npm. Desde la carpeta del proyecto ejecuta:
 
-En la parte superior izquierda están las opciones de escala, fecha, simulación, cámara y nave. El botón **Viajes rápidos** está en la parte inferior.
+```bash
+npm ci
+npm run dev
+```
+
+Abre en el navegador la dirección local que Vite muestra en la terminal. Para generar y revisar el sitio de producción:
+
+```bash
+npm run build
+npm run preview
+```
+
+La aplicación necesita internet para descargar imágenes planetarias y generar la voz de Kronox.
 
 ## Escalas y tiempo
 
-- **Escala visual:** comprime las distancias y exagera el tamaño aparente de los cuerpos para facilitar la exploración.
-- **Escala física:** usa unidades de millones de kilómetros para radios y distancias.
-- **Fecha simulada:** cambia la fecha usada para calcular las posiciones orbitales.
-- **Velocidad de simulación:** ajusta el paso del tiempo; **Pausar/Reanudar** controla la animación y **Restablecer** devuelve sus valores iniciales.
-- **Órbitas, Etiquetas, Ejes, Velocidad y Movimiento galáctico:** activan o desactivan elementos visuales.
+- **Escala visual:** comprime las distancias y exagera el tamaño aparente de los cuerpos.
+- **Escala física:** muestra radios y distancias usando millones de kilómetros.
+- **Fecha simulada:** cambia la fecha que usa el cálculo orbital.
+- **Velocidad de simulación:** ajusta cuánto tiempo transcurre por segundo.
+- **Pausar/Reanudar** detiene o continúa la simulación; **Restablecer** devuelve sus valores iniciales.
+- **Órbitas, Etiquetas, Ejes, Velocidad y Movimiento galáctico** activan o desactivan elementos visuales.
 
 ## Cámara orbital
 
-En el modo de observación del sistema:
-
 - Arrastra con el botón principal para orbitar la escena.
 - Usa la rueda del ratón para acercar o alejar.
-- Arrastra con el botón derecho para desplazar la vista.
-- Selecciona un planeta desde el menú inferior para enfocarlo.
+- Arrastra con el botón derecho para desplazar la cámara.
+- Selecciona un planeta en el menú inferior para enfocarlo.
 
 ## Nave planetaria
 
-Pulsa **Ingresar en nave planetaria** para controlar la nave desde su ubicación actual. Puedes seleccionar primera o tercera persona y ajustar el campo de visión.
+Pulsa **Ingresar en nave planetaria** para pilotar desde la ubicación actual. El panel permite elegir primera o tercera persona y ajustar el campo de visión.
 
 - `W` / `S`: avanzar / retroceder.
 - `A` / `D`: movimiento lateral.
@@ -33,32 +44,22 @@ Pulsa **Ingresar en nave planetaria** para controlar la nave desde su ubicación
 - `Shift`: aumentar temporalmente la velocidad.
 - Arrastrar: orientar la vista.
 - Rueda: ajustar la velocidad de vuelo.
-- Los botones de velocidad cambian la velocidad de movimiento, sin reubicar la nave.
+- Los botones de marcha cambian la velocidad sin reubicar la nave.
 
-Activa **Estela**, **Inercia** o **Piloto auto.** para modificar el comportamiento visual y de vuelo.
+**Estela**, **Inercia** y **Piloto auto.** modifican el comportamiento visual y de vuelo.
 
 ## Cámara libre
 
-Pulsa **Cámara libre** para observar la nave en 3D. La nave permanece fija mientras la cámara la rodea y explora. Usa **Regresar a la nave** para abordarla desde su posición y orientación actuales.
+Pulsa **Cámara libre** para observar la nave en 3D. La nave permanece inmóvil mientras la cámara la rodea. **Regresar a la nave** te devuelve a su posición y orientación actuales.
 
 ## Viajes rápidos
 
-Abre el menú inferior y elige un destino. Hay accesos a:
+Abre el menú inferior para elegir entre órbita próxima al Sol, cinturón de asteroides, Brazo de Orión, centro galáctico o un planeta. Kronox presenta una cuenta atrás; un destino largo usa el efecto de salto.
 
-- Órbita próxima al Sol.
-- Cinturón de asteroides.
-- Brazo de Orión.
-- Centro galáctico.
-- Planetas y cuerpos del menú.
+## Kronox y datos planetarios
 
-Kronox presenta una cuenta atrás antes del viaje. El trayecto depende de la velocidad actual y puede activar un efecto de salto para distancias largas.
+Kronox anuncia por separado cambios de velocidad, vista, escala y navegación. En la nave, al entrar en la zona de proximidad de un planeta, anuncia el acercamiento una vez y muestra un botón para abrir la ficha.
 
-## Kronox y la información planetaria
+Pulsa **Activar voz** para habilitar el audio. El navegador puede bloquear la reproducción hasta que pulses ese botón. El selector permite elegir acento **Latino** o **España**. La voz requiere conexión y envía el texto del aviso a Google Translate. El endpoint actual no permite seleccionar voz masculina/femenina.
 
-Kronox presenta avisos separados para cambios de velocidad, perspectiva, escala y navegación. En la nave, al entrar en la zona de proximidad de un planeta, anuncia el acercamiento una vez y muestra **¿Quieres saber más? Dale aquí**. El botón abre la ficha informativa del cuerpo.
-
-Pulsa **Activar voz** para habilitar los avisos hablados. El navegador puede exigir ese clic antes de reproducir audio. El selector de acento ofrece **Latino** y **España**. La voz requiere conexión a internet y envía el texto del aviso a Google Translate para generar el audio. El servicio actual no deja escoger voz masculina o femenina.
-
-## Fichas de los planetas
-
-Las fichas incluyen una descripción, datos sobre estructura/superficie, composición, atmósfera, temperatura, clima y un dato curioso. Las imágenes y enlaces de referencia se cargan desde NASA. En los gigantes gaseosos y helados, algunas temperaturas corresponden a niveles atmosféricos de referencia, no a una superficie sólida.
+Las fichas reúnen descripción, estructura/superficie, composición, atmósfera, temperatura, clima y un dato curioso, con imágenes y enlaces de NASA. En gigantes gaseosos y helados, ciertas temperaturas describen capas atmosféricas de referencia, no una superficie sólida.
