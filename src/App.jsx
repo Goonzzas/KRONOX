@@ -76,12 +76,18 @@ export default function App() {
       let i = 0;
       const playNext = () => {
         if (token !== voiceToken.current || !voiceRef.current || i >= parts.length) return;
-        const audio = new Audio(
-          'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=' +
-            voiceAccentRef.current +
-            '&text=' +
-            encodeURIComponent(parts[i++]),
-        );
+        const text = parts[i++];
+        const audioUrl =
+          import.meta.env.BASE_URL === '/'
+            ? '/api/voice?lang=' +
+              encodeURIComponent(voiceAccentRef.current) +
+              '&text=' +
+              encodeURIComponent(text)
+            : 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=' +
+              voiceAccentRef.current +
+              '&text=' +
+              encodeURIComponent(text);
+        const audio = new Audio(audioUrl);
         audio.preload = 'auto';
         audio.playbackRate = 1.28;
         audio.preservesPitch = true;
