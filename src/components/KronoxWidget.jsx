@@ -15,6 +15,7 @@ export default function KronoxWidget({
   onOrbClick,
 }) {
   const [typed, setTyped] = useState('');
+  const isTransmitting = speaking || typed.length < guide.length;
   useEffect(() => {
     setTyped('');
     let index = 0;
@@ -26,7 +27,7 @@ export default function KronoxWidget({
     return () => clearInterval(timer);
   }, [guide]);
   return (
-    <div className={`kronoxWidget ${speaking ? 'is-speaking' : ''}`}>
+    <div className={`kronoxWidget ${speaking ? 'is-speaking' : ''} ${isTransmitting ? 'is-transmitting' : ''}`}>
       <button
         className="kronoxOrb"
         aria-label="Kronox, guía astral"
@@ -44,7 +45,7 @@ export default function KronoxWidget({
         <i className="kronoxSpark sparkTwo" />
         <i className="kronoxSpark sparkThree" />
       </button>
-      {panelOpen && <div className={`kronoxBubble ${speaking ? 'transmitting' : ''}`}>
+      {panelOpen && <div className={`kronoxBubble ${isTransmitting ? 'transmitting' : ''}`}>
         <div className="kronoxPanelTop">
           <div className="kronoxName">Kronox · guía astral</div>
           <span className="kronoxStatus"><i />{speaking ? 'transmitiendo…' : 'en línea'}</span>
