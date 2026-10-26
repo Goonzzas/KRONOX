@@ -272,11 +272,11 @@ small {
 .sparkOne { top: 2px; left: 28px; }
 .sparkTwo { right: 2px; top: 33px; animation-delay: -1s; }
 .sparkThree { left: 8px; bottom: 7px; animation-delay: -2s; }
-.is-speaking .kronoxCore { animation-duration: .38s; transform: scale(1.3); }
-.is-speaking .kronoxGyro { animation: kronoxGyroSpin 1.4s linear infinite; }
-.is-speaking .kronoxFourStar { animation-duration: 2.2s; }
-.is-speaking .kronoxOrb { scale: 1.12; filter: drop-shadow(0 0 16px #8bdeff); }
-.is-speaking .kronoxSpark { animation-duration: .8s; }
+.is-transmitting .kronoxCore { animation-duration: .38s; transform: scale(1.3); }
+.is-transmitting .kronoxGyro { animation: kronoxGyroSpin 1.4s linear infinite; }
+.is-transmitting .kronoxFourStar { animation-duration: 2.2s; }
+.is-transmitting .kronoxOrb { scale: 1.12; filter: drop-shadow(0 0 16px #8bdeff); }
+.is-transmitting .kronoxSpark { animation-duration: .8s; }
 @keyframes kronoxCorePulse { to { transform: scale(1.22); filter: brightness(1.5); } }
 @keyframes kronoxStarSpin { to { transform: rotate(360deg); } }
 @keyframes kronoxGyroSpin { to { transform: rotate(360deg); } }
@@ -336,8 +336,8 @@ small {
   box-shadow: 0 0 4px #65eaff66;
   transform-origin: center;
 }
-.is-speaking .kronoxVoiceBars { opacity: 1; }
-.is-speaking .kronoxVoiceBars i {
+.is-transmitting .kronoxVoiceBars { opacity: 1; }
+.is-transmitting .kronoxVoiceBars i {
   animation: kronoxBars .55s ease-in-out infinite alternate;
   animation-delay: calc(var(--bar-index) * -19ms);
 }
