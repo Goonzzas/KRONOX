@@ -67,7 +67,7 @@ export default function App() {
   const closeKronoxLater = () => {
     clearTimeout(kronoxCloseTimer.current);
     kronoxCloseTimer.current = setTimeout(() => {
-      if (!speakingRef.current && !noticeRef.current) setKronoxOpen(false);
+      if (!speakingRef.current) setKronoxOpen(false);
     }, 3000);
   };
   const speak = (msg) => {
