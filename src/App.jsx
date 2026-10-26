@@ -24,6 +24,7 @@ export default function App() {
     [more, setMore] = useState(null),
     [guide, setGuide] = useState('A tu lado, explorador. Soy Kronox, tu guía astral.'),
     [speaking, setSpeaking] = useState(false),
+    [audioLevels, setAudioLevels] = useState(() => Array(48).fill(0)),
     [kronoxOpen, setKronoxOpen] = useState(false),
     [voice, setVoice] = useState(false),
     [voiceError, setVoiceError] = useState(''),
@@ -53,7 +54,11 @@ export default function App() {
   const speakingRef = useRef(false),
     kronoxCloseTimer = useRef(null),
     travelRef = useRef(false),
-    factIndexRef = useRef(0);
+    factIndexRef = useRef(0),
+    audioContextRef = useRef(null),
+    analyserRef = useRef(null),
+    audioSourceRef = useRef(null),
+    audioFrameRef = useRef(null);
   spR.current = Math.pow(10, sp);
   paR.current = pause;
   flR.current = fl;
@@ -70,6 +75,54 @@ export default function App() {
       if (!speakingRef.current) setKronoxOpen(false);
     }, 3000);
   };
+  const stopAudioAnalysis = () => {
+    if (audioFrameRef.current !== null) cancelAnimationFrame(audioFrameRef.current);
+    audioFrameRef.current = null;
+    audioSourceRef.current?.disconnect();
+    audioSourceRef.current = null;
+    setAudioLevels(Array(48).fill(0));
+  };
+  const startAudioAnalysis = (audio) => {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    try {
+      const context = audioContextRef.current || new AudioContextClass();
+      audioContextRef.current = context;
+      const analyser = analyserRef.current || context.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.78;
+      if (!analyserRef.current) {
+        analyserRef.current = analyser;
+        analyser.connect(context.destination);
+      }
+      audioSourceRef.current?.disconnect();
+      const source = context.createMediaElementSource(audio);
+      source.connect(analyser);
+      audioSourceRef.current = source;
+      const spectrum = new Uint8Array(analyser.frequencyBinCount);
+      let lastUpdate = 0;
+      const sample = (time) => {
+        if (audioSourceRef.current !== source) return;
+        analyser.getByteFrequencyData(spectrum);
+        if (time - lastUpdate > 30) {
+          const levels = Array.from({ length: 48 }, (_, index) => {
+            const start = Math.floor((index / 48) ** 2 * spectrum.length);
+            const end = Math.max(start + 1, Math.floor(((index + 1) / 48) ** 2 * spectrum.length));
+            let total = 0;
+            for (let bin = start; bin < Math.min(end, spectrum.length); bin++) total += spectrum[bin];
+            return Math.max(0.08, Math.min(4.5, (total / Math.max(1, end - start) / 255) * 5.5));
+          });
+          setAudioLevels(levels);
+          lastUpdate = time;
+        }
+        audioFrameRef.current = requestAnimationFrame(sample);
+      };
+      context.resume().catch(() => {});
+      audioFrameRef.current = requestAnimationFrame(sample);
+    } catch {
+      // Keep audio playback working if this browser cannot expose the audio stream.
+    }
+  };
   const speak = (msg) => {
       if (!voiceRef.current) return;
       openKronox();
@@ -79,6 +132,7 @@ export default function App() {
         voiceAudio.current.removeAttribute('src');
         voiceAudio.current = null;
       }
+      stopAudioAnalysis();
       const chunks = msg.match(/[^.!?]+[.!?]?/g) || [msg],
         parts = [];
       for (const raw of chunks) {
@@ -94,6 +148,7 @@ export default function App() {
       let i = 0;
       const finishSpeech = () => {
         if (token !== voiceToken.current) return;
+        stopAudioAnalysis();
         setSpeaking(false);
         speakingRef.current = false;
         voiceAudio.current = null;
@@ -113,7 +168,9 @@ export default function App() {
               voiceAccentRef.current +
               '&text=' +
               encodeURIComponent(text);
-        const audio = new Audio(audioUrl);
+        const audio = new Audio();
+        audio.crossOrigin = 'anonymous';
+        audio.src = audioUrl;
         audio.preload = 'auto';
         audio.playbackRate = 1.28;
         audio.preservesPitch = true;
@@ -132,6 +189,7 @@ export default function App() {
               setVoiceError('');
               setSpeaking(true);
               speakingRef.current = true;
+              if (audioUrl.startsWith('/')) startAudioAnalysis(audio);
             }
           })
           .catch((e) => {
@@ -254,6 +312,7 @@ export default function App() {
       voiceToken.current++;
       clearTimeout(kronoxCloseTimer.current);
       if (voiceAudio.current) voiceAudio.current.pause();
+      audioContextRef.current?.close().catch(() => {});
       if (window.speechSynthesis) window.speechSynthesis.cancel();
     },
     [],
@@ -715,6 +774,7 @@ export default function App() {
     h(KronoxWidget, {
       guide,
       speaking,
+      audioLevels,
       panelOpen: kronoxOpen,
       onClose: () => setKronoxOpen(false),
       voice,
@@ -733,6 +793,8 @@ export default function App() {
           setVoice(false);
           if (window.speechSynthesis) window.speechSynthesis.cancel();
           voiceToken.current++;
+          stopAudioAnalysis();
+          audioContextRef.current?.suspend().catch(() => {});
           setSpeaking(false);
           speakingRef.current = false;
           if (voiceAudio.current) {
