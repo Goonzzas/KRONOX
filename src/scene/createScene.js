@@ -2,6 +2,32 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { P, D2R, TAU, T0, kep, pos } from '../data/planetData.js';
 
+function lab(text) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 64;
+  const context = canvas.getContext('2d');
+  context.font = '30px Segoe UI, sans-serif';
+  context.textAlign = 'center';
+  context.fillStyle = '#fff';
+  context.shadowColor = '#000';
+  context.shadowBlur = 6;
+  context.fillText(text, 256, 40);
+
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(canvas),
+      depthTest: false,
+      transparent: true,
+      sizeAttenuation: false,
+    }),
+  );
+  sprite.scale.set(0.4, 0.05, 1);
+  sprite.center.set(0.5, -0.3);
+  sprite.renderOrder = 9;
+  return sprite;
+}
+
 const hs = (a, b, Q) => {
   const s = Math.sin((((a % Q) + Q) % Q) * 127.1 + b * 311.7) * 43758.5453;
   return s - Math.floor(s);
