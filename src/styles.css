@@ -334,14 +334,11 @@ small {
   border-radius: 3px;
   background: linear-gradient(180deg, #a990ff, #5defff);
   box-shadow: 0 0 4px #65eaff66;
+  transform: scaleY(var(--bar-level, .08));
   transform-origin: center;
+  transition: transform 45ms linear;
 }
 .is-transmitting .kronoxVoiceBars { opacity: 1; }
-.is-transmitting .kronoxVoiceBars i {
-  animation: kronoxBars .55s ease-in-out infinite alternate;
-  animation-delay: calc(var(--bar-index) * -19ms);
-}
-@keyframes kronoxBars { to { transform: scaleY(4.5); } }
 .kronoxBubble {
   position: relative;
   max-height: min(38vh, 300px);
