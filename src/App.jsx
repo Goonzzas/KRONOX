@@ -23,6 +23,8 @@ export default function App() {
     [near, setNear] = useState(null),
     [more, setMore] = useState(null),
     [guide, setGuide] = useState('A tu lado, explorador. Soy Kronox, tu guía astral.'),
+    [speaking, setSpeaking] = useState(false),
+    [kronoxOpen, setKronoxOpen] = useState(false),
     [voice, setVoice] = useState(false),
     [voiceError, setVoiceError] = useState(''),
     [voiceAccent, setVoiceAccent] = useState('es-US'),
@@ -48,13 +50,29 @@ export default function App() {
     noticeQueue = useRef([]),
     noticeRef = useRef(null),
     noticeTimer = useRef(null);
+  const speakingRef = useRef(false),
+    kronoxCloseTimer = useRef(null),
+    travelRef = useRef(false),
+    factIndexRef = useRef(0);
   spR.current = Math.pow(10, sp);
   paR.current = pause;
   flR.current = fl;
   voiceRef.current = voice;
   voiceAccentRef.current = voiceAccent;
+  speakingRef.current = speaking;
+  const openKronox = () => {
+    clearTimeout(kronoxCloseTimer.current);
+    setKronoxOpen(true);
+  };
+  const closeKronoxLater = () => {
+    clearTimeout(kronoxCloseTimer.current);
+    kronoxCloseTimer.current = setTimeout(() => {
+      if (!speakingRef.current && !noticeRef.current) setKronoxOpen(false);
+    }, 3000);
+  };
   const speak = (msg) => {
       if (!voiceRef.current) return;
+      openKronox();
       const token = ++voiceToken.current;
       if (voiceAudio.current) {
         voiceAudio.current.pause();
@@ -74,8 +92,16 @@ export default function App() {
         if (chunk) parts.push(chunk);
       }
       let i = 0;
+      const finishSpeech = () => {
+        if (token !== voiceToken.current) return;
+        setSpeaking(false);
+        speakingRef.current = false;
+        voiceAudio.current = null;
+        closeKronoxLater();
+      };
       const playNext = () => {
-        if (token !== voiceToken.current || !voiceRef.current || i >= parts.length) return;
+        if (token !== voiceToken.current || !voiceRef.current) return;
+        if (i >= parts.length) return finishSpeech();
         const text = parts[i++];
         const audioUrl =
           import.meta.env.BASE_URL === '/'
@@ -94,13 +120,20 @@ export default function App() {
         voiceAudio.current = audio;
         audio.onended = playNext;
         audio.onerror = () => {
-          if (token === voiceToken.current)
+          if (token === voiceToken.current) {
             setVoiceError('No se pudo cargar la voz en español. Revisa tu conexión a internet.');
-          voiceAudio.current = null;
+            finishSpeech();
+          }
         };
         audio
           .play()
-          .then(() => setVoiceError(''))
+          .then(() => {
+            if (token === voiceToken.current) {
+              setVoiceError('');
+              setSpeaking(true);
+              speakingRef.current = true;
+            }
+          })
           .catch((e) => {
             if (token !== voiceToken.current) return;
             setVoiceError(
@@ -108,12 +141,19 @@ export default function App() {
                 ? 'El navegador bloqueó el audio. Pulsa «Activar voz» otra vez.'
                 : 'No se pudo reproducir la voz en español. Revisa tu conexión a internet.',
             );
-            voiceAudio.current = null;
+            finishSpeech();
           });
       };
       playNext();
     },
-    say = (msg) => setGuide(msg),
+    say = (msg) => {
+      setGuide(msg);
+      openKronox();
+      if (!voiceRef.current) {
+        clearTimeout(kronoxCloseTimer.current);
+        kronoxCloseTimer.current = setTimeout(() => setKronoxOpen(false), Math.max(3000, msg.length * 22 + 3000));
+      }
+    },
     showNextNotice = () => {
       const item = noticeQueue.current.shift();
       if (!item) {
@@ -122,6 +162,7 @@ export default function App() {
       }
       noticeRef.current = item;
       setNotice(item);
+      say(item.text);
       speak(item.text);
       const duration = Math.min(14000, Math.max(6500, item.text.split(/\s+/).length * 380));
       noticeTimer.current = setTimeout(() => {
@@ -187,10 +228,31 @@ export default function App() {
     };
   }, []);
   useEffect(() => () => countTimers.current.forEach(clearTimeout), []);
+  useEffect(() => {
+    const target = near || f;
+    if (!target || !INFO[target]) return undefined;
+    const timer = setInterval(() => {
+      if (speakingRef.current || travelRef.current || countdown !== null || noticeRef.current) return;
+      const data = INFO[target];
+      const facts = [
+        ['dato', 'Curiosidad'],
+        ['clima', 'Clima'],
+        ['atmosfera', 'Atmósfera'],
+        ['composicion', 'Composición'],
+        ['superficie', 'Superficie'],
+      ].filter(([key]) => data[key]);
+      if (!facts.length) return;
+      const [key, label] = facts[factIndexRef.current % facts.length];
+      factIndexRef.current += 1;
+      notify(label + ' de ' + target + ': ' + data[key], 'Dato astronómico', target);
+    }, 38000);
+    return () => clearInterval(timer);
+  }, [near, f, countdown]);
   useEffect(
     () => () => {
       clearTimeout(noticeTimer.current);
       voiceToken.current++;
+      clearTimeout(kronoxCloseTimer.current);
       if (voiceAudio.current) voiceAudio.current.pause();
       if (window.speechSynthesis) window.speechSynthesis.cancel();
     },
@@ -205,6 +267,7 @@ export default function App() {
       gal: 'Movimiento galáctico',
     },
     startTravel = (run, label) => {
+      travelRef.current = true;
       countTimers.current.forEach(clearTimeout);
       clearTimeout(noticeTimer.current);
       noticeQueue.current = [];
@@ -219,6 +282,7 @@ export default function App() {
           setCountdown(null);
           notify('¡Salto iniciado! Rumbo a ' + label + '.', 'Viaje rápido');
           run();
+          setTimeout(() => { travelRef.current = false; }, 1200);
           return;
         }
         n--;
@@ -234,7 +298,12 @@ export default function App() {
         {
           key: k,
           className: fl[k] ? 'on' : '',
-          onClick: () => setFl({ ...fl, [k]: fl[k] ? 0 : 1 }),
+          onClick: () => {
+            const enabling = !fl[k];
+            setFl({ ...fl, [k]: enabling ? 1 : 0 });
+            if (enabling && ['ax', 'vel', 'gal'].includes(k))
+              notify(k === 'ax' ? 'Ejes de rotación activados.' : k === 'vel' ? 'Vectores de velocidad activados.' : 'Modo galáctico activado.', 'Control activado');
+          },
         },
         nm[k],
       ),
@@ -645,6 +714,9 @@ export default function App() {
       ),
     h(KronoxWidget, {
       guide,
+      speaking,
+      panelOpen: kronoxOpen,
+      onClose: () => setKronoxOpen(false),
       voice,
       accent: voiceAccent,
       voiceError,
@@ -661,6 +733,8 @@ export default function App() {
           setVoice(false);
           if (window.speechSynthesis) window.speechSynthesis.cancel();
           voiceToken.current++;
+          setSpeaking(false);
+          speakingRef.current = false;
           if (voiceAudio.current) {
             voiceAudio.current.pause();
             voiceAudio.current = null;
