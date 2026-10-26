@@ -215,33 +215,168 @@ small {
   position: relative;
   flex: 0 0 58px;
   height: 58px;
-  border: 1px solid #c9f8ffcc;
+  border: 0;
   border-radius: 50%;
   padding: 0;
   display: grid;
   place-items: center;
-  font-size: 28px;
-  background: radial-gradient(
-    circle at 42% 35%,
-    #fff 0 5%,
-    #d8ffff 10%,
-    #8cf5ff 20%,
-    #b594ff 43%,
-    #5a50ad 68%,
-    #16152e 100%
-  );
-  box-shadow:
-    0 0 18px #8ff5ff,
-    0 0 42px #9476ff99;
+  background: transparent;
+  filter: drop-shadow(0 0 11px #6deaffaa);
   animation: kronoxFloat 2.4s ease-in-out infinite alternate;
+  isolation: isolate;
 }
-.kronoxOrb:after {
-  content: '✦';
+.kronoxCore {
   position: absolute;
-  transform: translate(25px, -27px);
-  color: #fff3a4;
-  font-size: 17px;
-  text-shadow: 0 0 10px #fff;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 12%, #bffcff 30%, #75dfff 62%, #8a69ff 100%);
+  box-shadow: 0 0 10px 4px #9ffaff, 0 0 26px 9px #8c66ff99;
+  z-index: 2;
+  animation: kronoxCorePulse 2s ease-in-out infinite alternate;
+}
+.kronoxGyro {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.gyroRing {
+  fill: none;
+  stroke-width: 1.4;
+  transform-origin: 50% 50%;
+  stroke: #a6faff;
+  filter: drop-shadow(0 0 3px #56dcff);
+}
+.ringOne { transform: rotate(22deg); }
+.ringTwo { transform: rotate(82deg); stroke: #c6a3ff; }
+.ringThree { transform: rotate(-38deg); stroke: #78eaff; }
+.kronoxFourStar {
+  fill: #d9fdff;
+  stroke: #fff;
+  stroke-width: .8;
+  filter: drop-shadow(0 0 5px #8ceeff);
+  transform-origin: 50% 50%;
+  animation: kronoxStarSpin 12s linear infinite;
+}
+.kronoxSpark {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 0 8px 2px #8af4ff;
+  animation: kronoxOrbit 3s linear infinite;
+}
+.sparkOne { top: 2px; left: 28px; }
+.sparkTwo { right: 2px; top: 33px; animation-delay: -1s; }
+.sparkThree { left: 8px; bottom: 7px; animation-delay: -2s; }
+.is-speaking .kronoxCore { animation-duration: .38s; transform: scale(1.3); }
+.is-speaking .kronoxGyro { animation: kronoxGyroSpin 1.4s linear infinite; }
+.is-speaking .kronoxFourStar { animation-duration: 2.2s; }
+.is-speaking .kronoxOrb { transform: scale(1.12); filter: drop-shadow(0 0 16px #8bdeff); }
+.is-speaking .kronoxSpark { animation-duration: .8s; }
+@keyframes kronoxCorePulse { to { transform: scale(1.22); filter: brightness(1.5); } }
+@keyframes kronoxStarSpin { to { transform: rotate(360deg); } }
+@keyframes kronoxGyroSpin { to { transform: rotate(360deg); } }
+@keyframes kronoxOrbit { to { transform: rotate(360deg) translateX(12px) rotate(-360deg); } }
+.kronoxPanelTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  padding-right: 18px;
+}
+.kronoxStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  color: #8cf5da;
+  font: 10px ui-monospace, monospace;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.kronoxStatus i {
+  width: 6px;
+  height: 6px;
+  background: #55ffc5;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #55ffc5;
+}
+.transmitting .kronoxStatus { color: #aeeaff; }
+.transmitting .kronoxStatus i { background: #59dfff; box-shadow: 0 0 8px #59dfff; animation: kronoxCorePulse .5s infinite alternate; }
+.kronoxClose {
+  position: absolute;
+  right: -6px;
+  top: -7px;
+  margin: 0 !important;
+  padding: 0 4px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #c9d7ef !important;
+  font-size: 18px !important;
+  line-height: 1;
+}
+.kronoxVoiceBars {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  margin: 5px 0 3px;
+  opacity: .35;
+}
+.kronoxVoiceBars i {
+  width: 2px;
+  height: 4px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #a990ff, #5defff);
+  box-shadow: 0 0 4px #65eaff66;
+  transform-origin: center;
+}
+.is-speaking .kronoxVoiceBars { opacity: 1; }
+.is-speaking .kronoxVoiceBars i {
+  animation: kronoxBars .55s ease-in-out infinite alternate;
+  animation-delay: calc(var(--bar-index) * -19ms);
+}
+@keyframes kronoxBars { to { transform: scaleY(4.5); } }
+.kronoxBubble {
+  position: relative;
+  max-height: min(38vh, 300px);
+  overflow: auto;
+  border: 1px solid #76eaff88;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #071624f5, #100c26f2);
+  box-shadow: 0 0 0 1px #a88dff22, 0 8px 32px #000b, 0 0 22px #42dfff22;
+}
+.kronoxBubble::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent 0 5px, #87eaff0a 6px 7px);
+  animation: kronoxScan 5s linear infinite;
+}
+.kronoxBubble::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(#73edff 0 2px, transparent 2px), linear-gradient(90deg, #73edff 0 2px, transparent 2px), linear-gradient(180deg, #c09aff 0 2px, transparent 2px), linear-gradient(270deg, #c09aff 0 2px, transparent 2px);
+  background-size: 16px 2px, 2px 16px, 16px 2px, 2px 16px;
+  background-repeat: no-repeat;
+  background-position: top left, top left, bottom right, bottom right;
+  opacity: .72;
+}
+@keyframes kronoxScan { to { background-position-y: 24px; } }
+.kronoxCursor { color: #89f5ff; animation: cursorBlink .8s steps(2, start) infinite; }
+@keyframes cursorBlink { to { opacity: 0; } }
+.kronoxBubble > * { position: relative; z-index: 1; }
+.kronoxBubble p { min-height: 2.8em; }
+@media (prefers-reduced-motion: reduce) {
+  .kronoxOrb, .kronoxCore, .kronoxGyro, .kronoxFourStar, .kronoxSpark, .kronoxBubble::before, .kronoxVoiceBars i { animation-duration: 10s !important; }
 }
 .kronoxBubble {
   pointer-events: auto;
