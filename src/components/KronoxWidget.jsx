@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 export default function KronoxWidget({
   guide,
@@ -6,24 +6,54 @@ export default function KronoxWidget({
   accent,
   voiceError,
   near,
+  speaking,
+  panelOpen,
+  onClose,
   onAccentChange,
   onToggleVoice,
   onMore,
   onOrbClick,
 }) {
+  const [typed, setTyped] = useState('');
+  useEffect(() => {
+    setTyped('');
+    let index = 0;
+    const timer = setInterval(() => {
+      index += 1;
+      setTyped(guide.slice(0, index));
+      if (index >= guide.length) clearInterval(timer);
+    }, 22);
+    return () => clearInterval(timer);
+  }, [guide]);
   return (
-    <div className="kronoxWidget">
+    <div className={`kronoxWidget ${speaking ? 'is-speaking' : ''}`}>
       <button
         className="kronoxOrb"
         aria-label="Kronox, guía astral"
         title="Kronox, guía astral"
         onClick={onOrbClick}
       >
-        ✧
+        <span className="kronoxCore" />
+        <svg className="kronoxGyro" viewBox="0 0 100 100" aria-hidden="true">
+          <ellipse className="gyroRing ringOne" cx="50" cy="50" rx="39" ry="17" />
+          <ellipse className="gyroRing ringTwo" cx="50" cy="50" rx="39" ry="17" />
+          <ellipse className="gyroRing ringThree" cx="50" cy="50" rx="39" ry="17" />
+          <path className="kronoxFourStar" d="M50 7 57 43 93 50 57 57 50 93 43 57 7 50 43 43Z" />
+        </svg>
+        <i className="kronoxSpark sparkOne" />
+        <i className="kronoxSpark sparkTwo" />
+        <i className="kronoxSpark sparkThree" />
       </button>
-      <div className="kronoxBubble">
-        <div className="kronoxName">Kronox · guía astral</div>
-        <p>{guide}</p>
+      {panelOpen && <div className={`kronoxBubble ${speaking ? 'transmitting' : ''}`}>
+        <div className="kronoxPanelTop">
+          <div className="kronoxName">Kronox · guía astral</div>
+          <span className="kronoxStatus"><i />{speaking ? 'transmitiendo…' : 'en línea'}</span>
+          <button className="kronoxClose" aria-label="Cerrar panel de Kronox" onClick={onClose}>×</button>
+        </div>
+        <div className="kronoxVoiceBars" aria-hidden="true">
+          {Array.from({ length: 48 }, (_, index) => <i key={index} style={{ '--bar-index': index }} />)}
+        </div>
+        <p aria-live="polite">{typed}<span className="kronoxCursor">▍</span></p>
         <button onClick={onToggleVoice}>{voice ? 'Silenciar voz' : 'Activar voz'}</button>
         {voice && (
           <label className="r" style={{ fontSize: 12, marginBottom: 0 }}>
@@ -42,7 +72,7 @@ export default function KronoxWidget({
         )}
         {voiceError && <small role="status">{voiceError}</small>}
         {near && <button onClick={() => onMore(near)}>¿Quieres saber más? Dale aquí</button>}
-      </div>
+      </div>}
     </div>
   );
 }
