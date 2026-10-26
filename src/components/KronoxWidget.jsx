@@ -7,6 +7,7 @@ export default function KronoxWidget({
   voiceError,
   near,
   speaking,
+  audioLevels,
   panelOpen,
   onClose,
   onAccentChange,
@@ -52,7 +53,9 @@ export default function KronoxWidget({
           <button className="kronoxClose" aria-label="Cerrar panel de Kronox" onClick={onClose}>×</button>
         </div>
         <div className="kronoxVoiceBars" aria-hidden="true">
-          {Array.from({ length: 48 }, (_, index) => <i key={index} style={{ '--bar-index': index }} />)}
+          {Array.from({ length: 48 }, (_, index) => (
+            <i key={index} style={{ '--bar-level': audioLevels?.[index] ?? 0.08 }} />
+          ))}
         </div>
         <p aria-live="polite">{typed}<span className="kronoxCursor">▍</span></p>
         <button onClick={onToggleVoice}>{voice ? 'Silenciar voz' : 'Activar voz'}</button>
