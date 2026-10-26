@@ -275,7 +275,7 @@ small {
 .is-speaking .kronoxCore { animation-duration: .38s; transform: scale(1.3); }
 .is-speaking .kronoxGyro { animation: kronoxGyroSpin 1.4s linear infinite; }
 .is-speaking .kronoxFourStar { animation-duration: 2.2s; }
-.is-speaking .kronoxOrb { transform: scale(1.12); filter: drop-shadow(0 0 16px #8bdeff); }
+.is-speaking .kronoxOrb { scale: 1.12; filter: drop-shadow(0 0 16px #8bdeff); }
 .is-speaking .kronoxSpark { animation-duration: .8s; }
 @keyframes kronoxCorePulse { to { transform: scale(1.22); filter: brightness(1.5); } }
 @keyframes kronoxStarSpin { to { transform: rotate(360deg); } }
