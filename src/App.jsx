@@ -5,11 +5,14 @@ import KronoxWidget from './components/KronoxWidget.jsx';
 import ToastNotification from './components/ToastNotification.jsx';
 import PlanetInfoModal from './components/PlanetInfoModal.jsx';
 import QuickTravelMenu from './components/QuickTravelMenu.jsx';
+import MobileFlightControls from './components/MobileFlightControls.jsx';
 import './styles.css';
 
 const h = React.createElement;
 
 export default function App() {
+  const deviceGuess = () =>
+    window.matchMedia?.('(max-width: 760px), (pointer: coarse)')?.matches ? 'mobile' : 'desktop';
   const el = useRef(),
     api = useRef(),
     dayRef = useRef(),
@@ -26,13 +29,16 @@ export default function App() {
     [speaking, setSpeaking] = useState(false),
     [audioLevels, setAudioLevels] = useState(() => Array(48).fill(0)),
     [kronoxOpen, setKronoxOpen] = useState(false),
+    [deviceMode, setDeviceMode] = useState(deviceGuess),
+    [welcomeOpen, setWelcomeOpen] = useState(true),
+    [welcomeStep, setWelcomeStep] = useState('voice'),
     [voice, setVoice] = useState(false),
     [voiceError, setVoiceError] = useState(''),
     [voiceAccent, setVoiceAccent] = useState('es-US'),
     [notice, setNotice] = useState(null),
     [countdown, setCountdown] = useState(null),
     [fl, setFl] = useState({ orb: 1, lab: 1, ax: 0, vel: 0, gal: 0 }),
-    [open, setOpen] = useState(true),
+    [open, setOpen] = useState(() => deviceGuess() !== 'mobile'),
     [quickOpen, setQuickOpen] = useState(false),
     [src, setSrc] = useState(false),
     [fr, setFr] = useState(false),
@@ -169,7 +175,7 @@ export default function App() {
               '&text=' +
               encodeURIComponent(text);
         const audio = new Audio();
-        audio.crossOrigin = 'anonymous';
+        if (audioUrl.startsWith('/')) audio.crossOrigin = 'anonymous';
         audio.src = audioUrl;
         audio.preload = 'auto';
         audio.playbackRate = 1.28;
@@ -369,17 +375,21 @@ export default function App() {
     pi = f && P.find((x) => x.n == f);
   return h(
     'div',
-    { className: 'app' },
+    { className: `app ${deviceMode === 'mobile' ? 'mobileMode' : ''} ${fr ? 'flightMode' : ''}` },
     h('div', { ref: el, style: { position: 'absolute', inset: 0 } }),
     h(
       'div',
-      { className: 'pn' },
-      h('h1', null, 'Sistema Solar 3D'),
-      h('button', { onClick: () => setOpen(!open) }, open ? 'Ocultar panel' : 'Mostrar panel'),
+      { className: `pn ${open ? 'panelOpen' : 'panelClosed'}` },
+      h('div', { className: 'panelHeading' }, h('h1', null, 'Sistema Solar 3D'), h('button', { onClick: () => setOpen(!open) }, open ? 'Ocultar' : 'Menú')),
       open &&
         h(
           'div',
           null,
+          h('div', { className: 'deviceModeChoices' },
+            h('small', null, 'Interfaz'),
+            h('button', { className: deviceMode === 'mobile' ? 'on' : '', onClick: () => setDeviceMode('mobile') }, 'Móvil'),
+            h('button', { className: deviceMode === 'desktop' ? 'on' : '', onClick: () => setDeviceMode('desktop') }, 'PC'),
+          ),
           h('small', null, 'Nivel de escala cósmica'),
           h(
             'div',
@@ -810,6 +820,12 @@ export default function App() {
         }
       },
     }),
+    h(MobileFlightControls, {
+      active: deviceMode === 'mobile' && fr,
+      api: A,
+      speed: fv,
+      onSpeedChange: (value) => { A().speed(value); setFv(value); },
+    }),
     h(ToastNotification, { notice, onMore: setMore }),
     countdown !== null &&
       h('div', { className: 'countdownOverlay' }, h('b', { key: countdown }, countdown)),
@@ -886,5 +902,41 @@ export default function App() {
         setQuickOpen(false);
       },
     }),
+    welcomeOpen && h('div', { className: 'welcomeShade' },
+      h('section', { className: 'welcomeCard', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'welcome-title' },
+        h('div', { className: 'welcomeStar', 'aria-hidden': 'true' }, '✦'),
+        h('p', { className: 'welcomeEyebrow' }, 'SEÑAL DE KRONOX · GUÍA ASTRAL'),
+        h('h2', { id: 'welcome-title' }, 'Hola, aventurero.'),
+        h('p', { className: 'welcomeMessage' }, welcomeStep === 'voice'
+          ? 'Para acompañarte durante el viaje, habilita mi voz. Después te preguntaré desde qué dispositivo exploras para preparar la interfaz.'
+          : '¿En qué dispositivo estás? Adaptaré los controles y los menús para tu forma de explorar.'),
+        welcomeStep === 'device' && h('div', { className: 'deviceChoices' },
+          h('button', { className: deviceMode === 'mobile' ? 'selected' : '', onClick: () => setDeviceMode('mobile'), 'aria-pressed': deviceMode === 'mobile' }, '▯  Móvil'),
+          h('button', { className: deviceMode === 'desktop' ? 'selected' : '', onClick: () => setDeviceMode('desktop'), 'aria-pressed': deviceMode === 'desktop' }, '▭  PC'),
+        ),
+        h('button', { className: 'welcomeLaunch', onClick: () => {
+          if (welcomeStep === 'voice') {
+            voiceRef.current = true;
+            setVoice(true);
+            setWelcomeStep('device');
+            const question = 'Hola, aventurero. ¿Estás explorando desde un móvil o desde una computadora?';
+            say(question);
+            speak(question);
+            return;
+          }
+          voiceRef.current = true;
+          setVoice(true);
+          setWelcomeOpen(false);
+          const greeting = deviceMode === 'mobile'
+            ? 'Hola, aventurero. Detecté que estás en un móvil. Preparé controles táctiles y menús compactos para tu viaje.'
+            : 'Hola, aventurero. Estás en una computadora. La cabina está lista para iniciar la exploración.';
+          say(greeting);
+          speak(greeting);
+        } }, welcomeStep === 'voice' ? 'Habilitar la voz de Kronox' : 'Entrar en la exploración'),
+        h('small', null, welcomeStep === 'voice'
+          ? 'El navegador podrá reproducir su voz. No se activa ni se solicita acceso al micrófono.'
+          : 'Podrás cambiar el modo de dispositivo desde el panel. No se activa el micrófono.'),
+      ),
+    ),
   );
 }

@@ -800,3 +800,214 @@ small {
   border-radius: 6px;
   padding: 4px;
 }
+
+.panelHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.panelHeading h1 { margin-bottom: 0; }
+.deviceModeChoices { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+.deviceModeChoices button { padding: 4px 8px; font-size: 11px; }
+.welcomeShade {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+  background: radial-gradient(ellipse at 50% 40%, #101a35d9 0, #02040bef 70%);
+  backdrop-filter: blur(10px);
+}
+.welcomeCard {
+  width: min(500px, 100%);
+  padding: clamp(22px, 5vw, 38px);
+  text-align: center;
+  border: 1px solid #6eeaff77;
+  border-radius: 24px;
+  background: linear-gradient(145deg, #081726f5, #0c0b20f8);
+  box-shadow: 0 0 0 1px #b495ff22, 0 20px 70px #000c, 0 0 48px #44dfff20;
+}
+.welcomeStar {
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  color: #eaffff;
+  font-size: 48px;
+  text-shadow: 0 0 12px #7cf2ff, 0 0 36px #9f77ff;
+  background: radial-gradient(circle, #bffcff44, transparent 70%);
+  animation: welcomePulse 2s ease-in-out infinite alternate;
+}
+@keyframes welcomePulse { to { transform: scale(1.1); filter: brightness(1.35); } }
+.welcomeEyebrow {
+  color: #81eafa;
+  font: 11px ui-monospace, monospace;
+  letter-spacing: .16em;
+}
+.welcomeCard h2 {
+  margin: 8px 0;
+  color: #f1eaff;
+  font: 600 clamp(25px, 6vw, 34px) Georgia, serif;
+}
+.welcomeMessage {
+  margin: 0 auto 20px;
+  max-width: 390px;
+  color: #c5d2e6;
+  line-height: 1.6;
+}
+.deviceChoices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.deviceChoices button {
+  min-height: 54px;
+  border-color: #a5b4cf55;
+  font-size: 16px;
+}
+.deviceChoices button.selected {
+  border-color: #74ebff;
+  background: #5fe9ff1b;
+  box-shadow: inset 0 0 16px #5fe9ff12, 0 0 16px #5fe9ff1c;
+}
+.welcomeLaunch {
+  width: 100%;
+  min-height: 52px;
+  margin: 4px 0 10px;
+  border-color: #82edff;
+  background: linear-gradient(95deg, #2785a8, #6254a7);
+  color: white;
+  font-weight: 650;
+}
+.welcomeCard small { max-width: 390px; margin: 0 auto; }
+
+.mobileFlightControls { display: none; }
+@media (max-width: 760px), (pointer: coarse) {
+  html, body { overscroll-behavior: none; touch-action: manipulation; }
+  .app.mobileMode .pn, .mobileMode .pn {
+    z-index: 8;
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-width: none;
+    padding: 9px 11px;
+    border-radius: 13px;
+    max-height: 36dvh;
+    background: #07111fe9;
+  }
+  .mobileMode .pn.panelClosed { right: auto; width: max-content; }
+  .mobileMode .pn.panelOpen > div { max-height: calc(36dvh - 48px); overflow: auto; padding-top: 8px; }
+  .mobileMode .pn h1 { font-size: 15px; }
+  .mobileMode .pn button { min-height: 38px; padding: 7px 9px; }
+  .mobileMode .pn small { font-size: 11px; }
+  .mobileMode .deviceModeChoices { margin: 2px 0 6px; }
+  .mobileMode .r { gap: 5px; margin: 5px 0; }
+  .mobileMode .pn input[type='range'] { min-height: 26px; }
+  .mobileMode .in {
+    top: auto;
+    bottom: calc(142px + env(safe-area-inset-bottom, 0px));
+    right: 9px;
+    max-width: min(190px, 48vw);
+    padding: 8px 10px;
+    font-size: 11px;
+    background: #06101ddd;
+  }
+  .mobileMode .in b { font-size: 14px; }
+  .mobileMode .bd {
+    left: 8px;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    z-index: 9;
+  }
+  .mobileMode .bd > button { min-height: 42px; background: #07111fee; }
+  .mobileMode .qpanel {
+    width: 100%;
+    max-height: min(38dvh, 330px);
+    padding: 8px;
+    gap: 6px;
+    background: #07111ff5;
+  }
+  .mobileMode .qrow { gap: 5px; }
+  .mobileMode .qrow button { min-height: 38px; }
+  .mobileMode .kronoxWidget {
+    width: auto;
+    right: 10px;
+    top: calc(64px + env(safe-area-inset-top, 0px));
+    bottom: auto;
+    align-items: flex-start;
+    flex-direction: row-reverse;
+  }
+  .mobileMode .kronoxOrb { flex-basis: 48px; width: 48px; height: 48px; }
+  .mobileMode .kronoxBubble { width: min(300px, calc(100vw - 76px)); max-height: 30dvh; padding: 9px; }
+  .mobileMode .kronoxVoiceBars { height: 18px; gap: 1px; }
+  .mobileMode .kronoxVoiceBars i { width: 2px; }
+  .mobileMode .kronoxBubble small { font-size: 10px; }
+  .mobileMode .mobileFlightControls {
+    position: absolute;
+    display: block;
+    z-index: 8;
+    right: 14px;
+    bottom: calc(75px + env(safe-area-inset-bottom, 0px));
+    width: 150px;
+    height: 150px;
+    touch-action: none;
+    user-select: none;
+  }
+  .mobileDpad {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 132px;
+    height: 132px;
+    display: grid;
+    grid-template: 44px 44px 44px / 44px 44px 44px;
+    grid-template-areas: '. up .' 'left . right' '. down .';
+  }
+  .mobileDpad button, .mobileVerticalControls button, .mobileSpeedControls button {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    border: 1px solid #8eeeff88;
+    color: #e8fcff;
+    background: #061728cc;
+    box-shadow: 0 0 12px #49dcff22, inset 0 0 10px #50dfff15;
+    font-size: 20px;
+    padding: 0;
+  }
+  .mobileDpad button:active, .mobileVerticalControls button:active { background: #2886aacc; }
+  .mobileUp { grid-area: up; }
+  .mobileLeft { grid-area: left; }
+  .mobileRight { grid-area: right; }
+  .mobileDown { grid-area: down; }
+  .mobileVerticalControls { position: absolute; top: 5px; right: 0; display: grid; gap: 6px; }
+  .mobileVerticalControls button { width: 40px; height: 40px; border-radius: 12px; }
+  .mobileSpeedControls {
+    position: absolute;
+    top: 98px;
+    left: -4px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 3px 5px;
+    border: 1px solid #83eaff55;
+    border-radius: 12px;
+    background: #06111fe8;
+  }
+  .mobileSpeedControls button { width: 30px; height: 30px; border-radius: 9px; font-size: 18px; }
+  .mobileSpeedControls span { min-width: 48px; text-align: center; font: 10px ui-monospace, monospace; color: #bdefff; }
+  .mobileMode.flightMode .hud { bottom: calc(58px + env(safe-area-inset-bottom, 0px)); max-width: 50vw; overflow: hidden; text-overflow: ellipsis; }
+  .mobileMode .cp .ht { font-size: 10px; white-space: nowrap; }
+  .mobileMode .kronoxNotice { top: auto; bottom: calc(185px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 24px); }
+}
+@media (max-width: 420px) {
+  .mobileMode .mobileFlightControls { right: 8px; transform: scale(.9); transform-origin: bottom right; }
+  .mobileMode .bd { width: calc(100% - 16px); }
+  .mobileMode .qpanel { max-height: 34dvh; }
+  .mobileMode .kronoxWidget { top: calc(58px + env(safe-area-inset-top, 0px)); }
+}
