@@ -6,6 +6,7 @@ import ToastNotification from './components/ToastNotification.jsx';
 import PlanetInfoModal from './components/PlanetInfoModal.jsx';
 import QuickTravelMenu from './components/QuickTravelMenu.jsx';
 import MobileFlightControls from './components/MobileFlightControls.jsx';
+import SpherexMission from './components/SpherexMission.jsx';
 import './styles.css';
 
 const h = React.createElement;
@@ -31,6 +32,7 @@ export default function App() {
     [kronoxOpen, setKronoxOpen] = useState(false),
     [deviceMode, setDeviceMode] = useState(deviceGuess),
     [welcomeOpen, setWelcomeOpen] = useState(true),
+    [missionOpen, setMissionOpen] = useState(false),
     [welcomeStep, setWelcomeStep] = useState('voice'),
     [voice, setVoice] = useState(false),
     [voiceError, setVoiceError] = useState(''),
@@ -115,7 +117,8 @@ export default function App() {
             const start = Math.floor((index / 48) ** 2 * spectrum.length);
             const end = Math.max(start + 1, Math.floor(((index + 1) / 48) ** 2 * spectrum.length));
             let total = 0;
-            for (let bin = start; bin < Math.min(end, spectrum.length); bin++) total += spectrum[bin];
+            for (let bin = start; bin < Math.min(end, spectrum.length); bin++)
+              total += spectrum[bin];
             return Math.max(0.08, Math.min(4.5, (total / Math.max(1, end - start) / 255) * 5.5));
           });
           setAudioLevels(levels);
@@ -215,7 +218,10 @@ export default function App() {
       openKronox();
       if (!voiceRef.current) {
         clearTimeout(kronoxCloseTimer.current);
-        kronoxCloseTimer.current = setTimeout(() => setKronoxOpen(false), Math.max(3000, msg.length * 22 + 3000));
+        kronoxCloseTimer.current = setTimeout(
+          () => setKronoxOpen(false),
+          Math.max(3000, msg.length * 22 + 3000),
+        );
       }
     },
     showNextNotice = () => {
@@ -296,7 +302,8 @@ export default function App() {
     const target = near || f;
     if (!target || !INFO[target]) return undefined;
     const timer = setInterval(() => {
-      if (speakingRef.current || travelRef.current || countdown !== null || noticeRef.current) return;
+      if (speakingRef.current || travelRef.current || countdown !== null || noticeRef.current)
+        return;
       const data = INFO[target];
       const facts = [
         ['dato', 'Curiosidad'],
@@ -347,7 +354,9 @@ export default function App() {
           setCountdown(null);
           notify('¡Salto iniciado! Rumbo a ' + label + '.', 'Viaje rápido');
           run();
-          setTimeout(() => { travelRef.current = false; }, 1200);
+          setTimeout(() => {
+            travelRef.current = false;
+          }, 1200);
           return;
         }
         n--;
@@ -367,7 +376,14 @@ export default function App() {
             const enabling = !fl[k];
             setFl({ ...fl, [k]: enabling ? 1 : 0 });
             if (enabling && ['ax', 'vel', 'gal'].includes(k))
-              notify(k === 'ax' ? 'Ejes de rotación activados.' : k === 'vel' ? 'Vectores de velocidad activados.' : 'Modo galáctico activado.', 'Control activado');
+              notify(
+                k === 'ax'
+                  ? 'Ejes de rotación activados.'
+                  : k === 'vel'
+                    ? 'Vectores de velocidad activados.'
+                    : 'Modo galáctico activado.',
+                'Control activado',
+              );
           },
         },
         nm[k],
@@ -380,15 +396,45 @@ export default function App() {
     h(
       'div',
       { className: `pn ${open ? 'panelOpen' : 'panelClosed'}` },
-      h('div', { className: 'panelHeading' }, h('h1', null, 'Sistema Solar 3D'), h('button', { onClick: () => setOpen(!open) }, open ? 'Ocultar' : 'Menú')),
+      h(
+        'div',
+        { className: 'panelHeading' },
+        h('h1', null, 'Sistema Solar 3D'),
+        h(
+          'button',
+          {
+            className: 'missionButton',
+            title: 'Abrir misión SPHEREx',
+            onClick: () => setMissionOpen(true),
+          },
+          'Misión',
+        ),
+        h('button', { onClick: () => setOpen(!open) }, open ? 'Ocultar' : 'Menú'),
+      ),
       open &&
         h(
           'div',
           null,
-          h('div', { className: 'deviceModeChoices' },
+          h(
+            'div',
+            { className: 'deviceModeChoices' },
             h('small', null, 'Interfaz'),
-            h('button', { className: deviceMode === 'mobile' ? 'on' : '', onClick: () => setDeviceMode('mobile') }, 'Móvil'),
-            h('button', { className: deviceMode === 'desktop' ? 'on' : '', onClick: () => setDeviceMode('desktop') }, 'PC'),
+            h(
+              'button',
+              {
+                className: deviceMode === 'mobile' ? 'on' : '',
+                onClick: () => setDeviceMode('mobile'),
+              },
+              'Móvil',
+            ),
+            h(
+              'button',
+              {
+                className: deviceMode === 'desktop' ? 'on' : '',
+                onClick: () => setDeviceMode('desktop'),
+              },
+              'PC',
+            ),
           ),
           h('small', null, 'Nivel de escala cósmica'),
           h(
@@ -749,194 +795,4 @@ export default function App() {
             h(
               'small',
               { style: { marginTop: 6 } },
-              'Datos físicos: NASA Solar System Exploration. Posiciones: elementos keplerianos aproximados de JPL (Standish, válidos 1800–2050) resueltos con la ecuación de Kepler; son aproximaciones, no efemérides de JPL Horizons. La Luna usa una órbita circular simplificada y rotación sincronizada. Todos los ejes apuntan al mismo lado del espacio (simplificación). A alta velocidad la rotación se limita visualmente. Orientación: el plano galáctico está inclinado ~60° respecto a la eclíptica y el centro galáctico queda hacia Sagitario (λ≈266°, β≈−5,6°); el Sol orbita en sentido horario visto desde el polo norte galáctico. Vía Láctea: modelo esquemático, no una fotografía; Sol a unos 26.000 años luz del centro, en el Espolón de Orión; las texturas son procedurales.',
-            ),
-        ),
-    ),
-    pi &&
-      h(
-        'div',
-        { className: 'in' },
-        h('b', null, pi.n),
-        'Diámetro: ' + (2 * pi.km).toLocaleString('es') + ' km',
-        pi.au &&
-          h(
-            'div',
-            null,
-            'Distancia media: ' + pi.au + ' UA (' + (pi.au * 149.6).toFixed(1) + ' M km)',
-          ),
-        pi.e && h('div', null, 'Excentricidad ' + pi.e + ' · inclinación orbital ' + pi.i + '°'),
-        pi.tilt &&
-          h(
-            'div',
-            null,
-            'Inclinación del eje: ' +
-              pi.tilt +
-              '°' +
-              (pi.tilt > 90 ? ' (rotación retrógrada)' : ''),
-          ),
-        h('div', null, 'Rotación: ' + (pi.rot / 24).toFixed(2) + ' días'),
-        pi.per && h('div', null, 'Traslación: ' + pi.per + ' días'),
-        h('div', { ref: distRef, style: { marginTop: 4 } }),
-        INFO[pi.n] &&
-          h('button', { style: { marginTop: 8 }, onClick: () => setMore(pi.n) }, 'Saber más'),
-      ),
-    h(KronoxWidget, {
-      guide,
-      speaking,
-      audioLevels,
-      panelOpen: kronoxOpen,
-      onClose: () => setKronoxOpen(false),
-      voice,
-      accent: voiceAccent,
-      voiceError,
-      near,
-      onAccentChange: setVoiceAccent,
-      onMore: setMore,
-      onOrbClick: () => {
-        say('Aquí estoy, explorador. Te avisaré de cada cambio y de los mundos que encontremos.');
-        speak('Aquí estoy, explorador.');
-      },
-      onToggleVoice: () => {
-        if (voice) {
-          voiceRef.current = false;
-          setVoice(false);
-          if (window.speechSynthesis) window.speechSynthesis.cancel();
-          voiceToken.current++;
-          stopAudioAnalysis();
-          audioContextRef.current?.suspend().catch(() => {});
-          setSpeaking(false);
-          speakingRef.current = false;
-          if (voiceAudio.current) {
-            voiceAudio.current.pause();
-            voiceAudio.current = null;
-          }
-          say('Voz silenciada. Mis mensajes seguirán apareciendo en pantalla.');
-        } else {
-          voiceRef.current = true;
-          setVoice(true);
-          say('Voz de Kronox activada.');
-          speak('Hola, soy Kronox, tu guía astral. Mi voz está activada.');
-        }
-      },
-    }),
-    h(MobileFlightControls, {
-      active: deviceMode === 'mobile' && fr,
-      api: A,
-      speed: fv,
-      onSpeedChange: (value) => { A().speed(value); setFv(value); },
-    }),
-    h(ToastNotification, { notice, onMore: setMore }),
-    countdown !== null &&
-      h('div', { className: 'countdownOverlay' }, h('b', { key: countdown }, countdown)),
-    h(PlanetInfoModal, { planet: more, data: more && INFO[more], onClose: () => setMore(null) }),
-    fr && h('canvas', { id: 'warp', className: 'warp' }),
-    fr &&
-      pv == 1 &&
-      h(
-        'div',
-        { className: 'ck' },
-        h('div', { dangerouslySetInnerHTML: { __html: CK } }),
-        h('div', { className: 'scr', dangerouslySetInnerHTML: { __html: SC } }),
-        h('div', { id: 'tb', className: 'tb' }),
-        h('div', { id: 'yk', className: 'yk', dangerouslySetInnerHTML: { __html: YK } }),
-      ),
-    fr &&
-      h(
-        'div',
-        { className: 'hud' },
-        h('b', null, fv.toFixed(fv < 1 ? 2 : 0) + ' u/s'),
-        (fv >= 300 ? ' · ≈ ' + Math.round(fv * 1.156) + ' años luz/s' : '') +
-          ' · ' +
-          (pv == 3 ? '3ª' : '1ª') +
-          ' persona' +
-          (fo.au ? ' · piloto auto.' : ''),
-      ),
-    intro &&
-      h(
-        'div',
-        { className: 'cp' },
-        h('div', { className: 'cpf' }),
-        h('div', { className: 'dl' }),
-        h('div', { className: 'dr' }),
-        h(
-          'div',
-          { className: 'ht' },
-          h('div', null, '▸ ABORDANDO NAVE…'),
-          h('div', null, '▸ SISTEMAS EN LÍNEA'),
-          h('div', null, '▸ MOTORES ENCENDIDOS'),
-        ),
-      ),
-    h(QuickTravelMenu, {
-      open: quickOpen,
-      onToggle: setQuickOpen,
-      selectedPlanet: f,
-      planets: P,
-      onFree: () => {
-        A().focus(null);
-        setQuickOpen(false);
-      },
-      onQuickTravel: (key, label) => {
-        startTravel(() => {
-          if (spec) {
-            A().board();
-            setSpec(false);
-            setFr(true);
-          }
-          A().quick(key);
-        }, label);
-        setQuickOpen(false);
-      },
-      onPlanetTravel: (name) => {
-        startTravel(() => {
-          if (spec) {
-            A().board();
-            setSpec(false);
-            setFr(true);
-          } else if (!fr) {
-            setFr(true);
-            A().free(true);
-          }
-          A().focus(name);
-        }, name);
-        setQuickOpen(false);
-      },
-    }),
-    welcomeOpen && h('div', { className: 'welcomeShade' },
-      h('section', { className: 'welcomeCard', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'welcome-title' },
-        h('div', { className: 'welcomeStar', 'aria-hidden': 'true' }, '✦'),
-        h('p', { className: 'welcomeEyebrow' }, 'SEÑAL DE KRONOX · GUÍA ASTRAL'),
-        h('h2', { id: 'welcome-title' }, 'Hola, aventurero.'),
-        h('p', { className: 'welcomeMessage' }, welcomeStep === 'voice'
-          ? 'Para acompañarte durante el viaje, habilita mi voz. Después te preguntaré desde qué dispositivo exploras para preparar la interfaz.'
-          : '¿En qué dispositivo estás? Adaptaré los controles y los menús para tu forma de explorar.'),
-        welcomeStep === 'device' && h('div', { className: 'deviceChoices' },
-          h('button', { className: deviceMode === 'mobile' ? 'selected' : '', onClick: () => setDeviceMode('mobile'), 'aria-pressed': deviceMode === 'mobile' }, '▯  Móvil'),
-          h('button', { className: deviceMode === 'desktop' ? 'selected' : '', onClick: () => setDeviceMode('desktop'), 'aria-pressed': deviceMode === 'desktop' }, '▭  PC'),
-        ),
-        h('button', { className: 'welcomeLaunch', onClick: () => {
-          if (welcomeStep === 'voice') {
-            voiceRef.current = true;
-            setVoice(true);
-            setWelcomeStep('device');
-            const question = 'Hola, aventurero. ¿Estás explorando desde un móvil o desde una computadora?';
-            say(question);
-            speak(question);
-            return;
-          }
-          voiceRef.current = true;
-          setVoice(true);
-          setWelcomeOpen(false);
-          const greeting = deviceMode === 'mobile'
-            ? 'Hola, aventurero. Detecté que estás en un móvil. Preparé controles táctiles y menús compactos para tu viaje.'
-            : 'Hola, aventurero. Estás en una computadora. La cabina está lista para iniciar la exploración.';
-          say(greeting);
-          speak(greeting);
-        } }, welcomeStep === 'voice' ? 'Habilitar la voz de Kronox' : 'Entrar en la exploración'),
-        h('small', null, welcomeStep === 'voice'
-          ? 'El navegador podrá reproducir su voz. No se activa ni se solicita acceso al micrófono.'
-          : 'Podrás cambiar el modo de dispositivo desde el panel. No se activa el micrófono.'),
-      ),
-    ),
-  );
-}
+              'Datos físicos: NASA Solar System Exploration. Posiciones: elementos keplerianos aproximados de JPL (Standish, válidos 1800–2050) resueltos con la ecuación de Kepler; son aproximaciones, no efem�

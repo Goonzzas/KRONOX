@@ -2,7 +2,7 @@
 
 ## Resumen
 
-KRONOX es una aplicación React de una sola página, compilada con Vite. La interfaz, los datos y la escena tridimensional viven en módulos independientes. No hay servidor backend.
+KRONOX es una aplicación React de una sola página, compilada con Vite. La interfaz, los datos y la escena tridimensional viven en módulos independientes. La función serverless `api/spherex.js` consulta IRSA y entrega recortes SPHEREx FITS pequeños a la misión.
 
 ## Tecnologías
 
@@ -19,8 +19,10 @@ KRONOX es una aplicación React de una sola página, compilada con Vite. La inte
 - `src/components/ToastNotification.jsx`: avisos de estado separados del panel de guía.
 - `src/components/PlanetInfoModal.jsx`: ficha y referencias de un planeta.
 - `src/components/QuickTravelMenu.jsx`: destinos rápidos y accesos a planetas.
+- `src/components/SpherexMission.jsx`: objetivos, coordenadas, secuencia temporal y representación visual de las imágenes FITS.
 - `src/data/planetData.js`: catálogo de cuerpos, datos informativos y cálculo kepleriano.
 - `src/scene/createScene.js`: escena Three.js, texturas procedurales, controles, movimiento y render loop.
+- `api/spherex.js`: consulta imágenes en IRSA SIA y obtiene recortes FITS con validación de URL.
 - `src/styles.css`: estilos de interfaz y animaciones CSS.
 - `vite.config.js`: plugin React, ruta base de GitHub Pages y división de paquetes.
 
@@ -49,3 +51,5 @@ npm run preview
 ## Publicación
 
 Vite genera los archivos estáticos en `dist/`. La base configurada para el sitio de proyecto es `/KRONOX/`. Para GitHub Pages, publica ese directorio con un workflow de Actions. Otros alojamientos estáticos pueden requerir ajustar `base` en `vite.config.js`.
+
+La búsqueda y visualización de la misión SPHEREx requiere las funciones serverless de Vercel en `api/`; `vercel.json` configura el build y Vite selecciona la base `/` en Vercel. En una publicación estática sin funciones de servidor la misión no puede consultar IRSA.

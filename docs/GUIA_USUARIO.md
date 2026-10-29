@@ -63,3 +63,9 @@ Kronox anuncia por separado cambios de velocidad, vista, escala y navegación. E
 Pulsa **Activar voz** para habilitar el audio. El navegador puede bloquear la reproducción hasta que pulses ese botón. El selector permite elegir acento **Latino** o **España**. La voz requiere conexión y envía el texto del aviso a Google Translate. El endpoint actual no permite seleccionar voz masculina/femenina.
 
 Las fichas reúnen descripción, estructura/superficie, composición, atmósfera, temperatura, clima y un dato curioso, con imágenes y enlaces de NASA. En gigantes gaseosos y helados, ciertas temperaturas describen capas atmosféricas de referencia, no una superficie sólida.
+
+## Misión SPHEREx: Ecos en infrarrojo
+
+Pulsa **Misión** en el panel para abrir el observatorio. Elige la estrella de Barnard, Epsilon Indi B, WISE 0855, RW Aurigae o R Draconis, o introduce ascensión recta y declinación en grados ICRS. **Consultar SPHEREx** busca observaciones públicas en NASA/IPAC IRSA. Usa QR2 para la colección con mayor cobertura acumulada o QR3 para los productos más recientes.
+
+Cuando haya resultados, la misión carga recortes infrarrojos, permite filtrar por banda espectral y recorrer las fe
