@@ -128,7 +128,8 @@ export default async function handler(request, response) {
       return response
         .status(200)
         .json({ records, collection, truncated: records.length >= MAX_SEARCH_RESULTS });
-    } catch {
+    } catch (error) {
+      console.error('SPHEREx SIA search failed:', error);
       return sendError(
         response,
         502,
@@ -167,7 +168,8 @@ export default async function handler(request, response) {
       response.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
       const product = Buffer.from(await imageResponse.arrayBuffer());
       return response.status(200).send(imageOnlyFits(product));
-    } catch {
+    } catch (error) {
+      console.error('SPHEREx FITS cutout failed:', error);
       return sendError(response, 502, 'No se pudo cargar la imagen de SPHEREx.');
     }
   }
