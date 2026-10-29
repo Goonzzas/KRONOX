@@ -348,4 +348,54 @@ export default function SpherexMission({ onClose }) {
                 ▶
               </button>
               <span>
-                {visibleRecords.length ? `${frameIndex + 1} / ${
+                {visibleRecords.length ? `${frameIndex + 1} / ${visibleRecords.length}` : '0 / 0'}
+              </span>
+            </div>
+            <input
+              className="spherexTimeline"
+              type="range"
+              min="0"
+              max={Math.max(0, visibleRecords.length - 1)}
+              value={Math.min(frameIndex, Math.max(0, visibleRecords.length - 1))}
+              onChange={(event) => {
+                setFrameIndex(Number(event.target.value));
+                setPlaying(false);
+              }}
+              disabled={!visibleRecords.length}
+              aria-label="Fecha de observación"
+            />
+            <div className="spherexFrameDate">
+              {frame
+                ? `${formatDate(frame.date)} · ${frame.id}`
+                : 'Las observaciones disponibles aparecerán ordenadas por fecha.'}
+            </div>
+            {visibleRecords.length > 0 && (
+              <div className="spherexFilmstrip">
+                {visibleRecords.map((record, index) => (
+                  <button
+                    key={`${record.id}-${record.band}-${record.date}`}
+                    className={index === frameIndex ? 'active' : ''}
+                    onClick={() => {
+                      setFrameIndex(index);
+                      setPlaying(false);
+                    }}
+                  >
+                    <b>{formatDate(record.date).replace(' UTC', '')}</b>
+                    <small>{record.band}</small>
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="spherexFootnote">
+              Los recortes y fechas proceden del archivo público NASA/IPAC IRSA. SPHEREx observa en
+              infrarrojo; el color mostrado es una representación visual, no luz visible. Se
+              conserva el contraste del primer fotograma para comparar la secuencia. Esto ayuda a
+              explorar cambios, pero no reemplaza una medición fotométrica calibrada. La cobertura y
+              cadencia dependen del objetivo.
+            </p>
+          </main>
+        </div>
+      </section>
+    </div>
+  );
+}

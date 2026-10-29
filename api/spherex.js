@@ -146,4 +146,31 @@ export default async function handler(request, response) {
     if (!imageUrl.startsWith('https://irsa.ipac.caltech.edu/ibe/data/spherex/qr'))
       return sendError(response, 400, 'URL de imagen SPHEREx no válida.');
     if (
-      !Number.isFinite(ra
+      !Number.isFinite(ra) ||
+      ra < 0 ||
+      ra >= 360 ||
+      !Number.isFinite(dec) ||
+      dec < -90 ||
+      dec > 90
+    )
+      return sendError(response, 400, 'Centro del recorte no válido.');
+    try {
+      const cutoutUrl = new URL(imageUrl);
+      cutoutUrl.searchParams.set('center', `${ra},${dec}`);
+      // Wide enough to keep high proper-motion targets within the cutout when
+      // the supplied coordinates use an older catalog epoch.
+      cutoutUrl.searchParams.set('size', '0.1');
+      const imageResponse = await fetch(cutoutUrl, { signal: AbortSignal.timeout(30000) });
+      if (!imageResponse.ok)
+        return sendError(response, 502, 'IRSA no pudo generar el recorte de esta observación.');
+      response.setHeader('Content-Type', 'application/fits');
+      response.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+      const product = Buffer.from(await imageResponse.arrayBuffer());
+      return response.status(200).send(imageOnlyFits(product));
+    } catch {
+      return sendError(response, 502, 'No se pudo cargar la imagen de SPHEREx.');
+    }
+  }
+
+  return sendError(response, 400, 'Acción no válida.');
+}

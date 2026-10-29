@@ -96,4 +96,11 @@ export function parseFits(buffer, fixedRange = null) {
       Math.min(255, Math.sqrt(Math.max(0, (pixels[i] - low) / stretch)) * 255),
     );
     const at = i * 4;
-    frame.data[at] = sca
+    frame.data[at] = scaled * 0.68;
+    frame.data[at + 1] = scaled * 0.82;
+    frame.data[at + 2] = scaled;
+    frame.data[at + 3] = 255;
+  }
+  ctx.putImageData(frame, 0, 0);
+  return { src: canvas.toDataURL('image/png'), range: fixedRange || { low, high } };
+}

@@ -80,4 +80,18 @@ La guía completa está en [`docs/GUIA_USUARIO.md`](docs/GUIA_USUARIO.md).
 - React 18 y ReactDOM para interfaz y estado.
 - Vite 8 y `@vitejs/plugin-react` para servidor de desarrollo y compilación.
 - Three.js 0.128.0 y `OrbitControls` para la simulación 3D.
-- Im
+- Imágenes de las fichas cargadas desde NASA.
+- Voz generada con el endpoint de texto a voz de Google Translate.
+
+La voz requiere internet y envía el texto de cada aviso hablado a Google para generar el audio. El selector permite cambiar el acento (latino o España), pero el servicio usado no permite elegir el género de la voz. Las dependencias, imágenes y audio externos limitan el uso sin conexión.
+
+## Alcance científico
+
+KRONOX es una experiencia visual educativa, no una herramienta de navegación ni de efemérides de alta precisión. La escala visual exagera radios y comprime distancias. Las órbitas usan elementos keplerianos aproximados; la órbita de la Luna y el modelo de la Vía Láctea están simplificados. Consulta [`docs/FUENTES_Y_LIMITACIONES.md`](docs/FUENTES_Y_LIMITACIONES.md) y las referencias de NASA enlazadas en cada ficha.
+
+## Documentación
+
+- [Guía de usuario](docs/GUIA_USUARIO.md)
+- [Arquitectura y desarrollo](docs/ARQUITECTURA.md)
+- [Fuentes, datos y limitaciones](docs/FUENTES_Y_LIMITACIONES.md)
+- [Registro de cambios](CHANGELOG.md)
