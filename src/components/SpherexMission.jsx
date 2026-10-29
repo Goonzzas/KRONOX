@@ -224,6 +224,29 @@ export default function SpherexMission({ onClose }) {
     setMarker(null);
   };
 
+  const exportFindings = () => {
+    const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
+    const rows = [
+      ['Objetivo', 'Banda', 'Fecha anterior', 'Fecha actual', 'X del visor (%)', 'Y del visor (%)', 'Hallazgo'],
+      ...findings.map((finding) => [
+        finding.target,
+        finding.band,
+        finding.previousDate,
+        finding.currentDate,
+        finding.x.toFixed(2),
+        finding.y.toFixed(2),
+        finding.note,
+      ]),
+    ];
+    const csv = `\uFEFF${rows.map((row) => row.map(quote).join(',')).join('\r\n')}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `hallazgos-spherex-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div
       className="spherexShade"
@@ -463,6 +486,11 @@ export default function SpherexMission({ onClose }) {
                 >
                   {marking ? 'Haz clic en una fuente…' : '＋ Marcar objeto'}
                 </button>
+                {findings.length > 0 && (
+                  <button type="button" onClick={exportFindings}>
+                    Descargar CSV
+                  </button>
+                )}
               </div>
               {marker && (
                 <div className="spherexFindingForm">
