@@ -949,59 +949,103 @@ small {
   text-overflow: ellipsis;
   font-size: 0.86em;
 }
-.bar {
+.speedStages {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin: 12px 0 10px;
+}
+.speedStages > div {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  color: #8196a9;
+  font-size: clamp(6px, 0.62vw, 9px);
+  letter-spacing: 0.04em;
+  transition: color 0.18s ease;
+}
+.speedStages i {
+  width: clamp(10px, 1.2vw, 15px);
+  height: clamp(10px, 1.2vw, 15px);
+  border: 1px solid #62768a;
+  border-radius: 50%;
+  background: radial-gradient(circle, #243546 0 35%, #09111b 42%);
+  box-shadow: inset 0 0 3px #000;
+  transition: all 0.18s ease;
+}
+.speedStages .active {
+  color: #e2fbff;
+  text-shadow: 0 0 8px #49dfff;
+}
+.speedStages .active i {
+  border-color: #b4f6ff;
+  background: radial-gradient(circle, #fff 0 17%, #74edff 26% 53%, #126b8b 76%);
+  box-shadow: 0 0 5px #72eeff, 0 0 13px #36caffaa, inset 0 0 4px #fff;
+}
+.gaugeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 4px;
+  height: calc(100% - 22px);
+}
+.flightGauge {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  min-width: 0;
+  color: #c8eafa;
+  text-align: center;
+}
+.gaugeFace {
   position: relative;
-  height: clamp(9px, 1em, 13px);
-  background: radial-gradient(circle at 50% 50%, #253747 0 2.5px, transparent 3.4px) 0 0 / 12px 100% repeat-x;
-  border: 0;
-  border-radius: 0;
-  margin: 0.25em 0 0.35em;
-  overflow: hidden;
+  width: clamp(42px, 5vw, 68px);
+  aspect-ratio: 1;
+  border: 1px solid #5ab6d788;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, #102131 0 52%, #06101b 70%),
+    conic-gradient(from 0deg, #6deaff22, #0a1420);
+  box-shadow: inset 0 0 8px #000c, 0 0 7px #42caff22;
 }
-.bar i {
-  display: block;
-  height: 100%;
-  width: 0;
-  background: radial-gradient(circle at 50% 50%, #7ff5ff 0 2.7px, transparent 3.5px) 0 0 / 12px 100% repeat-x;
-  filter: drop-shadow(0 0 3px #45dfff);
-  transition: width 0.12s linear;
+.gaugeFace::before {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  content: '';
+  background: repeating-conic-gradient(from -135deg, #94c8d977 0deg 2deg, transparent 2deg 30deg);
+  mask: radial-gradient(circle, transparent 62%, #000 65% 72%, transparent 75%);
 }
-.b2 i {
-  background: radial-gradient(circle at 50% 50%, #ffc273 0 2.7px, transparent 3.5px) 0 0 / 12px 100% repeat-x;
-  filter: drop-shadow(0 0 3px #ff9b49);
+.gaugeNeedle {
+  position: absolute;
+  left: calc(50% - 1px);
+  top: 17%;
+  width: 2px;
+  height: 34%;
+  border-radius: 2px;
+  background: linear-gradient(#fff, #74eaff 75%, #ff9e65);
+  box-shadow: 0 0 5px #5adfff;
+  transform: rotate(-135deg);
+  transform-origin: 50% 100%;
+  transition: transform 0.12s linear;
 }
-.headingDial {
-  position: relative;
-  height: 6px;
-  margin: 4px 0 3px;
-  border: 0;
-  border-radius: 0;
-  background: radial-gradient(circle, #8195aa 0 1.3px, transparent 1.8px) 0 0 / 10% 100% repeat-x;
-  box-shadow: inset 0 -1px #6daacb55;
-}
-.headingDial::after {
+.inertiaNeedle { background: linear-gradient(#fff, #ffbf70 75%, #ff705e); box-shadow: 0 0 5px #ff9b52; }
+.headingNeedle { background: linear-gradient(#fff, #b39bff 75%, #7d5cff); box-shadow: 0 0 5px #a38bff; }
+.gaugeFace b {
   position: absolute;
   left: 50%;
-  top: -3px;
-  width: 1px;
-  height: 10px;
-  content: '';
-  background: #e6f9ff88;
-}
-.headingDial i {
-  position: absolute;
-  top: -1px;
-  left: 0;
-  z-index: 1;
-  width: 7px;
-  height: 7px;
-  border: 1px solid #d7fbff;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border: 1px solid #e7fbff;
   border-radius: 50%;
-  background: #55dfff;
-  box-shadow: 0 0 8px #59eaff;
-  transform: translateX(-50%);
-  transition: left 0.12s linear;
+  background: #56cfee;
+  box-shadow: 0 0 5px #58ddff;
+  transform: translate(-50%, -50%);
 }
+.flightGauge strong { color: #fff; font-size: clamp(8px, 0.8vw, 11px); }
+.flightGauge small { color: #82aec2; font-size: clamp(6px, 0.58vw, 8px); letter-spacing: .05em; }
 
 .app {
   position: absolute;
@@ -1510,9 +1554,11 @@ small {
   .mobileMode.flightMode .sl { left: 3%; width: 43%; }
   .mobileMode.flightMode .sr { left: 54%; width: 43%; }
   .mobileMode.flightMode .sv { font-size: 1.15em; }
-  .mobileMode.flightMode .bar { height: 9px; margin: 2px 0 4px; }
   .mobileMode.flightMode .ss { font-size: 0.78em; }
-  .mobileMode.flightMode .headingDial { height: 4px; margin: 2px 0; }
+  .mobileMode.flightMode .speedStages { gap: 1px; margin: 8px 0; }
+  .mobileMode.flightMode .gaugeRow { height: calc(100% - 14px); gap: 1px; }
+  .mobileMode.flightMode .gaugeFace { width: clamp(34px, 11vw, 46px); }
+  .mobileMode.flightMode .flightGauge small { font-size: 6px; }
   .mobileMode.flightMode .mobileFlightControls {
     top: 40%;
     bottom: auto;

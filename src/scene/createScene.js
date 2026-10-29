@@ -1361,7 +1361,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         if (t) t.style.transform = 'scaleX(' + Math.min(1, th / 1.2) + ')';
         const g = (i) => document.getElementById(i),
           sp2 = vel.length(),
-          lg = Math.log10(Math.max(fs, 0.01)),
           lvn =
             fs < 5
               ? [1, 'PLANETA']
@@ -1374,40 +1373,29 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             const o = g(i);
             if (o) o.textContent = v;
           },
-          wd = (i, p) => {
-            const o = g(i);
-            if (o) o.style.width = Math.max(0, Math.min(100, p)) + '%';
-          },
           nf = (v) => (v >= 100 ? v.toFixed(0) : v >= 1 ? v.toFixed(1) : v.toFixed(2));
         tx('lv', 'NIVEL ' + lvn[0] + '/4 · ' + lvn[1]);
-        wd('lf', ((lg + 2) / 6.7) * 100);
+        for (let stage = 1; stage <= 4; stage++) {
+          const point = g('speedStage' + stage);
+          if (point) point.classList.toggle('active', stage === lvn[0]);
+        }
         tx(
           'ls',
           'AJUSTE ' + nf(fs) + ' u/s' + (keys.shift ? ' · BOOST ×5' : '') + (O.au ? ' · AUTO' : ''),
         );
-        tx(
-          'rv',
-          nf(sp2) + ' u/s' + (sp2 >= 300 ? ' ≈ ' + Math.round(sp2 * 1.156) + ' a.l./s' : ''),
-        );
-        wd('rf', (sp2 / (fs * (keys.shift ? 5 : 1))) * 100);
-        tx(
-          'ri',
-          O.in ? 'INERCIA ON · FUERZA ' + nf(ac) + ' u/s²' : 'INERCIA OFF · ' + nf(ac) + ' u/s²',
-        );
-        wd('rg', (ac / (fs * (O.in ? 1.5 : 15))) * 100);
-        tx(
-          'rh',
-          'RUMBO ' +
-            Math.round((((-fy * 57.2958) % 360) + 360) % 360) +
-            '° · INCL ' +
-            Math.round(fp * 57.2958) +
-            '° · SOL ' +
-            nf(sp.length()) +
-            ' u',
-        );
-        const headingMarker = g('headingMarker');
-        if (headingMarker)
-          headingMarker.style.left = `${((((-fy * 57.2958) % 360) + 360) % 360) / 3.6}%`;
+        const speedRatio = Math.max(0, Math.min(1, sp2 / (fs * (keys.shift ? 5 : 1))));
+        const inertiaRatio = Math.max(0, Math.min(1, ac / (fs * (O.in ? 1.5 : 15))));
+        const heading = (((-fy * 57.2958) % 360) + 360) % 360;
+        const needle = (id, degrees) => {
+          const dialNeedle = g(id);
+          if (dialNeedle) dialNeedle.style.transform = `rotate(${degrees}deg)`;
+        };
+        needle('needleSpeed', -135 + speedRatio * 270);
+        needle('needleInertia', -135 + inertiaRatio * 270);
+        needle('needleHeading', heading);
+        tx('gaugeSpeedValue', nf(sp2));
+        tx('gaugeInertiaValue', nf(ac));
+        tx('gaugeHeadingValue', Math.round(heading) + '°');
       }
     } else if (mv.lengthSq()) {
       const f = new V();
@@ -1518,4 +1506,4 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 }
 export const CK = `<svg viewBox='0 0 1000 600' preserveAspectRatio='none'><defs><linearGradient id='cg' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#1b2335'/><stop offset='1' stop-color='#05070c'/></linearGradient><radialGradient id='cv' cx='.5' cy='.45' r='.75'><stop offset='.6' stop-color='#000' stop-opacity='0'/><stop offset='1' stop-color='#000' stop-opacity='.55'/></radialGradient></defs><rect width='1000' height='600' fill='url(#cv)'/><path d='M0 0H1000L900 62Q500 92 100 62Z' fill='url(#cg)' stroke='#34415c' stroke-width='2'/><path d='M0 0L130 62L52 380L0 450Z' fill='url(#cg)' stroke='#34415c' stroke-width='2'/><path d='M1000 0L870 62L948 380L1000 450Z' fill='url(#cg)' stroke='#34415c' stroke-width='2'/><path d='M0 600V462Q120 420 330 432Q500 405 670 432Q880 420 1000 462V600Z' fill='url(#cg)' stroke='#3d4d70' stroke-width='3'/><path d='M58 455Q220 432 398 446L380 564Q230 548 78 570Z' fill='#071019' fill-opacity='.72' stroke='#2a8fd0' stroke-opacity='.68' stroke-width='2'/><path d='M942 455Q780 432 602 446L620 564Q770 548 922 570Z' fill='#071019' fill-opacity='.72' stroke='#2a8fd0' stroke-opacity='.68' stroke-width='2'/><g stroke='#6ff0ff' stroke-width='2' fill='none' opacity='.75'><path d='M110 500L170 484L230 494L290 470L350 488'/><circle cx='770' cy='494' r='22'/><path d='M770 494L784 482'/><path d='M830 505H900M830 490H885'/></g><circle cx='460' cy='448' r='5' fill='#ff4040'/><circle cx='480' cy='446' r='5' fill='#ffb030'/><circle cx='520' cy='446' r='5' fill='#40ff80'/><circle cx='540' cy='448' r='5' fill='#40c0ff'/></svg>`,
   YK = `<svg viewBox='0 0 220 190' width='100%' height='100%'><rect x='95' y='100' width='30' height='90' rx='6' fill='#131a28' stroke='#3b4864' stroke-width='3'/><path d='M28 64Q28 24 70 24H150Q192 24 192 64V92Q192 110 172 110H48Q28 110 28 92Z' fill='none' stroke='#252e44' stroke-width='20'/><path d='M28 64Q28 24 70 24H150Q192 24 192 64V92Q192 110 172 110H48Q28 110 28 92Z' fill='none' stroke='#4a5a7c' stroke-width='4'/><rect x='12' y='52' width='26' height='54' rx='10' fill='#e05a2b'/><rect x='182' y='52' width='26' height='54' rx='10' fill='#e05a2b'/><circle cx='110' cy='66' r='15' fill='#0b0f18' stroke='#6ff0ff' stroke-width='3'/><circle cx='110' cy='66' r='5' fill='#6ff0ff'/></svg>`;
-export const SC = `<div class='sc sl'><div class='st'><i></i> NIVEL DE VELOCIDAD</div><div id='lv' class='sv'></div><div class='bar ledBar'><i id='lf'></i></div><div id='ls' class='ss'></div></div><div class='sc sr'><div class='st'><i></i> TELEMETRÍA DE VUELO</div><div id='rv' class='sv'></div><div class='bar ledBar'><i id='rf'></i></div><div id='ri' class='ss'></div><div class='bar b2 ledBar'><i id='rg'></i></div><div class='headingDial'><i id='headingMarker'></i></div><div id='rh' class='ss'></div></div>`;
+export const SC = `<div class='sc sl'><div class='st'><i></i> NIVEL DE VELOCIDAD</div><div id='lv' class='sv'></div><div class='speedStages'><div id='speedStage1'><i></i><span>PLANETA</span></div><div id='speedStage2'><i></i><span>SISTEMA</span></div><div id='speedStage3'><i></i><span>GALAXIA</span></div><div id='speedStage4'><i></i><span>HIPER</span></div></div><div id='ls' class='ss'></div></div><div class='sc sr'><div class='st'><i></i> TELEMETRÍA DE VUELO</div><div class='gaugeRow'><div class='flightGauge'><div class='gaugeFace'><i id='needleSpeed' class='gaugeNeedle'></i><b></b></div><strong id='gaugeSpeedValue'>0</strong><small>VELOCIDAD</small></div><div class='flightGauge'><div class='gaugeFace'><i id='needleInertia' class='gaugeNeedle inertiaNeedle'></i><b></b></div><strong id='gaugeInertiaValue'>0</strong><small>INERCIA</small></div><div class='flightGauge'><div class='gaugeFace compassFace'><i id='needleHeading' class='gaugeNeedle headingNeedle'></i><b></b></div><strong id='gaugeHeadingValue'>0°</strong><small>RUMBO</small></div></div></div>`;
