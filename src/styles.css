@@ -872,13 +872,13 @@ small {
 }
 .tb {
   position: absolute;
-  left: 36%;
-  width: 28%;
-  bottom: 22vh;
+  left: 7.5%;
+  width: 30%;
+  bottom: 8.5vh;
   height: 5px;
   border-radius: 3px;
   background: linear-gradient(90deg, #2af, #6ff0ff, #fff);
-  box-shadow: 0 0 8px #28c;
+  box-shadow: 0 0 5px #28c, 0 0 12px #28c88;
   transform-origin: left;
   transform: scaleX(0);
 }
@@ -1553,6 +1553,7 @@ small {
   }
   .mobileMode.flightMode .sl { left: 3%; width: 43%; }
   .mobileMode.flightMode .sr { left: 54%; width: 43%; }
+  .mobileMode.flightMode .tb { left: 4%; width: 40%; bottom: 8.5vh; height: 4px; }
   .mobileMode.flightMode .sv { font-size: 1.15em; }
   .mobileMode.flightMode .ss { font-size: 0.78em; }
   .mobileMode.flightMode .speedStages { gap: 1px; margin: 8px 0; }
