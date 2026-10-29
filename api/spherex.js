@@ -173,9 +173,9 @@ export default async function handler(request, response) {
     try {
       const cutoutUrl = new URL(imageUrl);
       cutoutUrl.searchParams.set('center', `${ra},${dec}`);
-      // Wide enough to keep high proper-motion targets within the cutout when
-      // the supplied coordinates use an older catalog epoch.
-      cutoutUrl.searchParams.set('size', '0.1');
+      // A half-degree field gives the viewer enough detector pixels and
+      // surrounding reference stars to compare observations over time.
+      cutoutUrl.searchParams.set('size', '0.5');
       const imageResponse = await fetchWithRetry(cutoutUrl, {
         signal: AbortSignal.timeout(30000),
       });

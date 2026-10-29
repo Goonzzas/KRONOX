@@ -82,8 +82,8 @@ export function parseFits(buffer, fixedRange = null) {
     }
     return max;
   };
-  const low = fixedRange?.low ?? percentile(0.02),
-    high = fixedRange?.high ?? percentile(0.995),
+  const low = fixedRange?.low ?? percentile(0.03),
+    high = fixedRange?.high ?? percentile(0.997),
     stretch = Math.max(1e-20, high - low);
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -91,9 +91,10 @@ export function parseFits(buffer, fixedRange = null) {
   const ctx = canvas.getContext('2d');
   const frame = ctx.createImageData(width, height);
   for (let i = 0; i < count; i++) {
+    const normalized = Math.max(0, Math.min(1, (pixels[i] - low) / stretch));
     const scaled = Math.max(
       0,
-      Math.min(255, Math.sqrt(Math.max(0, (pixels[i] - low) / stretch)) * 255),
+      Math.min(255, Math.pow(normalized, 0.72) * 255),
     );
     const at = i * 4;
     frame.data[at] = scaled * 0.68;
@@ -102,5 +103,21 @@ export function parseFits(buffer, fixedRange = null) {
     frame.data[at + 3] = 255;
   }
   ctx.putImageData(frame, 0, 0);
+  // Add a restrained, explicitly visual halo around the strongest measured
+  // pixels so compact sources stay easy to spot when the small FITS cutout is
+  // enlarged in the browser. Pixel values and the comparison stretch remain
+  // unchanged; the glow is only a viewing aid.
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const normalized = (pixels[y * width + x] - low) / stretch;
+      if (!Number.isFinite(normalized) || normalized < 0.72) continue;
+      const alpha = Math.min(0.34, (normalized - 0.72) * 0.8);
+      const glow = ctx.createRadialGradient(x + 0.5, y + 0.5, 0, x + 0.5, y + 0.5, 2.3);
+      glow.addColorStop(0, `rgba(160, 222, 255, ${alpha})`);
+      glow.addColorStop(1, 'rgba(100, 180, 255, 0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(x - 2, y - 2, 5, 5);
+    }
+  }
   return { src: canvas.toDataURL('image/png'), range: fixedRange || { low, high } };
 }

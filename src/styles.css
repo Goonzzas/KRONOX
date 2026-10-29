@@ -1655,13 +1655,164 @@ small {
   background: radial-gradient(ellipse, #101a2d, #02040a 75%);
 }
 .spherexImageFrame img {
-  display: block;
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  image-rendering: pixelated;
+  image-rendering: auto;
+  filter: brightness(1.12) contrast(1.08) saturate(1.15);
+}
+.spherexImageFrame img.markable {
+  cursor: crosshair;
+}
+.spherexMarker {
+  position: absolute;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  border: 1px solid #a8f4ff;
+  border-radius: 50%;
+  background: #28c8ff2b;
+  box-shadow: 0 0 12px #42dfff, inset 0 0 8px #42dfff88;
+  pointer-events: none;
+}
+.spherexMarker i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px 3px #94f4ff;
+}
+.spherexMarker b {
+  color: #fff;
+  font: 700 11px ui-monospace, monospace;
+  text-shadow: 0 0 5px #21cfff;
+}
+.spherexMarker.saved {
+  background: #1282a5aa;
+  box-shadow: 0 0 14px #42dfff, inset 0 0 8px #42dfff88;
+}
+.spherexCompareHint {
+  margin: 0 0 7px;
+  color: #b7c9e3;
+  font: 11px ui-monospace, monospace;
+}
+.spherexCompareHint b {
+  color: #83e6ff;
+}
+.spherexCompareHint span {
+  color: #7586a2;
+}
+.spherexFindings {
+  margin-top: 13px;
+  padding: 12px;
+  border: 1px solid #6da5c633;
+  border-radius: 10px;
+  background: #07101eaa;
+}
+.spherexFindingsTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.spherexFindingsTitle > div,
+.spherexFindingList li > div {
+  min-width: 0;
+}
+.spherexFindingsTitle b {
+  display: block;
+  color: #dceaff;
+  font-size: 13px;
+}
+.spherexFindingsTitle small {
+  display: block;
+  margin-top: 3px;
+  color: #8d9db6;
+  font-size: 11px;
+}
+.spherexFindingsTitle button,
+.spherexFindingForm button {
+  flex: 0 0 auto;
+  border-color: #4fc9f4;
+  color: #bff3ff;
+}
+.spherexFindingsTitle button.active {
+  background: #27bde833;
+  box-shadow: 0 0 12px #42dfff55;
+}
+.spherexFindingForm {
+  display: flex;
+  gap: 7px;
+  margin-top: 10px;
+}
+.spherexFindingForm input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid #ffffff26;
+  border-radius: 7px;
+  background: #08101e;
+  color: #eaf2ff;
+  font-family: inherit;
+  font-size: 12px;
+}
+.spherexFindingForm button:disabled,
+.spherexFindingsTitle button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.spherexFindingList {
+  display: grid;
+  gap: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.spherexFindingList li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 7px;
+  background: #ffffff08;
+}
+.spherexFindingNumber {
+  flex: 0 0 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #28bce344;
+  color: #bff3ff;
+  font: 11px ui-monospace, monospace;
+}
+.spherexFindingList li > div {
+  flex: 1 1 auto;
+}
+.spherexFindingList b {
+  display: block;
+  color: #c6e7f8;
+  font-size: 11px;
+}
+.spherexFindingList p {
+  margin: 3px 0;
+  color: #e3eaf5;
+  font-size: 12px;
+}
+.spherexFindingList small {
+  color: #8394ad;
+  font-size: 10px;
+}
+.spherexFindingList li > button {
+  padding: 1px 6px;
+  border: 0;
+  background: transparent;
+  color: #91a1b9;
 }
 .spherexImagePlaceholder {
   display: grid;

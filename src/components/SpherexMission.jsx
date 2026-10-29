@@ -57,6 +57,10 @@ export default function SpherexMission({ onClose }) {
   const [release, setRelease] = useState('qr2');
   const [band, setBand] = useState('');
   const [image, setImage] = useState('');
+  const [marking, setMarking] = useState(false);
+  const [marker, setMarker] = useState(null);
+  const [findingNote, setFindingNote] = useState('');
+  const [findings, setFindings] = useState([]);
   const [truncated, setTruncated] = useState(false);
   const requestRef = useRef(0);
   const stretchRef = useRef(null);
@@ -140,6 +144,8 @@ export default function SpherexMission({ onClose }) {
     setFrameLoading(true);
     setError('');
     setImage('');
+    setMarker(null);
+    setMarking(false);
     const params = new URLSearchParams({
       action: 'frame',
       url: record.url,
@@ -183,7 +189,40 @@ export default function SpherexMission({ onClose }) {
   const step = (amount) =>
     setFrameIndex((index) => (index + amount + visibleRecords.length) % visibleRecords.length);
   const frame = visibleRecords[frameIndex];
+  const previousFrame = visibleRecords[frameIndex - 1];
   const selectedTarget = TARGETS[selected];
+
+  const markImagePosition = (event) => {
+    if (!marking || !image) return;
+    const imageRect = event.currentTarget.getBoundingClientRect();
+    const frameRect = event.currentTarget.parentElement.getBoundingClientRect();
+    setMarker({
+      x: ((event.clientX - imageRect.left + imageRect.left - frameRect.left) / frameRect.width) * 100,
+      y: ((event.clientY - imageRect.top + imageRect.top - frameRect.top) / frameRect.height) * 100,
+    });
+    setMarking(false);
+  };
+
+  const saveFinding = () => {
+    if (!marker || !findingNote.trim() || !frame) return;
+    setFindings((items) => [
+      {
+        id: `${Date.now()}-${Math.random()}`,
+        note: findingNote.trim(),
+        target: selectedTarget.name,
+        band: frame.band,
+        previousDate: previousFrame ? formatDate(previousFrame.date) : 'Sin observación anterior',
+        currentDate: formatDate(frame.date),
+        frameId: frame.id,
+        markerNumber: findings.length + 1,
+        x: marker.x,
+        y: marker.y,
+      },
+      ...items,
+    ]);
+    setFindingNote('');
+    setMarker(null);
+  };
 
   return (
     <div
@@ -300,12 +339,44 @@ export default function SpherexMission({ onClose }) {
                 </select>
               </label>
             </div>
+            {frame && (
+              <div className="spherexCompareHint">
+                <b>Comparando:</b>{' '}
+                {previousFrame ? formatDate(previousFrame.date) : 'primera observación'}
+                {' → '}
+                {formatDate(frame.date)}
+                <span> · la escala de brillo se mantiene fija en la secuencia</span>
+              </div>
+            )}
             <div className="spherexImageFrame">
               {image && (
                 <img
                   src={image}
                   alt={`Recorte infrarrojo SPHEREx ${frame?.band}, ${frame ? formatDate(frame.date) : ''}`}
+                  className={marking ? 'markable' : ''}
+                  onClick={markImagePosition}
                 />
+              )}
+              {findings
+                .filter((finding) => finding.frameId === frame?.id)
+                .map((finding) => (
+                  <span
+                    key={finding.id}
+                    className="spherexMarker saved"
+                    style={{ left: `${finding.x}%`, top: `${finding.y}%` }}
+                    aria-label={`Hallazgo ${finding.markerNumber}`}
+                  >
+                    <b>{finding.markerNumber}</b>
+                  </span>
+                ))}
+              {marker && (
+                <span
+                  className="spherexMarker"
+                  style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+                  aria-label="Posición del hallazgo"
+                >
+                  <b>+</b>
+                </span>
               )}
               {!image && (
                 <div className="spherexImagePlaceholder">
@@ -375,6 +446,60 @@ export default function SpherexMission({ onClose }) {
                 ? `${formatDate(frame.date)} · ${frame.id}`
                 : 'Las observaciones disponibles aparecerán ordenadas por fecha.'}
             </div>
+            <section className="spherexFindings" aria-label="Registrar hallazgo">
+              <div className="spherexFindingsTitle">
+                <div>
+                  <b>¿Qué cambió?</b>
+                  <small>Marca una fuente en la imagen y anota lo que observas.</small>
+                </div>
+                <button
+                  type="button"
+                  className={marking ? 'active' : ''}
+                  onClick={() => {
+                    setMarker(null);
+                    setMarking(!marking);
+                  }}
+                  disabled={!image}
+                >
+                  {marking ? 'Haz clic en una fuente…' : '＋ Marcar objeto'}
+                </button>
+              </div>
+              {marker && (
+                <div className="spherexFindingForm">
+                  <input
+                    value={findingNote}
+                    onChange={(event) => setFindingNote(event.target.value)}
+                    placeholder="Ej.: la fuente se desplazó hacia el borde…"
+                    maxLength={240}
+                    aria-label="Descripción del cambio observado"
+                  />
+                  <button type="button" onClick={saveFinding} disabled={!findingNote.trim()}>
+                    Guardar hallazgo
+                  </button>
+                </div>
+              )}
+              {findings.length > 0 && (
+                <ul className="spherexFindingList">
+                  {findings.map((finding, index) => (
+                    <li key={finding.id}>
+                        <span className="spherexFindingNumber">{finding.markerNumber}</span>
+                      <div>
+                        <b>{finding.target} · {finding.band}</b>
+                        <p>{finding.note}</p>
+                        <small>{finding.previousDate} → {finding.currentDate}</small>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Eliminar hallazgo"
+                        onClick={() => setFindings((items) => items.filter((item) => item.id !== finding.id))}
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
             {visibleRecords.length > 0 && (
               <div className="spherexFilmstrip">
                 {visibleRecords.map((record, index) => (
@@ -394,10 +519,12 @@ export default function SpherexMission({ onClose }) {
             )}
             <p className="spherexFootnote">
               Los recortes y fechas proceden del archivo público NASA/IPAC IRSA. SPHEREx observa en
-              infrarrojo; el color mostrado es una representación visual, no luz visible. Se
-              conserva el contraste del primer fotograma para comparar la secuencia. Esto ayuda a
-              explorar cambios, pero no reemplaza una medición fotométrica calibrada. La cobertura y
-              cadencia dependen del objetivo.
+              infrarrojo; el color y el halo suave de las fuentes brillantes son ayudas visuales, no
+              luz visible ni detalle añadido a la medición. El campo mostrado es de 0,5° y se
+              conserva el contraste del primer fotograma para comparar la secuencia. Puedes marcar
+              una fuente y guardar una descripción del cambio entre fechas. Esto ayuda a explorar,
+              pero no reemplaza una medición fotométrica calibrada. La cobertura y cadencia dependen
+              del objetivo.
             </p>
           </main>
         </div>
