@@ -4,9 +4,20 @@ import { P, D2R, TAU, T0, kep, pos } from '../data/planetData.js';
 import { SPHEREX_TARGETS } from '../data/spherexTargets.js';
 
 // The Milky Way view compresses the solar neighborhood into a tiny pixel.
-// A modest visual exaggeration keeps nearby targets legible while preserving
-// their real sky directions and their relative distances from the Sun.
-const LOCAL_NEIGHBORHOOD_VISUAL_SCALE = 3;
+// The global Milky Way view compresses nearby stars into an indistinguishable
+// dot. Exaggerate only the inner 25 light-years; preserve distant targets'
+// placement by letting the expansion become a fixed offset beyond that zone.
+const GALACTIC_MAP_UNITS_PER_LIGHT_YEAR = 3;
+const LOCAL_NEIGHBORHOOD_EXTRA_UNITS_PER_LIGHT_YEAR = 9;
+const LOCAL_NEIGHBORHOOD_RADIUS_LY = 25;
+
+function visualDistanceInMapUnits(distanceLy) {
+  return (
+    distanceLy * GALACTIC_MAP_UNITS_PER_LIGHT_YEAR +
+    Math.min(distanceLy, LOCAL_NEIGHBORHOOD_RADIUS_LY) *
+      LOCAL_NEIGHBORHOOD_EXTRA_UNITS_PER_LIGHT_YEAR
+  );
+}
 
 function localGalacticPosition(target) {
   const ra = (target.ra * Math.PI) / 180;
@@ -21,8 +32,9 @@ function localGalacticPosition(target) {
   const north = -0.8676661490 * x - 0.1980763734 * y + 0.4559837762 * z;
   // Put the Sun at the map's existing Orion-arm marker, then offset each
   // named star by its approximate heliocentric distance (the map uses ly).
-  // Three map units per light-year lets close targets read as separate points.
-  const distance = target.distanceLy * LOCAL_NEIGHBORHOOD_VISUAL_SCALE;
+  // Directions remain based on the real coordinates. The nearby-neighborhood
+  // expansion is a cartographic aid, not a claim about literal map scale.
+  const distance = visualDistanceInMapUnits(target.distanceLy);
   return new THREE.Vector3(
     24500 + distance * (-0.989 * towardCenter + 0.141 * towardLongitude90),
     distance * north,
@@ -422,7 +434,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const baseColor = new THREE.Color(color);
     for (let i = 0; i < 280; i++) {
       const angle = Math.random() * TAU;
-      const radius = 28 + Math.random() ** 1.7 * 105;
+      const radius = 12 + Math.random() ** 1.7 * 44;
       dustPositions.push(
         Math.cos(angle) * radius,
         gs() * radius * 0.36,
@@ -457,7 +469,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         depthWrite: false,
       }),
     );
-    nebula.scale.set(210, 125, 1);
+    nebula.scale.set(100, 62, 1);
     marker.add(nebula);
     const glow = new THREE.Sprite(
       new THREE.SpriteMaterial({
@@ -469,10 +481,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         depthWrite: false,
       }),
     );
-    glow.scale.set(42, 42, 1);
+    glow.scale.set(24, 24, 1);
     marker.add(glow);
     const star = new THREE.Mesh(
-      new THREE.SphereGeometry(3.8, 24, 18),
+      new THREE.SphereGeometry(2.8, 24, 18),
       new THREE.MeshBasicMaterial({ color: 0xf5fbff }),
     );
     marker.add(star);
@@ -486,16 +498,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         depthWrite: false,
       }),
     );
-    starGlow.scale.set(23, 23, 1);
+    starGlow.scale.set(15, 15, 1);
     marker.add(starGlow);
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(8.5, 0.35, 6, 48),
+      new THREE.TorusGeometry(5.5, 0.28, 6, 48),
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.82 }),
     );
     ring.rotation.x = Math.PI / 2;
     marker.add(ring);
     const label = lab(target.name);
-    label.position.set(0, 14, 0);
+    label.position.set(0, 10, 0);
     label.visible = false;
     marker.add(label);
     LB.push(label);
@@ -753,7 +765,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     activeMissionKey = key;
     tripTo(
       destination,
-      Math.max(34, found.target.distanceLy * LOCAL_NEIGHBORHOOD_VISUAL_SCALE * 0.16),
+      Math.max(22, visualDistanceInMapUnits(found.target.distanceLy) * 0.16),
       found.target.name,
       null,
       () => {
