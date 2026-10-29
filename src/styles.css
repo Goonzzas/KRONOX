@@ -972,7 +972,65 @@ small {
 }
 .panelHeading { gap: 6px; }
 .panelHeading h1 { flex: 1 1 auto; min-width: 0; font-size: 16px; }
-.panelHeading .missionButton { flex: 0 0 auto; padding: 5px 7px; font-size: 11px; }
+.missionLaunchWindow {
+  position: fixed;
+  left: 16px;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 11px 13px;
+  border: 1px solid #69dfff55;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #071526f2, #10102af0);
+  box-shadow: 0 10px 34px #0009, 0 0 24px #50d8ff16;
+  backdrop-filter: blur(14px);
+}
+.missionLaunchMark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #75e8ff66;
+  border-radius: 50%;
+  color: #8deeff;
+  background: radial-gradient(circle, #4fdfff38, #101c36);
+  box-shadow: 0 0 18px #55dfff35;
+}
+.missionLaunchCopy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.missionLaunchCopy small {
+  color: #79dfff;
+  font: 9px ui-monospace, monospace;
+  letter-spacing: .14em;
+}
+.missionLaunchCopy b {
+  color: #f1f5ff;
+  font: 600 14px Georgia, serif;
+}
+.missionLaunchCopy span {
+  color: #9eacc2;
+  font-size: 11px;
+}
+.missionLaunchButton {
+  flex: 0 0 auto;
+  margin-left: 3px;
+  border-color: #71ddff65;
+  color: #d9faff;
+  background: #48c9ee20;
+  font-size: 11px;
+}
+.missionLaunchButton:hover,
+.missionLaunchButton:focus-visible {
+  border-color: #8beaff;
+  background: #48c9ee35;
+}
 .deviceModeChoices {
   display: flex;
   align-items: center;
@@ -1118,6 +1176,27 @@ small {
   }
   .mobileMode .pn small {
     font-size: 11px;
+  }
+  .mobileMode .missionLaunchWindow {
+    left: 9px;
+    bottom: calc(9px + env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+    max-width: calc(100vw - 18px);
+    padding: 8px 9px;
+    border-radius: 12px;
+  }
+  .mobileMode .missionLaunchMark {
+    flex-basis: 30px;
+    width: 30px;
+    height: 30px;
+  }
+  .mobileMode .missionLaunchCopy b { font-size: 12px; }
+  .mobileMode .missionLaunchCopy span { font-size: 9px; }
+  .mobileMode .missionLaunchButton {
+    min-height: 36px;
+    margin-left: 0;
+    padding: 6px 8px;
+    font-size: 10px;
   }
   .mobileMode .deviceModeChoices {
     margin: 2px 0 6px;

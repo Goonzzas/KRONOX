@@ -415,6 +415,28 @@ export default function App() {
     'div',
     { className: `app ${deviceMode === 'mobile' ? 'mobileMode' : ''} ${fr ? 'flightMode' : ''}` },
     h('div', { ref: el, style: { position: 'absolute', inset: 0 } }),
+    countdown === null && !missionArrival && !missionOpen &&
+      h(
+        'aside',
+        { className: 'missionLaunchWindow', 'aria-label': 'Misión SPHEREx disponible' },
+        h('div', { className: 'missionLaunchMark', 'aria-hidden': 'true' }, '✦'),
+        h(
+          'div',
+          { className: 'missionLaunchCopy' },
+          h('small', null, 'MISIÓN DISPONIBLE'),
+          h('b', null, 'Ecos en infrarrojo'),
+          h('span', null, 'SPHEREx · viaje de exploración'),
+        ),
+        h(
+          'button',
+          {
+            className: 'missionLaunchButton',
+            title: 'Viajar e iniciar la misión SPHEREx',
+            onClick: startSpherexMission,
+          },
+          'Iniciar viaje ↗',
+        ),
+      ),
     h(
       'div',
       { className: `pn ${open ? 'panelOpen' : 'panelClosed'}` },
@@ -422,15 +444,6 @@ export default function App() {
         'div',
         { className: 'panelHeading' },
         h('h1', null, 'Sistema Solar 3D'),
-        h(
-          'button',
-          {
-            className: 'missionButton',
-            title: 'Viajar e iniciar la misión SPHEREx',
-            onClick: startSpherexMission,
-          },
-          'Iniciar misión',
-        ),
         h('button', { onClick: () => setOpen(!open) }, open ? 'Ocultar' : 'Menú'),
       ),
       open &&
