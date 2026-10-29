@@ -900,16 +900,10 @@ small {
 }
 .sc {
   position: absolute;
-  top: 74%;
-  height: 15.5%;
+  top: 74.5%;
+  height: 18%;
   box-sizing: border-box;
-  padding: clamp(5px, 0.8vw, 11px) clamp(7px, 1vw, 14px);
-  border: 1px solid #76dcff77;
-  border-radius: 12px;
-  background:
-    linear-gradient(145deg, #0b1c2de8, #030810ed 72%),
-    repeating-linear-gradient(0deg, transparent 0 13px, #71dfff0a 13px 14px);
-  box-shadow: inset 0 1px #ffffff20, inset 0 0 18px #3bbbe31c, 0 5px 18px #0008;
+  padding: clamp(3px, 0.45vw, 7px) clamp(5px, 0.65vw, 10px);
   font:
     600 clamp(8px, 0.9vw, 12px)/1.25 ui-monospace,
     Menlo,
@@ -920,18 +914,18 @@ small {
   white-space: nowrap;
 }
 .sl {
-  left: 6.5%;
+  left: 6.2%;
   width: 33%;
 }
 .sr {
-  left: 60.5%;
+  left: 60.8%;
   width: 33%;
 }
 .st {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
   opacity: 0.82;
   font-size: 0.85em;
   letter-spacing: 0.1em;
@@ -957,33 +951,33 @@ small {
 }
 .bar {
   position: relative;
-  height: clamp(10px, 1.25em, 15px);
-  background: #07101b;
-  border: 1px solid #4b779066;
-  border-radius: 5px;
-  margin: 0.28em 0 0.4em;
+  height: clamp(9px, 1em, 13px);
+  background: radial-gradient(circle at 50% 50%, #253747 0 2.5px, transparent 3.4px) 0 0 / 12px 100% repeat-x;
+  border: 0;
+  border-radius: 0;
+  margin: 0.25em 0 0.35em;
   overflow: hidden;
-  box-shadow: inset 0 1px 4px #000c;
 }
 .bar i {
   display: block;
   height: 100%;
   width: 0;
-  background: radial-gradient(circle at 50% 50%, #7ff5ff 0 3px, transparent 3.8px) 0 0 / 12px 100% repeat-x;
-  filter: drop-shadow(0 0 4px #45dfff);
+  background: radial-gradient(circle at 50% 50%, #7ff5ff 0 2.7px, transparent 3.5px) 0 0 / 12px 100% repeat-x;
+  filter: drop-shadow(0 0 3px #45dfff);
   transition: width 0.12s linear;
 }
 .b2 i {
-  background: radial-gradient(circle at 50% 50%, #ffc273 0 3px, transparent 3.8px) 0 0 / 12px 100% repeat-x;
-  filter: drop-shadow(0 0 4px #ff9b49);
+  background: radial-gradient(circle at 50% 50%, #ffc273 0 2.7px, transparent 3.5px) 0 0 / 12px 100% repeat-x;
+  filter: drop-shadow(0 0 3px #ff9b49);
 }
 .headingDial {
   position: relative;
   height: 6px;
   margin: 4px 0 3px;
-  border: 1px solid #415c78;
-  border-radius: 8px;
-  background: radial-gradient(circle, #8195aa 0 1.5px, transparent 2px) 0 0 / 10% 100% repeat-x;
+  border: 0;
+  border-radius: 0;
+  background: radial-gradient(circle, #8195aa 0 1.3px, transparent 1.8px) 0 0 / 10% 100% repeat-x;
+  box-shadow: inset 0 -1px #6daacb55;
 }
 .headingDial::after {
   position: absolute;
@@ -1507,11 +1501,10 @@ small {
     text-overflow: ellipsis;
   }
   .mobileMode.flightMode .sc {
-    top: auto;
-    bottom: calc(176px + env(safe-area-inset-bottom, 0px));
-    height: 94px;
-    padding: 6px 7px;
-    border-radius: 9px;
+    top: 74.5%;
+    bottom: auto;
+    height: 18%;
+    padding: 3px 4px;
     font-size: 8px;
   }
   .mobileMode.flightMode .sl { left: 3%; width: 43%; }
@@ -1520,6 +1513,10 @@ small {
   .mobileMode.flightMode .bar { height: 9px; margin: 2px 0 4px; }
   .mobileMode.flightMode .ss { font-size: 0.78em; }
   .mobileMode.flightMode .headingDial { height: 4px; margin: 2px 0; }
+  .mobileMode.flightMode .mobileFlightControls {
+    top: 40%;
+    bottom: auto;
+  }
   .mobileMode .cp .ht {
     font-size: 10px;
     white-space: nowrap;
