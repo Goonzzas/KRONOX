@@ -497,6 +497,33 @@ small {
   border-color: #a995ff88;
   color: #e3d8ff;
 }
+.kronoxMissionOffer {
+  margin-top: 11px;
+  padding: 11px;
+  border: 1px solid #72eaff55;
+  border-radius: 11px;
+  background: linear-gradient(120deg, #173248bb, #251940bb);
+}
+.kronoxMissionOffer span {
+  color: #80edff;
+  font: 10px ui-monospace, monospace;
+  letter-spacing: 0.1em;
+}
+.kronoxMissionOffer p {
+  margin: 5px 0 2px;
+}
+.kronoxBubble .kronoxMissionOffer button {
+  width: 100%;
+  margin-top: 8px;
+  border-color: #76eaff;
+  background: linear-gradient(95deg, #176987, #544498);
+  color: white;
+  font-weight: 650;
+}
+.kronoxBubble .kronoxMissionOffer button:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
 @keyframes kronoxFloat {
   to {
     transform: translateY(-6px);
@@ -523,6 +550,40 @@ small {
     0 0 18px #63dcff,
     0 0 60px #8498ff;
   animation: countPulse 0.8s ease-in-out both;
+}
+.missionArrivalOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, #081a32e8 0, #030712d9 54%, #02040b88 100%);
+  animation: missionArrival 1.9s ease both;
+}
+.missionArrivalOverlay span {
+  color: #7ceaff;
+  font: 11px ui-monospace, monospace;
+  letter-spacing: 0.18em;
+}
+.missionArrivalOverlay b {
+  color: #f0eaff;
+  font: 600 clamp(28px, 6vw, 52px) Georgia, serif;
+  text-shadow: 0 0 28px #7beeff66;
+}
+.missionArrivalOverlay small {
+  color: #c2cee2;
+  font-size: 13px;
+}
+@keyframes missionArrival {
+  0% { opacity: 0; }
+  16%, 72% { opacity: 1; }
+  100% { opacity: 0; }
 }
 @keyframes countPulse {
   0% {

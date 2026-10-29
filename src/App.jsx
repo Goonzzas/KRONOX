@@ -33,6 +33,7 @@ export default function App() {
     [deviceMode, setDeviceMode] = useState(deviceGuess),
     [welcomeOpen, setWelcomeOpen] = useState(true),
     [missionOpen, setMissionOpen] = useState(false),
+    [missionArrival, setMissionArrival] = useState(false),
     [welcomeStep, setWelcomeStep] = useState('voice'),
     [voice, setVoice] = useState(false),
     [voiceError, setVoiceError] = useState(''),
@@ -338,7 +339,7 @@ export default function App() {
       vel: 'Velocidad',
       gal: 'Movimiento galáctico',
     },
-    startTravel = (run, label) => {
+    startTravel = (run, label, afterArrival) => {
       travelRef.current = true;
       countTimers.current.forEach(clearTimeout);
       clearTimeout(noticeTimer.current);
@@ -356,7 +357,8 @@ export default function App() {
           run();
           setTimeout(() => {
             travelRef.current = false;
-          }, 1200);
+            if (afterArrival) afterArrival();
+          }, afterArrival ? 1900 : 1200);
           return;
         }
         n--;
@@ -365,6 +367,26 @@ export default function App() {
         countTimers.current.push(setTimeout(tick, 850));
       };
       countTimers.current = [setTimeout(tick, 850)];
+    },
+    startSpherexMission = () => {
+      if (travelRef.current || missionArrival) return;
+      startTravel(
+        () => {
+          if (spec) {
+            A().board();
+            setSpec(false);
+          }
+          A().jump(0);
+          setMissionArrival(true);
+          setGuide('Salto completado. Abriendo el observatorio SPHEREx…');
+        },
+        'el mapa de la Vía Láctea',
+        () => {
+          setMissionArrival(false);
+          setMissionOpen(true);
+          setGuide('Llegamos al mapa galáctico. Ahora vamos a explorar imágenes reales del cielo.');
+        },
+      );
     },
     tg = (k) =>
       h(
@@ -404,10 +426,10 @@ export default function App() {
           'button',
           {
             className: 'missionButton',
-            title: 'Abrir misión SPHEREx',
-            onClick: () => setMissionOpen(true),
+            title: 'Viajar e iniciar la misión SPHEREx',
+            onClick: startSpherexMission,
           },
-          'Misión',
+          'Iniciar misión',
         ),
         h('button', { onClick: () => setOpen(!open) }, open ? 'Ocultar' : 'Menú'),
       ),
@@ -839,6 +861,8 @@ export default function App() {
       near,
       onAccentChange: setVoiceAccent,
       onMore: setMore,
+      onStartMission: startSpherexMission,
+      missionStarting: countdown !== null || missionArrival,
       onOrbClick: () => {
         say('Aquí estoy, explorador. Te avisaré de cada cambio y de los mundos que encontremos.');
         speak('Aquí estoy, explorador.');
@@ -878,6 +902,14 @@ export default function App() {
     h(ToastNotification, { notice, onMore: setMore }),
     countdown !== null &&
       h('div', { className: 'countdownOverlay' }, h('b', { key: countdown }, countdown)),
+    missionArrival &&
+      h(
+        'div',
+        { className: 'missionArrivalOverlay', role: 'status', 'aria-live': 'polite' },
+        h('span', null, 'SALTO COMPLETADO'),
+        h('b', null, 'Mapa de la Vía Láctea'),
+        h('small', null, 'Conectando con el observatorio SPHEREx…'),
+      ),
     h(PlanetInfoModal, { planet: more, data: more && INFO[more], onClose: () => setMore(null) }),
     missionOpen && h(SpherexMission, { onClose: () => setMissionOpen(false) }),
     fr && h('canvas', { id: 'warp', className: 'warp' }),
@@ -1017,8 +1049,8 @@ export default function App() {
                 setWelcomeOpen(false);
                 const greeting =
                   deviceMode === 'mobile'
-                    ? 'Hola, aventurero. Detecté que estás en un móvil. Preparé controles táctiles y menús compactos para tu viaje.'
-                    : 'Hola, aventurero. Estás en una computadora. La cabina está lista para iniciar la exploración.';
+                    ? 'Hola, aventurero. Preparé los controles táctiles. Detecté una señal de SPHEREx: ¿me acompañas a explorar el cielo?'
+                    : 'Hola, aventurero. La cabina está lista. Detecté una señal de SPHEREx: ¿me acompañas a explorar el cielo?';
                 say(greeting);
                 speak(greeting);
               },

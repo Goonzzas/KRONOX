@@ -14,6 +14,8 @@ export default function KronoxWidget({
   onToggleVoice,
   onMore,
   onOrbClick,
+  onStartMission,
+  missionStarting = false,
 }) {
   const [typed, setTyped] = useState('');
   const isTransmitting = speaking || typed.length < guide.length;
@@ -76,6 +78,13 @@ export default function KronoxWidget({
         )}
         {voiceError && <small role="status">{voiceError}</small>}
         {near && <button onClick={() => onMore(near)}>¿Quieres saber más? Dale aquí</button>}
+        <div className="kronoxMissionOffer">
+          <span>SEÑAL NUEVA · SPHEREx</span>
+          <p>¿Me acompañas a explorar el cielo y buscar estrellas que se mueven?</p>
+          <button onClick={onStartMission} disabled={missionStarting}>
+            {missionStarting ? 'Preparando el salto…' : 'Sí, iniciar misión'}
+          </button>
+        </div>
       </div>}
     </div>
   );

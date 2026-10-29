@@ -110,6 +110,12 @@ export default function SpherexMission({ onClose }) {
     }
   };
 
+  useEffect(() => {
+    search();
+    // Load the first target as soon as Kronox arrives at the observatory.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const chooseTarget = (index) => {
     setSelected(index);
     setRa(String(TARGETS[index].ra));
