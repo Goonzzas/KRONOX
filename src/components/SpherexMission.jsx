@@ -63,6 +63,7 @@ export default function SpherexMission({ onClose }) {
   const [findings, setFindings] = useState([]);
   const [truncated, setTruncated] = useState(false);
   const requestRef = useRef(0);
+  const searchRef = useRef(0);
   const stretchRef = useRef(null);
   const bands = useMemo(() => [...new Set(records.map((record) => record.band))].sort(), [records]);
   const visibleRecords = useMemo(
@@ -71,6 +72,7 @@ export default function SpherexMission({ onClose }) {
   );
 
   const search = async (nextRa = ra, nextDec = dec) => {
+    const searchId = ++searchRef.current;
     setImageCenter({ ra: Number(nextRa), dec: Number(nextDec) });
     stretchRef.current = null;
     setLoading(true);
@@ -88,6 +90,7 @@ export default function SpherexMission({ onClose }) {
       );
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Falló la consulta al archivo.');
+      if (searchId !== searchRef.current) return;
       const unique = new Map();
       for (const record of body.records) {
         const key = `${record.id}|${record.band}|${record.date}`;
@@ -107,10 +110,12 @@ export default function SpherexMission({ onClose }) {
           : 'No hay imágenes SPHEREx disponibles para estas coordenadas en este lanzamiento.',
       );
     } catch (cause) {
-      setError(cause.message);
-      setStatus('No se pudo completar la consulta.');
+      if (searchId === searchRef.current) {
+        setError(cause.message);
+        setStatus('No se pudo completar la consulta.');
+      }
     } finally {
-      setLoading(false);
+      if (searchId === searchRef.current) setLoading(false);
     }
   };
 
@@ -129,7 +134,8 @@ export default function SpherexMission({ onClose }) {
     setImage('');
     setFrameLoading(false);
     setPlaying(false);
-    setStatus('Objetivo seleccionado. Consulta el archivo para cargar sus observaciones.');
+    setStatus(`Buscando observaciones de ${TARGETS[index].name}…`);
+    search(String(TARGETS[index].ra), String(TARGETS[index].dec));
   };
 
   useEffect(() => {
