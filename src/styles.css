@@ -900,53 +900,113 @@ small {
 }
 .sc {
   position: absolute;
-  top: 74.5%;
-  height: 14%;
+  top: 74%;
+  height: 15.5%;
+  box-sizing: border-box;
+  padding: clamp(5px, 0.8vw, 11px) clamp(7px, 1vw, 14px);
+  border: 1px solid #76dcff77;
+  border-radius: 12px;
+  background:
+    linear-gradient(145deg, #0b1c2de8, #030810ed 72%),
+    repeating-linear-gradient(0deg, transparent 0 13px, #71dfff0a 13px 14px);
+  box-shadow: inset 0 1px #ffffff20, inset 0 0 18px #3bbbe31c, 0 5px 18px #0008;
   font:
-    600 clamp(7px, 1vw, 12px)/1.25 ui-monospace,
+    600 clamp(8px, 0.9vw, 12px)/1.25 ui-monospace,
     Menlo,
     monospace;
   color: #6ff0ff;
-  text-shadow: 0 0 6px #28c;
+  text-shadow: 0 0 7px #28c;
   overflow: hidden;
   white-space: nowrap;
 }
 .sl {
-  left: 9%;
-  width: 28%;
+  left: 6.5%;
+  width: 33%;
 }
 .sr {
-  left: 64%;
-  width: 28%;
+  left: 60.5%;
+  width: 33%;
 }
 .st {
-  opacity: 0.65;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+  opacity: 0.82;
   font-size: 0.85em;
   letter-spacing: 0.1em;
+}
+.st i {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7dffbd;
+  box-shadow: 0 0 8px #7dffbd;
 }
 .sv {
   font-size: 1.25em;
   color: #fff;
+  line-height: 1.25;
 }
 .ss {
   opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.86em;
 }
 .bar {
-  height: 0.5em;
-  background: #0c2a3a;
-  border-radius: 2px;
-  margin: 0.2em 0;
+  position: relative;
+  height: clamp(10px, 1.25em, 15px);
+  background: #07101b;
+  border: 1px solid #4b779066;
+  border-radius: 5px;
+  margin: 0.28em 0 0.4em;
   overflow: hidden;
+  box-shadow: inset 0 1px 4px #000c;
 }
 .bar i {
   display: block;
   height: 100%;
   width: 0;
-  background: linear-gradient(90deg, #2af, #6ff0ff);
-  transition: width 0.12s;
+  background: radial-gradient(circle at 50% 50%, #7ff5ff 0 3px, transparent 3.8px) 0 0 / 12px 100% repeat-x;
+  filter: drop-shadow(0 0 4px #45dfff);
+  transition: width 0.12s linear;
 }
 .b2 i {
-  background: linear-gradient(90deg, #fa4, #f55);
+  background: radial-gradient(circle at 50% 50%, #ffc273 0 3px, transparent 3.8px) 0 0 / 12px 100% repeat-x;
+  filter: drop-shadow(0 0 4px #ff9b49);
+}
+.headingDial {
+  position: relative;
+  height: 6px;
+  margin: 4px 0 3px;
+  border: 1px solid #415c78;
+  border-radius: 8px;
+  background: radial-gradient(circle, #8195aa 0 1.5px, transparent 2px) 0 0 / 10% 100% repeat-x;
+}
+.headingDial::after {
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  width: 1px;
+  height: 10px;
+  content: '';
+  background: #e6f9ff88;
+}
+.headingDial i {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  z-index: 1;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #d7fbff;
+  border-radius: 50%;
+  background: #55dfff;
+  box-shadow: 0 0 8px #59eaff;
+  transform: translateX(-50%);
+  transition: left 0.12s linear;
 }
 
 .app {
@@ -1446,6 +1506,20 @@ small {
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .mobileMode.flightMode .sc {
+    top: auto;
+    bottom: calc(176px + env(safe-area-inset-bottom, 0px));
+    height: 94px;
+    padding: 6px 7px;
+    border-radius: 9px;
+    font-size: 8px;
+  }
+  .mobileMode.flightMode .sl { left: 3%; width: 43%; }
+  .mobileMode.flightMode .sr { left: 54%; width: 43%; }
+  .mobileMode.flightMode .sv { font-size: 1.15em; }
+  .mobileMode.flightMode .bar { height: 9px; margin: 2px 0 4px; }
+  .mobileMode.flightMode .ss { font-size: 0.78em; }
+  .mobileMode.flightMode .headingDial { height: 4px; margin: 2px 0; }
   .mobileMode .cp .ht {
     font-size: 10px;
     white-space: nowrap;
