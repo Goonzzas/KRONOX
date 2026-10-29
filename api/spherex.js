@@ -72,17 +72,21 @@ function imageOnlyFits(buffer) {
     const dataLength =
       Math.ceil(((pixelCount * Math.abs(bitpix)) / 8 + Number(values.PCOUNT || 0)) / 2880) * 2880;
     if (values.EXTNAME === 'IMAGE' && pixelCount && dimensions.length >= 2) {
-      const primaryCards = cards
-        .filter((card) => {
+      const primaryCards = [
+        'SIMPLE  =                    T'.padEnd(80),
+        ...cards.filter((card) => {
           const key = card.slice(0, 8).trim();
-          return !['XTENSION', 'PCOUNT', 'GCOUNT', 'EXTNAME', 'EXTVER'].includes(key);
-        })
-        .map((card) => (card.slice(0, 8).trim() === 'END' ? 'END'.padEnd(80) : card));
-      primaryCards[0] = 'SIMPLE  =                    T'.padEnd(80);
+          return !['XTENSION', 'PCOUNT', 'GCOUNT', 'EXTNAME', 'EXTVER', 'SIMPLE', 'END'].includes(
+            key,
+          );
+        }),
+        'END'.padEnd(80),
+      ];
+      const primaryHeaderCards = primaryCards.join('');
       const primaryHeader =
-        primaryCards.join('') +
+        primaryHeaderCards +
         ' '.repeat(
-          Math.ceil(primaryCards.join('').length / 2880) * 2880 - primaryCards.join('').length,
+          Math.ceil(primaryHeaderCards.length / 2880) * 2880 - primaryHeaderCards.length,
         );
       return Buffer.concat([
         Buffer.from(primaryHeader, 'ascii'),
