@@ -1,36 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { parseFits } from '../utils/fitsImage.js';
-
-const TARGETS = [
-  {
-    name: 'Estrella de Barnard',
-    // Approximate position propagated to the SPHEREx survey epoch (Barnard's
-    // proper motion is large enough to move the star outside a small cutout).
-    ra: 269.4465,
-    dec: 4.6216,
-    note: 'Enana roja cercana con gran movimiento propio.',
-  },
-  {
-    name: 'Epsilon Indi B',
-    // Position of the Ba/Bb pair rather than the offset primary Epsilon Indi A.
-    ra: 331.045708,
-    dec: -56.783444,
-    note: 'Sistema de dos enanas marrones: Ba y Bb.',
-  },
-  {
-    name: 'WISE 0855',
-    ra: 133.795129,
-    dec: -7.245147,
-    note: 'Enana marrón de rápido movimiento; coordenadas del reto.',
-  },
-  { name: 'RW Aurigae', ra: 76.956067, dec: 30.401327, note: 'Sistema estelar joven y variable.' },
-  {
-    name: 'R Draconis',
-    ra: 248.16761,
-    dec: 66.754979,
-    note: 'Estrella variable Mira de largo período.',
-  },
-];
+import { SPHEREX_MISSION_TYPES, SPHEREX_TARGETS as TARGETS } from '../data/spherexTargets.js';
 
 function formatDate(mjd) {
   const date = new Date((Number(mjd) - 40587) * 86400000);
@@ -40,11 +10,13 @@ function formatDate(mjd) {
         ' UTC';
 }
 
-export default function SpherexMission({ onClose }) {
-  const [selected, setSelected] = useState(0);
-  const [ra, setRa] = useState(String(TARGETS[0].ra));
-  const [dec, setDec] = useState(String(TARGETS[0].dec));
-  const [imageCenter, setImageCenter] = useState({ ra: TARGETS[0].ra, dec: TARGETS[0].dec });
+export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }) {
+  const initialTargetIndex = Math.max(0, TARGETS.findIndex((target) => target.key === initialTargetKey));
+  const initialTarget = TARGETS[initialTargetIndex];
+  const [selected, setSelected] = useState(initialTargetIndex);
+  const [ra, setRa] = useState(String(initialTarget.ra));
+  const [dec, setDec] = useState(String(initialTarget.dec));
+  const [imageCenter, setImageCenter] = useState({ ra: initialTarget.ra, dec: initialTarget.dec });
   const [records, setRecords] = useState([]);
   const [frameIndex, setFrameIndex] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -197,6 +169,8 @@ export default function SpherexMission({ onClose }) {
   const frame = visibleRecords[frameIndex];
   const previousFrame = visibleRecords[frameIndex - 1];
   const selectedTarget = TARGETS[selected];
+  const missionObjective =
+    SPHEREX_MISSION_TYPES.find((mission) => mission.key === selectedTarget.mission)?.objective || '';
 
   const markImagePosition = (event) => {
     if (!marking || !image) return;
@@ -275,6 +249,11 @@ export default function SpherexMission({ onClose }) {
               Compara observaciones reales de SPHEREx y busca objetos que cambian de posición o
               brillo.
             </p>
+            <div className="spherexObjective">
+              <small>KRONOX · OBJETIVO DE MISIÓN</small>
+              <b>{selectedTarget.name}</b>
+              <span>{missionObjective}</span>
+            </div>
           </div>
           <button onClick={onClose} aria-label="Cerrar misión">
             Cerrar ✕

@@ -80,9 +80,9 @@ export default function KronoxWidget({
         {near && <button onClick={() => onMore(near)}>¿Quieres saber más? Dale aquí</button>}
         <div className="kronoxMissionOffer">
           <span>SEÑAL NUEVA · SPHEREx</span>
-          <p>¿Me acompañas a explorar el cielo y buscar estrellas que se mueven?</p>
+          <p>¿Rastreamos estrellas en movimiento o comparamos el brillo de estrellas variables?</p>
           <button onClick={onStartMission} disabled={missionStarting}>
-            {missionStarting ? 'Preparando el salto…' : 'Sí, iniciar misión'}
+            {missionStarting ? 'Preparando el salto…' : 'Elegir misión'}
           </button>
         </div>
       </div>}

@@ -7,6 +7,8 @@ import PlanetInfoModal from './components/PlanetInfoModal.jsx';
 import QuickTravelMenu from './components/QuickTravelMenu.jsx';
 import MobileFlightControls from './components/MobileFlightControls.jsx';
 import SpherexMission from './components/SpherexMission.jsx';
+import SpherexMissionSelector from './components/SpherexMissionSelector.jsx';
+import { SPHEREX_MISSION_TYPES } from './data/spherexTargets.js';
 import './styles.css';
 
 const h = React.createElement;
@@ -33,7 +35,12 @@ export default function App() {
     [deviceMode, setDeviceMode] = useState(deviceGuess),
     [welcomeOpen, setWelcomeOpen] = useState(true),
     [missionOpen, setMissionOpen] = useState(false),
+    [missionSelectorOpen, setMissionSelectorOpen] = useState(false),
     [missionArrival, setMissionArrival] = useState(false),
+    [missionTraveling, setMissionTraveling] = useState(false),
+    [missionLaunchTarget, setMissionLaunchTarget] = useState(null),
+    [missionArrivalName, setMissionArrivalName] = useState(''),
+    [missionTargetKey, setMissionTargetKey] = useState('barnard'),
     [welcomeStep, setWelcomeStep] = useState('voice'),
     [voice, setVoice] = useState(false),
     [voiceError, setVoiceError] = useState(''),
@@ -340,7 +347,7 @@ export default function App() {
       vel: 'Velocidad',
       gal: 'Movimiento galáctico',
     },
-    startTravel = (run, label, afterArrival) => {
+    startTravel = (run, label, afterArrival, awaitSceneArrival = false) => {
       travelRef.current = true;
       countTimers.current.forEach(clearTimeout);
       clearTimeout(noticeTimer.current);
@@ -355,11 +362,18 @@ export default function App() {
         if (n === 1) {
           setCountdown(null);
           notify('¡Salto iniciado! Rumbo a ' + label + '.', 'Viaje rápido');
-          run();
-          setTimeout(() => {
-            travelRef.current = false;
-            if (afterArrival) afterArrival();
-          }, afterArrival ? 1900 : 1200);
+          if (awaitSceneArrival) {
+            run(() => {
+              travelRef.current = false;
+              if (afterArrival) afterArrival();
+            });
+          } else {
+            run();
+            setTimeout(() => {
+              travelRef.current = false;
+              if (afterArrival) afterArrival();
+            }, afterArrival ? 1900 : 1200);
+          }
           return;
         }
         n--;
@@ -369,25 +383,45 @@ export default function App() {
       };
       countTimers.current = [setTimeout(tick, 850)];
     },
-    startSpherexMission = () => {
-      if (travelRef.current || missionArrival) return;
+    chooseSpherexTarget = (target) => {
+      if (travelRef.current || missionArrival || !target) return;
+      setMissionSelectorOpen(false);
+      setMissionTraveling(true);
+      setMissionLaunchTarget(null);
+      setMissionArrivalName(target.name);
+      setGuide('Destino fijado: ' + target.name + '. Prepararé el salto hasta su posición en el vecindario galáctico.');
       startTravel(
-        () => {
+        (onArrive) => {
           if (spec) {
             A().board();
             setSpec(false);
           }
-          A().jump(0);
-          setMissionArrival(true);
-          setGuide('Salto completado. Abriendo el observatorio SPHEREx…');
+          A().missionTarget(target.key, onArrive);
         },
-        'el mapa de la Vía Láctea',
+        target.name,
         () => {
-          setMissionArrival(false);
-          setMissionOpen(true);
-          setGuide('Llegamos al mapa galáctico. Ahora vamos a explorar imágenes reales del cielo.');
+          setMissionTraveling(false);
+          setMissionArrival(true);
+          setGuide('Hemos llegado a ' + target.name + '. El objetivo está localizado; puedes iniciar la observación cuando quieras.');
+          setTimeout(() => {
+            setMissionArrival(false);
+            setMissionLaunchTarget(target);
+          }, 1900);
         },
+        true,
       );
+    },
+    startSelectedMission = () => {
+      const target = missionLaunchTarget;
+      if (!target) return;
+      const objective = SPHEREX_MISSION_TYPES.find((mission) => mission.key === target.mission)?.objective;
+      const instruction = `Tu misión: ${objective || 'explorar este objetivo a través del tiempo.'}`;
+      setMissionLaunchTarget(null);
+      setMissionOpen(true);
+      setMissionTargetKey(target.key);
+      setGuide(instruction);
+      openKronox();
+      speak(instruction);
     },
     tg = (k) =>
       h(
@@ -891,10 +925,12 @@ export default function App() {
                 'button',
                 {
                   className: 'missionLaunchButton',
-                  disabled: countdown !== null || missionArrival,
-                  onClick: startSpherexMission,
+                  disabled: countdown !== null || missionArrival || missionTraveling,
+                  onClick: () => setMissionSelectorOpen(true),
                 },
-                countdown !== null || missionArrival ? 'Preparando viaje…' : 'Iniciar misión ↗',
+                countdown !== null || missionArrival || missionTraveling
+                  ? 'Preparando viaje…'
+                  : 'Elegir misión ↗',
               ),
             ),
         ),
@@ -939,8 +975,8 @@ export default function App() {
       near,
       onAccentChange: setVoiceAccent,
       onMore: setMore,
-      onStartMission: startSpherexMission,
-      missionStarting: countdown !== null || missionArrival,
+      onStartMission: () => setMissionSelectorOpen(true),
+      missionStarting: countdown !== null || missionArrival || missionTraveling,
       onOrbClick: () => {
         say('Aquí estoy, explorador. Te avisaré de cada cambio y de los mundos que encontremos.');
         speak('Aquí estoy, explorador.');
@@ -980,16 +1016,43 @@ export default function App() {
     h(ToastNotification, { notice, onMore: setMore }),
     countdown !== null &&
       h('div', { className: 'countdownOverlay' }, h('b', { key: countdown }, countdown)),
+    missionLaunchTarget &&
+      h(
+        'div',
+        { className: 'missionLaunchWindow', role: 'dialog', 'aria-live': 'polite' },
+        h('div', { className: 'missionLaunchMark', 'aria-hidden': 'true' }, '✦'),
+        h(
+          'div',
+          { className: 'missionLaunchCopy' },
+          h('small', null, 'DESTINO LOCALIZADO · SPHEREx'),
+          h('b', null, missionLaunchTarget.name),
+          h('span', null, 'La nave llegó al objetivo. ¿Empezamos la misión?'),
+        ),
+        h(
+          'button',
+          { className: 'missionLaunchButton', onClick: startSelectedMission },
+          'Empezar misión',
+        ),
+      ),
     missionArrival &&
       h(
         'div',
         { className: 'missionArrivalOverlay', role: 'status', 'aria-live': 'polite' },
         h('span', null, 'SALTO COMPLETADO'),
-        h('b', null, 'Mapa de la Vía Láctea'),
-        h('small', null, 'Conectando con el observatorio SPHEREx…'),
+        h('b', null, missionArrivalName),
+        h('small', null, 'Objetivo localizado en el vecindario galáctico.'),
       ),
     h(PlanetInfoModal, { planet: more, data: more && INFO[more], onClose: () => setMore(null) }),
-    missionOpen && h(SpherexMission, { onClose: () => setMissionOpen(false) }),
+    missionSelectorOpen &&
+      h(SpherexMissionSelector, {
+        onClose: () => setMissionSelectorOpen(false),
+        onSelect: chooseSpherexTarget,
+      }),
+    missionOpen &&
+      h(SpherexMission, {
+        initialTargetKey: missionTargetKey,
+        onClose: () => setMissionOpen(false),
+      }),
     fr && h('canvas', { id: 'warp', className: 'warp' }),
     fr &&
       pv == 1 &&

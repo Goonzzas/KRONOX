@@ -1474,6 +1474,52 @@ small {
 }
 
 /* SPHEREx mission console */
+.spherexSelectorShade {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #02040bd9;
+  backdrop-filter: blur(10px);
+}
+.spherexSelector {
+  width: min(900px, 100%);
+  max-height: min(90dvh, 850px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid #78dfff55;
+  border-radius: 20px;
+  color: #eaf2ff;
+  background: radial-gradient(ellipse at 50% 0, #183450 0, #0a1323 48%, #050914 100%);
+  box-shadow: 0 28px 100px #000c, 0 0 45px #49cfff18;
+}
+.spherexSelectorHeader { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+.spherexSelectorHeader span, .spherexMissionChoice > small, .spherexSelector footer {
+  color: #70dfff; font: 10px ui-monospace, monospace; letter-spacing: .13em;
+}
+.spherexSelectorHeader h2 { margin: 8px 0; font: 600 clamp(25px, 4vw, 36px) Georgia, serif; }
+.spherexSelectorHeader p { margin: 0; color: #9eabc3; font-size: 13px; line-height: 1.5; }
+.spherexSelectorHeader > button { flex: 0 0 auto; padding: 5px 11px; font-size: 22px; }
+.spherexMissionChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 22px 0 16px; }
+.spherexMissionChoice { min-width: 0; padding: 17px; border: 1px solid #ffffff18; border-radius: 15px; background: #ffffff06; }
+.spherexMissionChoiceIcon { float: right; color: #7beaff; font-size: 24px; text-shadow: 0 0 18px #62e5ff; }
+.spherexMissionChoice h3 { margin: 7px 0; font: 600 20px Georgia, serif; }
+.spherexMissionChoice > p { min-height: 42px; margin: 0 0 14px; color: #a9b7cd; font-size: 12px; line-height: 1.5; }
+.spherexTargetChoices { display: grid; gap: 7px; }
+.spherexTargetChoices button { display: grid; grid-template-columns: minmax(0, 1fr) auto 16px; align-items: center; gap: 8px; width: 100%; padding: 10px; text-align: left; border: 1px solid #ffffff1c; border-radius: 10px; background: #06101c; color: #eaf2ff; }
+.spherexTargetChoices button:hover, .spherexTargetChoices button:focus-visible { border-color: #65dcff; background: #12304a; }
+.spherexTargetChoices button span { display: grid; gap: 3px; min-width: 0; }
+.spherexTargetChoices b { font-size: 12px; }
+.spherexTargetChoices small { color: #8fa2bd; font-size: 10px; line-height: 1.35; }
+.spherexTargetChoices em { color: #8ee9ff; font: 10px ui-monospace, monospace; white-space: nowrap; }
+.spherexTargetChoices strong { color: #7ceaff; }
+.spherexSelector footer { padding-top: 12px; border-top: 1px solid #ffffff17; color: #8193ac; font-size: 9px; letter-spacing: .04em; line-height: 1.5; }
+.spherexObjective { display: grid; gap: 4px; margin-top: 14px; padding: 11px 13px; border-left: 2px solid #54dfff; background: #39bfe811; }
+.spherexObjective small { color: #68dfff; font: 9px ui-monospace, monospace; letter-spacing: .12em; }
+.spherexObjective b { color: #f2f5ff; font: 600 14px Georgia, serif; }
+.spherexObjective span { color: #a9b9d0; font-size: 12px; line-height: 1.45; }
 .spherexShade {
   position: fixed;
   inset: 0;
@@ -1925,6 +1971,11 @@ small {
   font-size: 12px;
 }
 @media (max-width: 740px) {
+  .spherexSelectorShade { padding: 0; place-items: stretch; }
+  .spherexSelector { max-height: 100dvh; padding: 18px 15px; border-radius: 0; }
+  .spherexMissionChoices { grid-template-columns: 1fr; margin: 16px 0 12px; }
+  .spherexMissionChoice { padding: 14px; }
+  .spherexMissionChoice > p { min-height: 0; }
   .spherexShade {
     padding: 0;
     place-items: stretch;

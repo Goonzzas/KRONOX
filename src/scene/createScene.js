@@ -1,6 +1,27 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { P, D2R, TAU, T0, kep, pos } from '../data/planetData.js';
+import { SPHEREX_TARGETS } from '../data/spherexTargets.js';
+
+function localGalacticPosition(target) {
+  const ra = (target.ra * Math.PI) / 180;
+  const dec = (target.dec * Math.PI) / 180;
+  const x = Math.cos(dec) * Math.cos(ra);
+  const y = Math.cos(dec) * Math.sin(ra);
+  const z = Math.sin(dec);
+  const towardCenter =
+    -0.0548755604 * x - 0.8734370902 * y - 0.4838350155 * z;
+  const towardLongitude90 =
+    0.4941094279 * x - 0.4448296300 * y + 0.7469822445 * z;
+  const north = -0.8676661490 * x - 0.1980763734 * y + 0.4559837762 * z;
+  // Put the Sun at the map's existing Orion-arm marker, then offset each
+  // named star by its approximate heliocentric distance (the map uses ly).
+  return new THREE.Vector3(
+    24500 + target.distanceLy * (-0.989 * towardCenter + 0.141 * towardLongitude90),
+    target.distanceLy * north,
+    -3500 + target.distanceLy * (0.141 * towardCenter + 0.989 * towardLongitude90),
+  );
+}
 
 function lab(text) {
   const canvas = document.createElement('canvas');
@@ -371,6 +392,53 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     ),
   );
   sc.add(gal);
+  const glowCanvas = document.createElement('canvas');
+  glowCanvas.width = glowCanvas.height = 128;
+  const glowContext = glowCanvas.getContext('2d');
+  const glowGradient = glowContext.createRadialGradient(64, 64, 2, 64, 64, 64);
+  glowGradient.addColorStop(0, 'rgba(255,255,255,1)');
+  glowGradient.addColorStop(0.12, 'rgba(255,255,255,.72)');
+  glowGradient.addColorStop(0.38, 'rgba(255,255,255,.18)');
+  glowGradient.addColorStop(1, 'rgba(255,255,255,0)');
+  glowContext.fillStyle = glowGradient;
+  glowContext.fillRect(0, 0, 128, 128);
+  const missionGlowMap = new THREE.CanvasTexture(glowCanvas);
+  const missionMarkers = new Map();
+  SPHEREX_TARGETS.forEach((target) => {
+    const color = target.mission === 'motion' ? 0x73eaff : 0xffbd72;
+    const marker = new THREE.Group();
+    marker.position.copy(localGalacticPosition(target));
+    const glow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: missionGlowMap,
+        color,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    glow.scale.set(95, 95, 1);
+    marker.add(glow);
+    const star = new THREE.Mesh(
+      new THREE.SphereGeometry(7, 16, 12),
+      new THREE.MeshBasicMaterial({ color }),
+    );
+    marker.add(star);
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(18, 0.65, 6, 40),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.82 }),
+    );
+    ring.rotation.x = Math.PI / 2;
+    marker.add(ring);
+    const label = lab(target.name);
+    label.position.set(0, 28, 0);
+    label.visible = false;
+    marker.add(label);
+    LB.push(label);
+    gal.add(marker);
+    missionMarkers.set(target.key, { target, marker, label });
+  });
   // cuerpos
   const B = [];
   let earth;
@@ -494,8 +562,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let foc = null,
     tw = null,
     nav = null,
-    nearKey = null;
-  function tripTo(target, clearance, name, b) {
+    nearKey = null,
+    activeMissionKey = null;
+  function tripTo(target, clearance, name, b, onArrive) {
     const from = sp.clone(),
       away = from.clone().sub(target);
     if (away.lengthSq() < 1e-10) away.set(0, 0.25, 1);
@@ -521,6 +590,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       ),
       long,
       oldFs: fs,
+      onArrive,
     };
     if (long) S.fv(Math.min(5e4, Math.max(fs, distance / nav.duration)));
     S.f(name);
@@ -605,6 +675,29 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     } else if (k === 'sun') {
       focus('Sol');
     }
+  }
+  function missionTarget(key, onArrive) {
+    const found = missionMarkers.get(key);
+    if (!found) return;
+    if (!free) {
+      setFree(true);
+      S.fr(true);
+      ti = 9;
+      S.intro(false);
+    }
+    gal.updateMatrixWorld(true);
+    const destination = found.marker.getWorldPosition(new V());
+    activeMissionKey = key;
+    tripTo(
+      destination,
+      Math.max(65, found.target.distanceLy * 0.18),
+      found.target.name,
+      null,
+      () => {
+        found.label.visible = true;
+        if (onArrive) onArrive();
+      },
+    );
   }
   function lvl(k) {
     if (free) {
@@ -1033,8 +1126,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           q.copy(nav.q);
           if (nav.elapsed >= 0.9) {
             const oldFs = nav.oldFs;
+            const onArrive = nav.onArrive;
             nav = null;
             S.fv(oldFs);
+            if (onArrive) onArrive();
           }
         } else if (nav.phase === 'jumpout') {
           q.copy(nav.q);
@@ -1262,6 +1357,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         .applyQuaternion(gal.quaternion)
         .negate();
       LB.forEach((l) => (l.visible = !!fl.lab));
+      const activeMissionMarker = activeMissionKey && missionMarkers.get(activeMissionKey);
+      if (activeMissionMarker) activeMissionMarker.label.visible = true;
       B[0].glow.scale.setScalar(Math.max(B[0].r * (real ? 40 : 6), cam.position.length() * 0.012));
       if (foc && S.d) S.d(foc.au || 0);
     }
@@ -1330,6 +1427,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     },
     focus,
     quick,
+    missionTarget,
     mode,
     lvl,
     reset: () => {
