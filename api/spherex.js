@@ -5,6 +5,17 @@ function sendError(res, status, message) {
   return res.status(status).json({ error: message });
 }
 
+async function fetchWithRetry(url, options, attempts = 3) {
+  let result;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    result = await fetch(url, options);
+    if (result.status !== 429 && result.status < 500) return result;
+    if (attempt + 1 < attempts)
+      await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+  }
+  return result;
+}
+
 function parseCsv(text) {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
@@ -111,7 +122,7 @@ export default async function handler(request, response) {
     url.searchParams.set('RESPONSEFORMAT', 'CSV');
     url.searchParams.set('MAXREC', String(MAX_SEARCH_RESULTS));
     try {
-      const archiveResponse = await fetch(url, { signal: AbortSignal.timeout(25000) });
+      const archiveResponse = await fetchWithRetry(url, { signal: AbortSignal.timeout(25000) });
       if (!archiveResponse.ok)
         return sendError(response, 502, 'El archivo IRSA no respondió a la búsqueda.');
       const records = parseCsv(await archiveResponse.text())
@@ -161,7 +172,9 @@ export default async function handler(request, response) {
       // Wide enough to keep high proper-motion targets within the cutout when
       // the supplied coordinates use an older catalog epoch.
       cutoutUrl.searchParams.set('size', '0.1');
-      const imageResponse = await fetch(cutoutUrl, { signal: AbortSignal.timeout(30000) });
+      const imageResponse = await fetchWithRetry(cutoutUrl, {
+        signal: AbortSignal.timeout(30000),
+      });
       if (!imageResponse.ok)
         return sendError(response, 502, 'IRSA no pudo generar el recorte de esta observación.');
       response.setHeader('Content-Type', 'application/fits');
