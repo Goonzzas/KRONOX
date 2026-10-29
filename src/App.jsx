@@ -42,6 +42,7 @@ export default function App() {
     [countdown, setCountdown] = useState(null),
     [fl, setFl] = useState({ orb: 1, lab: 1, ax: 0, vel: 0, gal: 0 }),
     [open, setOpen] = useState(() => deviceGuess() !== 'mobile'),
+    [menuSection, setMenuSection] = useState('interface'),
     [quickOpen, setQuickOpen] = useState(false),
     [src, setSrc] = useState(false),
     [fr, setFr] = useState(false),
@@ -415,28 +416,6 @@ export default function App() {
     'div',
     { className: `app ${deviceMode === 'mobile' ? 'mobileMode' : ''} ${fr ? 'flightMode' : ''}` },
     h('div', { ref: el, style: { position: 'absolute', inset: 0 } }),
-    countdown === null && !missionArrival && !missionOpen &&
-      h(
-        'aside',
-        { className: 'missionLaunchWindow', 'aria-label': 'Misión SPHEREx disponible' },
-        h('div', { className: 'missionLaunchMark', 'aria-hidden': 'true' }, '✦'),
-        h(
-          'div',
-          { className: 'missionLaunchCopy' },
-          h('small', null, 'MISIÓN DISPONIBLE'),
-          h('b', null, 'Ecos en infrarrojo'),
-          h('span', null, 'SPHEREx · viaje de exploración'),
-        ),
-        h(
-          'button',
-          {
-            className: 'missionLaunchButton',
-            title: 'Viajar e iniciar la misión SPHEREx',
-            onClick: startSpherexMission,
-          },
-          'Iniciar viaje ↗',
-        ),
-      ),
     h(
       'div',
       { className: `pn ${open ? 'panelOpen' : 'panelClosed'}` },
@@ -449,7 +428,28 @@ export default function App() {
       open &&
         h(
           'div',
-          null,
+          { className: 'menuContent' },
+          h(
+            'nav',
+            { className: 'menuTabs', 'aria-label': 'Secciones del menú' },
+            [
+              ['interface', 'Interfaz'],
+              ['spaceship', 'Nave espacial'],
+              ['mission', 'Misión espacial'],
+            ].map(([id, label]) =>
+              h(
+                'button',
+                {
+                  key: id,
+                  className: menuSection === id ? 'active' : '',
+                  onClick: () => setMenuSection(id),
+                  'aria-current': menuSection === id ? 'page' : undefined,
+                },
+                label,
+              ),
+            ),
+          ),
+          menuSection === 'interface' && h('div', { className: 'menuSectionBody' },
           h(
             'div',
             { className: 'deviceModeChoices' },
@@ -595,6 +595,15 @@ export default function App() {
                 'Esquema: el Sol queda fijo en el centro y la galaxia se mueve respecto a él. Tiempo galáctico ×10⁶ (una vuelta = 230 millones de años; el Sol viaja a ~230 km/s). Mira desde «Brazo de Orión» o «Vía Láctea».',
               )
             : null,
+          h('button', { onClick: () => setSrc(!src) }, 'Fuentes y metodología'),
+          src &&
+            h(
+              'small',
+              { style: { marginTop: 6 } },
+              'Datos físicos: NASA Solar System Exploration. Posiciones: elementos keplerianos aproximados de JPL (Standish, válidos 1800–2050) resueltos con la ecuación de Kepler; son aproximaciones, no efemérides de JPL Horizons. La Luna usa una órbita circular simplificada y rotación sincronizada. Todos los ejes apuntan al mismo lado del espacio (simplificación). A alta velocidad la rotación se limita visualmente. Orientación: el plano galáctico está inclinado ~60° respecto a la eclíptica y el centro galáctico queda hacia Sagitario (λ≈266°, β≈−5,6°); el Sol orbita en sentido horario visto desde el polo norte galáctico. Vía Láctea: modelo esquemático, no una fotografía; Sol a unos 26.000 años luz del centro, en el Espolón de Orión; las texturas son procedurales.',
+            ),
+          ),
+          menuSection === 'spaceship' && h('div', { className: 'menuSectionBody' },
           h(
             'div',
             { className: 'r' },
@@ -666,8 +675,7 @@ export default function App() {
                 ),
               ),
           ),
-          fr &&
-            h(
+          h(
               'div',
               { className: 'r' },
               h('small', null, 'Vista'),
@@ -681,6 +689,14 @@ export default function App() {
                     key: v,
                     className: pv == v ? 'on' : '',
                     onClick: () => {
+                      if (spec) {
+                        A().board();
+                        setSpec(false);
+                      }
+                      if (!fr) {
+                        setFr(true);
+                        A().free(true);
+                      }
                       setPv(v);
                       A().view(v);
                       notify(
@@ -695,9 +711,8 @@ export default function App() {
                 ),
               ),
             ),
-          fr && h('small', null, 'Velocidad de vuelo: ' + fv.toFixed(fv < 1 ? 2 : 0) + ' u/s'),
-          fr &&
-            h('input', {
+          h('small', null, 'Velocidad de vuelo: ' + fv.toFixed(fv < 1 ? 2 : 0) + ' u/s'),
+          h('input', {
               type: 'range',
               min: -2,
               max: 4.7,
@@ -712,8 +727,7 @@ export default function App() {
                   'Cambio de velocidad',
                 ),
             }),
-          fr &&
-            h(
+          h(
               'div',
               { className: 'r' },
               [
@@ -825,12 +839,63 @@ export default function App() {
             null,
             'Arrastra: girar. Rueda: zoom. Clic derecho: desplazar. W A S D: avanzar. Q E: subir o bajar.',
           ),
-          h('button', { onClick: () => setSrc(!src) }, 'Fuentes y metodología'),
-          src &&
+          h(QuickTravelMenu, {
+            open: quickOpen,
+            onToggle: setQuickOpen,
+            selectedPlanet: f,
+            planets: P,
+            onFree: () => {
+              A().focus(null);
+              setQuickOpen(false);
+            },
+            onQuickTravel: (key, label) => {
+              startTravel(() => {
+                if (spec) {
+                  A().board();
+                  setSpec(false);
+                  setFr(true);
+                }
+                A().quick(key);
+              }, label);
+              setQuickOpen(false);
+            },
+            onPlanetTravel: (name) => {
+              startTravel(() => {
+                if (spec) {
+                  A().board();
+                  setSpec(false);
+                  setFr(true);
+                } else if (!fr) {
+                  setFr(true);
+                  A().free(true);
+                }
+                A().focus(name);
+              }, name);
+              setQuickOpen(false);
+            },
+          }),
+          ),
+          menuSection === 'mission' &&
             h(
-              'small',
-              { style: { marginTop: 6 } },
-              'Datos físicos: NASA Solar System Exploration. Posiciones: elementos keplerianos aproximados de JPL (Standish, válidos 1800–2050) resueltos con la ecuación de Kepler; son aproximaciones, no efemérides de JPL Horizons. La Luna usa una órbita circular simplificada y rotación sincronizada. Todos los ejes apuntan al mismo lado del espacio (simplificación). A alta velocidad la rotación se limita visualmente. Orientación: el plano galáctico está inclinado ~60° respecto a la eclíptica y el centro galáctico queda hacia Sagitario (λ≈266°, β≈−5,6°); el Sol orbita en sentido horario visto desde el polo norte galáctico. Vía Láctea: modelo esquemático, no una fotografía; Sol a unos 26.000 años luz del centro, en el Espolón de Orión; las texturas son procedurales.',
+              'section',
+              { className: 'missionMenuCard' },
+              h('div', { className: 'missionLaunchMark', 'aria-hidden': 'true' }, '✦'),
+              h('small', null, 'OBSERVATORIO ESPACIAL'),
+              h('h2', null, 'Ecos en infrarrojo'),
+              h(
+                'p',
+                null,
+                'Viaja al mapa de la Vía Láctea y explora las imágenes del cielo captadas por SPHEREx a través del tiempo.',
+              ),
+              h(
+                'button',
+                {
+                  className: 'missionLaunchButton',
+                  disabled: countdown !== null || missionArrival,
+                  onClick: startSpherexMission,
+                },
+                countdown !== null || missionArrival ? 'Preparando viaje…' : 'Iniciar misión ↗',
+              ),
             ),
         ),
     ),
@@ -962,41 +1027,6 @@ export default function App() {
           h('div', null, '▸ MOTORES ENCENDIDOS'),
         ),
       ),
-    h(QuickTravelMenu, {
-      open: quickOpen,
-      onToggle: setQuickOpen,
-      selectedPlanet: f,
-      planets: P,
-      onFree: () => {
-        A().focus(null);
-        setQuickOpen(false);
-      },
-      onQuickTravel: (key, label) => {
-        startTravel(() => {
-          if (spec) {
-            A().board();
-            setSpec(false);
-            setFr(true);
-          }
-          A().quick(key);
-        }, label);
-        setQuickOpen(false);
-      },
-      onPlanetTravel: (name) => {
-        startTravel(() => {
-          if (spec) {
-            A().board();
-            setSpec(false);
-            setFr(true);
-          } else if (!fr) {
-            setFr(true);
-            A().free(true);
-          }
-          A().focus(name);
-        }, name);
-        setQuickOpen(false);
-      },
-    }),
     welcomeOpen &&
       h(
         'div',
