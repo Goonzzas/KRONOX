@@ -1219,4 +1219,368 @@ small {
     font:
       10px ui-monospace,
       monospace;
-    
+    color: #bdefff;
+  }
+  .mobileMode.flightMode .hud {
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    max-width: 50vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mobileMode .cp .ht {
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .mobileMode .kronoxNotice {
+    top: auto;
+    bottom: calc(185px + env(safe-area-inset-bottom, 0px));
+    width: calc(100vw - 24px);
+  }
+}
+@media (max-width: 420px) {
+  .mobileMode .mobileFlightControls {
+    right: 8px;
+    transform: scale(0.9);
+    transform-origin: bottom right;
+  }
+  .mobileMode .bd {
+    width: calc(100% - 16px);
+  }
+  .mobileMode .qpanel {
+    max-height: 34dvh;
+  }
+  .mobileMode .kronoxWidget {
+    top: calc(58px + env(safe-area-inset-top, 0px));
+  }
+}
+
+/* SPHEREx mission console */
+.spherexShade {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: #02040bed;
+  backdrop-filter: blur(12px);
+}
+.spherexMission {
+  width: min(1180px, 100%);
+  max-height: min(92dvh, 940px);
+  overflow: auto;
+  border: 1px solid #82c9ff44;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #0b1525f7, #050913f9);
+  box-shadow:
+    0 28px 100px #000c,
+    inset 0 1px #ffffff12;
+  color: #eaf2ff;
+}
+.spherexHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 24px 26px 19px;
+  border-bottom: 1px solid #ffffff17;
+}
+.spherexHeader h2 {
+  margin: 5px 0;
+  font:
+    600 clamp(24px, 4vw, 34px) Georgia,
+    serif;
+}
+.spherexHeader p {
+  margin: 0;
+  color: #9eabc3;
+  font-size: 14px;
+}
+.spherexKicker {
+  color: #67d9ff;
+  font:
+    11px ui-monospace,
+    monospace;
+  letter-spacing: 0.12em;
+}
+.spherexBody {
+  display: grid;
+  grid-template-columns: minmax(230px, 300px) minmax(0, 1fr);
+  min-height: 570px;
+}
+.spherexControls {
+  padding: 20px;
+  border-right: 1px solid #ffffff17;
+}
+.spherexSectionTitle {
+  margin: 0 0 9px;
+  color: #93a9c6;
+  font:
+    11px ui-monospace,
+    monospace;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.spherexTargets {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 21px;
+}
+.spherexTargets button {
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: #ffffff08;
+}
+.spherexTargets button.selected {
+  border-color: #4fc9f4;
+  background: #26a8d51c;
+}
+.spherexTargets b,
+.spherexTargets small {
+  display: block;
+}
+.spherexTargets b {
+  font-size: 13px;
+}
+.spherexTargets small {
+  margin-top: 3px;
+  color: #94a3bb;
+  font-size: 11px;
+}
+.spherexCoordinates {
+  display: grid;
+  gap: 10px;
+}
+.spherexCoordinates label,
+.spherexViewMeta label {
+  display: grid;
+  gap: 5px;
+  color: #9eabc3;
+  font-size: 12px;
+}
+.spherexCoordinates input,
+.spherexCoordinates select,
+.spherexViewMeta select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid #ffffff26;
+  border-radius: 7px;
+  background: #08101e;
+  color: #eaf2ff;
+  font:
+    13px ui-monospace,
+    monospace;
+}
+.spherexSearch {
+  margin-top: 3px;
+  padding: 10px;
+  border-color: #43c8f4;
+  background: #1ba9d52b;
+  color: #c7f4ff;
+  font-weight: 600;
+}
+.spherexSearch:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.spherexTargetHint,
+.spherexStatus {
+  color: #9eabc3;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.spherexTargetHint {
+  margin-top: 12px;
+}
+.spherexStatus {
+  margin-top: 12px;
+  padding: 10px;
+  border-left: 2px solid #40c6e8;
+  background: #ffffff07;
+}
+.spherexViewer {
+  min-width: 0;
+  padding: 20px 22px;
+}
+.spherexViewMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  color: #aebbd0;
+  font:
+    12px ui-monospace,
+    monospace;
+}
+.spherexViewMeta label {
+  display: flex;
+  align-items: center;
+}
+.spherexViewMeta select {
+  width: auto;
+  min-width: 120px;
+  padding: 5px 7px;
+}
+.spherexImageFrame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1.72;
+  overflow: hidden;
+  border: 1px solid #6da5c633;
+  border-radius: 10px;
+  background: radial-gradient(ellipse, #101a2d, #02040a 75%);
+}
+.spherexImageFrame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: auto;
+}
+.spherexImagePlaceholder {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  color: #7586a2;
+  text-align: center;
+  font-size: 13px;
+}
+.spherexSpinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #ffffff25;
+  border-top-color: #66dcff;
+  border-radius: 50%;
+  animation: spherexSpin 0.8s linear infinite;
+}
+@keyframes spherexSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spherexFrameLabel {
+  position: absolute;
+  bottom: 9px;
+  left: 10px;
+  padding: 4px 7px;
+  border: 1px solid #6ccff455;
+  border-radius: 5px;
+  background: #030713c9;
+  color: #9deaff;
+  font:
+    10px ui-monospace,
+    monospace;
+}
+.spherexPlayback {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin: 13px 0 3px;
+}
+.spherexPlayback button {
+  min-width: 40px;
+}
+.spherexPlayback .spherexPlay {
+  min-width: 120px;
+  border-color: #4fc9f4;
+  color: #bff3ff;
+}
+.spherexPlayback span {
+  min-width: 54px;
+  color: #8293ad;
+  font:
+    11px ui-monospace,
+    monospace;
+}
+.spherexTimeline {
+  width: 100%;
+  margin: 10px 0 4px;
+  accent-color: #4fc9f4;
+}
+.spherexFrameDate {
+  min-height: 18px;
+  color: #8e9db5;
+  font:
+    10px ui-monospace,
+    monospace;
+  text-align: center;
+}
+.spherexFilmstrip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 10px 1px 4px;
+}
+.spherexFilmstrip button {
+  flex: 0 0 auto;
+  min-width: 110px;
+  padding: 7px;
+  text-align: left;
+}
+.spherexFilmstrip button.active {
+  border-color: #4fc9f4;
+  background: #1ba9d51f;
+}
+.spherexFilmstrip b,
+.spherexFilmstrip small {
+  display: block;
+}
+.spherexFilmstrip b {
+  font:
+    10px ui-monospace,
+    monospace;
+}
+.spherexFilmstrip small {
+  margin-top: 3px;
+  color: #8293ad;
+  font-size: 10px;
+}
+.spherexFootnote {
+  margin: 13px 0 0;
+  color: #687993;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.spherexError {
+  color: #ff9f94;
+  font-size: 12px;
+}
+@media (max-width: 740px) {
+  .spherexShade {
+    padding: 0;
+    place-items: stretch;
+  }
+  .spherexMission {
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+  .spherexHeader {
+    padding: 18px 16px 14px;
+  }
+  .spherexHeader p {
+    max-width: 38ch;
+    font-size: 12px;
+  }
+  .spherexBody {
+    display: block;
+  }
+  .spherexControls {
+    padding: 14px 16px;
+    border-right: 0;
+    border-bottom: 1px solid #ffffff17;
+  }
+  .spherexTargets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .spherexViewer {
+    padding: 14px 16px 22px;
+  }
+  .spherexImageFrame {
+    aspect-ratio: 1.35;
+  }
+}
