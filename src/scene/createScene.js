@@ -3,6 +3,11 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { P, D2R, TAU, T0, kep, pos } from '../data/planetData.js';
 import { SPHEREX_TARGETS } from '../data/spherexTargets.js';
 
+// The Milky Way view compresses the solar neighborhood into a tiny pixel.
+// A modest visual exaggeration keeps nearby targets legible while preserving
+// their real sky directions and their relative distances from the Sun.
+const LOCAL_NEIGHBORHOOD_VISUAL_SCALE = 3;
+
 function localGalacticPosition(target) {
   const ra = (target.ra * Math.PI) / 180;
   const dec = (target.dec * Math.PI) / 180;
@@ -16,10 +21,12 @@ function localGalacticPosition(target) {
   const north = -0.8676661490 * x - 0.1980763734 * y + 0.4559837762 * z;
   // Put the Sun at the map's existing Orion-arm marker, then offset each
   // named star by its approximate heliocentric distance (the map uses ly).
+  // Three map units per light-year lets close targets read as separate points.
+  const distance = target.distanceLy * LOCAL_NEIGHBORHOOD_VISUAL_SCALE;
   return new THREE.Vector3(
-    24500 + target.distanceLy * (-0.989 * towardCenter + 0.141 * towardLongitude90),
-    target.distanceLy * north,
-    -3500 + target.distanceLy * (0.141 * towardCenter + 0.989 * towardLongitude90),
+    24500 + distance * (-0.989 * towardCenter + 0.141 * towardLongitude90),
+    distance * north,
+    -3500 + distance * (0.141 * towardCenter + 0.989 * towardLongitude90),
   );
 }
 
@@ -408,6 +415,50 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const color = target.mission === 'motion' ? 0x73eaff : 0xffbd72;
     const marker = new THREE.Group();
     marker.position.copy(localGalacticPosition(target));
+    // A quiet, softly scattered dust pocket gives the destination a sense of
+    // place without obscuring the neighboring stars or the navigation marker.
+    const dustPositions = [];
+    const dustColors = [];
+    const baseColor = new THREE.Color(color);
+    for (let i = 0; i < 280; i++) {
+      const angle = Math.random() * TAU;
+      const radius = 28 + Math.random() ** 1.7 * 105;
+      dustPositions.push(
+        Math.cos(angle) * radius,
+        gs() * radius * 0.36,
+        Math.sin(angle) * radius,
+      );
+      const tint = 0.35 + Math.random() * 0.6;
+      dustColors.push(baseColor.r * tint, baseColor.g * tint, baseColor.b * tint);
+    }
+    const dustGeometry = new THREE.BufferGeometry();
+    dustGeometry.setAttribute('position', new THREE.Float32BufferAttribute(dustPositions, 3));
+    dustGeometry.setAttribute('color', new THREE.Float32BufferAttribute(dustColors, 3));
+    const dust = new THREE.Points(
+      dustGeometry,
+      new THREE.PointsMaterial({
+        size: 5.5,
+        sizeAttenuation: true,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.44,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    marker.add(dust);
+    const nebula = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: missionGlowMap,
+        color,
+        transparent: true,
+        opacity: 0.2,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    nebula.scale.set(210, 125, 1);
+    marker.add(nebula);
     const glow = new THREE.Sprite(
       new THREE.SpriteMaterial({
         map: missionGlowMap,
@@ -418,21 +469,33 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         depthWrite: false,
       }),
     );
-    glow.scale.set(95, 95, 1);
+    glow.scale.set(42, 42, 1);
     marker.add(glow);
     const star = new THREE.Mesh(
-      new THREE.SphereGeometry(7, 16, 12),
-      new THREE.MeshBasicMaterial({ color }),
+      new THREE.SphereGeometry(3.8, 24, 18),
+      new THREE.MeshBasicMaterial({ color: 0xf5fbff }),
     );
     marker.add(star);
+    const starGlow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: missionGlowMap,
+        color,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    starGlow.scale.set(23, 23, 1);
+    marker.add(starGlow);
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(18, 0.65, 6, 40),
+      new THREE.TorusGeometry(8.5, 0.35, 6, 48),
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.82 }),
     );
     ring.rotation.x = Math.PI / 2;
     marker.add(ring);
     const label = lab(target.name);
-    label.position.set(0, 28, 0);
+    label.position.set(0, 14, 0);
     label.visible = false;
     marker.add(label);
     LB.push(label);
@@ -690,7 +753,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     activeMissionKey = key;
     tripTo(
       destination,
-      Math.max(65, found.target.distanceLy * 0.18),
+      Math.max(34, found.target.distanceLy * LOCAL_NEIGHBORHOOD_VISUAL_SCALE * 0.16),
       found.target.name,
       null,
       () => {
