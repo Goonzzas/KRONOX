@@ -24,10 +24,14 @@ export default async function handler(request, response) {
   try {
     let audioResponse;
 
-    if (process.env.GOOGLE_TTS_API_KEY) {
+    // The project's existing Google Cloud key is named GEMINI_API_KEY. Accept
+    // the dedicated TTS name as well, so it can be separated later if desired.
+    const googleTtsApiKey = process.env.GOOGLE_TTS_API_KEY || process.env.GEMINI_API_KEY;
+
+    if (googleTtsApiKey) {
       const voice = getCloudVoice(language);
       audioResponse = await fetch(
-        `https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(process.env.GOOGLE_TTS_API_KEY)}`,
+        `https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(googleTtsApiKey)}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
