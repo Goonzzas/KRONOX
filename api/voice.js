@@ -48,7 +48,11 @@ export default async function handler(request, response) {
       );
 
       if (!audioResponse.ok) {
-        return response.status(502).json({ error: 'Google Cloud Text-to-Speech could not create audio.' });
+        const failure = await audioResponse.json().catch(() => ({}));
+        const reason = typeof failure.error?.message === 'string'
+          ? failure.error.message.slice(0, 240)
+          : 'Google Cloud Text-to-Speech could not create audio.';
+        return response.status(502).json({ error: reason });
       }
 
       const result = await audioResponse.json();
