@@ -989,6 +989,10 @@ export default function App() {
           setKronoxDialogHidden(false);
           setKronoxOpen(true);
         } else {
+          // Hiding from the orb is an explicit mute of the dialogue too:
+          // scene events must not reopen it until the user clicks Kronox again.
+          kronoxDialogHiddenRef.current = true;
+          setKronoxDialogHidden(true);
           setKronoxOpen(false);
         }
       },
