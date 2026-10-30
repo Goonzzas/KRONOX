@@ -116,7 +116,24 @@ export default function App() {
       }
       audioSourceRef.current?.disconnect();
       const source = context.createMediaElementSource(audio);
-      source.connect(analyser);
+      const body = context.createBiquadFilter();
+      body.type = 'lowshelf';
+      body.frequency.value = 190;
+      body.gain.value = 2.2;
+      const clarity = context.createBiquadFilter();
+      clarity.type = 'highshelf';
+      clarity.frequency.value = 4200;
+      clarity.gain.value = -1.2;
+      const compressor = context.createDynamicsCompressor();
+      compressor.threshold.value = -23;
+      compressor.knee.value = 18;
+      compressor.ratio.value = 2.2;
+      compressor.attack.value = 0.012;
+      compressor.release.value = 0.18;
+      source.connect(body);
+      body.connect(clarity);
+      clarity.connect(compressor);
+      compressor.connect(analyser);
       audioSourceRef.current = source;
       const spectrum = new Uint8Array(analyser.frequencyBinCount);
       let lastUpdate = 0;
@@ -192,10 +209,12 @@ export default function App() {
         if (audioUrl.startsWith('/')) audio.crossOrigin = 'anonymous';
         audio.src = audioUrl;
         audio.preload = 'auto';
-        audio.playbackRate = 1.28;
-        audio.preservesPitch = true;
+        // A measured pace and a slight pitch drop make the guide sound calmer
+        // and more grounded than the previous accelerated playback.
+        audio.playbackRate = 0.94;
+        audio.preservesPitch = false;
         voiceAudio.current = audio;
-        audio.onended = playNext;
+        audio.onended = () => window.setTimeout(playNext, 140);
         audio.onerror = () => {
           if (token === voiceToken.current) {
             setVoiceError('No se pudo cargar la voz en español. Revisa tu conexión a internet.');
