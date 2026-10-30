@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="520" viewBox="0 0 1440 520" role="img" aria-labelledby="title desc">
+  <title id="title">KRONOX — Explorador 3D del sistema solar</title>
+  <desc id="desc">Banner espacial azul oscuro con órbitas luminosas, planetas y una nave que representa el viaje por el sistema solar.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#050816"/><stop offset=".52" stop-color="#0b1530"/><stop offset="1" stop-color="#11163a"/></linearGradient>
+    <linearGradient id="titleFill" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#fff"/><stop offset=".55" stop-color="#b8f4ff"/><stop offset="1" stop-color="#7dd3fc"/></linearGradient>
+    <linearGradient id="planet" x1=".1" y1=".1" x2=".85" y2=".9"><stop stop-color="#b5f5ff"/><stop offset=".42" stop-color="#48b8e8"/><stop offset="1" stop-color="#3055b9"/></linearGradient>
+    <linearGradient id="saturn" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe3a3"/><stop offset="1" stop-color="#d08450"/></linearGradient>
+    <radialGradient id="sun"><stop stop-color="#fff7ba"/><stop offset=".35" stop-color="#ffc857"/><stop offset="1" stop-color="#fa7b37"/></radialGradient>
+    <radialGradient id="glow"><stop stop-color="#6ceeff" stop-opacity=".4"/><stop offset="1" stop-color="#6ceeff" stop-opacity="0"/></radialGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="16"/></filter>
+  </defs>
+  <rect width="1440" height="520" rx="32" fill="url(#bg)"/>
+  <circle cx="1160" cy="250" r="240" fill="url(#glow)"/>
+  <g fill="#d6f5ff" opacity=".75">
+    <circle cx="102" cy="80" r="1.5"/><circle cx="255" cy="145" r="1"/><circle cx="390" cy="72" r="1.5"/><circle cx="520" cy="116" r="1"/><circle cx="679" cy="59" r="1.3"/><circle cx="765" cy="164" r="1"/><circle cx="905" cy="87" r="1.4"/><circle cx="1040" cy="65" r="1"/><circle cx="1280" cy="98" r="1.5"/><circle cx="1360" cy="186" r="1"/><circle cx="950" cy="393" r="1.2"/><circle cx="110" cy="390" r="1"/><circle cx="330" cy="450" r="1.5"/><circle cx="740" cy="435" r="1"/><circle cx="1320" cy="430" r="1.2"/>
+  </g>
+  <g stroke="#76dfff" fill="none" opacity=".22"><ellipse cx="1145" cy="270" rx="316" ry="104" transform="rotate(-20 1145 270)"/><ellipse cx="1145" cy="270" rx="250" ry="82" transform="rotate(-20 1145 270)"/><ellipse cx="1145" cy="270" rx="185" ry="61" transform="rotate(-20 1145 270)"/></g>
+  <circle cx="1140" cy="260" r="94" fill="#62d8ff" opacity=".12" filter="url(#blur)"/>
+  <circle cx="1140" cy="260" r="57" fill="url(#sun)"/><circle cx="1140" cy="260" r="70" fill="none" stroke="#ffcb75" stroke-opacity=".18" stroke-width="2"/>
+  <circle cx="927" cy="327" r="13" fill="#9b8274"/><circle cx="927" cy="327" r="17" fill="none" stroke="#d6c4ba" stroke-opacity=".35"/>
+  <circle cx="1021" cy="191" r="22" fill="url(#planet)"/>
+  <circle cx="1287" cy="183" r="31" fill="#e79763"/><path d="M1260 175q27 13 54-2M1262 189q25 12 50-1" stroke="#f8c78d" stroke-opacity=".55" fill="none" stroke-width="4"/>
+  <ellipse cx="1228" cy="357" rx="55" ry="15" transform="rotate(-18 1228 357)" fill="none" stroke="#e7bd89" stroke-width="7" opacity=".8"/><circle cx="1228" cy="357" r="29" fill="url(#saturn)"/>
+  <g transform="translate(1370 281) rotate(-22)"><path d="M-31 0 0-16 31 0 0 16Z" fill="#eafaff"/><path d="M-14 0 0-7 14 0 0 7Z" fill="#48c9f4"/><path d="M-28 5-48 15M28 5 48 15" stroke="#68e5ff" stroke-width="3" stroke-linecap="round"/><circle cx="0" cy="0" r="38" fill="none" stroke="#7ce9ff" stroke-opacity=".35"/></g>
+  <path d="M76 365h586" stroke="#65dfff" stroke-opacity=".55"/>
+  <text x="76" y="205" fill="url(#titleFill)" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="92" font-weight="800" letter-spacing="5">KRONOX</text>
+  <text x="82" y="260" fill="#8de8ff" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="5">EXPLORADOR 3D DEL SISTEMA SOLAR</text>
+  <text x="82" y="316" fill="#c3d3ef" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="21">Viaja entre planetas. Explora señales infrarrojas de SPHEREx.</text>
+  <g transform="translate(82 405)" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="700" letter-spacing="2">
+    <rect width="128" height="36" rx="18" fill="#173c65" stroke="#48c9f4" stroke-opacity=".6"/><text x="20" y="23" fill="#baf4ff">✦ EXPLORA</text>
+    <rect x="142" width="128" height="36" rx="18" fill="#173c65" stroke="#48c9f4" stroke-opacity=".6"/><text x="162" y="23" fill="#baf4ff">↗ PILOTA</text>
+    <rect x="284" width="138" height="36" rx="18" fill="#173c65" stroke="#48c9f4" stroke-opacity=".6"/><text x="304" y="23" fill="#baf4ff">◉ INVESTIGA</text>
+  </g>
+</svg>
