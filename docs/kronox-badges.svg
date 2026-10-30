@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="76" viewBox="0 0 1160 76" role="img" aria-labelledby="title desc">
+  <title id="title">Tecnologías de KRONOX</title>
+  <desc id="desc">React 18, Vite 8, Three.js 0.128, API Vercel e interfaz en español.</desc>
+  <g font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="650">
+    <g transform="translate(4 10)">
+      <rect width="176" height="54" rx="16" fill="#10263c" stroke="#61dafb" stroke-opacity=".48"/>
+      <g transform="translate(28 27)" fill="none" stroke="#61dafb" stroke-width="1.8"><ellipse rx="14" ry="6"/><ellipse rx="14" ry="6" transform="rotate(60)"/><ellipse rx="14" ry="6" transform="rotate(120)"/><circle r="2.6" fill="#61dafb" stroke="none"/></g>
+      <text x="54" y="33" fill="#eafaff">React <tspan fill="#61dafb">18</tspan></text>
+    </g>
+    <g transform="translate(192 10)">
+      <rect width="158" height="54" rx="16" fill="#201d42" stroke="#b2a1ff" stroke-opacity=".55"/>
+      <path d="m220 22-11 15h9l-3 11 14-17h-9l4-9Z" transform="translate(-190 -9)" fill="#b2a1ff"/>
+      <text x="49" y="33" fill="#f4f1ff">Vite <tspan fill="#b2a1ff">8</tspan></text>
+    </g>
+    <g transform="translate(362 10)">
+      <rect width="220" height="54" rx="16" fill="#10263c" stroke="#74ddff" stroke-opacity=".5"/>
+      <path d="M22 38 34 16l12 22H22Zm7-4h10l-5-9-5 9Z" fill="#74ddff" fill-rule="evenodd"/>
+      <circle cx="34" cy="27" r="2.2" fill="#fff"/>
+      <text x="55" y="33" fill="#eafaff">Three.js <tspan fill="#74ddff">0.128</tspan></text>
+    </g>
+    <g transform="translate(594 10)">
+      <rect width="190" height="54" rx="16" fill="#161c2b" stroke="#ffffff" stroke-opacity=".34"/>
+      <path d="M25 39 37 17l12 22H25Z" fill="#fff"/><path d="M37 17v22h12L37 17Z" fill="#a8bfd3"/>
+      <text x="59" y="33" fill="#f4f8ff">API <tspan fill="#ffffff">Vercel</tspan></text>
+    </g>
+    <g transform="translate(796 10)">
+      <rect width="196" height="54" rx="16" fill="#2a1b43" stroke="#c4a4ff" stroke-opacity=".55"/>
+      <circle cx="29" cy="27" r="13" fill="none" stroke="#d1b8ff" stroke-width="1.7"/><path d="M16 27h26M29 14c6 7 6 19 0 26M29 14c-6 7-6 19 0 26" fill="none" stroke="#d1b8ff" stroke-width="1.4"/>
+      <text x="52" y="33" fill="#f7f0ff">Idioma <tspan fill="#d1b8ff">Español</tspan></text>
+    </g>
+    <g transform="translate(1004 10)">
+      <rect width="150" height="54" rx="16" fill="#102c34" stroke="#79e8d2" stroke-opacity=".48"/>
+      <path d="M28 17 41 39H15Z" fill="none" stroke="#79e8d2" stroke-width="2"/><circle cx="28" cy="30" r="3" fill="#79e8d2"/>
+      <text x="52" y="33" fill="#e8fffa">WebGL</text>
+    </g>
+  </g>
+</svg>
