@@ -211,8 +211,8 @@ export default function App() {
         audio.preload = 'auto';
         // A measured pace and a slight pitch drop make the guide sound calmer
         // and more grounded than the previous accelerated playback.
-        audio.playbackRate = 0.94;
-        audio.preservesPitch = false;
+        audio.playbackRate = 1.08;
+        audio.preservesPitch = true;
         voiceAudio.current = audio;
         audio.onended = () => window.setTimeout(playNext, 140);
         audio.onerror = () => {
