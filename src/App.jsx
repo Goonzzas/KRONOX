@@ -71,6 +71,7 @@ export default function App() {
     noticeTimer = useRef(null);
   const speakingRef = useRef(false),
     kronoxCloseTimer = useRef(null),
+    kronoxDialogHiddenRef = useRef(false),
     travelRef = useRef(false),
     factIndexRef = useRef(0),
     audioContextRef = useRef(null),
@@ -85,12 +86,12 @@ export default function App() {
   speakingRef.current = speaking;
   const openKronox = () => {
     clearTimeout(kronoxCloseTimer.current);
-    if (!kronoxDialogHidden) setKronoxOpen(true);
+    if (!kronoxDialogHiddenRef.current) setKronoxOpen(true);
   };
   const closeKronoxLater = () => {
     clearTimeout(kronoxCloseTimer.current);
     kronoxCloseTimer.current = setTimeout(() => {
-      if (!speakingRef.current && !kronoxDialogHidden) setKronoxOpen(false);
+      if (!speakingRef.current && !kronoxDialogHiddenRef.current) setKronoxOpen(false);
     }, 3000);
   };
   const stopAudioAnalysis = () => {
@@ -970,6 +971,7 @@ export default function App() {
       audioLevels,
       panelOpen: kronoxOpen,
       onClose: () => {
+        kronoxDialogHiddenRef.current = true;
         setKronoxDialogHidden(true);
         setKronoxOpen(false);
       },
@@ -983,6 +985,7 @@ export default function App() {
       missionStarting: countdown !== null || missionArrival || missionTraveling,
       onOrbClick: () => {
         if (!kronoxOpen || kronoxDialogHidden) {
+          kronoxDialogHiddenRef.current = false;
           setKronoxDialogHidden(false);
           setKronoxOpen(true);
         } else {
