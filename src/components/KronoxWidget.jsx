@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 export default function KronoxWidget({
   guide,
@@ -18,7 +18,62 @@ export default function KronoxWidget({
   missionStarting = false,
 }) {
   const [typed, setTyped] = useState('');
+  const [position, setPosition] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('kronox-widget-position'));
+      return saved && Number.isFinite(saved.x) && Number.isFinite(saved.y) ? saved : null;
+    } catch {
+      return null;
+    }
+  });
+  const dragRef = useRef(null);
+  const movedRef = useRef(false);
   const isTransmitting = speaking || typed.length < guide.length;
+  const panelSide = position && position.x < window.innerWidth / 2 ? 'right' : 'left';
+  const widgetStyle = position
+    ? { left: position.x, top: position.y, right: 'auto', bottom: 'auto' }
+    : undefined;
+
+  const startDrag = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    movedRef.current = false;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: position?.x ?? window.innerWidth - 45,
+      originY: position?.y ?? window.innerHeight - 112,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const moveDrag = (event) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 4) movedRef.current = true;
+    if (!movedRef.current) return;
+    const x = Math.max(34, Math.min(window.innerWidth - 34, drag.originX + dx));
+    const y = Math.max(34, Math.min(window.innerHeight - 34, drag.originY + dy));
+    setPosition({ x, y });
+  };
+  const endDrag = (event) => {
+    if (!dragRef.current) return;
+    if (movedRef.current) {
+      const x = Math.max(34, Math.min(window.innerWidth - 34, event.clientX));
+      const y = Math.max(34, Math.min(window.innerHeight - 34, event.clientY));
+      const next = { x, y };
+      setPosition(next);
+      try {
+        localStorage.setItem('kronox-widget-position', JSON.stringify(next));
+      } catch {
+        // Keep dragging available when storage is disabled.
+      }
+    }
+    dragRef.current = null;
+    setTimeout(() => { movedRef.current = false; }, 0);
+  };
   useEffect(() => {
     setTyped('');
     let index = 0;
@@ -30,12 +85,26 @@ export default function KronoxWidget({
     return () => clearInterval(timer);
   }, [guide]);
   return (
-    <div className={`kronoxWidget ${speaking ? 'is-speaking' : ''} ${isTransmitting ? 'is-transmitting' : ''}`}>
+    <div
+      className={`kronoxWidget ${position ? 'is-positioned' : ''} ${speaking ? 'is-speaking' : ''} ${isTransmitting ? 'is-transmitting' : ''} ${panelOpen ? 'panel-visible' : ''}`}
+      style={widgetStyle}
+      data-panel-side={panelSide}
+    >
       <button
         className="kronoxOrb"
         aria-label="Kronox, guía astral"
         title="Kronox, guía astral"
-        onClick={onOrbClick}
+        onClick={(event) => {
+          if (movedRef.current) {
+            event.preventDefault();
+            return;
+          }
+          onOrbClick();
+        }}
+        onPointerDown={startDrag}
+        onPointerMove={moveDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
       >
         <span className="kronoxCore" />
         <svg className="kronoxGyro" viewBox="0 0 100 100" aria-hidden="true">

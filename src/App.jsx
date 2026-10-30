@@ -32,6 +32,7 @@ export default function App() {
     [speaking, setSpeaking] = useState(false),
     [audioLevels, setAudioLevels] = useState(() => Array(48).fill(0)),
     [kronoxOpen, setKronoxOpen] = useState(false),
+    [kronoxDialogHidden, setKronoxDialogHidden] = useState(false),
     [deviceMode, setDeviceMode] = useState(deviceGuess),
     [welcomeOpen, setWelcomeOpen] = useState(true),
     [missionOpen, setMissionOpen] = useState(false),
@@ -84,12 +85,12 @@ export default function App() {
   speakingRef.current = speaking;
   const openKronox = () => {
     clearTimeout(kronoxCloseTimer.current);
-    setKronoxOpen(true);
+    if (!kronoxDialogHidden) setKronoxOpen(true);
   };
   const closeKronoxLater = () => {
     clearTimeout(kronoxCloseTimer.current);
     kronoxCloseTimer.current = setTimeout(() => {
-      if (!speakingRef.current) setKronoxOpen(false);
+      if (!speakingRef.current && !kronoxDialogHidden) setKronoxOpen(false);
     }, 3000);
   };
   const stopAudioAnalysis = () => {
@@ -968,7 +969,10 @@ export default function App() {
       speaking,
       audioLevels,
       panelOpen: kronoxOpen,
-      onClose: () => setKronoxOpen(false),
+      onClose: () => {
+        setKronoxDialogHidden(true);
+        setKronoxOpen(false);
+      },
       voice,
       accent: voiceAccent,
       voiceError,
@@ -978,8 +982,12 @@ export default function App() {
       onStartMission: () => setMissionSelectorOpen(true),
       missionStarting: countdown !== null || missionArrival || missionTraveling,
       onOrbClick: () => {
-        say('Aquí estoy, explorador. Te avisaré de cada cambio y de los mundos que encontremos.');
-        speak('Aquí estoy, explorador.');
+        if (!kronoxOpen || kronoxDialogHidden) {
+          setKronoxDialogHidden(false);
+          setKronoxOpen(true);
+        } else {
+          setKronoxOpen(false);
+        }
       },
       onToggleVoice: () => {
         if (voice) {

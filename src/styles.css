@@ -200,20 +200,23 @@ small {
   color: #e3d8ff;
 }
 .kronoxWidget {
-  position: absolute;
+  position: fixed;
   right: 16px;
   bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   z-index: 9;
-  width: min(390px, calc(100vw - 28px));
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
+  width: 58px;
+  height: 58px;
   pointer-events: none;
+}
+.kronoxWidget.is-positioned {
+  transform: translate(-50%, -50%);
 }
 .kronoxOrb {
   pointer-events: auto;
   position: relative;
-  flex: 0 0 58px;
+  touch-action: none;
+  cursor: grab;
+  width: 58px;
   height: 58px;
   border: 0;
   border-radius: 50%;
@@ -225,6 +228,7 @@ small {
   animation: kronoxFloat 2.4s ease-in-out infinite alternate;
   isolation: isolate;
 }
+.kronoxOrb:active { cursor: grabbing; }
 .kronoxCore {
   position: absolute;
   width: 18px;
@@ -400,8 +404,10 @@ small {
   opacity: 1;
 }
 .kronoxBubble {
-  position: relative;
-  max-height: min(38vh, 300px);
+  position: absolute;
+  top: 50%;
+  width: min(340px, calc(100vw - 90px));
+  max-height: min(78vh, 560px);
   overflow: auto;
   border: 1px solid #76eaff88;
   border-radius: 10px;
@@ -410,6 +416,15 @@ small {
     0 0 0 1px #a88dff22,
     0 8px 32px #000b,
     0 0 22px #42dfff22;
+  transform: translateY(-50%);
+}
+.kronoxWidget[data-panel-side='right'] .kronoxBubble {
+  left: 70px;
+  right: auto;
+}
+.kronoxWidget[data-panel-side='left'] .kronoxBubble {
+  left: auto;
+  right: 70px;
 }
 .kronoxBubble::before {
   content: '';
@@ -1421,23 +1436,23 @@ small {
     min-height: 38px;
   }
   .mobileMode .kronoxWidget {
-    width: auto;
     right: 10px;
-    top: calc(64px + env(safe-area-inset-top, 0px));
-    bottom: auto;
-    align-items: flex-start;
-    flex-direction: row-reverse;
+    top: auto;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    width: 48px;
+    height: 48px;
   }
   .mobileMode .kronoxOrb {
-    flex-basis: 48px;
     width: 48px;
     height: 48px;
   }
   .mobileMode .kronoxBubble {
-    width: min(300px, calc(100vw - 76px));
-    max-height: 30dvh;
+    width: min(300px, calc(100vw - 82px));
+    max-height: min(78dvh, 560px);
     padding: 9px;
   }
+  .mobileMode .kronoxWidget[data-panel-side='right'] .kronoxBubble { left: 58px; }
+  .mobileMode .kronoxWidget[data-panel-side='left'] .kronoxBubble { right: 58px; }
   .mobileMode .kronoxVoiceBars {
     height: 18px;
     gap: 1px;
@@ -1587,7 +1602,8 @@ small {
     max-height: 34dvh;
   }
   .mobileMode .kronoxWidget {
-    top: calc(58px + env(safe-area-inset-top, 0px));
+    top: auto;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   }
 }
 
