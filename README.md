@@ -6,11 +6,7 @@
 
 [🚀 Abrir KRONOX](https://kronox-delta.vercel.app) · [📖 Guía de usuario](docs/GUIA_USUARIO.md) · [🧭 Arquitectura](docs/ARQUITECTURA.md)
 
-![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
-![Three.js](https://img.shields.io/badge/Three.js-0.128-black?logo=threedotjs&logoColor=white)
-![Vercel](https://img.shields.io/badge/API-Vercel-black?logo=vercel)
-![Idioma](https://img.shields.io/badge/idioma-español-7c3aed)
+<img src="docs/kronox-badges.svg" alt="React 18 · Vite 8 · Three.js 0.128 · API Vercel · interfaz en español · WebGL" width="100%" />
 
 </div>
 
