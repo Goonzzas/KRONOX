@@ -1,5 +1,12 @@
 const SUPPORTED_LANGUAGES = new Set(['es-US', 'es-ES']);
 
+function getCloudVoice(language) {
+  // Chirp 3 HD voices sound more natural and expressive than Translate TTS.
+  return language === 'es-ES'
+    ? { languageCode: 'es-ES', name: 'es-ES-Chirp3-HD-Sulafat' }
+    : { languageCode: 'es-US', name: 'es-US-Chirp3-HD-Sulafat' };
+}
+
 export default async function handler(request, response) {
   if (request.method !== 'GET') {
     response.setHeader('Allow', 'GET');
@@ -14,18 +21,53 @@ export default async function handler(request, response) {
     return response.status(400).json({ error: 'Text must contain between 1 and 200 characters.' });
   }
 
-  const url = new URL('https://translate.google.com/translate_tts');
-  url.searchParams.set('ie', 'UTF-8');
-  url.searchParams.set('client', 'tw-ob');
-  url.searchParams.set('tl', language);
-  url.searchParams.set('text', text);
-
   try {
-    const audioResponse = await fetch(url, {
-      headers: {
-        Accept: 'audio/mpeg',
-        'User-Agent': 'Mozilla/5.0 KRONOX/1.0',
-      },
+    let audioResponse;
+
+    if (process.env.GOOGLE_TTS_API_KEY) {
+      const voice = getCloudVoice(language);
+      audioResponse = await fetch(
+        `https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(process.env.GOOGLE_TTS_API_KEY)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            input: { text },
+            voice,
+            audioConfig: {
+              audioEncoding: 'MP3',
+              speakingRate: 1.03,
+              pitch: -1.5,
+            },
+          }),
+        },
+      );
+
+      if (!audioResponse.ok) {
+        return response.status(502).json({ error: 'Google Cloud Text-to-Speech could not create audio.' });
+      }
+
+      const result = await audioResponse.json();
+      if (!result.audioContent) {
+        return response.status(502).json({ error: 'Google Cloud Text-to-Speech returned no audio.' });
+      }
+
+      const audio = Buffer.from(result.audioContent, 'base64');
+      response.setHeader('Content-Type', 'audio/mpeg');
+      response.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+      response.setHeader('Content-Length', String(audio.length));
+      return response.status(200).send(audio);
+    }
+
+    // Keep a working voice until the Cloud TTS API key is configured.
+    const url = new URL('https://translate.google.com/translate_tts');
+    url.searchParams.set('ie', 'UTF-8');
+    url.searchParams.set('client', 'tw-ob');
+    url.searchParams.set('tl', language);
+    url.searchParams.set('text', text);
+
+    audioResponse = await fetch(url, {
+      headers: { Accept: 'audio/mpeg', 'User-Agent': 'Mozilla/5.0 KRONOX/1.0' },
     });
 
     if (!audioResponse.ok) {
