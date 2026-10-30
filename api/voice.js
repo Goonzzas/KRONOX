@@ -1,4 +1,49 @@
+import { createSign } from 'node:crypto';
+
 const SUPPORTED_LANGUAGES = new Set(['es-US', 'es-ES']);
+
+function encodeBase64Url(value) {
+  return Buffer.from(value).toString('base64url');
+}
+
+async function getGoogleAccessToken() {
+  const serializedAccount = process.env.GOOGLE_TTS_SERVICE_ACCOUNT_JSON;
+  if (!serializedAccount) return null;
+
+  const account = JSON.parse(serializedAccount);
+  if (!account.client_email || !account.private_key) {
+    throw new Error('Google TTS service account credentials are incomplete.');
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const unsignedToken = [
+    encodeBase64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' })),
+    encodeBase64Url(JSON.stringify({
+      iss: account.client_email,
+      scope: 'https://www.googleapis.com/auth/cloud-platform',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600,
+    })),
+  ].join('.');
+  const signer = createSign('RSA-SHA256');
+  signer.update(unsignedToken);
+  const assertion = `${unsignedToken}.${signer.sign(account.private_key, 'base64url')}`;
+
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }),
+  });
+  const tokenResult = await tokenResponse.json();
+  if (!tokenResponse.ok || !tokenResult.access_token) {
+    throw new Error('Google Cloud could not authorize the TTS service account.');
+  }
+  return tokenResult.access_token;
+}
 
 function getCloudVoice(language) {
   // Chirp 3 HD voices sound more natural and expressive than Translate TTS.
@@ -24,17 +69,18 @@ export default async function handler(request, response) {
   try {
     let audioResponse;
 
-    // The project's existing Google Cloud key is named GEMINI_API_KEY. Accept
-    // the dedicated TTS name as well, so it can be separated later if desired.
-    const googleTtsApiKey = process.env.GOOGLE_TTS_API_KEY || process.env.GEMINI_API_KEY;
+    const googleAccessToken = await getGoogleAccessToken();
 
-    if (googleTtsApiKey) {
+    if (googleAccessToken) {
       const voice = getCloudVoice(language);
       audioResponse = await fetch(
-        `https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(googleTtsApiKey)}`,
+        'https://texttospeech.googleapis.com/v1/text:synthesize',
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            Authorization: `Bearer ${googleAccessToken}`,
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({
             input: { text },
             voice,
@@ -67,7 +113,7 @@ export default async function handler(request, response) {
       return response.status(200).send(audio);
     }
 
-    // Keep a working voice until the Cloud TTS API key is configured.
+    // Keep a working voice until the Cloud TTS service account is configured.
     const url = new URL('https://translate.google.com/translate_tts');
     url.searchParams.set('ie', 'UTF-8');
     url.searchParams.set('client', 'tw-ob');
