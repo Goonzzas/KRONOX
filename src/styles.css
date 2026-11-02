@@ -3024,3 +3024,62 @@ small {
   max-height: none;
   aspect-ratio: var(--spherex-image-ratio, 1.72);
 }
+
+
+/* Astronomical WCS sky stage and reference coordinate reticle */
+.spherexSkyStage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+.spherexReticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.spherexReticleRing {
+  position: absolute;
+  inset: 5px;
+  border: 1px dashed #6be6ff88;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #2cd7ff33;
+}
+.spherexReticleTick {
+  position: absolute;
+  background: #7aeaffaa;
+}
+.spherexReticleTick.north {
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 5px;
+  transform: translateX(-50%);
+}
+.spherexReticleTick.south {
+  left: 50%;
+  bottom: 0;
+  width: 1px;
+  height: 5px;
+  transform: translateX(-50%);
+}
+.spherexReticleTick.east {
+  left: 0;
+  top: 50%;
+  width: 5px;
+  height: 1px;
+  transform: translateY(-50%);
+}
+.spherexReticleTick.west {
+  right: 0;
+  top: 50%;
+  width: 5px;
+  height: 1px;
+  transform: translateY(-50%);
+}

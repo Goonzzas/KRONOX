@@ -26,6 +26,22 @@ function imagePoint(event) {
   return x < 0 || x > 1 || y < 0 || y > 1 ? null : { x: x * 100, y: y * 100 };
 }
 
+function SkyReticle({ imageCenter, language }) {
+  return (
+    <div
+      className="spherexReticle"
+      aria-label={`${t('Coordenada de referencia', language)}: RA ${imageCenter.ra.toFixed(4)}°, Dec ${imageCenter.dec.toFixed(4)}°`}
+      title={`RA ${imageCenter.ra.toFixed(4)}°, Dec ${imageCenter.dec.toFixed(4)}°`}
+    >
+      <span className="spherexReticleRing" />
+      <i className="spherexReticleTick north" />
+      <i className="spherexReticleTick south" />
+      <i className="spherexReticleTick east" />
+      <i className="spherexReticleTick west" />
+    </div>
+  );
+}
+
 export default function SpherexMission({ onClose, initialTargetKey = 'barnard', language = 'es' }) {
   const initialTargetIndex = Math.max(
     0,
@@ -52,8 +68,8 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const [compareIndex, setCompareIndex] = useState(0);
   const [compareImage, setCompareImage] = useState('');
   const [compareLoading, setCompareLoading] = useState(false);
-  const [primaryImageRatio, setPrimaryImageRatio] = useState(1.65);
-  const [compareImageRatio, setCompareImageRatio] = useState(1.65);
+  const [primaryImageRatio, setPrimaryImageRatio] = useState(1);
+  const [compareImageRatio, setCompareImageRatio] = useState(1);
   const [marking, setMarking] = useState(false);
   const [marker, setMarker] = useState(null);
   const [findingNote, setFindingNote] = useState('');
@@ -180,7 +196,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
       })
       .then((buffer) => {
         if (token === requestRef.current) {
-          const rendered = parseFits(buffer, stretchRef.current);
+          const rendered = parseFits(buffer, stretchRef.current, imageCenter);
           stretchRef.current = rendered.range;
           setImage(rendered.src);
         }
@@ -236,7 +252,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
         return response.arrayBuffer();
       })
       .then((buffer) => {
-        if (!cancelled) setCompareImage(parseFits(buffer, stretchRef.current).src);
+        if (!cancelled) setCompareImage(parseFits(buffer, stretchRef.current, imageCenter).src);
       })
       .catch((cause) => {
         if (!cancelled) setError(cause.message);
@@ -491,7 +507,10 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   ? `${formatDate(frame.date, language)} ↔ ${formatDate(compareFrame.date, language)}`
                   : `${previousFrame ? formatDate(previousFrame.date, language) : t('primera observación', language)} → ${formatDate(frame.date, language)}`}
                 <span>
-                  {t(' · la escala de brillo se mantiene fija en la secuencia', language)}
+                  {t(
+                    ' · alineado por WCS (N ↑ E ←) · la escala de brillo se mantiene fija en la secuencia',
+                    language,
+                  )}
                 </span>
               </div>
             )}
@@ -577,38 +596,41 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               style={{ '--spherex-image-ratio': primaryImageRatio }}
             >
               {image && (
-                <img
-                  src={image}
-                  alt={`Recorte infrarrojo SPHEREx ${frame?.band}, ${frame ? formatDate(frame.date, language) : ''}`}
-                  className={marking ? 'markable' : ''}
-                  onClick={markImagePosition}
-                  onLoad={(event) =>
-                    setPrimaryImageRatio(
-                      event.currentTarget.naturalWidth / event.currentTarget.naturalHeight,
-                    )
-                  }
-                />
-              )}
-              {findings
-                .filter((finding) => finding.frameId === frame?.id)
-                .map((finding) => (
-                  <span
-                    key={finding.id}
-                    className="spherexMarker saved"
-                    style={{ left: `${finding.x}%`, top: `${finding.y}%` }}
-                    aria-label={t(`Hallazgo ${finding.markerNumber}`, language)}
-                  >
-                    <b>{finding.markerNumber}</b>
-                  </span>
-                ))}
-              {marker && (
-                <span
-                  className="spherexMarker"
-                  style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
-                  aria-label={t('Posición del hallazgo', language)}
-                >
-                  <b>+</b>
-                </span>
+                <div className="spherexSkyStage">
+                  <img
+                    src={image}
+                    alt={`Recorte infrarrojo SPHEREx ${frame?.band}, ${frame ? formatDate(frame.date, language) : ''}`}
+                    className={marking ? 'markable' : ''}
+                    onClick={markImagePosition}
+                    onLoad={(event) =>
+                      setPrimaryImageRatio(
+                        event.currentTarget.naturalWidth / event.currentTarget.naturalHeight,
+                      )
+                    }
+                  />
+                  <SkyReticle imageCenter={imageCenter} language={language} />
+                  {findings
+                    .filter((finding) => finding.frameId === frame?.id)
+                    .map((finding) => (
+                      <span
+                        key={finding.id}
+                        className="spherexMarker saved"
+                        style={{ left: `${finding.x}%`, top: `${finding.y}%` }}
+                        aria-label={t(`Hallazgo ${finding.markerNumber}`, language)}
+                      >
+                        <b>{finding.markerNumber}</b>
+                      </span>
+                    ))}
+                  {marker && (
+                    <span
+                      className="spherexMarker"
+                      style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+                      aria-label={t('Posición del hallazgo', language)}
+                    >
+                      <b>+</b>
+                    </span>
+                  )}
+                </div>
               )}
               {!image && (
                 <div className="spherexImagePlaceholder">
@@ -626,7 +648,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               )}
               {frame && (
                 <span className="spherexFrameLabel">
-                  {frame.band} · {frame.release.toUpperCase()}
+                  {frame.band} · {frame.release.toUpperCase()} · N ↑ E ←
                 </span>
               )}
             </div>
@@ -651,6 +673,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                         }
                         onClick={(event) => markComparisonPosition(event, frame)}
                       />
+                      <SkyReticle imageCenter={imageCenter} language={language} />
                       {findings
                         .filter((finding) => finding.frameId === frame?.id)
                         .map((finding) => (
@@ -696,6 +719,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                         }
                         onClick={(event) => markComparisonPosition(event, compareFrame)}
                       />
+                      <SkyReticle imageCenter={imageCenter} language={language} />
                       {findings
                         .filter((finding) => finding.frameId === compareFrame.id)
                         .map((finding) => (
@@ -877,8 +901,8 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
             )}
             <p className="spherexFootnote">
               {language === 'es'
-                ? 'Los recortes y fechas proceden del archivo público NASA/IPAC IRSA. SPHEREx observa en infrarrojo; el color y el halo suave de las fuentes brillantes son ayudas visuales, no luz visible ni detalle añadido a la medición. El campo mostrado es de 0,5° y se conserva el contraste del primer fotograma para comparar la secuencia. Puedes marcar una fuente y guardar una descripción del cambio entre fechas. Esto ayuda a explorar, pero no reemplaza una medición fotométrica calibrada. La cobertura y cadencia dependen del objetivo.'
-                : 'Image cutouts and dates come from the public NASA/IPAC IRSA archive. SPHEREx observes in infrared; color and the soft glow around bright sources are visual aids, not visible light or added measurement detail. The field shown is 0.5° and the first frame’s contrast is held constant for comparison. You can mark a source and save a description of changes between dates. This supports exploration but does not replace calibrated photometry. Coverage and cadence depend on the target.'}
+                ? 'Los recortes y fechas proceden del archivo público NASA/IPAC IRSA. SPHEREx observa en infrarrojo; el color y el halo suave de las fuentes brillantes son ayudas visuales, no luz visible ni detalle añadido a la medición. Cada observación se reproyecta mediante sus cabeceras WCS (TAN-SIP) a una cuadrícula celeste común de 0,5° (Norte arriba, Este a la izquierda) centrada en la coordenada buscada, conservando el contraste del primer fotograma para comparar la secuencia.'
+                : 'Image cutouts and dates come from the public NASA/IPAC IRSA archive. SPHEREx observes in infrared; color and the soft glow around bright sources are visual aids, not visible light or added measurement detail. Each observation is reprojected using its FITS WCS (TAN-SIP) headers onto a common 0.5° sky grid (North up, East left) centered on the searched coordinate, holding the first frame’s contrast constant for comparison.'}
             </p>
           </main>
         </div>

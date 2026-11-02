@@ -485,6 +485,9 @@ const en = {
   ' días distintos.': ' different days.',
   'Enana roja cercana con gran movimiento propio.': 'A nearby red dwarf with high proper motion.',
   'La voz está activada.': 'Voice is on.',
+  ' · alineado por WCS (N ↑ E ←) · la escala de brillo se mantiene fija en la secuencia':
+    ' · WCS aligned (N ↑ E ←) · brightness scale stays fixed throughout the sequence',
+  'Coordenada de referencia': 'Reference coordinate',
 };
 
 const patterns = [
