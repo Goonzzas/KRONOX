@@ -1995,6 +1995,74 @@ small {
   background: transparent;
   color: #91a1b9;
 }
+
+.spherexGuidedDemo,
+.spherexComparisonPanel,
+.spherexFindingSummary {
+  border: 1px solid #59c8e844;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0d2233cc, #08101ecc);
+}
+.spherexGuidedDemo {
+  display: grid;
+  gap: 9px;
+  margin: -8px 0 20px;
+  padding: 11px;
+}
+.spherexGuidedDemo b,
+.spherexGuidedDemo small {
+  display: block;
+}
+.spherexGuidedDemo b { color: #bceeff; font-size: 12px; }
+.spherexGuidedDemo small,
+.spherexGuidedDemo p { color: #9eabc3; font-size: 11px; line-height: 1.45; }
+.spherexGuidedDemo p { display: grid; gap: 5px; margin: 0; }
+.spherexGuidedDemo p strong { color: #74dcff; font: 10px ui-monospace, monospace; }
+.spherexGuidedDemo button {
+  padding: 8px 10px;
+  border-color: #48caee;
+  color: #c9f5ff;
+  font-size: 11px;
+}
+.spherexComparisonPanel { margin-top: 12px; padding: 12px; }
+.spherexComparisonHeading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+.spherexComparisonHeading > div:first-child { display: grid; gap: 4px; }
+.spherexComparisonHeading b { color: #dceaff; font-size: 13px; }
+.spherexComparisonHeading small { color: #8fa2bd; font-size: 10px; }
+.spherexComparisonModes { display: flex; gap: 6px; }
+.spherexComparisonModes button { padding: 6px 9px; color: #aab9d0; font-size: 10px; }
+.spherexComparisonModes button.active { border-color: #58d5fa; background: #17a2c733; color: #d6f8ff; }
+.spherexComparisonModes button:disabled { opacity: .45; cursor: not-allowed; }
+.spherexComparisonSplit { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.spherexComparisonSplit figure { min-width: 0; margin: 0; overflow: hidden; border: 1px solid #6da5c633; border-radius: 8px; background: #02040a; }
+.spherexComparisonSplit img { display: block; width: 100%; aspect-ratio: 1.72; object-fit: contain; filter: brightness(1.12) contrast(1.08) saturate(1.15); }
+.spherexComparisonSplit figcaption { padding: 7px; border-top: 1px solid #ffffff17; color: #aabbd2; font: 9px ui-monospace, monospace; }
+.spherexComparisonPlaceholder { min-height: 100px; display: flex; align-items: center; justify-content: center; gap: 9px; color: #8fa2bd; font-size: 12px; }
+.spherexOverlayWrap { display: grid; gap: 7px; }
+.spherexOverlayImages { position: relative; overflow: hidden; aspect-ratio: 1.72; border: 1px solid #6da5c633; border-radius: 8px; background: #02040a; }
+.spherexOverlayImages img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: brightness(1.12) contrast(1.08) saturate(1.15); }
+.spherexOverlayImages .spherexOverlayTop { z-index: 1; }
+.spherexOverlayLabel { position: absolute; z-index: 2; top: 7px; padding: 4px 6px; border: 1px solid #6ccff455; border-radius: 4px; background: #030713d9; color: #a9edff; font: 9px ui-monospace, monospace; }
+.spherexOverlayLabel.before { left: 7px; }
+.spherexOverlayLabel.after { right: 7px; }
+.spherexOverlaySlider { display: grid; grid-template-columns: auto 1fr 38px; align-items: center; gap: 8px; color: #9eabc3; font-size: 10px; }
+.spherexOverlaySlider input { width: 100%; accent-color: #4fc9f4; }
+.spherexOverlaySlider span { color: #bff3ff; text-align: right; font: 10px ui-monospace, monospace; }
+.spherexFindingSummary { display: grid; gap: 3px; margin-top: 10px; padding: 9px; }
+.spherexFindingSummary b { color: #8de5fb; font-size: 11px; }
+.spherexFindingSummary span { color: #dceaff; font-size: 11px; }
+.spherexFindingSummary small { color: #8193ac; font-size: 9px; line-height: 1.4; }
+.spherexFindingForm select { flex: 0 0 155px; min-width: 0; padding: 8px; border: 1px solid #ffffff26; border-radius: 7px; background: #08101e; color: #dceaff; font-size: 10px; }
+.spherexFindingList p strong { color: #9beaff; font-weight: 600; }
+
+@media (max-width: 700px) {
+  .spherexComparisonSplit { grid-template-columns: 1fr; }
+  .spherexComparisonSplit img { aspect-ratio: 1.72; }
+  .spherexFindingForm { flex-wrap: wrap; }
+  .spherexFindingForm select { flex-basis: 100%; }
+  .spherexOverlaySlider { grid-template-columns: 1fr 38px; }
+  .spherexOverlaySlider input { grid-column: 1 / -1; grid-row: 2; }
+}
 .spherexImagePlaceholder {
   display: grid;
   justify-items: center;
