@@ -137,6 +137,8 @@ const en = {
   'Comparando:': 'Comparing:',
   'Comparar 2 imágenes': 'Compare 2 images',
   'Ocultar comparación': 'Hide comparison',
+  'Primera fecha': 'First date',
+  'Elegir primera imagen para comparar': 'Choose the first image to compare',
   'Segunda fecha': 'Second date',
   'Elegir segunda imagen para comparar': 'Choose the second image to compare',
   '＋ Marcar cambio': '＋ Mark change',

@@ -515,6 +515,27 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               {compareEnabled && (
                 <>
                   <label>
+                    {t('Primera fecha', language)}
+                    <select
+                      value={frameIndex}
+                      onChange={(event) => {
+                        setFrameIndex(Number(event.target.value));
+                        setPlaying(false);
+                      }}
+                      aria-label={t('Elegir primera imagen para comparar', language)}
+                    >
+                      {visibleRecords.map((record, index) => (
+                        <option
+                          key={`${record.id}-${record.date}`}
+                          value={index}
+                          disabled={index === compareIndex}
+                        >
+                          {formatDate(record.date, language)} · {record.band}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
                     {t('Segunda fecha', language)}
                     <select
                       value={compareIndex}
