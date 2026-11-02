@@ -8,16 +8,9 @@
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
 html,
 body {
-  width: 100%;
   height: 100%;
-  min-height: 100dvh;
   margin: 0;
   background: #000;
   color: var(--tx);
@@ -32,7 +25,7 @@ canvas {
   display: block;
 }
 .pn {
-  max-height: calc(100dvh - 100px);
+  max-height: calc(100vh - 120px);
   overflow: auto;
   position: absolute;
   left: 12px;
@@ -110,7 +103,7 @@ small {
   border: 1px solid #ffffff2a;
   border-radius: 10px;
   width: min(680px, calc(100vw - 24px));
-  max-height: min(45dvh, 420px);
+  max-height: 45vh;
   overflow: auto;
 }
 .qrow {
@@ -414,7 +407,7 @@ small {
   position: absolute;
   top: 50%;
   width: min(340px, calc(100vw - 90px));
-  max-height: min(78dvh, 560px);
+  max-height: min(78vh, 560px);
   overflow: auto;
   border: 1px solid #76eaff88;
   border-radius: 10px;
@@ -669,13 +662,12 @@ small {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(8px, 1.5vw, 18px);
-  overflow: auto;
+  padding: 18px;
   backdrop-filter: blur(5px);
 }
 .infoCard {
-  width: min(760px, calc(100vw - 36px));
-  max-height: min(calc(100dvh - 36px), 900px);
+  width: min(760px, 100%);
+  max-height: min(90vh, 900px);
   overflow: auto;
   background: linear-gradient(145deg, #111a2b, #080c16 70%);
   border: 1px solid #ffffff30;
@@ -1235,15 +1227,12 @@ small {
   z-index: 30;
   display: grid;
   place-items: center;
-  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
-  overflow: auto;
+  padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
   background: radial-gradient(ellipse at 50% 40%, #101a35d9 0, #02040bef 70%);
   backdrop-filter: blur(10px);
 }
 .welcomeCard {
-  width: min(500px, calc(100vw - 24px));
-  max-height: calc(100dvh - 24px);
-  overflow: auto;
+  width: min(500px, 100%);
   padding: clamp(22px, 5vw, 38px);
   text-align: center;
   border: 1px solid #6eeaff77;
@@ -1625,14 +1614,13 @@ small {
   z-index: 45;
   display: grid;
   place-items: center;
-  padding: clamp(8px, 1.5vw, 20px);
-  overflow: auto;
+  padding: 20px;
   background: #02040bd9;
   backdrop-filter: blur(10px);
 }
 .spherexSelector {
-  width: min(900px, calc(100vw - 40px));
-  max-height: min(calc(100dvh - 32px), 850px);
+  width: min(900px, 100%);
+  max-height: min(90dvh, 850px);
   overflow: auto;
   padding: 24px;
   border: 1px solid #78dfff55;
@@ -1672,14 +1660,13 @@ small {
   z-index: 50;
   display: grid;
   place-items: center;
-  padding: clamp(8px, 1.5vw, 18px);
-  overflow: auto;
+  padding: 18px;
   background: #02040bed;
   backdrop-filter: blur(12px);
 }
 .spherexMission {
-  width: min(1180px, calc(100vw - 36px));
-  max-height: min(calc(100dvh - 32px), 940px);
+  width: min(1180px, 100%);
+  max-height: min(92dvh, 940px);
   overflow: auto;
   border: 1px solid #82c9ff44;
   border-radius: 18px;
@@ -1689,7 +1676,6 @@ small {
     inset 0 1px #ffffff12;
   color: #eaf2ff;
 }
-
 .spherexHeader {
   display: flex;
   justify-content: space-between;
@@ -2009,74 +1995,6 @@ small {
   background: transparent;
   color: #91a1b9;
 }
-
-.spherexGuidedDemo,
-.spherexComparisonPanel,
-.spherexFindingSummary {
-  border: 1px solid #59c8e844;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #0d2233cc, #08101ecc);
-}
-.spherexGuidedDemo {
-  display: grid;
-  gap: 9px;
-  margin: -8px 0 20px;
-  padding: 11px;
-}
-.spherexGuidedDemo b,
-.spherexGuidedDemo small {
-  display: block;
-}
-.spherexGuidedDemo b { color: #bceeff; font-size: 12px; }
-.spherexGuidedDemo small,
-.spherexGuidedDemo p { color: #9eabc3; font-size: 11px; line-height: 1.45; }
-.spherexGuidedDemo p { display: grid; gap: 5px; margin: 0; }
-.spherexGuidedDemo p strong { color: #74dcff; font: 10px ui-monospace, monospace; }
-.spherexGuidedDemo button {
-  padding: 8px 10px;
-  border-color: #48caee;
-  color: #c9f5ff;
-  font-size: 11px;
-}
-.spherexComparisonPanel { margin-top: 12px; padding: 12px; }
-.spherexComparisonHeading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
-.spherexComparisonHeading > div:first-child { display: grid; gap: 4px; }
-.spherexComparisonHeading b { color: #dceaff; font-size: 13px; }
-.spherexComparisonHeading small { color: #8fa2bd; font-size: 10px; }
-.spherexComparisonModes { display: flex; gap: 6px; }
-.spherexComparisonModes button { padding: 6px 9px; color: #aab9d0; font-size: 10px; }
-.spherexComparisonModes button.active { border-color: #58d5fa; background: #17a2c733; color: #d6f8ff; }
-.spherexComparisonModes button:disabled { opacity: .45; cursor: not-allowed; }
-.spherexComparisonSplit { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
-.spherexComparisonSplit figure { min-width: 0; margin: 0; overflow: hidden; border: 1px solid #6da5c633; border-radius: 8px; background: #02040a; }
-.spherexComparisonSplit img { display: block; width: 100%; aspect-ratio: 1.72; object-fit: contain; filter: brightness(1.12) contrast(1.08) saturate(1.15); }
-.spherexComparisonSplit figcaption { padding: 7px; border-top: 1px solid #ffffff17; color: #aabbd2; font: 9px ui-monospace, monospace; }
-.spherexComparisonPlaceholder { min-height: 100px; display: flex; align-items: center; justify-content: center; gap: 9px; color: #8fa2bd; font-size: 12px; }
-.spherexOverlayWrap { display: grid; gap: 7px; }
-.spherexOverlayImages { position: relative; overflow: hidden; aspect-ratio: 1.72; border: 1px solid #6da5c633; border-radius: 8px; background: #02040a; }
-.spherexOverlayImages img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: brightness(1.12) contrast(1.08) saturate(1.15); }
-.spherexOverlayImages .spherexOverlayTop { z-index: 1; }
-.spherexOverlayLabel { position: absolute; z-index: 2; top: 7px; padding: 4px 6px; border: 1px solid #6ccff455; border-radius: 4px; background: #030713d9; color: #a9edff; font: 9px ui-monospace, monospace; }
-.spherexOverlayLabel.before { left: 7px; }
-.spherexOverlayLabel.after { right: 7px; }
-.spherexOverlaySlider { display: grid; grid-template-columns: auto 1fr 38px; align-items: center; gap: 8px; color: #9eabc3; font-size: 10px; }
-.spherexOverlaySlider input { width: 100%; accent-color: #4fc9f4; }
-.spherexOverlaySlider span { color: #bff3ff; text-align: right; font: 10px ui-monospace, monospace; }
-.spherexFindingSummary { display: grid; gap: 3px; margin-top: 10px; padding: 9px; }
-.spherexFindingSummary b { color: #8de5fb; font-size: 11px; }
-.spherexFindingSummary span { color: #dceaff; font-size: 11px; }
-.spherexFindingSummary small { color: #8193ac; font-size: 9px; line-height: 1.4; }
-.spherexFindingForm select { flex: 0 0 155px; min-width: 0; padding: 8px; border: 1px solid #ffffff26; border-radius: 7px; background: #08101e; color: #dceaff; font-size: 10px; }
-.spherexFindingList p strong { color: #9beaff; font-weight: 600; }
-
-@media (max-width: 700px) {
-  .spherexComparisonSplit { grid-template-columns: 1fr; }
-  .spherexComparisonSplit img { aspect-ratio: 1.72; }
-  .spherexFindingForm { flex-wrap: wrap; }
-  .spherexFindingForm select { flex-basis: 100%; }
-  .spherexOverlaySlider { grid-template-columns: 1fr 38px; }
-  .spherexOverlaySlider input { grid-column: 1 / -1; grid-row: 2; }
-}
 .spherexImagePlaceholder {
   display: grid;
   justify-items: center;
@@ -2226,51 +2144,200 @@ small {
   }
 }
 
-/* Laptop and split-window layouts: keep dialogs inside the visible viewport. */
-@media (max-width: 980px) {
+/* Mission console: keep every observation control visible on laptop screens. */
+@media (min-width: 741px) and (max-width: 1400px), (min-width: 741px) and (max-height: 900px) {
+  .spherexShade {
+    overflow: hidden;
+    padding: 6px;
+  }
   .spherexMission {
-    width: calc(100vw - 16px);
-    max-height: calc(100dvh - 16px);
+    display: flex;
+    flex-direction: column;
+    width: min(1360px, calc(100vw - 12px));
+    height: calc(100dvh - 12px);
+    max-height: calc(100dvh - 12px);
+    overflow: hidden;
     border-radius: 12px;
   }
-  .spherexBody { grid-template-columns: minmax(0, 1fr); }
+  .spherexHeader {
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 12px;
+  }
+  .spherexHeader h2 {
+    margin: 2px 0;
+    font-size: clamp(18px, 2vw, 24px);
+  }
+  .spherexHeader p,
+  .spherexObjective > span {
+    display: none;
+  }
+  .spherexKicker {
+    font-size: 9px;
+  }
+  .spherexHeader > button {
+    flex: 0 0 auto;
+    padding: 6px 9px;
+  }
+  .spherexObjective {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    margin-top: 4px;
+    padding: 4px 7px;
+  }
+  .spherexObjective small { font-size: 8px; }
+  .spherexObjective b { font-size: 11px; }
+  .spherexBody {
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-columns: minmax(185px, 230px) minmax(0, 1fr);
+    overflow: hidden;
+  }
   .spherexControls {
-    padding: 12px 14px;
-    border-right: 0;
-    border-bottom: 1px solid #ffffff17;
+    min-height: 0;
+    overflow: hidden;
+    padding: 9px;
+    border-right: 1px solid #ffffff17;
+    border-bottom: 0;
+  }
+  .spherexSectionTitle {
+    margin: 0 0 5px;
+    font-size: 9px;
   }
   .spherexTargets {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    margin-bottom: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    margin-bottom: 8px;
   }
+  .spherexTargets button {
+    min-width: 0;
+    min-height: 34px;
+    padding: 5px 6px;
+    overflow: hidden;
+  }
+  .spherexTargets b { font-size: 10px; }
+  .spherexTargets small,
+  .spherexTargetHint { display: none; }
   .spherexCoordinates {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: end;
+    gap: 5px;
   }
-  .spherexCoordinates label:nth-child(3),
-  .spherexCoordinates .spherexSearch { grid-column: span 2; }
-  .spherexViewer { padding: 14px; }
+  .spherexCoordinates label { min-width: 0; gap: 3px; font-size: 9px; }
+  .spherexCoordinates label:nth-child(3) { grid-column: 1; }
+  .spherexCoordinates input,
+  .spherexCoordinates select { min-width: 0; padding: 5px; font-size: 10px; }
+  .spherexSearch { grid-column: 2; align-self: end; margin: 0; padding: 6px 4px; font-size: 9px; }
+  .spherexStatus {
+    max-height: 52px;
+    overflow: hidden;
+    margin-top: 7px;
+    padding: 6px;
+    font-size: 9px;
+    line-height: 1.35;
+  }
+  .spherexViewer {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    padding: 5px 9px 7px;
+  }
+  .spherexViewMeta {
+    flex: 0 0 auto;
+    min-height: 27px;
+    gap: 6px;
+    font-size: 10px;
+  }
+  .spherexViewMeta label { gap: 4px; font-size: 10px; }
+  .spherexViewMeta select { min-width: 90px; padding: 4px 5px; font-size: 10px; }
+  .spherexExpandButton { padding: 4px 6px; font-size: 9px; }
+  .spherexCompareHint {
+    flex: 0 0 auto;
+    margin: 0 0 3px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 9px;
+  }
+  .spherexCompareHint span { display: none; }
+  .spherexImageFrame {
+    flex: 1 1 auto;
+    min-height: 80px;
+    height: auto;
+    aspect-ratio: auto;
+  }
+  .spherexPlayback { flex: 0 0 auto; gap: 6px; margin: 4px 0 0; }
+  .spherexPlayback button { min-width: 32px; padding: 4px 7px; }
+  .spherexPlayback .spherexPlay { min-width: 100px; }
+  .spherexTimeline { flex: 0 0 auto; height: 14px; margin: 1px 0; }
+  .spherexFrameDate { flex: 0 0 auto; min-height: 13px; font-size: 9px; }
+  .spherexFindings {
+    flex: 0 0 auto;
+    min-height: 0;
+    max-height: 104px;
+    overflow: hidden;
+    margin: 3px 0 0;
+    padding: 5px 7px;
+  }
+  .spherexFindingsTitle { flex-wrap: nowrap; gap: 5px; }
+  .spherexFindingsTitle b { font-size: 10px; }
+  .spherexFindingsTitle small { display: none; }
+  .spherexFindingsTitle button,
+  .spherexFindingForm button { padding: 4px 6px; font-size: 9px; }
+  .spherexFindingForm { gap: 5px; margin-top: 4px; }
+  .spherexFindingForm input { padding: 5px 6px; font-size: 10px; }
+  .spherexFindingList { max-height: 36px; gap: 3px; margin-top: 4px; }
+  .spherexFindingList li { gap: 5px; padding: 3px 5px; }
+  .spherexFindingList p { margin: 1px 0; font-size: 10px; }
+  .spherexFilmstrip { flex: 0 0 42px; gap: 4px; overflow-x: auto; overflow-y: hidden; padding: 3px 1px 1px; }
+  .spherexFilmstrip button { min-width: 88px; padding: 4px 5px; }
+  .spherexFilmstrip b,
+  .spherexFilmstrip small { font-size: 8px; }
+  .spherexFootnote { display: none; }
+  .spherexError { flex: 0 0 auto; margin: 2px 0; font-size: 10px; }
 }
-
-@media (max-height: 820px) and (min-width: 761px) {
-  .pn { max-height: calc(100dvh - 88px); padding: 9px 11px; }
-  .menuContent { gap: 6px; padding-top: 6px; }
-  .menuTabs { padding-bottom: 4px; }
-  .menuSectionBody .qpanel { max-height: min(34dvh, 240px); }
-  .spherexShade { padding-top: 8px; padding-bottom: 8px; }
-  .spherexMission { max-height: calc(100dvh - 16px); }
-  .spherexHeader { padding: 12px 18px 10px; }
-  .spherexHeader p { font-size: 12px; }
-  .spherexObjective { margin-top: 8px; padding: 8px 10px; }
-  .spherexBody { min-height: 0; }
-  .spherexControls, .spherexViewer { padding: 11px 13px; }
-  .spherexImageFrame, .spherexComparisonSplit img, .spherexOverlayImages { aspect-ratio: 1.95; }
-  .spherexFindings { margin-top: 8px; padding: 9px; }
-  .spherexFilmstrip { padding-top: 6px; }
-  .spherexFootnote { margin-top: 8px; font-size: 10px; }
+.spherexExpandButton {
+  flex: 0 0 auto;
+  border: 1px solid #4fc9f477;
+  border-radius: 6px;
+  background: #1ba9d51a;
+  color: #bff3ff;
+  cursor: pointer;
 }
-
+.spherexExpandButton:disabled { opacity: .45; cursor: not-allowed; }
+.spherexLightbox {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: clamp(10px, 2vw, 24px);
+  background: #02040bf7;
+  backdrop-filter: blur(12px);
+}
+.spherexLightbox header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #eaf2ff;
+}
+.spherexLightbox header div { display: flex; flex-direction: column; gap: 3px; }
+.spherexLightbox header span { color: #9eabc3; font: 12px ui-monospace, monospace; }
+.spherexLightbox img {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+  filter: brightness(1.12) contrast(1.08) saturate(1.15);
+}
+.spherexLightbox > img { max-width: 100%; max-height: 100%; }
 @media (max-width: 740px) {
-  .spherexMission { width: 100vw; max-height: 100dvh; border-radius: 0; }
-  .spherexBody { display: block; }
+  .spherexLightbox { padding: 12px; }
+  .spherexLightbox header span { font-size: 10px; }
 }
