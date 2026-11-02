@@ -2992,3 +2992,35 @@ small {
   max-height: min(65dvh, 680px);
   aspect-ratio: var(--spherex-image-ratio, 1.72);
 }
+
+
+/* Let the main mission window grow to the full natural image dimensions. */
+.spherexShade.hasFullImage {
+  display: block;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: clamp(6px, 1.5vw, 18px);
+}
+.spherexMission.imageExpanded {
+  width: min(1180px, 100%);
+  height: auto;
+  max-height: none;
+  margin: 0 auto;
+  overflow: visible;
+}
+.spherexBody.imageExpanded {
+  min-height: 0;
+  overflow: visible;
+}
+.spherexViewer.imageExpanded {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+.spherexImageFrame.hasImage {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: var(--spherex-image-ratio, 1.72);
+}

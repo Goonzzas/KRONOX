@@ -347,14 +347,14 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
 
   return (
     <div
-      className="spherexShade"
+      className={`spherexShade${image && !compareEnabled ? ' hasFullImage' : ''}`}
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <section
-        className="spherexMission"
+        className={`spherexMission${image && !compareEnabled ? ' imageExpanded' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="spherex-title"
@@ -381,7 +381,9 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
             Cerrar ✕
           </button>
         </header>
-        <div className={`spherexBody${compareEnabled ? ' comparing' : ''}`}>
+        <div
+          className={`spherexBody${compareEnabled ? ' comparing' : ''}${image && !compareEnabled ? ' imageExpanded' : ''}`}
+        >
           <aside className="spherexControls">
             <div className="spherexSectionTitle">{t('Objetivos de la misión', language)}</div>
             <div className="spherexTargets">
@@ -445,7 +447,9 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               {truncated ? t(' Se muestran como máximo 250 resultados.', language) : ''}
             </div>
           </aside>
-          <main className={`spherexViewer${compareEnabled ? ' comparing' : ''}`}>
+          <main
+            className={`spherexViewer${compareEnabled ? ' comparing' : ''}${image && !compareEnabled ? ' imageExpanded' : ''}`}
+          >
             <div className="spherexViewMeta">
               <span>
                 {frame
@@ -572,7 +576,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               )}
             </div>
             <div
-              className={`spherexImageFrame${compareEnabled ? ' comparisonHidden' : ''}`}
+              className={`spherexImageFrame${compareEnabled ? ' comparisonHidden' : ''}${image ? ' hasImage' : ''}`}
               style={{ '--spherex-image-ratio': primaryImageRatio }}
             >
               {image && (
