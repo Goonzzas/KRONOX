@@ -198,6 +198,8 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
       return undefined;
     }
     if (compareIndex === frameIndex) {
+      setCompareImage('');
+      setCompareLoading(false);
       setCompareIndex(frameIndex > 0 ? frameIndex - 1 : Math.min(frameIndex + 1, visibleRecords.length - 1));
       return undefined;
     }
