@@ -36,6 +36,10 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const [release, setRelease] = useState('qr2');
   const [band, setBand] = useState('');
   const [image, setImage] = useState('');
+  const [compareEnabled, setCompareEnabled] = useState(false);
+  const [compareIndex, setCompareIndex] = useState(0);
+  const [compareImage, setCompareImage] = useState('');
+  const [compareLoading, setCompareLoading] = useState(false);
   const [marking, setMarking] = useState(false);
   const [marker, setMarker] = useState(null);
   const [findingNote, setFindingNote] = useState('');
@@ -59,6 +63,9 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     () => (band ? records.filter((record) => record.band === band) : records),
     [records, band],
   );
+  const frame = visibleRecords[frameIndex];
+  const previousFrame = visibleRecords[frameIndex - 1];
+  const compareFrame = visibleRecords[compareIndex];
 
   const search = async (nextRa = ra, nextDec = dec) => {
     const searchId = ++searchRef.current;
@@ -72,6 +79,9 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     setFrameIndex(0);
     setBand('');
     setPlaying(false);
+    setCompareIndex(0);
+    setCompareImage('');
+    setCompareEnabled(false);
     setStatus('Consultando las observaciones públicas de IRSA…');
     try {
       const response = await fetch(
@@ -181,10 +191,48 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     return () => clearTimeout(timer);
   }, [playing, frameLoading, visibleRecords.length, image]);
 
+  useEffect(() => {
+    if (!compareEnabled || !image || !compareFrame) {
+      setCompareImage('');
+      setCompareLoading(false);
+      return undefined;
+    }
+    if (compareIndex === frameIndex) {
+      setCompareIndex(frameIndex > 0 ? frameIndex - 1 : Math.min(frameIndex + 1, visibleRecords.length - 1));
+      return undefined;
+    }
+    let cancelled = false;
+    setCompareImage('');
+    setCompareLoading(true);
+    const params = new URLSearchParams({
+      action: 'frame',
+      url: compareFrame.url,
+      center: `${imageCenter.ra},${imageCenter.dec}`,
+    });
+    fetch(`/api/spherex?${params}`)
+      .then(async (response) => {
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error || 'No se pudo abrir el recorte.');
+        }
+        return response.arrayBuffer();
+      })
+      .then((buffer) => {
+        if (!cancelled) setCompareImage(parseFits(buffer, stretchRef.current).src);
+      })
+      .catch((cause) => {
+        if (!cancelled) setError(cause.message);
+      })
+      .finally(() => {
+        if (!cancelled) setCompareLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [compareEnabled, compareFrame, compareIndex, frameIndex, image, imageCenter, visibleRecords.length]);
+
   const step = (amount) =>
     setFrameIndex((index) => (index + amount + visibleRecords.length) % visibleRecords.length);
-  const frame = visibleRecords[frameIndex];
-  const previousFrame = visibleRecords[frameIndex - 1];
   const selectedTarget = TARGETS[selected];
   const missionObjective = t(
     SPHEREX_MISSION_TYPES.find((mission) => mission.key === selectedTarget.mission)?.objective ||
@@ -374,6 +422,8 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     stretchRef.current = null;
                     setBand(event.target.value);
                     setFrameIndex(0);
+                    setCompareIndex(visibleRecords.length > 1 ? 1 : 0);
+                    if (visibleRecords.length < 2) setCompareEnabled(false);
                     setPlaying(false);
                   }}
                   disabled={!bands.length}
@@ -408,7 +458,38 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                 </span>
               </div>
             )}
-            <div className="spherexImageFrame">
+            <div className="spherexCompareControls">
+              <button
+                type="button"
+                className={compareEnabled ? 'active' : ''}
+                onClick={() => {
+                  setCompareEnabled((enabled) => !enabled);
+                  setCompareIndex(frameIndex > 0 ? frameIndex - 1 : Math.min(1, visibleRecords.length - 1));
+                  setPlaying(false);
+                }}
+                disabled={visibleRecords.length < 2}
+                aria-pressed={compareEnabled}
+              >
+                {compareEnabled ? t('Ocultar comparación', language) : t('Comparar 2 imágenes', language)}
+              </button>
+              {compareEnabled && (
+                <label>
+                  {t('Segunda fecha', language)}
+                  <select
+                    value={compareIndex}
+                    onChange={(event) => setCompareIndex(Number(event.target.value))}
+                    aria-label={t('Elegir segunda imagen para comparar', language)}
+                  >
+                    {visibleRecords.map((record, index) => (
+                      <option key={`${record.id}-${record.date}`} value={index} disabled={index === frameIndex}>
+                        {formatDate(record.date, language)} · {record.band}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+            <div className={`spherexImageFrame${compareEnabled ? ' comparisonHidden' : ''}`}>
               {image && (
                 <img
                   src={image}
@@ -458,6 +539,18 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                 </span>
               )}
             </div>
+            {compareEnabled && compareFrame && (
+              <div className="spherexComparisonGrid">
+                <article className="spherexComparisonPane">
+                  <header>{t('Imagen actual', language)} · {frame ? formatDate(frame.date, language) : ''}</header>
+                  {image ? <img src={image} alt={`${t('Imagen actual', language)} ${frame ? formatDate(frame.date, language) : ''}`} /> : <span>{t('Cargando imagen…', language)}</span>}
+                </article>
+                <article className="spherexComparisonPane">
+                  <header>{t('Segunda imagen', language)} · {formatDate(compareFrame.date, language)}</header>
+                  {compareLoading ? <span>{t('Cargando imagen…', language)}</span> : compareImage ? <img src={compareImage} alt={`${t('Segunda imagen', language)} ${formatDate(compareFrame.date, language)}`} /> : <span>{compareIndex === frameIndex ? t('Elige otra fecha para comparar.', language) : t('La imagen no está disponible.', language)}</span>}
+                </article>
+              </div>
+            )}
             {error && (
               <p className="spherexError" role="alert">
                 {t(error, language)}
