@@ -1,19 +1,45 @@
 import React from 'react';
+import { t } from '../i18n.js';
 
-const DIRECTIONS = [
-  { key: 'w', label: '▲', className: 'mobileUp', name: 'Avanzar' },
-  { key: 'a', label: '◀', className: 'mobileLeft', name: 'Izquierda' },
-  { key: 's', label: '▼', className: 'mobileDown', name: 'Retroceder' },
-  { key: 'd', label: '▶', className: 'mobileRight', name: 'Derecha' },
-];
-
-export default function MobileFlightControls({ active, api, speed, onSpeedChange }) {
+export default function MobileFlightControls({
+  active,
+  api,
+  speed,
+  onSpeedChange,
+  language = 'es',
+}) {
   if (!active) return null;
+  const directions = [
+    {
+      key: 'w',
+      label: '▲',
+      className: 'mobileUp',
+      name: language === 'es' ? 'Avanzar' : 'Forward',
+    },
+    {
+      key: 'a',
+      label: '◀',
+      className: 'mobileLeft',
+      name: language === 'es' ? 'Izquierda' : 'Left',
+    },
+    {
+      key: 's',
+      label: '▼',
+      className: 'mobileDown',
+      name: language === 'es' ? 'Retroceder' : 'Back',
+    },
+    {
+      key: 'd',
+      label: '▶',
+      className: 'mobileRight',
+      name: language === 'es' ? 'Derecha' : 'Right',
+    },
+  ];
   const hold = (key, pressed) => api()?.key(key, pressed);
   return (
-    <div className="mobileFlightControls" aria-label="Controles táctiles de vuelo">
-      <div className="mobileDpad" aria-label="Dirección de la nave">
-        {DIRECTIONS.map((direction) => (
+    <div className="mobileFlightControls" aria-label={t('Controles táctiles de vuelo', language)}>
+      <div className="mobileDpad" aria-label={t('Dirección de la nave', language)}>
+        {directions.map((direction) => (
           <button
             key={direction.key}
             className={direction.className}
@@ -34,8 +60,12 @@ export default function MobileFlightControls({ active, api, speed, onSpeedChange
       </div>
       <div className="mobileVerticalControls">
         <button
-          aria-label="Subir"
-          onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); hold('e', true); }}
+          aria-label={t('Subir', language)}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.currentTarget.setPointerCapture(event.pointerId);
+            hold('e', true);
+          }}
           onPointerUp={() => hold('e', false)}
           onPointerCancel={() => hold('e', false)}
           onLostPointerCapture={() => hold('e', false)}
@@ -43,8 +73,12 @@ export default function MobileFlightControls({ active, api, speed, onSpeedChange
           ⬆
         </button>
         <button
-          aria-label="Bajar"
-          onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); hold('q', true); }}
+          aria-label={t('Bajar', language)}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.currentTarget.setPointerCapture(event.pointerId);
+            hold('q', true);
+          }}
           onPointerUp={() => hold('q', false)}
           onPointerCancel={() => hold('q', false)}
           onLostPointerCapture={() => hold('q', false)}
@@ -53,9 +87,21 @@ export default function MobileFlightControls({ active, api, speed, onSpeedChange
         </button>
       </div>
       <div className="mobileSpeedControls">
-        <button aria-label="Reducir velocidad" onClick={() => onSpeedChange(Math.max(0.01, speed / 2))}>−</button>
-        <span>{speed >= 1000 ? `${(speed / 1000).toFixed(1)}k` : speed.toFixed(speed < 10 ? 1 : 0)} u/s</span>
-        <button aria-label="Aumentar velocidad" onClick={() => onSpeedChange(Math.min(50000, speed * 2))}>+</button>
+        <button
+          aria-label={t('Reducir velocidad', language)}
+          onClick={() => onSpeedChange(Math.max(0.01, speed / 2))}
+        >
+          −
+        </button>
+        <span>
+          {speed >= 1000 ? `${(speed / 1000).toFixed(1)}k` : speed.toFixed(speed < 10 ? 1 : 0)} u/s
+        </span>
+        <button
+          aria-label={t('Aumentar velocidad', language)}
+          onClick={() => onSpeedChange(Math.min(50000, speed * 2))}
+        >
+          +
+        </button>
       </div>
     </div>
   );

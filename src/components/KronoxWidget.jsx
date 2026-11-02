@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { t } from '../i18n.js';
 
 export default function KronoxWidget({
   guide,
+  language = 'es',
   voice,
   accent,
   voiceError,
@@ -72,7 +74,9 @@ export default function KronoxWidget({
       }
     }
     dragRef.current = null;
-    setTimeout(() => { movedRef.current = false; }, 0);
+    setTimeout(() => {
+      movedRef.current = false;
+    }, 0);
   };
   useEffect(() => {
     setTyped('');
@@ -92,8 +96,8 @@ export default function KronoxWidget({
     >
       <button
         className="kronoxOrb"
-        aria-label="Kronox, guía astral"
-        title="Kronox, guía astral"
+        aria-label={t('Kronox, guía astral', language)}
+        title={t('Kronox, guía astral', language)}
         onClick={(event) => {
           if (movedRef.current) {
             event.preventDefault();
@@ -117,44 +121,77 @@ export default function KronoxWidget({
         <i className="kronoxSpark sparkTwo" />
         <i className="kronoxSpark sparkThree" />
       </button>
-      {panelOpen && <div className={`kronoxBubble ${isTransmitting ? 'transmitting' : ''}`}>
-        <div className="kronoxPanelTop">
-          <div className="kronoxName">Kronox · guía astral</div>
-          <span className="kronoxStatus"><i />{speaking ? 'transmitiendo…' : 'en línea'}</span>
-          <button className="kronoxClose" aria-label="Cerrar panel de Kronox" onClick={onClose}>×</button>
-        </div>
-        <div className="kronoxVoiceBars" aria-hidden="true">
-          {Array.from({ length: 48 }, (_, index) => (
-            <i key={index} style={{ '--bar-level': audioLevels?.[index] ?? 0.08 }} />
-          ))}
-        </div>
-        <p aria-live="polite">{typed}<span className="kronoxCursor">▍</span></p>
-        <button onClick={onToggleVoice}>{voice ? 'Silenciar voz' : 'Activar voz'}</button>
-        {voice && (
-          <label className="r" style={{ fontSize: 12, marginBottom: 0 }}>
-            Acento de Kronox{' '}
-            <select value={accent} onChange={(event) => onAccentChange(event.target.value)}>
-              <option value="es-US">Latino</option>
-              <option value="es-ES">España</option>
-            </select>
-          </label>
-        )}
-        {voice && (
-          <small>
-            La voz alternativa requiere internet y envía los avisos de Kronox a Google para generar
-            el audio.
-          </small>
-        )}
-        {voiceError && <small role="status">{voiceError}</small>}
-        {near && <button onClick={() => onMore(near)}>¿Quieres saber más? Dale aquí</button>}
-        <div className="kronoxMissionOffer">
-          <span>SEÑAL NUEVA · SPHEREx</span>
-          <p>¿Rastreamos estrellas en movimiento o comparamos el brillo de estrellas variables?</p>
-          <button onClick={onStartMission} disabled={missionStarting}>
-            {missionStarting ? 'Preparando el salto…' : 'Elegir misión'}
+      {panelOpen && (
+        <div className={`kronoxBubble ${isTransmitting ? 'transmitting' : ''}`}>
+          <div className="kronoxPanelTop">
+            <div className="kronoxName">{t('Kronox · guía astral', language)}</div>
+            <span className="kronoxStatus">
+              <i />
+              {speaking ? t('transmitiendo…', language) : t('en línea', language)}
+            </span>
+            <button
+              className="kronoxClose"
+              aria-label={t('Cerrar panel de Kronox', language)}
+              onClick={onClose}
+            >
+              ×
+            </button>
+          </div>
+          <div className="kronoxVoiceBars" aria-hidden="true">
+            {Array.from({ length: 48 }, (_, index) => (
+              <i key={index} style={{ '--bar-level': audioLevels?.[index] ?? 0.08 }} />
+            ))}
+          </div>
+          <p aria-live="polite">
+            {typed}
+            <span className="kronoxCursor">▍</span>
+          </p>
+          <button onClick={onToggleVoice}>
+            {voice ? t('Silenciar voz', language) : t('Activar voz', language)}
           </button>
+          {voice && (
+            <label className="r" style={{ fontSize: 12, marginBottom: 0 }}>
+              {t(language === 'es' ? 'Acento de Kronox' : 'Kronox voice', language)}{' '}
+              <select value={accent} onChange={(event) => onAccentChange(event.target.value)}>
+                {language === 'es' ? (
+                  <>
+                    <option value="es-US">Latino</option>
+                    <option value="es-ES">España</option>
+                  </>
+                ) : (
+                  <option value="en-US">United States</option>
+                )}
+              </select>
+            </label>
+          )}
+          {voice && (
+            <small>
+              {t(
+                'La voz alternativa requiere internet y envía los avisos de Kronox a Google para generar el audio.',
+                language,
+              )}
+            </small>
+          )}
+          {voiceError && <small role="status">{voiceError}</small>}
+          {near && (
+            <button onClick={() => onMore(near)}>
+              {t('¿Quieres saber más? Dale aquí', language)}
+            </button>
+          )}
+          <div className="kronoxMissionOffer">
+            <span>{t('SEÑAL NUEVA · SPHEREx', language)}</span>
+            <p>
+              {t(
+                '¿Rastreamos estrellas en movimiento o comparamos el brillo de estrellas variables?',
+                language,
+              )}
+            </p>
+            <button onClick={onStartMission} disabled={missionStarting}>
+              {missionStarting ? t('Preparando el salto…', language) : t('Elegir misión', language)}
+            </button>
+          </div>
         </div>
-      </div>}
+      )}
     </div>
   );
 }

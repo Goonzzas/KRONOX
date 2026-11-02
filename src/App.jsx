@@ -9,9 +9,8 @@ import MobileFlightControls from './components/MobileFlightControls.jsx';
 import SpherexMission from './components/SpherexMission.jsx';
 import SpherexMissionSelector from './components/SpherexMissionSelector.jsx';
 import { SPHEREX_MISSION_TYPES } from './data/spherexTargets.js';
+import { detectLanguage, hasSavedLanguage, LANGUAGES, t, voiceLanguage } from './i18n.js';
 import './styles.css';
-
-const h = React.createElement;
 
 export default function App() {
   const deviceGuess = () =>
@@ -28,7 +27,8 @@ export default function App() {
     [f, setF] = useState(null),
     [near, setNear] = useState(null),
     [more, setMore] = useState(null),
-    [guide, setGuide] = useState('A tu lado, explorador. Soy Kronox, tu guía astral.'),
+    [guide, setGuideState] = useState('A tu lado, explorador. Soy Kronox, tu guía astral.'),
+    [language, setLanguageState] = useState(detectLanguage),
     [speaking, setSpeaking] = useState(false),
     [audioLevels, setAudioLevels] = useState(() => Array(48).fill(0)),
     [kronoxOpen, setKronoxOpen] = useState(false),
@@ -45,7 +45,7 @@ export default function App() {
     [welcomeStep, setWelcomeStep] = useState('voice'),
     [voice, setVoice] = useState(false),
     [voiceError, setVoiceError] = useState(''),
-    [voiceAccent, setVoiceAccent] = useState('es-US'),
+    [voiceAccent, setVoiceAccent] = useState(() => voiceLanguage(detectLanguage(), 'es-US')),
     [notice, setNotice] = useState(null),
     [countdown, setCountdown] = useState(null),
     [fl, setFl] = useState({ orb: 1, lab: 1, ax: 0, vel: 0, gal: 0 }),
@@ -69,6 +69,66 @@ export default function App() {
     noticeQueue = useRef([]),
     noticeRef = useRef(null),
     noticeTimer = useRef(null);
+  const languageManuallyChosen = useRef(false);
+  const languagePreferenceExists = useRef(hasSavedLanguage());
+  const setGuide = (message) => setGuideState(t(message, language));
+  const localizeChildren = (child) =>
+    Array.isArray(child)
+      ? child.map(localizeChildren)
+      : typeof child === 'string'
+        ? t(child, language)
+        : child;
+  const h = (type, props, ...children) => {
+    const nextProps = { ...(props || {}) };
+    for (const key of ['aria-label', 'title', 'placeholder', 'alt']) {
+      if (typeof nextProps[key] === 'string') nextProps[key] = t(nextProps[key], language);
+    }
+    if (nextProps.guide) nextProps.guide = t(nextProps.guide, language);
+    if (nextProps.voiceError) nextProps.voiceError = t(nextProps.voiceError, language);
+    if (typeof type !== 'string') nextProps.language = language;
+    return React.createElement(type, nextProps, ...children.map(localizeChildren));
+  };
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.title = language === 'en' ? 'KRONOX · 3D Explorer' : 'KRONOX · Explorador 3D';
+    const description = document.querySelector('meta[name="description"]');
+    if (description)
+      description.content =
+        language === 'en'
+          ? 'Explore the solar system in 3D with Kronox, your astral guide.'
+          : 'Explora el sistema solar en 3D con Kronox, tu guía astral.';
+    try {
+      localStorage.setItem('kronox-language', language);
+    } catch {
+      /* Preference stays in memory. */
+    }
+  }, [language]);
+  const chooseLanguage = (nextLanguage) => {
+    languageManuallyChosen.current = true;
+    setLanguageState(nextLanguage);
+    setVoiceAccent(voiceLanguage(nextLanguage, 'es-US'));
+    try {
+      localStorage.setItem('kronox-language', nextLanguage);
+    } catch {
+      /* Preference stays in memory. */
+    }
+  };
+  useEffect(() => {
+    if (languagePreferenceExists.current) return;
+    fetch('/api/locale')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((result) => {
+        if (
+          !languageManuallyChosen.current &&
+          result?.language &&
+          LANGUAGES.some((item) => item.code === result.language)
+        ) {
+          setLanguageState(result.language);
+          setVoiceAccent(voiceLanguage(result.language, 'es-US'));
+        }
+      })
+      .catch(() => {});
+  }, []);
   const speakingRef = useRef(false),
     kronoxCloseTimer = useRef(null),
     kronoxDialogHiddenRef = useRef(false),
@@ -82,7 +142,7 @@ export default function App() {
   paR.current = pause;
   flR.current = fl;
   voiceRef.current = voice;
-  voiceAccentRef.current = voiceAccent;
+  voiceAccentRef.current = voiceLanguage(language, voiceAccent);
   speakingRef.current = speaking;
   const openKronox = () => {
     clearTimeout(kronoxCloseTimer.current);
@@ -116,24 +176,7 @@ export default function App() {
       }
       audioSourceRef.current?.disconnect();
       const source = context.createMediaElementSource(audio);
-      const body = context.createBiquadFilter();
-      body.type = 'lowshelf';
-      body.frequency.value = 190;
-      body.gain.value = 2.2;
-      const clarity = context.createBiquadFilter();
-      clarity.type = 'highshelf';
-      clarity.frequency.value = 4200;
-      clarity.gain.value = -1.2;
-      const compressor = context.createDynamicsCompressor();
-      compressor.threshold.value = -23;
-      compressor.knee.value = 18;
-      compressor.ratio.value = 2.2;
-      compressor.attack.value = 0.012;
-      compressor.release.value = 0.18;
-      source.connect(body);
-      body.connect(clarity);
-      clarity.connect(compressor);
-      compressor.connect(analyser);
+      source.connect(analyser);
       audioSourceRef.current = source;
       const spectrum = new Uint8Array(analyser.frequencyBinCount);
       let lastUpdate = 0;
@@ -161,6 +204,7 @@ export default function App() {
     }
   };
   const speak = (msg) => {
+      msg = t(msg, language);
       if (!voiceRef.current) return;
       openKronox();
       const token = ++voiceToken.current;
@@ -209,12 +253,10 @@ export default function App() {
         if (audioUrl.startsWith('/')) audio.crossOrigin = 'anonymous';
         audio.src = audioUrl;
         audio.preload = 'auto';
-        // A measured pace and a slight pitch drop make the guide sound calmer
-        // and more grounded than the previous accelerated playback.
-        audio.playbackRate = 1.08;
+        audio.playbackRate = 1.28;
         audio.preservesPitch = true;
         voiceAudio.current = audio;
-        audio.onended = () => window.setTimeout(playNext, 140);
+        audio.onended = playNext;
         audio.onerror = () => {
           if (token === voiceToken.current) {
             setVoiceError('No se pudo cargar la voz en español. Revisa tu conexión a internet.');
@@ -272,7 +314,12 @@ export default function App() {
       }, duration);
     },
     notify = (text, title = 'Aviso', planet = null) => {
-      noticeQueue.current.push({ id: Date.now() + Math.random(), text, title, planet });
+      noticeQueue.current.push({
+        id: Date.now() + Math.random(),
+        text: t(text, language),
+        title: t(title, language),
+        planet,
+      });
       if (!noticeRef.current) showNextNotice();
     };
   useEffect(() => {
@@ -345,7 +392,11 @@ export default function App() {
       if (!facts.length) return;
       const [key, label] = facts[factIndexRef.current % facts.length];
       factIndexRef.current += 1;
-      notify(label + ' de ' + target + ': ' + data[key], 'Dato astronómico', target);
+      notify(
+        t(label, language) + ' de ' + t(target, language) + ': ' + t(data[key], language),
+        'Dato astronómico',
+        target,
+      );
     }, 38000);
     return () => clearInterval(timer);
   }, [near, f, countdown]);
@@ -376,13 +427,13 @@ export default function App() {
       noticeRef.current = null;
       setNotice(null);
       setCountdown(3);
-      setGuide('Preparando viaje rápido hacia ' + label + '. Cuenta atrás: 3, 2, 1.');
+      setGuide('Preparando viaje rápido hacia ' + t(label, language) + '. Cuenta atrás: 3, 2, 1.');
       speak('Tres.');
       let n = 3;
       const tick = () => {
         if (n === 1) {
           setCountdown(null);
-          notify('¡Salto iniciado! Rumbo a ' + label + '.', 'Viaje rápido');
+          notify('¡Salto iniciado! Rumbo a ' + t(label, language) + '.', 'Viaje rápido');
           if (awaitSceneArrival) {
             run(() => {
               travelRef.current = false;
@@ -390,10 +441,13 @@ export default function App() {
             });
           } else {
             run();
-            setTimeout(() => {
-              travelRef.current = false;
-              if (afterArrival) afterArrival();
-            }, afterArrival ? 1900 : 1200);
+            setTimeout(
+              () => {
+                travelRef.current = false;
+                if (afterArrival) afterArrival();
+              },
+              afterArrival ? 1900 : 1200,
+            );
           }
           return;
         }
@@ -410,7 +464,11 @@ export default function App() {
       setMissionTraveling(true);
       setMissionLaunchTarget(null);
       setMissionArrivalName(target.name);
-      setGuide('Destino fijado: ' + target.name + '. Prepararé el salto hasta su posición en el vecindario galáctico.');
+      setGuide(
+        'Destino fijado: ' +
+          t(target.name, language) +
+          '. Prepararé el salto hasta su posición en el vecindario galáctico.',
+      );
       startTravel(
         (onArrive) => {
           if (spec) {
@@ -423,7 +481,11 @@ export default function App() {
         () => {
           setMissionTraveling(false);
           setMissionArrival(true);
-          setGuide('Hemos llegado a ' + target.name + '. El objetivo está localizado; puedes iniciar la observación cuando quieras.');
+          setGuide(
+            'Hemos llegado a ' +
+              t(target.name, language) +
+              '. El objetivo está localizado; puedes iniciar la observación cuando quieras.',
+          );
           setTimeout(() => {
             setMissionArrival(false);
             setMissionLaunchTarget(target);
@@ -435,8 +497,12 @@ export default function App() {
     startSelectedMission = () => {
       const target = missionLaunchTarget;
       if (!target) return;
-      const objective = SPHEREX_MISSION_TYPES.find((mission) => mission.key === target.mission)?.objective;
-      const instruction = `Tu misión: ${objective || 'explorar este objetivo a través del tiempo.'}`;
+      const objective = t(
+        SPHEREX_MISSION_TYPES.find((mission) => mission.key === target.mission)?.objective ||
+          'explorar este objetivo a través del tiempo.',
+        language,
+      );
+      const instruction = t(`Tu misión: ${objective}`, language);
       setMissionLaunchTarget(null);
       setMissionOpen(true);
       setMissionTargetKey(target.key);
@@ -504,432 +570,456 @@ export default function App() {
               ),
             ),
           ),
-          menuSection === 'interface' && h('div', { className: 'menuSectionBody' },
-          h(
-            'div',
-            { className: 'deviceModeChoices' },
-            h('small', null, 'Interfaz'),
+          menuSection === 'interface' &&
             h(
-              'button',
-              {
-                className: deviceMode === 'mobile' ? 'on' : '',
-                onClick: () => setDeviceMode('mobile'),
-              },
-              'Móvil',
-            ),
-            h(
-              'button',
-              {
-                className: deviceMode === 'desktop' ? 'on' : '',
-                onClick: () => setDeviceMode('desktop'),
-              },
-              'PC',
-            ),
-          ),
-          h('small', null, 'Nivel de escala cósmica'),
-          h(
-            'div',
-            { className: 'r' },
-            ['Tierra y Luna', 'Sistema solar', 'Brazo de Orión', 'Vía Láctea'].map((t, i) =>
+              'div',
+              { className: 'menuSectionBody' },
               h(
-                'button',
-                {
-                  key: t,
-                  onClick: () => {
-                    if (spec) {
-                      A().exitSpectator();
-                      setSpec(false);
-                    }
-                    notify('Cambiando nivel de vista a ' + t + '.', 'Cambio de vista');
-                    setReal(false);
-                    A().lvl(i);
-                  },
-                },
-                t,
-              ),
-            ),
-          ),
-          h(
-            'div',
-            { className: 'r' },
-            h(
-              'button',
-              {
-                className: real ? '' : 'on',
-                onClick: () => {
-                  if (spec) {
-                    A().exitSpectator();
-                    setSpec(false);
-                  }
-                  notify('Activando escala visual.', 'Cambio de escala');
-                  setReal(false);
-                  A().mode(false);
-                },
-              },
-              'Escala visual',
-            ),
-            h(
-              'button',
-              {
-                className: real ? 'on' : '',
-                onClick: () => {
-                  if (spec) {
-                    A().exitSpectator();
-                    setSpec(false);
-                  }
-                  notify('Activando escala física.', 'Cambio de escala');
-                  setReal(true);
-                  A().mode(true);
-                },
-              },
-              'Escala física',
-            ),
-          ),
-          h(
-            'small',
-            null,
-            real
-              ? 'Escala física: 1 unidad = 1 millón de km. Radios y distancias a escala real.'
-              : 'Escala visual: radios exagerados y distancias comprimidas (d = 14 + 16·a^0,62). Se conservan la forma, la excentricidad y la inclinación de cada órbita.',
-          ),
-          h(
-            'small',
-            null,
-            'Velocidad: ' + Math.pow(10, sp).toFixed(sp < 0 ? 2 : 0) + ' días por segundo',
-          ),
-          h('input', {
-            type: 'range',
-            min: -1,
-            max: 3,
-            step: 0.05,
-            value: sp,
-            onChange: (e) => setSp(+e.target.value),
-          }),
-          h(
-            'div',
-            { className: 'r' },
-            h('button', { onClick: () => setPause(!pause) }, pause ? 'Reanudar' : 'Pausar'),
-            h(
-              'button',
-              {
-                onClick: () => {
-                  A().reset();
-                  setPause(false);
-                  setSp(1);
-                },
-              },
-              'Restablecer',
-            ),
-          ),
-          h(
-            'div',
-            { className: 'r' },
-            h('small', null, 'Fecha simulada'),
-            h('input', {
-              type: 'date',
-              ref: dayRef,
-              style: {
-                colorScheme: 'dark',
-                background: '#ffffff12',
-                color: 'inherit',
-                border: '1px solid #ffffff2a',
-                borderRadius: 7,
-                padding: '4px 6px',
-              },
-              onChange: (e) => {
-                const t = Date.parse(e.target.value);
-                if (!isNaN(t)) A().setDay((t - Date.UTC(2000, 0, 1, 12)) / 864e5);
-              },
-            }),
-          ),
-          h('div', { className: 'r' }, ['orb', 'lab', 'ax', 'vel', 'gal'].map(tg)),
-          fl.gal
-            ? h(
-                'small',
-                null,
-                'Esquema: el Sol queda fijo en el centro y la galaxia se mueve respecto a él. Tiempo galáctico ×10⁶ (una vuelta = 230 millones de años; el Sol viaja a ~230 km/s). Mira desde «Brazo de Orión» o «Vía Láctea».',
-              )
-            : null,
-          h('button', { onClick: () => setSrc(!src) }, 'Fuentes y metodología'),
-          src &&
-            h(
-              'small',
-              { style: { marginTop: 6 } },
-              'Datos físicos: NASA Solar System Exploration. Posiciones: elementos keplerianos aproximados de JPL (Standish, válidos 1800–2050) resueltos con la ecuación de Kepler; son aproximaciones, no efemérides de JPL Horizons. La Luna usa una órbita circular simplificada y rotación sincronizada. Todos los ejes apuntan al mismo lado del espacio (simplificación). A alta velocidad la rotación se limita visualmente. Orientación: el plano galáctico está inclinado ~60° respecto a la eclíptica y el centro galáctico queda hacia Sagitario (λ≈266°, β≈−5,6°); el Sol orbita en sentido horario visto desde el polo norte galáctico. Vía Láctea: modelo esquemático, no una fotografía; Sol a unos 26.000 años luz del centro, en el Espolón de Orión; las texturas son procedurales.',
-            ),
-          ),
-          menuSection === 'spaceship' && h('div', { className: 'menuSectionBody' },
-          h(
-            'div',
-            { className: 'r' },
-            h(
-              'button',
-              {
-                className: fr ? 'on' : '',
-                onClick: () => {
-                  if (spec) {
-                    A().board();
-                    setSpec(false);
-                    setFr(true);
-                    notify(
-                      'Regresando a la nave. La nave sigue en el mismo punto y conserva su orientación.',
-                      'Nave planetaria',
-                    );
-                  } else if (!fr) {
-                    setFr(true);
-                    A().free(true);
-                    notify('Ingresando en la nave planetaria.', 'Nave planetaria');
-                  } else notify('Ya estás dentro de la nave planetaria.', 'Nave planetaria');
-                },
-              },
-              spec ? 'Regresar a la nave' : 'Ingresar en nave planetaria',
-            ),
-            h(
-              'button',
-              {
-                className: spec ? 'on' : '',
-                onClick: () => {
-                  if (spec) {
-                    A().exitSpectator();
-                    setSpec(false);
-                    notify('Saliendo de la cámara libre.', 'Cámara libre');
-                  } else {
-                    A().spectate();
-                    setSpec(true);
-                    setFr(false);
-                    notify(
-                      'Cámara libre activada. Puedes observar la nave en 3D; permanece fija mientras exploras.',
-                      'Cámara libre',
-                    );
-                  }
-                },
-              },
-              spec ? 'Salir de cámara libre' : 'Cámara libre',
-            ),
-            fr &&
-              [
-                ['Galaxia completa', 0],
-                ['Centro galáctico', 1],
-                ['Volver al Sol', 2],
-              ].map(([t, k]) =>
+                'label',
+                { className: 'languageChoice' },
+                h('span', null, language === 'es' ? 'Idioma' : 'Language'),
                 h(
-                  'button',
+                  'select',
                   {
-                    key: k,
-                    onClick: () =>
-                      startTravel(() => {
-                        if (spec) {
-                          A().board();
-                          setSpec(false);
-                          setFr(true);
-                        }
-                        A().jump(k);
-                      }, t),
+                    value: language,
+                    onChange: (event) => chooseLanguage(event.target.value),
+                    'aria-label':
+                      language === 'es' ? 'Idioma de la interfaz' : 'Interface language',
                   },
-                  t,
+                  LANGUAGES.map((option) =>
+                    h('option', { key: option.code, value: option.code }, option.native),
+                  ),
                 ),
               ),
-          ),
-          h(
-              'div',
-              { className: 'r' },
-              h('small', null, 'Vista'),
-              [
-                ['3ª persona', 3],
-                ['1ª persona', 1],
-              ].map(([t, v]) =>
+              h(
+                'div',
+                { className: 'deviceModeChoices' },
+                h('small', null, 'Interfaz'),
                 h(
                   'button',
                   {
-                    key: v,
-                    className: pv == v ? 'on' : '',
+                    className: deviceMode === 'mobile' ? 'on' : '',
+                    onClick: () => setDeviceMode('mobile'),
+                  },
+                  'Móvil',
+                ),
+                h(
+                  'button',
+                  {
+                    className: deviceMode === 'desktop' ? 'on' : '',
+                    onClick: () => setDeviceMode('desktop'),
+                  },
+                  'PC',
+                ),
+              ),
+              h('small', null, 'Nivel de escala cósmica'),
+              h(
+                'div',
+                { className: 'r' },
+                ['Tierra y Luna', 'Sistema solar', 'Brazo de Orión', 'Vía Láctea'].map((t, i) =>
+                  h(
+                    'button',
+                    {
+                      key: t,
+                      onClick: () => {
+                        if (spec) {
+                          A().exitSpectator();
+                          setSpec(false);
+                        }
+                        notify('Cambiando nivel de vista a ' + t + '.', 'Cambio de vista');
+                        setReal(false);
+                        A().lvl(i);
+                      },
+                    },
+                    t,
+                  ),
+                ),
+              ),
+              h(
+                'div',
+                { className: 'r' },
+                h(
+                  'button',
+                  {
+                    className: real ? '' : 'on',
+                    onClick: () => {
+                      if (spec) {
+                        A().exitSpectator();
+                        setSpec(false);
+                      }
+                      notify('Activando escala visual.', 'Cambio de escala');
+                      setReal(false);
+                      A().mode(false);
+                    },
+                  },
+                  'Escala visual',
+                ),
+                h(
+                  'button',
+                  {
+                    className: real ? 'on' : '',
+                    onClick: () => {
+                      if (spec) {
+                        A().exitSpectator();
+                        setSpec(false);
+                      }
+                      notify('Activando escala física.', 'Cambio de escala');
+                      setReal(true);
+                      A().mode(true);
+                    },
+                  },
+                  'Escala física',
+                ),
+              ),
+              h(
+                'small',
+                null,
+                real
+                  ? 'Escala física: 1 unidad = 1 millón de km. Radios y distancias a escala real.'
+                  : 'Escala visual: radios exagerados y distancias comprimidas (d = 14 + 16·a^0,62). Se conservan la forma, la excentricidad y la inclinación de cada órbita.',
+              ),
+              h(
+                'small',
+                null,
+                'Velocidad: ' + Math.pow(10, sp).toFixed(sp < 0 ? 2 : 0) + ' días por segundo',
+              ),
+              h('input', {
+                type: 'range',
+                min: -1,
+                max: 3,
+                step: 0.05,
+                value: sp,
+                onChange: (e) => setSp(+e.target.value),
+              }),
+              h(
+                'div',
+                { className: 'r' },
+                h('button', { onClick: () => setPause(!pause) }, pause ? 'Reanudar' : 'Pausar'),
+                h(
+                  'button',
+                  {
+                    onClick: () => {
+                      A().reset();
+                      setPause(false);
+                      setSp(1);
+                    },
+                  },
+                  'Restablecer',
+                ),
+              ),
+              h(
+                'div',
+                { className: 'r' },
+                h('small', null, 'Fecha simulada'),
+                h('input', {
+                  type: 'date',
+                  ref: dayRef,
+                  style: {
+                    colorScheme: 'dark',
+                    background: '#ffffff12',
+                    color: 'inherit',
+                    border: '1px solid #ffffff2a',
+                    borderRadius: 7,
+                    padding: '4px 6px',
+                  },
+                  onChange: (e) => {
+                    const t = Date.parse(e.target.value);
+                    if (!isNaN(t)) A().setDay((t - Date.UTC(2000, 0, 1, 12)) / 864e5);
+                  },
+                }),
+              ),
+              h('div', { className: 'r' }, ['orb', 'lab', 'ax', 'vel', 'gal'].map(tg)),
+              fl.gal
+                ? h(
+                    'small',
+                    null,
+                    'Esquema: el Sol queda fijo en el centro y la galaxia se mueve respecto a él. Tiempo galáctico ×10⁶ (una vuelta = 230 millones de años; el Sol viaja a ~230 km/s). Mira desde «Brazo de Orión» o «Vía Láctea».',
+                  )
+                : null,
+              h('button', { onClick: () => setSrc(!src) }, 'Fuentes y metodología'),
+              src &&
+                h(
+                  'small',
+                  { style: { marginTop: 6 } },
+                  'Datos físicos: NASA Solar System Exploration. Posiciones: elementos keplerianos aproximados de JPL (Standish, válidos 1800–2050) resueltos con la ecuación de Kepler; son aproximaciones, no efemérides de JPL Horizons. La Luna usa una órbita circular simplificada y rotación sincronizada. Todos los ejes apuntan al mismo lado del espacio (simplificación). A alta velocidad la rotación se limita visualmente. Orientación: el plano galáctico está inclinado ~60° respecto a la eclíptica y el centro galáctico queda hacia Sagitario (λ≈266°, β≈−5,6°); el Sol orbita en sentido horario visto desde el polo norte galáctico. Vía Láctea: modelo esquemático, no una fotografía; Sol a unos 26.000 años luz del centro, en el Espolón de Orión; las texturas son procedurales.',
+                ),
+            ),
+          menuSection === 'spaceship' &&
+            h(
+              'div',
+              { className: 'menuSectionBody' },
+              h(
+                'div',
+                { className: 'r' },
+                h(
+                  'button',
+                  {
+                    className: fr ? 'on' : '',
                     onClick: () => {
                       if (spec) {
                         A().board();
                         setSpec(false);
-                      }
-                      if (!fr) {
+                        setFr(true);
+                        notify(
+                          'Regresando a la nave. La nave sigue en el mismo punto y conserva su orientación.',
+                          'Nave planetaria',
+                        );
+                      } else if (!fr) {
                         setFr(true);
                         A().free(true);
+                        notify('Ingresando en la nave planetaria.', 'Nave planetaria');
+                      } else notify('Ya estás dentro de la nave planetaria.', 'Nave planetaria');
+                    },
+                  },
+                  spec ? 'Regresar a la nave' : 'Ingresar en nave planetaria',
+                ),
+                h(
+                  'button',
+                  {
+                    className: spec ? 'on' : '',
+                    onClick: () => {
+                      if (spec) {
+                        A().exitSpectator();
+                        setSpec(false);
+                        notify('Saliendo de la cámara libre.', 'Cámara libre');
+                      } else {
+                        A().spectate();
+                        setSpec(true);
+                        setFr(false);
+                        notify(
+                          'Cámara libre activada. Puedes observar la nave en 3D; permanece fija mientras exploras.',
+                          'Cámara libre',
+                        );
                       }
-                      setPv(v);
-                      A().view(v);
-                      notify(
-                        'Cambiando nivel de vista a ' +
-                          (v === 1 ? 'primera' : 'tercera') +
-                          ' persona.',
-                        'Cambio de vista',
-                      );
                     },
                   },
-                  t,
+                  spec ? 'Salir de cámara libre' : 'Cámara libre',
                 ),
+                fr &&
+                  [
+                    ['Galaxia completa', 0],
+                    ['Centro galáctico', 1],
+                    ['Volver al Sol', 2],
+                  ].map(([t, k]) =>
+                    h(
+                      'button',
+                      {
+                        key: k,
+                        onClick: () =>
+                          startTravel(() => {
+                            if (spec) {
+                              A().board();
+                              setSpec(false);
+                              setFr(true);
+                            }
+                            A().jump(k);
+                          }, t),
+                      },
+                      t,
+                    ),
+                  ),
               ),
-            ),
-          h('small', null, 'Velocidad de vuelo: ' + fv.toFixed(fv < 1 ? 2 : 0) + ' u/s'),
-          h('input', {
-              type: 'range',
-              min: -2,
-              max: 4.7,
-              step: 0.02,
-              value: Math.log10(Math.max(fv, 0.01)),
-              onChange: (e) => A().speed(Math.pow(10, +e.target.value)),
-              onPointerUp: () =>
-                notify(
-                  'Velocidad de nave ajustada a ' +
-                    (fv >= 1000 ? (fv / 1000).toFixed(1) + ' mil' : fv.toFixed(1)) +
-                    ' unidades por segundo.',
-                  'Cambio de velocidad',
-                ),
-            }),
-          h(
-              'div',
-              { className: 'r' },
-              [
-                ['Planeta', 1],
-                ['Sistema', 60],
-                ['Galaxia', 3000],
-                ['Hiper', 4e4],
-              ].map(([t, v]) =>
-                h(
-                  'button',
-                  {
-                    key: t,
-                    onClick: () => {
-                      A().speed(v);
-                      notify(
-                        'Cambiando velocidad a ' +
-                          {
-                            Planeta: 'planetaria',
-                            Sistema: 'sistema solar',
-                            Galaxia: 'galaxia',
-                            Hiper: 'hipervelocidad',
-                          }[t] +
-                          '.',
-                        'Cambio de velocidad',
-                      );
+              h(
+                'div',
+                { className: 'r' },
+                h('small', null, 'Vista'),
+                [
+                  ['3ª persona', 3],
+                  ['1ª persona', 1],
+                ].map(([t, v]) =>
+                  h(
+                    'button',
+                    {
+                      key: v,
+                      className: pv == v ? 'on' : '',
+                      onClick: () => {
+                        if (spec) {
+                          A().board();
+                          setSpec(false);
+                        }
+                        if (!fr) {
+                          setFr(true);
+                          A().free(true);
+                        }
+                        setPv(v);
+                        A().view(v);
+                        notify(
+                          'Cambiando nivel de vista a ' +
+                            (v === 1 ? 'primera' : 'tercera') +
+                            ' persona.',
+                          'Cambio de vista',
+                        );
+                      },
                     },
-                  },
-                  t,
+                    t,
+                  ),
                 ),
               ),
-            ),
-          fr &&
-            h(
-              'div',
-              { className: 'r' },
-              [
-                ['Estela', 'tr'],
-                ['Inercia', 'in'],
-                ['Piloto auto.', 'au'],
-              ].map(([t, k]) =>
-                h(
-                  'button',
-                  {
-                    key: k,
-                    className: fo[k] ? 'on' : '',
-                    onClick: () => {
-                      const n = { ...fo, [k]: fo[k] ? 0 : 1 };
-                      setFo(n);
-                      A().opt(n);
+              h('small', null, 'Velocidad de vuelo: ' + fv.toFixed(fv < 1 ? 2 : 0) + ' u/s'),
+              h('input', {
+                type: 'range',
+                min: -2,
+                max: 4.7,
+                step: 0.02,
+                value: Math.log10(Math.max(fv, 0.01)),
+                onChange: (e) => A().speed(Math.pow(10, +e.target.value)),
+                onPointerUp: () =>
+                  notify(
+                    'Velocidad de nave ajustada a ' +
+                      (fv >= 1000 ? (fv / 1000).toFixed(1) + ' mil' : fv.toFixed(1)) +
+                      ' unidades por segundo.',
+                    'Cambio de velocidad',
+                  ),
+              }),
+              h(
+                'div',
+                { className: 'r' },
+                [
+                  ['Planeta', 1],
+                  ['Sistema', 60],
+                  ['Galaxia', 3000],
+                  ['Hiper', 4e4],
+                ].map(([t, v]) =>
+                  h(
+                    'button',
+                    {
+                      key: t,
+                      onClick: () => {
+                        A().speed(v);
+                        notify(
+                          'Cambiando velocidad a ' +
+                            {
+                              Planeta: 'planetaria',
+                              Sistema: 'sistema solar',
+                              Galaxia: 'galaxia',
+                              Hiper: 'hipervelocidad',
+                            }[t] +
+                            '.',
+                          'Cambio de velocidad',
+                        );
+                      },
                     },
-                  },
-                  t,
+                    t,
+                  ),
                 ),
               ),
-            ),
-          fr && h('small', null, 'Campo de visión: ' + fov + '°'),
-          fr &&
-            h('input', {
-              type: 'range',
-              min: 40,
-              max: 100,
-              step: 1,
-              value: fov,
-              onChange: (e) => {
-                setFov(+e.target.value);
-                A().fov(+e.target.value);
-              },
-            }),
-          fr &&
-            h(
-              'small',
-              null,
-              'Nave planetaria (tú eres la nave): arrastra para mirar, W A S D mover, Q/E bajar/subir, Shift ×5, rueda = velocidad (' +
-                fv.toFixed(fv < 1 ? 2 : 0) +
-                ' u/s).',
-            ),
-          spec &&
-            h(
-              'small',
-              null,
-              'Cámara libre: la nave permanece inmóvil en su posición. Arrastra para orbitarla y usa W A S D para mover la cámara; pulsa «Regresar a la nave» para abordar sin desplazarla.',
-            ),
-          fr &&
-            h(
-              'div',
-              { className: 'r' },
-              [
-                ['▲', 'w'],
-                ['▼', 's'],
-                ['◀', 'a'],
-                ['▶', 'd'],
-                ['⬆', 'e'],
-                ['⬇', 'q'],
-              ].map(([t, k]) =>
+              fr &&
                 h(
-                  'button',
-                  {
-                    key: k,
-                    onPointerDown: () => A().key(k, 1),
-                    onPointerUp: () => A().key(k, 0),
-                    onPointerLeave: () => A().key(k, 0),
-                  },
-                  t,
+                  'div',
+                  { className: 'r' },
+                  [
+                    ['Estela', 'tr'],
+                    ['Inercia', 'in'],
+                    ['Piloto auto.', 'au'],
+                  ].map(([t, k]) =>
+                    h(
+                      'button',
+                      {
+                        key: k,
+                        className: fo[k] ? 'on' : '',
+                        onClick: () => {
+                          const n = { ...fo, [k]: fo[k] ? 0 : 1 };
+                          setFo(n);
+                          A().opt(n);
+                        },
+                      },
+                      t,
+                    ),
+                  ),
                 ),
+              fr && h('small', null, 'Campo de visión: ' + fov + '°'),
+              fr &&
+                h('input', {
+                  type: 'range',
+                  min: 40,
+                  max: 100,
+                  step: 1,
+                  value: fov,
+                  onChange: (e) => {
+                    setFov(+e.target.value);
+                    A().fov(+e.target.value);
+                  },
+                }),
+              fr &&
+                h(
+                  'small',
+                  null,
+                  'Nave planetaria (tú eres la nave): arrastra para mirar, W A S D mover, Q/E bajar/subir, Shift ×5, rueda = velocidad (' +
+                    fv.toFixed(fv < 1 ? 2 : 0) +
+                    ' u/s).',
+                ),
+              spec &&
+                h(
+                  'small',
+                  null,
+                  'Cámara libre: la nave permanece inmóvil en su posición. Arrastra para orbitarla y usa W A S D para mover la cámara; pulsa «Regresar a la nave» para abordar sin desplazarla.',
+                ),
+              fr &&
+                h(
+                  'div',
+                  { className: 'r' },
+                  [
+                    ['▲', 'w'],
+                    ['▼', 's'],
+                    ['◀', 'a'],
+                    ['▶', 'd'],
+                    ['⬆', 'e'],
+                    ['⬇', 'q'],
+                  ].map(([t, k]) =>
+                    h(
+                      'button',
+                      {
+                        key: k,
+                        onPointerDown: () => A().key(k, 1),
+                        onPointerUp: () => A().key(k, 0),
+                        onPointerLeave: () => A().key(k, 0),
+                      },
+                      t,
+                    ),
+                  ),
+                ),
+              h(
+                'small',
+                null,
+                'Arrastra: girar. Rueda: zoom. Clic derecho: desplazar. W A S D: avanzar. Q E: subir o bajar.',
               ),
+              h(QuickTravelMenu, {
+                language,
+                open: quickOpen,
+                onToggle: setQuickOpen,
+                selectedPlanet: f,
+                planets: P,
+                onFree: () => {
+                  A().focus(null);
+                  setQuickOpen(false);
+                },
+                onQuickTravel: (key, label) => {
+                  startTravel(() => {
+                    if (spec) {
+                      A().board();
+                      setSpec(false);
+                      setFr(true);
+                    }
+                    A().quick(key);
+                  }, label);
+                  setQuickOpen(false);
+                },
+                onPlanetTravel: (name) => {
+                  startTravel(() => {
+                    if (spec) {
+                      A().board();
+                      setSpec(false);
+                      setFr(true);
+                    } else if (!fr) {
+                      setFr(true);
+                      A().free(true);
+                    }
+                    A().focus(name);
+                  }, name);
+                  setQuickOpen(false);
+                },
+              }),
             ),
-          h(
-            'small',
-            null,
-            'Arrastra: girar. Rueda: zoom. Clic derecho: desplazar. W A S D: avanzar. Q E: subir o bajar.',
-          ),
-          h(QuickTravelMenu, {
-            open: quickOpen,
-            onToggle: setQuickOpen,
-            selectedPlanet: f,
-            planets: P,
-            onFree: () => {
-              A().focus(null);
-              setQuickOpen(false);
-            },
-            onQuickTravel: (key, label) => {
-              startTravel(() => {
-                if (spec) {
-                  A().board();
-                  setSpec(false);
-                  setFr(true);
-                }
-                A().quick(key);
-              }, label);
-              setQuickOpen(false);
-            },
-            onPlanetTravel: (name) => {
-              startTravel(() => {
-                if (spec) {
-                  A().board();
-                  setSpec(false);
-                  setFr(true);
-                } else if (!fr) {
-                  setFr(true);
-                  A().free(true);
-                }
-                A().focus(name);
-              }, name);
-              setQuickOpen(false);
-            },
-          }),
-          ),
           menuSection === 'mission' &&
             h(
               'section',
@@ -961,7 +1051,7 @@ export default function App() {
         'div',
         { className: 'in' },
         h('b', null, pi.n),
-        'Diámetro: ' + (2 * pi.km).toLocaleString('es') + ' km',
+        'Diámetro: ' + (2 * pi.km).toLocaleString(language === 'en' ? 'en-US' : 'es') + ' km',
         pi.au &&
           h(
             'div',
@@ -995,6 +1085,7 @@ export default function App() {
         setKronoxOpen(false);
       },
       voice,
+      language,
       accent: voiceAccent,
       voiceError,
       near,
@@ -1039,6 +1130,7 @@ export default function App() {
       },
     }),
     h(MobileFlightControls, {
+      language,
       active: deviceMode === 'mobile' && fr,
       api: A,
       speed: fv,
@@ -1047,7 +1139,7 @@ export default function App() {
         setFv(value);
       },
     }),
-    h(ToastNotification, { notice, onMore: setMore }),
+    h(ToastNotification, { notice, onMore: setMore, language }),
     countdown !== null &&
       h('div', { className: 'countdownOverlay' }, h('b', { key: countdown }, countdown)),
     missionLaunchTarget &&
@@ -1076,14 +1168,21 @@ export default function App() {
         h('b', null, missionArrivalName),
         h('small', null, 'Objetivo localizado en el vecindario galáctico.'),
       ),
-    h(PlanetInfoModal, { planet: more, data: more && INFO[more], onClose: () => setMore(null) }),
+    h(PlanetInfoModal, {
+      planet: more,
+      data: more && INFO[more],
+      onClose: () => setMore(null),
+      language,
+    }),
     missionSelectorOpen &&
       h(SpherexMissionSelector, {
+        language,
         onClose: () => setMissionSelectorOpen(false),
         onSelect: chooseSpherexTarget,
       }),
     missionOpen &&
       h(SpherexMission, {
+        language,
         initialTargetKey: missionTargetKey,
         onClose: () => setMissionOpen(false),
       }),
@@ -1143,9 +1242,32 @@ export default function App() {
             'p',
             { className: 'welcomeMessage' },
             welcomeStep === 'voice'
-              ? 'Para acompañarte durante el viaje, habilita mi voz. Después te preguntaré desde qué dispositivo exploras para preparar la interfaz.'
+              ? language === 'es'
+                ? 'Elige el idioma de KRONOX y activa mi voz si quieres que te acompañe durante el viaje.'
+                : 'Choose KRONOX’s language and enable my voice if you would like me to guide your journey.'
               : '¿En qué dispositivo estás? Adaptaré los controles y los menús para tu forma de explorar.',
           ),
+          welcomeStep === 'voice' &&
+            h(
+              'label',
+              { className: 'welcomeLanguage' },
+              h(
+                'span',
+                null,
+                language === 'es' ? 'Idioma de la experiencia' : 'Experience language',
+              ),
+              h(
+                'select',
+                {
+                  value: language,
+                  onChange: (event) => chooseLanguage(event.target.value),
+                  'aria-label': language === 'es' ? 'Elegir idioma' : 'Choose language',
+                },
+                LANGUAGES.map((option) =>
+                  h('option', { key: option.code, value: option.code }, option.native),
+                ),
+              ),
+            ),
           welcomeStep === 'device' &&
             h(
               'div',
@@ -1179,7 +1301,9 @@ export default function App() {
                   setVoice(true);
                   setWelcomeStep('device');
                   const question =
-                    'Hola, aventurero. ¿Estás explorando desde un móvil o desde una computadora?';
+                    language === 'es'
+                      ? 'Hola, aventurero. ¿Estás explorando desde un móvil o desde una computadora?'
+                      : 'Hello, adventurer. Are you exploring on a mobile device or a computer?';
                   say(question);
                   speak(question);
                   return;
@@ -1188,21 +1312,35 @@ export default function App() {
                 setVoice(true);
                 setWelcomeOpen(false);
                 const greeting =
-                  deviceMode === 'mobile'
-                    ? 'Hola, aventurero. Preparé los controles táctiles. Detecté una señal de SPHEREx: ¿me acompañas a explorar el cielo?'
-                    : 'Hola, aventurero. La cabina está lista. Detecté una señal de SPHEREx: ¿me acompañas a explorar el cielo?';
+                  language === 'es'
+                    ? deviceMode === 'mobile'
+                      ? 'Hola, aventurero. Preparé los controles táctiles. Detecté una señal de SPHEREx: ¿me acompañas a explorar el cielo?'
+                      : 'Hola, aventurero. La cabina está lista. Detecté una señal de SPHEREx: ¿me acompañas a explorar el cielo?'
+                    : deviceMode === 'mobile'
+                      ? 'Hello, adventurer. Touch controls are ready. I have detected a SPHEREx signal. Shall we explore the sky?'
+                      : 'Hello, adventurer. The cockpit is ready. I have detected a SPHEREx signal. Shall we explore the sky?';
                 say(greeting);
                 speak(greeting);
               },
             },
-            welcomeStep === 'voice' ? 'Habilitar la voz de Kronox' : 'Entrar en la exploración',
+            welcomeStep === 'voice'
+              ? language === 'es'
+                ? 'Activar voz y continuar'
+                : 'Enable voice and continue'
+              : language === 'es'
+                ? 'Entrar en la exploración'
+                : 'Start exploring',
           ),
           h(
             'small',
             null,
             welcomeStep === 'voice'
-              ? 'El navegador podrá reproducir su voz. No se activa ni se solicita acceso al micrófono.'
-              : 'Podrás cambiar el modo de dispositivo desde el panel. No se activa el micrófono.',
+              ? language === 'es'
+                ? 'La voz usa audio de Google TTS. No se solicita acceso al micrófono.'
+                : 'Voice uses Google TTS audio. Microphone access is not requested.'
+              : language === 'es'
+                ? 'Podrás cambiar el modo de dispositivo desde el panel. No se activa el micrófono.'
+                : 'You can change the device mode in the menu. Microphone access is not requested.',
           ),
         ),
       ),

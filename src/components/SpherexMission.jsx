@@ -1,17 +1,24 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { parseFits } from '../utils/fitsImage.js';
 import { SPHEREX_MISSION_TYPES, SPHEREX_TARGETS as TARGETS } from '../data/spherexTargets.js';
+import { t } from '../i18n.js';
 
-function formatDate(mjd) {
+function formatDate(mjd, language = 'es') {
   const date = new Date((Number(mjd) - 40587) * 86400000);
   return Number.isNaN(date.getTime())
     ? 'Fecha desconocida'
-    : date.toLocaleString('es', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }) +
-        ' UTC';
+    : date.toLocaleString(language === 'en' ? 'en-US' : 'es', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'UTC',
+      }) + ' UTC';
 }
 
-export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }) {
-  const initialTargetIndex = Math.max(0, TARGETS.findIndex((target) => target.key === initialTargetKey));
+export default function SpherexMission({ onClose, initialTargetKey = 'barnard', language = 'es' }) {
+  const initialTargetIndex = Math.max(
+    0,
+    TARGETS.findIndex((target) => target.key === initialTargetKey),
+  );
   const initialTarget = TARGETS[initialTargetIndex];
   const [selected, setSelected] = useState(initialTargetIndex);
   const [ra, setRa] = useState(String(initialTarget.ra));
@@ -179,15 +186,20 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
   const frame = visibleRecords[frameIndex];
   const previousFrame = visibleRecords[frameIndex - 1];
   const selectedTarget = TARGETS[selected];
-  const missionObjective =
-    SPHEREX_MISSION_TYPES.find((mission) => mission.key === selectedTarget.mission)?.objective || '';
+  const missionObjective = t(
+    SPHEREX_MISSION_TYPES.find((mission) => mission.key === selectedTarget.mission)?.objective ||
+      '',
+    language,
+  );
 
   const markImagePosition = (event) => {
     if (!marking || !image) return;
     const imageRect = event.currentTarget.getBoundingClientRect();
     const frameRect = event.currentTarget.parentElement.getBoundingClientRect();
     setMarker({
-      x: ((event.clientX - imageRect.left + imageRect.left - frameRect.left) / frameRect.width) * 100,
+      x:
+        ((event.clientX - imageRect.left + imageRect.left - frameRect.left) / frameRect.width) *
+        100,
       y: ((event.clientY - imageRect.top + imageRect.top - frameRect.top) / frameRect.height) * 100,
     });
     setMarking(false);
@@ -199,10 +211,12 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
       {
         id: `${Date.now()}-${Math.random()}`,
         note: findingNote.trim(),
-        target: selectedTarget.name,
+        target: t(selectedTarget.name, language),
         band: frame.band,
-        previousDate: previousFrame ? formatDate(previousFrame.date) : 'Sin observación anterior',
-        currentDate: formatDate(frame.date),
+        previousDate: previousFrame
+          ? formatDate(previousFrame.date, language)
+          : t('Sin observación anterior', language),
+        currentDate: formatDate(frame.date, language),
         frameId: frame.id,
         markerNumber: findings.length + 1,
         x: marker.x,
@@ -217,7 +231,15 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
   const exportFindings = () => {
     const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
     const rows = [
-      ['Objetivo', 'Banda', 'Fecha anterior', 'Fecha actual', 'X del visor (%)', 'Y del visor (%)', 'Hallazgo'],
+      [
+        'Objetivo',
+        'Banda',
+        'Fecha anterior',
+        'Fecha actual',
+        'X del visor (%)',
+        'Y del visor (%)',
+        'Hallazgo',
+      ].map((label) => t(label, language)),
       ...findings.map((finding) => [
         finding.target,
         finding.band,
@@ -253,38 +275,42 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
       >
         <header className="spherexHeader">
           <div>
-            <span className="spherexKicker">MISIÓN 01 · OBSERVATORIO INFRARROJO</span>
-            <h2 id="spherex-title">Ecos en infrarrojo</h2>
+            <span className="spherexKicker">
+              {t('MISIÓN 01 · OBSERVATORIO INFRARROJO', language)}
+            </span>
+            <h2 id="spherex-title">{t('Ecos en infrarrojo', language)}</h2>
             <p>
-              Compara observaciones reales de SPHEREx y busca objetos que cambian de posición o
-              brillo.
+              {t(
+                'Compara observaciones reales de SPHEREx y busca objetos que cambian de posición o brillo.',
+                language,
+              )}
             </p>
             <div className="spherexObjective">
-              <small>KRONOX · OBJETIVO DE MISIÓN</small>
-              <b>{selectedTarget.name}</b>
+              <small>{t('KRONOX · OBJETIVO DE MISIÓN', language)}</small>
+              <b>{t(selectedTarget.name, language)}</b>
               <span>{missionObjective}</span>
             </div>
           </div>
-          <button onClick={onClose} aria-label="Cerrar misión">
+          <button onClick={onClose} aria-label={t('Cerrar misión', language)}>
             Cerrar ✕
           </button>
         </header>
         <div className="spherexBody">
           <aside className="spherexControls">
-            <div className="spherexSectionTitle">Objetivos de la misión</div>
+            <div className="spherexSectionTitle">{t('Objetivos de la misión', language)}</div>
             <div className="spherexTargets">
               {TARGETS.map((target, index) => (
                 <button
-                  key={target.name}
+                  key={t(target.name, language)}
                   className={selected === index ? 'selected' : ''}
                   onClick={() => chooseTarget(index)}
                 >
-                  <b>{target.name}</b>
-                  <small>{target.note}</small>
+                  <b>{t(target.name, language)}</b>
+                  <small>{t(target.note, language)}</small>
                 </button>
               ))}
             </div>
-            <div className="spherexSectionTitle">Coordenadas ICRS · grados</div>
+            <div className="spherexSectionTitle">{t('Coordenadas ICRS · grados', language)}</div>
             <form
               className="spherexCoordinates"
               onSubmit={(event) => {
@@ -293,7 +319,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
               }}
             >
               <label>
-                Ascensión recta (RA)
+                {t('Ascensión recta (RA)', language)}
                 <input
                   type="number"
                   min="0"
@@ -305,7 +331,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                 />
               </label>
               <label>
-                Declinación (Dec)
+                {t('Declinación (Dec)', language)}
                 <input
                   type="number"
                   min="-90"
@@ -317,27 +343,31 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                 />
               </label>
               <label>
-                Lanzamiento
+                {t('Lanzamiento', language)}
                 <select value={release} onChange={(event) => setRelease(event.target.value)}>
-                  <option value="qr3">QR3 · más reciente</option>
-                  <option value="qr2">QR2 · archivo anterior</option>
+                  <option value="qr3">{t('QR3 · más reciente', language)}</option>
+                  <option value="qr2">{t('QR2 · archivo anterior', language)}</option>
                 </select>
               </label>
               <button className="spherexSearch" type="submit" disabled={loading}>
-                {loading ? 'Buscando…' : 'Consultar SPHEREx'}
+                {loading ? t('Buscando…', language) : t('Consultar SPHEREx', language)}
               </button>
             </form>
-            <p className="spherexTargetHint">{selectedTarget.note}</p>
+            <p className="spherexTargetHint">{t(selectedTarget.note, language)}</p>
             <div className="spherexStatus" aria-live="polite">
-              {status}
-              {truncated ? ' Se muestran como máximo 250 resultados.' : ''}
+              {t(status, language)}
+              {truncated ? t(' Se muestran como máximo 250 resultados.', language) : ''}
             </div>
           </aside>
           <main className="spherexViewer">
             <div className="spherexViewMeta">
-              <span>{frame ? formatDate(frame.date) : 'SECUENCIA DE OBSERVACIONES'}</span>
+              <span>
+                {frame
+                  ? formatDate(frame.date, language)
+                  : t('SECUENCIA DE OBSERVACIONES', language)}
+              </span>
               <label>
-                Banda{' '}
+                {t('Banda', language)}{' '}
                 <select
                   value={band}
                   onChange={(event) => {
@@ -348,7 +378,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                   }}
                   disabled={!bands.length}
                 >
-                  <option value="">Todas</option>
+                  <option value="">{t('Todas', language)}</option>
                   {bands.map((name) => (
                     <option key={name} value={name}>
                       {name}
@@ -356,22 +386,33 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                   ))}
                 </select>
               </label>
-              <button type="button" className="spherexExpandButton" onClick={() => setExpanded(true)} disabled={!image}>⤢ Ampliar</button>
+              <button
+                type="button"
+                className="spherexExpandButton"
+                onClick={() => setExpanded(true)}
+                disabled={!image}
+              >
+                {t('⤢ Ampliar', language)}
+              </button>
             </div>
             {frame && (
               <div className="spherexCompareHint">
-                <b>Comparando:</b>{' '}
-                {previousFrame ? formatDate(previousFrame.date) : 'primera observación'}
+                <b>{t('Comparando:', language)}</b>{' '}
+                {previousFrame
+                  ? formatDate(previousFrame.date, language)
+                  : t('primera observación', language)}
                 {' → '}
-                {formatDate(frame.date)}
-                <span> · la escala de brillo se mantiene fija en la secuencia</span>
+                {formatDate(frame.date, language)}
+                <span>
+                  {t(' · la escala de brillo se mantiene fija en la secuencia', language)}
+                </span>
               </div>
             )}
             <div className="spherexImageFrame">
               {image && (
                 <img
                   src={image}
-                  alt={`Recorte infrarrojo SPHEREx ${frame?.band}, ${frame ? formatDate(frame.date) : ''}`}
+                  alt={`Recorte infrarrojo SPHEREx ${frame?.band}, ${frame ? formatDate(frame.date, language) : ''}`}
                   className={marking ? 'markable' : ''}
                   onClick={markImagePosition}
                 />
@@ -383,7 +424,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                     key={finding.id}
                     className="spherexMarker saved"
                     style={{ left: `${finding.x}%`, top: `${finding.y}%` }}
-                    aria-label={`Hallazgo ${finding.markerNumber}`}
+                    aria-label={t(`Hallazgo ${finding.markerNumber}`, language)}
                   >
                     <b>{finding.markerNumber}</b>
                   </span>
@@ -392,7 +433,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                 <span
                   className="spherexMarker"
                   style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
-                  aria-label="Posición del hallazgo"
+                  aria-label={t('Posición del hallazgo', language)}
                 >
                   <b>+</b>
                 </span>
@@ -401,12 +442,13 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                 <div className="spherexImagePlaceholder">
                   {frameLoading ? (
                     <>
-                      <span className="spherexSpinner" /> Procesando recorte de la imagen…
+                      <span className="spherexSpinner" />{' '}
+                      {t('Procesando recorte de la imagen…', language)}
                     </>
                   ) : loading ? (
-                    'Buscando en el archivo…'
+                    t('Buscando en el archivo…', language)
                   ) : (
-                    'Aquí aparecerán los recortes del cielo'
+                    t('Aquí aparecerán los recortes del cielo', language)
                   )}
                 </div>
               )}
@@ -418,14 +460,14 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
             </div>
             {error && (
               <p className="spherexError" role="alert">
-                {error}
+                {t(error, language)}
               </p>
             )}
             <div className="spherexPlayback">
               <button
                 disabled={!visibleRecords.length}
                 onClick={() => step(-1)}
-                aria-label="Imagen anterior"
+                aria-label={t('Imagen anterior', language)}
               >
                 ◀
               </button>
@@ -439,7 +481,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
               <button
                 disabled={!visibleRecords.length}
                 onClick={() => step(1)}
-                aria-label="Imagen siguiente"
+                aria-label={t('Imagen siguiente', language)}
               >
                 ▶
               </button>
@@ -458,18 +500,20 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                 setPlaying(false);
               }}
               disabled={!visibleRecords.length}
-              aria-label="Fecha de observación"
+              aria-label={t('Fecha de observación', language)}
             />
             <div className="spherexFrameDate">
               {frame
-                ? `${formatDate(frame.date)} · ${frame.id}`
-                : 'Las observaciones disponibles aparecerán ordenadas por fecha.'}
+                ? `${formatDate(frame.date, language)} · ${frame.id}`
+                : t('Las observaciones disponibles aparecerán ordenadas por fecha.', language)}
             </div>
-            <section className="spherexFindings" aria-label="Registrar hallazgo">
+            <section className="spherexFindings" aria-label={t('Registrar hallazgo', language)}>
               <div className="spherexFindingsTitle">
                 <div>
-                  <b>¿Qué cambió?</b>
-                  <small>Marca una fuente en la imagen y anota lo que observas.</small>
+                  <b>{t('¿Qué cambió?', language)}</b>
+                  <small>
+                    {t('Marca una fuente en la imagen y anota lo que observas.', language)}
+                  </small>
                 </div>
                 <button
                   type="button"
@@ -480,7 +524,9 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                   }}
                   disabled={!image}
                 >
-                  {marking ? 'Haz clic en una fuente…' : '＋ Marcar objeto'}
+                  {marking
+                    ? t('Haz clic en una fuente…', language)
+                    : t('＋ Marcar objeto', language)}
                 </button>
                 {findings.length > 0 && (
                   <button type="button" onClick={exportFindings}>
@@ -493,9 +539,9 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                   <input
                     value={findingNote}
                     onChange={(event) => setFindingNote(event.target.value)}
-                    placeholder="Ej.: la fuente se desplazó hacia el borde…"
+                    placeholder={t('Ej.: la fuente se desplazó hacia el borde…', language)}
                     maxLength={240}
-                    aria-label="Descripción del cambio observado"
+                    aria-label={t('Descripción del cambio observado', language)}
                   />
                   <button type="button" onClick={saveFinding} disabled={!findingNote.trim()}>
                     Guardar hallazgo
@@ -506,16 +552,22 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                 <ul className="spherexFindingList">
                   {findings.map((finding, index) => (
                     <li key={finding.id}>
-                        <span className="spherexFindingNumber">{finding.markerNumber}</span>
+                      <span className="spherexFindingNumber">{finding.markerNumber}</span>
                       <div>
-                        <b>{finding.target} · {finding.band}</b>
+                        <b>
+                          {finding.target} · {finding.band}
+                        </b>
                         <p>{finding.note}</p>
-                        <small>{finding.previousDate} → {finding.currentDate}</small>
+                        <small>
+                          {finding.previousDate} → {finding.currentDate}
+                        </small>
                       </div>
                       <button
                         type="button"
-                        aria-label="Eliminar hallazgo"
-                        onClick={() => setFindings((items) => items.filter((item) => item.id !== finding.id))}
+                        aria-label={t('Eliminar hallazgo', language)}
+                        onClick={() =>
+                          setFindings((items) => items.filter((item) => item.id !== finding.id))
+                        }
                       >
                         ×
                       </button>
@@ -535,20 +587,16 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                       setPlaying(false);
                     }}
                   >
-                    <b>{formatDate(record.date).replace(' UTC', '')}</b>
+                    <b>{formatDate(record.date, language).replace(' UTC', '')}</b>
                     <small>{record.band}</small>
                   </button>
                 ))}
               </div>
             )}
             <p className="spherexFootnote">
-              Los recortes y fechas proceden del archivo público NASA/IPAC IRSA. SPHEREx observa en
-              infrarrojo; el color y el halo suave de las fuentes brillantes son ayudas visuales, no
-              luz visible ni detalle añadido a la medición. El campo mostrado es de 0,5° y se
-              conserva el contraste del primer fotograma para comparar la secuencia. Puedes marcar
-              una fuente y guardar una descripción del cambio entre fechas. Esto ayuda a explorar,
-              pero no reemplaza una medición fotométrica calibrada. La cobertura y cadencia dependen
-              del objetivo.
+              {language === 'es'
+                ? 'Los recortes y fechas proceden del archivo público NASA/IPAC IRSA. SPHEREx observa en infrarrojo; el color y el halo suave de las fuentes brillantes son ayudas visuales, no luz visible ni detalle añadido a la medición. El campo mostrado es de 0,5° y se conserva el contraste del primer fotograma para comparar la secuencia. Puedes marcar una fuente y guardar una descripción del cambio entre fechas. Esto ayuda a explorar, pero no reemplaza una medición fotométrica calibrada. La cobertura y cadencia dependen del objetivo.'
+                : 'Image cutouts and dates come from the public NASA/IPAC IRSA archive. SPHEREx observes in infrared; color and the soft glow around bright sources are visual aids, not visible light or added measurement detail. The field shown is 0.5° and the first frame’s contrast is held constant for comparison. You can mark a source and save a description of changes between dates. This supports exploration but does not replace calibrated photometry. Coverage and cadence depend on the target.'}
             </p>
           </main>
         </div>
@@ -558,19 +606,23 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
           className="spherexLightbox"
           role="dialog"
           aria-modal="true"
-          aria-label="Imagen SPHEREx ampliada"
+          aria-label={t('Imagen SPHEREx ampliada', language)}
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setExpanded(false);
           }}
         >
           <header>
             <div>
-              <b>{selectedTarget.name}</b>
-              <span>{frame ? formatDate(frame.date) : ''} · {frame?.band}</span>
+              <b>{t(selectedTarget.name, language)}</b>
+              <span>
+                {frame ? formatDate(frame.date, language) : ''} · {frame?.band}
+              </span>
             </div>
-            <button type="button" onClick={() => setExpanded(false)}>Cerrar ✕</button>
+            <button type="button" onClick={() => setExpanded(false)}>
+              {t('Cerrar ✕', language)}
+            </button>
           </header>
-          <img src={image} alt={`Imagen SPHEREx ampliada de ${selectedTarget.name}`} />
+          <img src={image} alt={`Imagen SPHEREx ampliada de ${t(selectedTarget.name, language)}`} />
         </div>
       )}
     </div>

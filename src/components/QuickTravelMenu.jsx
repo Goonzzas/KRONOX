@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from '../i18n.js';
 
 const DESTINATIONS = [
   ['Órbita próxima al Sol', 'sunOrbit'],
@@ -9,6 +10,7 @@ const DESTINATIONS = [
 
 export default function QuickTravelMenu({
   open,
+  language = 'es',
   onToggle,
   selectedPlanet,
   planets,
@@ -19,22 +21,22 @@ export default function QuickTravelMenu({
   return (
     <div className="bd">
       <button onClick={() => onToggle(!open)}>
-        {open ? 'Cerrar viajes rápidos ▲' : 'Viajes rápidos ▼'}
+        {open ? t('Cerrar viajes rápidos ▲', language) : t('Viajes rápidos ▼', language)}
       </button>
       {open && (
         <div className="qpanel">
-          <div className="qtitle">Destinos rápidos</div>
+          <div className="qtitle">{t('Destinos rápidos', language)}</div>
           <div className="qrow">
             {DESTINATIONS.map(([label, key]) => (
-              <button key={key} onClick={() => onQuickTravel(key, label)}>
-                {label}
+              <button key={key} onClick={() => onQuickTravel(key, t(label, language))}>
+                {t(label, language)}
               </button>
             ))}
           </div>
-          <div className="qtitle">Planetas y cuerpos</div>
+          <div className="qtitle">{t('Planetas y cuerpos', language)}</div>
           <div className="qrow">
             <button className={!selectedPlanet ? 'on' : ''} onClick={onFree}>
-              Vista libre
+              {t('Vista libre', language)}
             </button>
             {planets.map((planet) => (
               <button
@@ -42,7 +44,7 @@ export default function QuickTravelMenu({
                 className={selectedPlanet === planet.n ? 'on' : ''}
                 onClick={() => onPlanetTravel(planet.n)}
               >
-                {planet.n}
+                {t(planet.n, language)}
               </button>
             ))}
           </div>

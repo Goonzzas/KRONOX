@@ -1,6 +1,7 @@
 import React from 'react';
+import { t } from '../i18n.js';
 
-export default function PlanetInfoModal({ planet, data, onClose }) {
+export default function PlanetInfoModal({ planet, data, onClose, language = 'es' }) {
   if (!planet || !data) return null;
   return (
     <div className="modalShade" onClick={onClose}>
@@ -8,34 +9,34 @@ export default function PlanetInfoModal({ planet, data, onClose }) {
         className="infoCard"
         role="dialog"
         aria-modal="true"
-        aria-label={`Información sobre ${planet}`}
+        aria-label={t(`Información sobre ${t(planet, language)}`, language)}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="infoHeader">
           <div>
-            <h2>{planet}</h2>
-            <p>{data.intro}</p>
+            <h2>{t(planet, language)}</h2>
+            <p>{t(data.intro, language)}</p>
           </div>
-          <button onClick={onClose} aria-label="Cerrar ficha">
-            Cerrar ✕
+          <button onClick={onClose} aria-label={t('Cerrar ficha', language)}>
+            {t('Cerrar ✕', language)}
           </button>
         </div>
         <img
           className="infoImage"
           src={data.img}
-          alt={`Imagen de ${planet} — NASA`}
+          alt={t(`Imagen de ${planet} — NASA`, language)}
           onError={(event) => {
             event.currentTarget.style.display = 'none';
           }}
         />
         <div className="infoGrid">
           {[
-            ['Superficie / estructura', data.superficie],
-            ['Composición', data.composicion],
-            ['Atmósfera', data.atmosfera],
-            ['Temperatura', data.temperatura],
-            ['Clima', data.clima],
-            ['Dato curioso', data.dato],
+            [t('Superficie / estructura', language), t(data.superficie, language)],
+            [t('Composición', language), t(data.composicion, language)],
+            [t('Atmósfera', language), t(data.atmosfera, language)],
+            [t('Temperatura', language), t(data.temperatura, language)],
+            [t('Clima', language), t(data.clima, language)],
+            [t('Dato curioso', language), t(data.dato, language)],
           ].map(([title, value]) => (
             <div className="infoItem" key={title}>
               <b>{title}</b>
@@ -44,10 +45,12 @@ export default function PlanetInfoModal({ planet, data, onClose }) {
           ))}
         </div>
         <div className="infoFooter">
-          Imagen y datos: NASA. Las temperaturas de los gigantes gaseosos y helados corresponden a
-          una capa atmosférica de referencia, no a una superficie sólida.{' '}
+          {t(
+            'Imagen y datos: NASA. Las temperaturas de los gigantes gaseosos y helados corresponden a una capa atmosférica de referencia, no a una superficie sólida.',
+            language,
+          )}{' '}
           <a href={data.source} target="_blank" rel="noreferrer">
-            Ficha de {planet} en NASA
+            {t(`Ficha de ${t(planet, language)} en NASA`, language)}
           </a>{' '}
           ·{' '}
           <a
@@ -55,7 +58,7 @@ export default function PlanetInfoModal({ planet, data, onClose }) {
             target="_blank"
             rel="noreferrer"
           >
-            Temperaturas del sistema solar
+            {t('Temperaturas del sistema solar', language)}
           </a>
         </div>
       </article>
