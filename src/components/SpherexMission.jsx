@@ -52,6 +52,8 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const [compareIndex, setCompareIndex] = useState(0);
   const [compareImage, setCompareImage] = useState('');
   const [compareLoading, setCompareLoading] = useState(false);
+  const [primaryImageRatio, setPrimaryImageRatio] = useState(1.65);
+  const [compareImageRatio, setCompareImageRatio] = useState(1.65);
   const [marking, setMarking] = useState(false);
   const [marker, setMarker] = useState(null);
   const [findingNote, setFindingNote] = useState('');
@@ -621,7 +623,10 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
             </div>
             {compareEnabled && compareFrame && (
               <div className="spherexComparisonGrid">
-                <article className="spherexComparisonPane">
+                <article
+                  className="spherexComparisonPane"
+                  style={{ aspectRatio: primaryImageRatio }}
+                >
                   <header>
                     {t('Imagen actual', language)} · {frame ? formatDate(frame.date, language) : ''}
                   </header>
@@ -630,6 +635,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                       <img
                         src={image}
                         alt={`${t('Imagen actual', language)} ${frame ? formatDate(frame.date, language) : ''}`}
+                        onLoad={(event) =>
+                          setPrimaryImageRatio(
+                            event.currentTarget.naturalWidth / event.currentTarget.naturalHeight,
+                          )
+                        }
                         onClick={(event) => markComparisonPosition(event, frame)}
                       />
                       {findings
@@ -656,7 +666,10 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     <span>{t('Cargando imagen…', language)}</span>
                   )}
                 </article>
-                <article className="spherexComparisonPane">
+                <article
+                  className="spherexComparisonPane"
+                  style={{ aspectRatio: compareImageRatio }}
+                >
                   <header>
                     {t('Segunda imagen', language)} · {formatDate(compareFrame.date, language)}
                   </header>
@@ -667,6 +680,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                       <img
                         src={compareImage}
                         alt={`${t('Segunda imagen', language)} ${formatDate(compareFrame.date, language)}`}
+                        onLoad={(event) =>
+                          setCompareImageRatio(
+                            event.currentTarget.naturalWidth / event.currentTarget.naturalHeight,
+                          )
+                        }
                         onClick={(event) => markComparisonPosition(event, compareFrame)}
                       />
                       {findings
