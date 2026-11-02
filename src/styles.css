@@ -2982,3 +2982,13 @@ small {
   align-items: center;
   min-height: 0;
 }
+
+
+/* Fit the primary frame to the observed image while keeping the full sky visible. */
+.spherexImageFrame:not(.comparisonHidden) {
+  flex: 0 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: min(65dvh, 680px);
+  aspect-ratio: var(--spherex-image-ratio, 1.72);
+}

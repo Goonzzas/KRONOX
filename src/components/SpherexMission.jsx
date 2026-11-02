@@ -268,10 +268,10 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
 
   const markImagePosition = (event) => {
     if (!marking || !image) return;
-    const rect = event.currentTarget.parentElement.getBoundingClientRect();
+    const point = imagePoint(event);
+    if (!point) return;
     setMarker({
-      x: ((event.clientX - rect.left) / rect.width) * 100,
-      y: ((event.clientY - rect.top) / rect.height) * 100,
+      ...point,
       frameId: frame?.id,
     });
     setMarking(false);
@@ -571,13 +571,21 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                 </>
               )}
             </div>
-            <div className={`spherexImageFrame${compareEnabled ? ' comparisonHidden' : ''}`}>
+            <div
+              className={`spherexImageFrame${compareEnabled ? ' comparisonHidden' : ''}`}
+              style={{ '--spherex-image-ratio': primaryImageRatio }}
+            >
               {image && (
                 <img
                   src={image}
                   alt={`Recorte infrarrojo SPHEREx ${frame?.band}, ${frame ? formatDate(frame.date, language) : ''}`}
                   className={marking ? 'markable' : ''}
                   onClick={markImagePosition}
+                  onLoad={(event) =>
+                    setPrimaryImageRatio(
+                      event.currentTarget.naturalWidth / event.currentTarget.naturalHeight,
+                    )
+                  }
                 />
               )}
               {findings
