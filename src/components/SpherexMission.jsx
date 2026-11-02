@@ -14,6 +14,18 @@ function formatDate(mjd, language = 'es') {
       }) + ' UTC';
 }
 
+function imagePoint(event) {
+  const img = event.currentTarget;
+  const rect = img.getBoundingClientRect();
+  const ratio = img.naturalWidth / img.naturalHeight || rect.width / rect.height;
+  const boxRatio = rect.width / rect.height;
+  const width = ratio > boxRatio ? rect.width : rect.height * ratio;
+  const height = ratio > boxRatio ? rect.width / ratio : rect.height;
+  const x = (event.clientX - (rect.left + (rect.width - width) / 2)) / width;
+  const y = (event.clientY - (rect.top + (rect.height - height) / 2)) / height;
+  return x < 0 || x > 1 || y < 0 || y > 1 ? null : { x: x * 100, y: y * 100 };
+}
+
 export default function SpherexMission({ onClose, initialTargetKey = 'barnard', language = 'es' }) {
   const initialTargetIndex = Math.max(
     0,
@@ -200,7 +212,9 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     if (compareIndex === frameIndex) {
       setCompareImage('');
       setCompareLoading(false);
-      setCompareIndex(frameIndex > 0 ? frameIndex - 1 : Math.min(frameIndex + 1, visibleRecords.length - 1));
+      setCompareIndex(
+        frameIndex > 0 ? frameIndex - 1 : Math.min(frameIndex + 1, visibleRecords.length - 1),
+      );
       return undefined;
     }
     let cancelled = false;
@@ -231,7 +245,15 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     return () => {
       cancelled = true;
     };
-  }, [compareEnabled, compareFrame, compareIndex, frameIndex, image, imageCenter, visibleRecords.length]);
+  }, [
+    compareEnabled,
+    compareFrame,
+    compareIndex,
+    frameIndex,
+    image,
+    imageCenter,
+    visibleRecords.length,
+  ]);
 
   const step = (amount) =>
     setFrameIndex((index) => (index + amount + visibleRecords.length) % visibleRecords.length);
@@ -244,14 +266,20 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
 
   const markImagePosition = (event) => {
     if (!marking || !image) return;
-    const imageRect = event.currentTarget.getBoundingClientRect();
-    const frameRect = event.currentTarget.parentElement.getBoundingClientRect();
+    const rect = event.currentTarget.parentElement.getBoundingClientRect();
     setMarker({
-      x:
-        ((event.clientX - imageRect.left + imageRect.left - frameRect.left) / frameRect.width) *
-        100,
-      y: ((event.clientY - imageRect.top + imageRect.top - frameRect.top) / frameRect.height) * 100,
+      x: ((event.clientX - rect.left) / rect.width) * 100,
+      y: ((event.clientY - rect.top) / rect.height) * 100,
+      frameId: frame?.id,
     });
+    setMarking(false);
+  };
+
+  const markComparisonPosition = (event, record) => {
+    if (!marking) return;
+    const point = imagePoint(event);
+    if (!point) return;
+    setMarker({ ...point, frameId: record.id });
     setMarking(false);
   };
 
@@ -263,11 +291,17 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
         note: findingNote.trim(),
         target: t(selectedTarget.name, language),
         band: frame.band,
-        previousDate: previousFrame
-          ? formatDate(previousFrame.date, language)
-          : t('Sin observación anterior', language),
-        currentDate: formatDate(frame.date, language),
-        frameId: frame.id,
+        previousDate:
+          compareEnabled && compareFrame
+            ? formatDate(frame.date, language)
+            : previousFrame
+              ? formatDate(previousFrame.date, language)
+              : t('Sin observación anterior', language),
+        currentDate:
+          compareEnabled && compareFrame
+            ? formatDate(compareFrame.date, language)
+            : formatDate(frame.date, language),
+        frameId: marker.frameId || frame.id,
         markerNumber: findings.length + 1,
         x: marker.x,
         y: marker.y,
@@ -409,7 +443,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               {truncated ? t(' Se muestran como máximo 250 resultados.', language) : ''}
             </div>
           </aside>
-          <main className="spherexViewer">
+          <main className={`spherexViewer${compareEnabled ? ' comparing' : ''}`}>
             <div className="spherexViewMeta">
               <span>
                 {frame
@@ -450,11 +484,9 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
             {frame && (
               <div className="spherexCompareHint">
                 <b>{t('Comparando:', language)}</b>{' '}
-                {previousFrame
-                  ? formatDate(previousFrame.date, language)
-                  : t('primera observación', language)}
-                {' → '}
-                {formatDate(frame.date, language)}
+                {compareEnabled && compareFrame
+                  ? `${formatDate(frame.date, language)} ↔ ${formatDate(compareFrame.date, language)}`
+                  : `${previousFrame ? formatDate(previousFrame.date, language) : t('primera observación', language)} → ${formatDate(frame.date, language)}`}
                 <span>
                   {t(' · la escala de brillo se mantiene fija en la secuencia', language)}
                 </span>
@@ -466,29 +498,54 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                 className={compareEnabled ? 'active' : ''}
                 onClick={() => {
                   setCompareEnabled((enabled) => !enabled);
-                  setCompareIndex(frameIndex > 0 ? frameIndex - 1 : Math.min(1, visibleRecords.length - 1));
+                  setCompareIndex(
+                    frameIndex > 0 ? frameIndex - 1 : Math.min(1, visibleRecords.length - 1),
+                  );
                   setPlaying(false);
+                  setMarking(false);
+                  setMarker(null);
                 }}
                 disabled={visibleRecords.length < 2}
                 aria-pressed={compareEnabled}
               >
-                {compareEnabled ? t('Ocultar comparación', language) : t('Comparar 2 imágenes', language)}
+                {compareEnabled
+                  ? t('Ocultar comparación', language)
+                  : t('Comparar 2 imágenes', language)}
               </button>
               {compareEnabled && (
-                <label>
-                  {t('Segunda fecha', language)}
-                  <select
-                    value={compareIndex}
-                    onChange={(event) => setCompareIndex(Number(event.target.value))}
-                    aria-label={t('Elegir segunda imagen para comparar', language)}
+                <>
+                  <label>
+                    {t('Segunda fecha', language)}
+                    <select
+                      value={compareIndex}
+                      onChange={(event) => setCompareIndex(Number(event.target.value))}
+                      aria-label={t('Elegir segunda imagen para comparar', language)}
+                    >
+                      {visibleRecords.map((record, index) => (
+                        <option
+                          key={`${record.id}-${record.date}`}
+                          value={index}
+                          disabled={index === frameIndex}
+                        >
+                          {formatDate(record.date, language)} · {record.band}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className={marking ? 'active' : ''}
+                    onClick={() => {
+                      setMarker(null);
+                      setMarking((value) => !value);
+                    }}
+                    disabled={!image || compareLoading}
                   >
-                    {visibleRecords.map((record, index) => (
-                      <option key={`${record.id}-${record.date}`} value={index} disabled={index === frameIndex}>
-                        {formatDate(record.date, language)} · {record.band}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    {marking
+                      ? t('Haz clic en cualquiera de las dos imágenes', language)
+                      : t('＋ Marcar cambio', language)}
+                  </button>
+                </>
               )}
             </div>
             <div className={`spherexImageFrame${compareEnabled ? ' comparisonHidden' : ''}`}>
@@ -544,13 +601,95 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
             {compareEnabled && compareFrame && (
               <div className="spherexComparisonGrid">
                 <article className="spherexComparisonPane">
-                  <header>{t('Imagen actual', language)} · {frame ? formatDate(frame.date, language) : ''}</header>
-                  {image ? <img src={image} alt={`${t('Imagen actual', language)} ${frame ? formatDate(frame.date, language) : ''}`} /> : <span>{t('Cargando imagen…', language)}</span>}
+                  <header>
+                    {t('Imagen actual', language)} · {frame ? formatDate(frame.date, language) : ''}
+                  </header>
+                  {image ? (
+                    <div className={`spherexComparisonCanvas${marking ? ' markable' : ''}`}>
+                      <img
+                        src={image}
+                        alt={`${t('Imagen actual', language)} ${frame ? formatDate(frame.date, language) : ''}`}
+                        onClick={(event) => markComparisonPosition(event, frame)}
+                      />
+                      {findings
+                        .filter((finding) => finding.frameId === frame?.id)
+                        .map((finding) => (
+                          <span
+                            key={finding.id}
+                            className="spherexMarker saved"
+                            style={{ left: `${finding.x}%`, top: `${finding.y}%` }}
+                          >
+                            <b>{finding.markerNumber}</b>
+                          </span>
+                        ))}
+                      {marker && (
+                        <span
+                          className="spherexMarker"
+                          style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+                        >
+                          <b>+</b>
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span>{t('Cargando imagen…', language)}</span>
+                  )}
                 </article>
                 <article className="spherexComparisonPane">
-                  <header>{t('Segunda imagen', language)} · {formatDate(compareFrame.date, language)}</header>
-                  {compareLoading ? <span>{t('Cargando imagen…', language)}</span> : compareImage ? <img src={compareImage} alt={`${t('Segunda imagen', language)} ${formatDate(compareFrame.date, language)}`} /> : <span>{compareIndex === frameIndex ? t('Elige otra fecha para comparar.', language) : t('La imagen no está disponible.', language)}</span>}
+                  <header>
+                    {t('Segunda imagen', language)} · {formatDate(compareFrame.date, language)}
+                  </header>
+                  {compareLoading ? (
+                    <span>{t('Cargando imagen…', language)}</span>
+                  ) : compareImage ? (
+                    <div className={`spherexComparisonCanvas${marking ? ' markable' : ''}`}>
+                      <img
+                        src={compareImage}
+                        alt={`${t('Segunda imagen', language)} ${formatDate(compareFrame.date, language)}`}
+                        onClick={(event) => markComparisonPosition(event, compareFrame)}
+                      />
+                      {findings
+                        .filter((finding) => finding.frameId === compareFrame.id)
+                        .map((finding) => (
+                          <span
+                            key={finding.id}
+                            className="spherexMarker saved"
+                            style={{ left: `${finding.x}%`, top: `${finding.y}%` }}
+                          >
+                            <b>{finding.markerNumber}</b>
+                          </span>
+                        ))}
+                      {marker && (
+                        <span
+                          className="spherexMarker"
+                          style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+                        >
+                          <b>+</b>
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span>
+                      {compareIndex === frameIndex
+                        ? t('Elige otra fecha para comparar.', language)
+                        : t('La imagen no está disponible.', language)}
+                    </span>
+                  )}
                 </article>
+              </div>
+            )}
+            {compareEnabled && marker && (
+              <div className="spherexCompareNoteForm">
+                <input
+                  value={findingNote}
+                  onChange={(event) => setFindingNote(event.target.value)}
+                  placeholder={t('Describe el cambio entre las dos fechas…', language)}
+                  maxLength={240}
+                  aria-label={t('Descripción del cambio observado', language)}
+                />
+                <button type="button" onClick={saveFinding} disabled={!findingNote.trim()}>
+                  {t('Guardar hallazgo', language)}
+                </button>
               </div>
             )}
             {error && (
@@ -629,7 +768,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   </button>
                 )}
               </div>
-              {marker && (
+              {marker && !compareEnabled && (
                 <div className="spherexFindingForm">
                   <input
                     value={findingNote}

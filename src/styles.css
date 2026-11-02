@@ -2137,29 +2137,43 @@ small {
 }
 .spherexComparisonPane {
   display: grid;
-  grid-template-rows: auto minmax(140px, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
-  aspect-ratio: 1.15;
+  aspect-ratio: 1.65;
   overflow: hidden;
   border: 1px solid #6da5c644;
   border-radius: 10px;
   background: radial-gradient(ellipse, #101a2d, #02040a 75%);
 }
+.spherexComparisonCanvas {
+  position: relative;
+  align-self: center;
+  justify-self: center;
+  height: 100%;
+  max-width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+.spherexComparisonCanvas img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: brightness(1.12) contrast(1.08) saturate(1.15);
+}
+.spherexComparisonCanvas.markable img {
+  cursor: crosshair;
+}
 .spherexComparisonPane header {
   overflow: hidden;
   padding: 8px 10px;
   color: #b7c9e3;
-  font: 10px ui-monospace, monospace;
+  font:
+    10px ui-monospace,
+    monospace;
   text-overflow: ellipsis;
   white-space: nowrap;
   background: #ffffff08;
-}
-.spherexComparisonPane img {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  object-fit: contain;
-  filter: brightness(1.12) contrast(1.08) saturate(1.15);
 }
 .spherexComparisonPane > span {
   display: grid;
@@ -2168,6 +2182,30 @@ small {
   color: #9eabc3;
   font-size: 12px;
   text-align: center;
+}
+.spherexCompareNoteForm {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+  margin: 7px 0;
+}
+.spherexCompareNoteForm input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #ffffff26;
+  border-radius: 7px;
+  background: #08101e;
+  color: #eaf2ff;
+}
+.spherexCompareNoteForm button {
+  flex: 0 0 auto;
+  border-color: #48c9f1;
+  color: #bff3ff;
+}
+.spherexCompareControls button.active {
+  background: #1aa9d52b;
+  box-shadow: 0 0 12px #42dfff55;
 }
 .spherexFindings {
   margin-top: 13px;
@@ -2600,6 +2638,46 @@ small {
   .spherexCompareHint span {
     display: none;
   }
+  .spherexViewer.comparing .spherexPlayback,
+  .spherexViewer.comparing .spherexTimeline,
+  .spherexViewer.comparing .spherexFrameDate,
+  .spherexViewer.comparing .spherexFilmstrip {
+    display: none;
+  }
+  .spherexViewer.comparing .spherexComparisonGrid {
+    flex: 0 0 auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .spherexViewer.comparing .spherexComparisonPane {
+    aspect-ratio: 1.25;
+  }
+  .spherexViewer.comparing .spherexComparisonPane header {
+    padding: 5px;
+    font-size: 8px;
+  }
+  .spherexViewer.comparing .spherexFindings {
+    flex: 0 0 auto;
+    margin-top: 4px;
+    padding: 5px;
+  }
+  .spherexViewer.comparing .spherexFindingsTitle small {
+    display: none;
+  }
+  .spherexViewer.comparing .spherexFindingsTitle button:first-of-type {
+    display: none;
+  }
+  .spherexViewer.comparing .spherexCompareNoteForm {
+    flex: 0 0 auto;
+    gap: 4px;
+    margin: 3px 0;
+  }
+  .spherexViewer.comparing .spherexCompareNoteForm input,
+  .spherexViewer.comparing .spherexCompareNoteForm button {
+    min-width: 0;
+    padding: 5px;
+    font-size: 9px;
+  }
   .spherexCompareControls {
     flex: 0 0 auto;
     margin-bottom: 5px;
@@ -2612,11 +2690,42 @@ small {
   }
   .spherexComparisonGrid {
     flex: 0 0 auto;
-    grid-template-columns: 1fr;
-    overflow: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: hidden;
   }
   .spherexComparisonPane {
-    aspect-ratio: 1.5;
+    aspect-ratio: 1.45;
+  }
+  .spherexViewer.comparing .spherexPlayback,
+  .spherexViewer.comparing .spherexTimeline,
+  .spherexViewer.comparing .spherexFrameDate,
+  .spherexViewer.comparing .spherexFilmstrip {
+    display: none;
+  }
+  .spherexViewer.comparing .spherexFindings {
+    margin-top: 4px;
+    padding: 6px;
+  }
+  .spherexViewer.comparing .spherexFindingsTitle small {
+    display: none;
+  }
+  .spherexViewer.comparing .spherexFindingsTitle button:first-of-type {
+    display: none;
+  }
+  .spherexViewer.comparing .spherexFindingsTitle button {
+    padding: 4px 6px;
+    font-size: 9px;
+  }
+  .spherexViewer.comparing .spherexCompareNoteForm {
+    margin: 3px 0;
+  }
+  .spherexViewer.comparing .spherexCompareNoteForm input {
+    padding: 5px 7px;
+    font-size: 10px;
+  }
+  .spherexViewer.comparing .spherexCompareNoteForm button {
+    padding: 4px 6px;
+    font-size: 9px;
   }
   .spherexImageFrame {
     flex: 1 1 auto;
@@ -2803,4 +2912,47 @@ small {
 .languageChoice select {
   min-width: 120px;
   padding: 6px 8px;
+}
+
+@media (max-width: 740px) {
+  .spherexViewer.comparing .spherexPlayback,
+  .spherexViewer.comparing .spherexTimeline,
+  .spherexViewer.comparing .spherexFrameDate,
+  .spherexViewer.comparing .spherexFilmstrip {
+    display: none;
+  }
+  .spherexViewer.comparing .spherexComparisonGrid {
+    flex: 0 0 auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .spherexViewer.comparing .spherexComparisonPane {
+    aspect-ratio: 1.2;
+  }
+  .spherexViewer.comparing .spherexComparisonPane header {
+    padding: 4px;
+    font-size: 8px;
+  }
+  .spherexViewer.comparing .spherexFindings {
+    flex: 0 0 auto;
+    margin-top: 4px;
+    padding: 5px;
+  }
+  .spherexViewer.comparing .spherexFindingsTitle small {
+    display: none;
+  }
+  .spherexViewer.comparing .spherexFindingsTitle button:first-of-type {
+    display: none;
+  }
+  .spherexViewer.comparing .spherexFindingsTitle button,
+  .spherexViewer.comparing .spherexCompareNoteForm input,
+  .spherexViewer.comparing .spherexCompareNoteForm button {
+    min-width: 0;
+    padding: 4px 5px;
+    font-size: 9px;
+  }
+  .spherexViewer.comparing .spherexCompareNoteForm {
+    gap: 4px;
+    margin: 3px 0;
+  }
 }
