@@ -349,9 +349,6 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     <div
       className={`spherexShade${image && !compareEnabled ? ' hasFullImage' : ''}`}
       role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
     >
       <section
         className={`spherexMission${image && !compareEnabled ? ' imageExpanded' : ''}`}
