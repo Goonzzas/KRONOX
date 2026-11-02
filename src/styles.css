@@ -2962,3 +2962,23 @@ small {
     margin: 3px 0;
   }
 }
+
+
+/* Give both complete frames the mission viewport while comparing dates. */
+.spherexBody.comparing {
+  grid-template-columns: minmax(0, 1fr);
+}
+.spherexBody.comparing .spherexControls {
+  display: none;
+}
+.spherexViewer.comparing {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: clamp(8px, 1.5vw, 20px);
+}
+.spherexViewer.comparing .spherexComparisonGrid {
+  flex: 1 1 auto;
+  align-items: center;
+  min-height: 0;
+}

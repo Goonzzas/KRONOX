@@ -381,7 +381,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
             Cerrar ✕
           </button>
         </header>
-        <div className="spherexBody">
+        <div className={`spherexBody${compareEnabled ? ' comparing' : ''}`}>
           <aside className="spherexControls">
             <div className="spherexSectionTitle">{t('Objetivos de la misión', language)}</div>
             <div className="spherexTargets">
