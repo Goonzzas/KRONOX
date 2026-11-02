@@ -1,7 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { parseFits } from '../utils/fitsImage.js';
-import { SPHEREX_MISSION_TYPES, SPHEREX_TARGETS as TARGETS } from '../data/spherexTargets.js';
+import {
+  assessPhotometricComparability,
+  parseFits,
+  SPHEREX_DETECTOR_SPECS,
+} from '../utils/fitsImage.js';
+import {
+  propagateCoordinates,
+  SPHEREX_MISSION_TYPES,
+  SPHEREX_REFERENCE_EPOCH,
+  SPHEREX_TARGETS as TARGETS,
+} from '../data/spherexTargets.js';
 import { t } from '../i18n.js';
+
+const BAND_SPECS_BY_NAME = Object.fromEntries(
+  Object.values(SPHEREX_DETECTOR_SPECS).map((spec) => [spec.band, spec]),
+);
+
+function formatBandLabel(bandName) {
+  const spec = BAND_SPECS_BY_NAME[bandName];
+  if (!spec) return bandName;
+  return `${bandName} (${spec.minUm.toFixed(2)}–${spec.maxUm.toFixed(2)} μm)`;
+}
 
 function formatDate(mjd, language = 'es') {
   const date = new Date((Number(mjd) - 40587) * 86400000);
@@ -26,19 +45,28 @@ function imagePoint(event) {
   return x < 0 || x > 1 || y < 0 || y > 1 ? null : { x: x * 100, y: y * 100 };
 }
 
-function SkyReticle({ imageCenter, language }) {
+function SkyReticle({ imageCenter, predictedMarker, language }) {
   return (
-    <div
-      className="spherexReticle"
-      aria-label={`${t('Coordenada de referencia', language)}: RA ${imageCenter.ra.toFixed(4)}°, Dec ${imageCenter.dec.toFixed(4)}°`}
-      title={`RA ${imageCenter.ra.toFixed(4)}°, Dec ${imageCenter.dec.toFixed(4)}°`}
-    >
-      <span className="spherexReticleRing" />
-      <i className="spherexReticleTick north" />
-      <i className="spherexReticleTick south" />
-      <i className="spherexReticleTick east" />
-      <i className="spherexReticleTick west" />
-    </div>
+    <>
+      <div
+        className="spherexReticle"
+        aria-label={`${t('Coordenada de referencia', language)}: RA ${imageCenter.ra.toFixed(4)}°, Dec ${imageCenter.dec.toFixed(4)}°`}
+        title={`${t('Centro fijo de la secuencia', language)} (J${SPHEREX_REFERENCE_EPOCH}): RA ${imageCenter.ra.toFixed(4)}°, Dec ${imageCenter.dec.toFixed(4)}°`}
+      >
+        <span className="spherexReticleRing" />
+        <i className="spherexReticleTick north" />
+        <i className="spherexReticleTick south" />
+        <i className="spherexReticleTick east" />
+        <i className="spherexReticleTick west" />
+      </div>
+      {predictedMarker && (
+        <span
+          className="spherexEpochTarget"
+          style={{ left: `${predictedMarker.xPercent}%`, top: `${predictedMarker.yPercent}%` }}
+          title={`${t('Posición astrométrica propagada', language)} (${predictedMarker.epochField} ${predictedMarker.mjdUsed.toFixed(5)} · J${predictedMarker.epoch.toFixed(3)}): RA ${predictedMarker.ra.toFixed(4)}°, Dec ${predictedMarker.dec.toFixed(4)}°`}
+        />
+      )}
+    </>
   );
 }
 
@@ -51,6 +79,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const [selected, setSelected] = useState(initialTargetIndex);
   const [ra, setRa] = useState(String(initialTarget.ra));
   const [dec, setDec] = useState(String(initialTarget.dec));
+  // Fixed sky-grid reference coordinate across the entire temporal sequence
   const [imageCenter, setImageCenter] = useState({ ra: initialTarget.ra, dec: initialTarget.dec });
   const [records, setRecords] = useState([]);
   const [frameIndex, setFrameIndex] = useState(0);
@@ -61,12 +90,17 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const [status, setStatus] = useState(
     'Elige un objetivo o introduce coordenadas y consulta el archivo.',
   );
-  const [release, setRelease] = useState('qr2');
+  // Default to combined QR2 + QR3 search so users access the full multi-epoch timeline without losing QR2 coverage
+  const [release, setRelease] = useState('all');
   const [band, setBand] = useState('');
+  const [zodiMode, setZodiMode] = useState('subtracted');
+  const [flagPolicy, setFlagPolicy] = useState('measurement');
   const [image, setImage] = useState('');
+  const [frameDiagnostics, setFrameDiagnostics] = useState(null);
   const [compareEnabled, setCompareEnabled] = useState(false);
   const [compareIndex, setCompareIndex] = useState(0);
   const [compareImage, setCompareImage] = useState('');
+  const [compareDiagnostics, setCompareDiagnostics] = useState(null);
   const [compareLoading, setCompareLoading] = useState(false);
   const [primaryImageRatio, setPrimaryImageRatio] = useState(1);
   const [compareImageRatio, setCompareImageRatio] = useState(1);
@@ -97,13 +131,15 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const previousFrame = visibleRecords[frameIndex - 1];
   const compareFrame = visibleRecords[compareIndex];
 
-  const search = async (nextRa = ra, nextDec = dec) => {
+  const search = async (nextRa = ra, nextDec = dec, nextRelease = release) => {
     const searchId = ++searchRef.current;
+    // Lock the common WCS sky-grid center once for the whole observation sequence
     setImageCenter({ ra: Number(nextRa), dec: Number(nextDec) });
     stretchRef.current = null;
     setLoading(true);
     setError('');
     setImage('');
+    setFrameDiagnostics(null);
     setFrameLoading(false);
     setRecords([]);
     setFrameIndex(0);
@@ -111,21 +147,27 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     setPlaying(false);
     setCompareIndex(0);
     setCompareImage('');
+    setCompareDiagnostics(null);
     setCompareEnabled(false);
     setStatus('Consultando las observaciones públicas de IRSA…');
     try {
       const response = await fetch(
-        `/api/spherex?action=search&ra=${encodeURIComponent(nextRa)}&dec=${encodeURIComponent(nextDec)}&release=${release}`,
+        `/api/spherex?action=search&ra=${encodeURIComponent(nextRa)}&dec=${encodeURIComponent(nextDec)}&release=${encodeURIComponent(nextRelease)}`,
       );
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Falló la consulta al archivo.');
       if (searchId !== searchRef.current) return;
       const unique = new Map();
       for (const record of body.records) {
-        const key = `${record.id}|${record.band}|${record.date}`;
-        if (!unique.has(key)) unique.set(key, record);
+        const key = `${record.id}|${record.band}`;
+        const prev = unique.get(key);
+        if (!prev || Number(record.priorityScore || 0) >= Number(prev.priorityScore || 0)) {
+          unique.set(key, record);
+        }
       }
-      const sorted = [...unique.values()].sort((a, b) => Number(a.date) - Number(b.date));
+      const sorted = [...unique.values()].sort(
+        (a, b) => Number(a.dateAvg || a.date) - Number(b.dateAvg || b.date),
+      );
       const bandCounts = new Map();
       for (const record of sorted)
         bandCounts.set(record.band, (bandCounts.get(record.band) || 0) + 1);
@@ -135,7 +177,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
       setTruncated(body.truncated);
       setStatus(
         sorted.length
-          ? `Se encontraron ${sorted.length} imágenes en ${new Set(sorted.map((row) => new Date((Number(row.date) - 40587) * 86400000).toISOString().slice(0, 10))).size} días distintos.`
+          ? `Se encontraron ${sorted.length} imágenes en ${new Set(sorted.map((row) => new Date((Number(row.dateAvg || row.date) - 40587) * 86400000).toISOString().slice(0, 10))).size} días distintos.`
           : 'No hay imágenes SPHEREx disponibles para estas coordenadas en este lanzamiento.',
       );
     } catch (cause) {
@@ -161,15 +203,17 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     stretchRef.current = null;
     setRecords([]);
     setImage('');
+    setFrameDiagnostics(null);
     setFrameLoading(false);
     setPlaying(false);
     setStatus(`Buscando observaciones de ${TARGETS[index].name}…`);
-    search(String(TARGETS[index].ra), String(TARGETS[index].dec));
+    search(String(TARGETS[index].ra), String(TARGETS[index].dec), release);
   };
 
   useEffect(() => {
     if (!visibleRecords.length) {
       setImage('');
+      setFrameDiagnostics(null);
       setFrameLoading(false);
       return undefined;
     }
@@ -179,6 +223,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     setFrameLoading(true);
     setError('');
     setImage('');
+    setFrameDiagnostics(null);
     setMarker(null);
     setMarking(false);
     const params = new URLSearchParams({
@@ -196,9 +241,22 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
       })
       .then((buffer) => {
         if (token === requestRef.current) {
-          const rendered = parseFits(buffer, stretchRef.current, imageCenter);
+          const rendered = parseFits(buffer, stretchRef.current, imageCenter, {
+            zodiMode,
+            flagPolicy,
+          });
           stretchRef.current = rendered.range;
           setImage(rendered.src);
+          setFrameDiagnostics({
+            band: record.band,
+            release: record.release,
+            pipelineVersion: record.pipelineVersion,
+            spectral: rendered.spectral,
+            temporal: rendered.temporal,
+            detector: rendered.detector,
+            extensions: rendered.extensions,
+            reprojected: rendered.reprojected,
+          });
         }
       })
       .catch((cause) => {
@@ -210,7 +268,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     return () => {
       requestRef.current++;
     };
-  }, [visibleRecords, frameIndex, imageCenter]);
+  }, [visibleRecords, frameIndex, imageCenter, zodiMode, flagPolicy]);
 
   useEffect(() => {
     if (!playing || frameLoading || visibleRecords.length < 2) return undefined;
@@ -224,11 +282,13 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   useEffect(() => {
     if (!compareEnabled || !image || !compareFrame) {
       setCompareImage('');
+      setCompareDiagnostics(null);
       setCompareLoading(false);
       return undefined;
     }
     if (compareIndex === frameIndex) {
       setCompareImage('');
+      setCompareDiagnostics(null);
       setCompareLoading(false);
       setCompareIndex(
         frameIndex > 0 ? frameIndex - 1 : Math.min(frameIndex + 1, visibleRecords.length - 1),
@@ -237,6 +297,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     }
     let cancelled = false;
     setCompareImage('');
+    setCompareDiagnostics(null);
     setCompareLoading(true);
     const params = new URLSearchParams({
       action: 'frame',
@@ -252,7 +313,23 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
         return response.arrayBuffer();
       })
       .then((buffer) => {
-        if (!cancelled) setCompareImage(parseFits(buffer, stretchRef.current, imageCenter).src);
+        if (!cancelled) {
+          const rendered = parseFits(buffer, stretchRef.current, imageCenter, {
+            zodiMode,
+            flagPolicy,
+          });
+          setCompareImage(rendered.src);
+          setCompareDiagnostics({
+            band: compareFrame.band,
+            release: compareFrame.release,
+            pipelineVersion: compareFrame.pipelineVersion,
+            spectral: rendered.spectral,
+            temporal: rendered.temporal,
+            detector: rendered.detector,
+            extensions: rendered.extensions,
+            reprojected: rendered.reprojected,
+          });
+        }
       })
       .catch((cause) => {
         if (!cancelled) setError(cause.message);
@@ -271,6 +348,8 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     image,
     imageCenter,
     visibleRecords.length,
+    zodiMode,
+    flagPolicy,
   ]);
 
   const step = (amount) =>
@@ -281,6 +360,74 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
       '',
     language,
   );
+
+  // Check if the current fixed sky-grid center matches the selected preset target
+  const isPresetCenterActive =
+    Math.abs(imageCenter.ra - selectedTarget.ra) < 1e-3 &&
+    Math.abs(imageCenter.dec - selectedTarget.dec) < 1e-3;
+
+  // Use the authoritative FITS header midpoint MJD-AVG (falling back to MJD-OBS or SIA dateAvg)
+  const computeEpochMarker = (record, diagnostics) => {
+    if (!isPresetCenterActive || !selectedTarget.astrometry || !record || !diagnostics?.reprojected)
+      return null;
+    const mjdUsed = Number(
+      diagnostics.temporal?.mjdAvg ??
+        diagnostics.temporal?.mjdObs ??
+        record.dateAvg ??
+        record.date,
+    );
+    const epochField = diagnostics.temporal?.astrometricEpochField || 'MJD-AVG';
+    const prop = propagateCoordinates(selectedTarget.astrometry, mjdUsed);
+    if (!prop) return null;
+    const gridPos = diagnostics.reprojected.worldToGrid(prop.ra, prop.dec);
+    if (
+      !gridPos ||
+      gridPos.xPercent < 0 ||
+      gridPos.xPercent > 100 ||
+      gridPos.yPercent < 0 ||
+      gridPos.yPercent > 100
+    )
+      return null;
+    return {
+      ...prop,
+      mjdUsed,
+      epochField,
+      xPercent: gridPos.xPercent,
+      yPercent: gridPos.yPercent,
+    };
+  };
+
+  const primaryEpochMarker = computeEpochMarker(frame, frameDiagnostics);
+  const compareEpochMarker = computeEpochMarker(compareFrame, compareDiagnostics);
+  const comparability = useMemo(
+    () =>
+      compareEnabled && frameDiagnostics && compareDiagnostics
+        ? assessPhotometricComparability(frameDiagnostics, compareDiagnostics)
+        : null,
+    [compareEnabled, frameDiagnostics, compareDiagnostics],
+  );
+
+  const formatSpectralBadge = (diagnostics) => {
+    const spec = diagnostics?.spectral;
+    if (!spec || !Number.isFinite(spec.wavelengthUm)) return '';
+    return ` · λ ${spec.wavelengthUm.toFixed(3)} ± ${(spec.bandwidthUm * 0.5).toFixed(3)} μm`;
+  };
+
+  const formatZodiBadge = (diagnostics) => {
+    const ext = diagnostics?.extensions;
+    if (!ext?.hasZodi) return '';
+    if (ext.zodiMode === 'raw') return ' · IMAGE orig.';
+    if (ext.zodiMode === 'model') return ` · ZODI (${ext.meanZodiMjySr} MJy/sr)`;
+    return ' · IMAGE−ZODI';
+  };
+
+  const formatFlagBadge = (diagnostics) => {
+    const ext = diagnostics?.extensions;
+    if (!ext?.hasFlags) return '';
+    return ext.flagPolicy === 'discovery'
+      ? ` · DESCUBRIMIENTO (Cand:${ext.categoryCCandidateCount})`
+      : ` · MEDICIÓN (Warn:${ext.categoryBWarningCount})`;
+  };
 
   const markImagePosition = (event) => {
     if (!marking || !image) return;
@@ -311,14 +458,14 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
         band: frame.band,
         previousDate:
           compareEnabled && compareFrame
-            ? formatDate(frame.date, language)
+            ? formatDate(frame.dateAvg || frame.date, language)
             : previousFrame
-              ? formatDate(previousFrame.date, language)
+              ? formatDate(previousFrame.dateAvg || previousFrame.date, language)
               : t('Sin observación anterior', language),
         currentDate:
           compareEnabled && compareFrame
-            ? formatDate(compareFrame.date, language)
-            : formatDate(frame.date, language),
+            ? formatDate(compareFrame.dateAvg || compareFrame.date, language)
+            : formatDate(frame.dateAvg || frame.date, language),
         frameId: marker.frameId || frame.id,
         markerNumber: findings.length + 1,
         x: marker.x,
@@ -446,6 +593,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               <label>
                 {t('Lanzamiento', language)}
                 <select value={release} onChange={(event) => setRelease(event.target.value)}>
+                  <option value="all">{t('QR2 + QR3 · archivo combinado', language)}</option>
                   <option value="qr3">{t('QR3 · más reciente', language)}</option>
                   <option value="qr2">{t('QR2 · archivo anterior', language)}</option>
                 </select>
@@ -454,7 +602,14 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                 {loading ? t('Buscando…', language) : t('Consultar SPHEREx', language)}
               </button>
             </form>
-            <p className="spherexTargetHint">{t(selectedTarget.note, language)}</p>
+            <p className="spherexTargetHint">
+              {t(selectedTarget.note, language)}
+              {selectedTarget.astrometry && (
+                <small className="spherexAstrometryMeta">
+                  {`J${selectedTarget.referenceEpoch} (${selectedTarget.astrometry.source}) · μ = ${Math.hypot(selectedTarget.astrometry.pmRa, selectedTarget.astrometry.pmDec).toFixed(0)} mas/yr`}
+                </small>
+              )}
+            </p>
             <div className="spherexStatus" aria-live="polite">
               {t(status, language)}
               {truncated ? t(' Se muestran como máximo 250 resultados.', language) : ''}
@@ -466,7 +621,10 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
             <div className="spherexViewMeta">
               <span>
                 {frame
-                  ? formatDate(frame.date, language)
+                  ? formatDate(
+                      frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date,
+                      language,
+                    )
                   : t('SECUENCIA DE OBSERVACIONES', language)}
               </span>
               <label>
@@ -486,9 +644,38 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   <option value="">{t('Todas', language)}</option>
                   {bands.map((name) => (
                     <option key={name} value={name}>
-                      {name}
+                      {formatBandLabel(name)}
                     </option>
                   ))}
+                </select>
+              </label>
+              <label title={t('Procesamiento del fondo zodiacal (HDU 4: ZODI)', language)}>
+                {t('Fondo', language)}{' '}
+                <select
+                  value={zodiMode}
+                  onChange={(event) => {
+                    stretchRef.current = null;
+                    setZodiMode(event.target.value);
+                  }}
+                  disabled={!visibleRecords.length}
+                >
+                  <option value="subtracted">{t('IMAGE − ZODI', language)}</option>
+                  <option value="raw">{t('IMAGE original', language)}</option>
+                  <option value="model">{t('Modelo ZODI', language)}</option>
+                </select>
+              </label>
+              <label title={t('Política de máscaras de calidad (HDU 2: FLAGS)', language)}>
+                {t('Modo', language)}{' '}
+                <select
+                  value={flagPolicy}
+                  onChange={(event) => {
+                    stretchRef.current = null;
+                    setFlagPolicy(event.target.value);
+                  }}
+                  disabled={!visibleRecords.length}
+                >
+                  <option value="measurement">{t('Medición (Cat. A+C)', language)}</option>
+                  <option value="discovery">{t('Descubrimiento (Cat. A)', language)}</option>
                 </select>
               </label>
               <button
@@ -504,13 +691,15 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               <div className="spherexCompareHint">
                 <b>{t('Comparando:', language)}</b>{' '}
                 {compareEnabled && compareFrame
-                  ? `${formatDate(frame.date, language)} ↔ ${formatDate(compareFrame.date, language)}`
-                  : `${previousFrame ? formatDate(previousFrame.date, language) : t('primera observación', language)} → ${formatDate(frame.date, language)}`}
+                  ? `${formatDate(frame.dateAvg || frame.date, language)} ↔ ${formatDate(compareFrame.dateAvg || compareFrame.date, language)}`
+                  : `${previousFrame ? formatDate(previousFrame.dateAvg || previousFrame.date, language) : t('primera observación', language)} → ${formatDate(frame.dateAvg || frame.date, language)}`}
                 <span>
-                  {t(
-                    ' · alineado por WCS (N ↑ E ←) · la escala de brillo se mantiene fija en la secuencia',
-                    language,
-                  )}
+                  {comparability
+                    ? ` · ${language === 'en' ? comparability.reasonEn : comparability.reasonEs}`
+                    : t(
+                        ' · alineado por WCS (N ↑ E ←) · la escala de brillo se mantiene fija en la secuencia',
+                        language,
+                      )}
                 </span>
               </div>
             )}
@@ -548,11 +737,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     >
                       {visibleRecords.map((record, index) => (
                         <option
-                          key={`${record.id}-${record.date}`}
+                          key={`${record.id}-${record.band}-${record.date}`}
                           value={index}
                           disabled={index === compareIndex}
                         >
-                          {formatDate(record.date, language)} · {record.band}
+                          {formatDate(record.dateAvg || record.date, language)} · {record.band}
                         </option>
                       ))}
                     </select>
@@ -566,11 +755,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     >
                       {visibleRecords.map((record, index) => (
                         <option
-                          key={`${record.id}-${record.date}`}
+                          key={`${record.id}-${record.band}-${record.date}`}
                           value={index}
                           disabled={index === frameIndex}
                         >
-                          {formatDate(record.date, language)} · {record.band}
+                          {formatDate(record.dateAvg || record.date, language)} · {record.band}
                         </option>
                       ))}
                     </select>
@@ -599,7 +788,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                 <div className="spherexSkyStage">
                   <img
                     src={image}
-                    alt={`Recorte infrarrojo SPHEREx ${frame?.band}, ${frame ? formatDate(frame.date, language) : ''}`}
+                    alt={`Recorte infrarrojo SPHEREx ${frame?.band}, ${frame ? formatDate(frame.dateAvg || frame.date, language) : ''}`}
                     className={marking ? 'markable' : ''}
                     onClick={markImagePosition}
                     onLoad={(event) =>
@@ -608,7 +797,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                       )
                     }
                   />
-                  <SkyReticle imageCenter={imageCenter} language={language} />
+                  <SkyReticle
+                    imageCenter={imageCenter}
+                    predictedMarker={primaryEpochMarker}
+                    language={language}
+                  />
                   {findings
                     .filter((finding) => finding.frameId === frame?.id)
                     .map((finding) => (
@@ -648,7 +841,13 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               )}
               {frame && (
                 <span className="spherexFrameLabel">
-                  {frame.band} · {frame.release.toUpperCase()} · N ↑ E ←
+                  {formatBandLabel(frame.band)} · {frame.release.replace('spherex_', '').toUpperCase()}
+                  {frame.pipelineVersion && frame.pipelineVersion !== 'unknown'
+                    ? ` (${frame.pipelineVersion})`
+                    : ''}
+                  {formatSpectralBadge(frameDiagnostics)}
+                  {formatZodiBadge(frameDiagnostics)}
+                  {formatFlagBadge(frameDiagnostics)} · N ↑ E ←
                 </span>
               )}
             </div>
@@ -659,13 +858,15 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   style={{ aspectRatio: primaryImageRatio }}
                 >
                   <header>
-                    {t('Imagen actual', language)} · {frame ? formatDate(frame.date, language) : ''}
+                    {t('Imagen actual', language)} ·{' '}
+                    {frame ? formatDate(frame.dateAvg || frame.date, language) : ''} · {frame?.band}
+                    {formatSpectralBadge(frameDiagnostics)}
                   </header>
                   {image ? (
                     <div className={`spherexComparisonCanvas${marking ? ' markable' : ''}`}>
                       <img
                         src={image}
-                        alt={`${t('Imagen actual', language)} ${frame ? formatDate(frame.date, language) : ''}`}
+                        alt={`${t('Imagen actual', language)} ${frame ? formatDate(frame.dateAvg || frame.date, language) : ''}`}
                         onLoad={(event) =>
                           setPrimaryImageRatio(
                             event.currentTarget.naturalWidth / event.currentTarget.naturalHeight,
@@ -673,7 +874,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                         }
                         onClick={(event) => markComparisonPosition(event, frame)}
                       />
-                      <SkyReticle imageCenter={imageCenter} language={language} />
+                      <SkyReticle
+                        imageCenter={imageCenter}
+                        predictedMarker={primaryEpochMarker}
+                        language={language}
+                      />
                       {findings
                         .filter((finding) => finding.frameId === frame?.id)
                         .map((finding) => (
@@ -703,7 +908,10 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   style={{ aspectRatio: compareImageRatio }}
                 >
                   <header>
-                    {t('Segunda imagen', language)} · {formatDate(compareFrame.date, language)}
+                    {t('Segunda imagen', language)} ·{' '}
+                    {formatDate(compareFrame.dateAvg || compareFrame.date, language)} ·{' '}
+                    {compareFrame.band}
+                    {formatSpectralBadge(compareDiagnostics)}
                   </header>
                   {compareLoading ? (
                     <span>{t('Cargando imagen…', language)}</span>
@@ -711,7 +919,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     <div className={`spherexComparisonCanvas${marking ? ' markable' : ''}`}>
                       <img
                         src={compareImage}
-                        alt={`${t('Segunda imagen', language)} ${formatDate(compareFrame.date, language)}`}
+                        alt={`${t('Segunda imagen', language)} ${formatDate(compareFrame.dateAvg || compareFrame.date, language)}`}
                         onLoad={(event) =>
                           setCompareImageRatio(
                             event.currentTarget.naturalWidth / event.currentTarget.naturalHeight,
@@ -719,7 +927,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                         }
                         onClick={(event) => markComparisonPosition(event, compareFrame)}
                       />
-                      <SkyReticle imageCenter={imageCenter} language={language} />
+                      <SkyReticle
+                        imageCenter={imageCenter}
+                        predictedMarker={compareEpochMarker}
+                        language={language}
+                      />
                       {findings
                         .filter((finding) => finding.frameId === compareFrame.id)
                         .map((finding) => (
@@ -790,7 +1002,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                 aria-label={t('Imagen siguiente', language)}
               >
                 ▶
-              </button>
+                            </button>
               <span>
                 {visibleRecords.length ? `${frameIndex + 1} / ${visibleRecords.length}` : '0 / 0'}
               </span>
@@ -810,7 +1022,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
             />
             <div className="spherexFrameDate">
               {frame
-                ? `${formatDate(frame.date, language)} · ${frame.id}`
+                ? `${formatDate(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date, language)} · MJD-AVG ${Number(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date).toFixed(5)} · ${frame.id}${formatSpectralBadge(frameDiagnostics)}`
                 : t('Las observaciones disponibles aparecerán ordenadas por fecha.', language)}
             </div>
             <section className="spherexFindings" aria-label={t('Registrar hallazgo', language)}>
@@ -856,7 +1068,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               )}
               {findings.length > 0 && (
                 <ul className="spherexFindingList">
-                  {findings.map((finding, index) => (
+                  {findings.map((finding) => (
                     <li key={finding.id}>
                       <span className="spherexFindingNumber">{finding.markerNumber}</span>
                       <div>
@@ -893,16 +1105,20 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                       setPlaying(false);
                     }}
                   >
-                    <b>{formatDate(record.date, language).replace(' UTC', '')}</b>
-                    <small>{record.band}</small>
+                    <b>
+                      {formatDate(record.dateAvg || record.date, language).replace(' UTC', '')}
+                    </b>
+                    <small>
+                      {record.band} · {record.release.replace('spherex_', '').toUpperCase()}
+                    </small>
                   </button>
                 ))}
               </div>
             )}
             <p className="spherexFootnote">
               {language === 'es'
-                ? 'Los recortes y fechas proceden del archivo público NASA/IPAC IRSA. SPHEREx observa en infrarrojo; el color y el halo suave de las fuentes brillantes son ayudas visuales, no luz visible ni detalle añadido a la medición. Cada observación se reproyecta mediante sus cabeceras WCS (TAN-SIP) a una cuadrícula celeste común de 0,5° (Norte arriba, Este a la izquierda) centrada en la coordenada buscada, conservando el contraste del primer fotograma para comparar la secuencia.'
-                : 'Image cutouts and dates come from the public NASA/IPAC IRSA archive. SPHEREx observes in infrared; color and the soft glow around bright sources are visual aids, not visible light or added measurement detail. Each observation is reprojected using its FITS WCS (TAN-SIP) headers onto a common 0.5° sky grid (North up, East left) centered on the searched coordinate, holding the first frame’s contrast constant for comparison.'}
+                ? 'Los recortes y fechas proceden del archivo público NASA/IPAC IRSA (QR2 + QR3). Se conserva IMAGE original e independiente del modelo ZODI, se clasifican las banderas FLAGS en tres niveles (Cat. A exclusión instrumental, Cat. B advertencia de calidad, Cat. C candidatos transitorios) y se reproyecta mediante WCS (TAN-SIP) usando el punto medio de exposición MJD-AVG.'
+                : 'Image cutouts and dates come from the public NASA/IPAC IRSA archive (QR2 + QR3). Original IMAGE data is kept separate from the ZODI model, FLAGS are classified into three tiers (Cat. A instrumental exclusion, Cat. B quality warning, Cat. C transient candidates), and frames are reprojected via WCS (TAN-SIP) using the exposure midpoint MJD-AVG.'}
             </p>
           </main>
         </div>
@@ -921,7 +1137,14 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
             <div>
               <b>{t(selectedTarget.name, language)}</b>
               <span>
-                {frame ? formatDate(frame.date, language) : ''} · {frame?.band}
+                {frame
+                  ? formatDate(
+                      frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date,
+                      language,
+                    )
+                  : ''}{' '}
+                · {frame ? formatBandLabel(frame.band) : ''}
+                {formatSpectralBadge(frameDiagnostics)}
               </span>
             </div>
             <button type="button" onClick={() => setExpanded(false)}>

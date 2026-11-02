@@ -488,6 +488,19 @@ const en = {
   ' · alineado por WCS (N ↑ E ←) · la escala de brillo se mantiene fija en la secuencia':
     ' · WCS aligned (N ↑ E ←) · brightness scale stays fixed throughout the sequence',
   'Coordenada de referencia': 'Reference coordinate',
+  'Centro fijo de la secuencia': 'Fixed sequence center',
+  'Posición astrométrica propagada': 'Propagated astrometric position',
+  '≈ 510 años luz': '≈ 510 light-years',
+  'QR2 + QR3 · archivo combinado': 'QR2 + QR3 · combined archive',
+  Fondo: 'Background',
+  'IMAGE − ZODI': 'IMAGE − ZODI',
+  'IMAGE original': 'Original IMAGE',
+  'Modelo ZODI': 'ZODI model',
+  Modo: 'Mode',
+  'Medición (Cat. A+C)': 'Measurement (Cat. A+C)',
+  'Descubrimiento (Cat. A)': 'Discovery (Cat. A)',
+  'Procesamiento del fondo zodiacal (HDU 4: ZODI)': 'Zodiacal background processing (HDU 4: ZODI)',
+  'Política de máscaras de calidad (HDU 2: FLAGS)': 'Quality flag mask policy (HDU 2: FLAGS)',
 };
 
 const patterns = [
