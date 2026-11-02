@@ -29,21 +29,24 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
   const [release, setRelease] = useState('qr2');
   const [band, setBand] = useState('');
   const [image, setImage] = useState('');
-  const [comparisonImage, setComparisonImage] = useState('');
-  const [comparisonLoading, setComparisonLoading] = useState(false);
-  const [comparisonMode, setComparisonMode] = useState('split');
-  const [overlayOpacity, setOverlayOpacity] = useState(50);
   const [marking, setMarking] = useState(false);
   const [marker, setMarker] = useState(null);
   const [findingNote, setFindingNote] = useState('');
-  const [findingCategory, setFindingCategory] = useState('movement');
   const [findings, setFindings] = useState([]);
-  const [guidedDemo, setGuidedDemo] = useState(false);
-  const [guideIndex, setGuideIndex] = useState(initialTargetIndex);
+  const [expanded, setExpanded] = useState(false);
   const [truncated, setTruncated] = useState(false);
   const requestRef = useRef(0);
   const searchRef = useRef(0);
   const stretchRef = useRef(null);
+  useEffect(() => {
+    if (!expanded) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setExpanded(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [expanded]);
+
   const bands = useMemo(() => [...new Set(records.map((record) => record.band))].sort(), [records]);
   const visibleRecords = useMemo(
     () => (band ? records.filter((record) => record.band === band) : records),
@@ -57,7 +60,6 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
     setLoading(true);
     setError('');
     setImage('');
-    setComparisonImage('');
     setFrameLoading(false);
     setRecords([]);
     setFrameIndex(0);
@@ -105,43 +107,17 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const chooseTarget = (index, fromGuide = false) => {
-    if (!fromGuide) setGuidedDemo(false);
+  const chooseTarget = (index) => {
     setSelected(index);
     setRa(String(TARGETS[index].ra));
     setDec(String(TARGETS[index].dec));
     stretchRef.current = null;
     setRecords([]);
     setImage('');
-    setComparisonImage('');
     setFrameLoading(false);
     setPlaying(false);
     setStatus(`Buscando observaciones de ${TARGETS[index].name}…`);
     search(String(TARGETS[index].ra), String(TARGETS[index].dec));
-  };
-
-  const guideInstructions = [
-    'Compara las dos fechas y busca una fuente que se haya desplazado frente al fondo estelar.',
-    'Este sistema contiene dos enanas marrones; observa si alguna fuente cambia de posición.',
-    'Busca el objeto tenue y comprueba si su posición cambia en las observaciones.',
-    'En esta estrella joven, compara la intensidad de las fuentes entre fechas.',
-    'Busca cambios de brillo propios de una estrella variable de largo período.',
-  ];
-
-  const startGuidedDemo = () => {
-    setGuidedDemo(true);
-    setGuideIndex(0);
-    chooseTarget(0, true);
-  };
-
-  const advanceGuidedDemo = () => {
-    if (guideIndex >= TARGETS.length - 1) {
-      setGuidedDemo(false);
-      return;
-    }
-    const nextIndex = guideIndex + 1;
-    setGuideIndex(nextIndex);
-    chooseTarget(nextIndex, true);
   };
 
   useEffect(() => {
@@ -190,43 +166,6 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
   }, [visibleRecords, frameIndex, imageCenter]);
 
   useEffect(() => {
-    const current = visibleRecords[frameIndex];
-    const previous = current
-      ? visibleRecords.slice(0, frameIndex).filter((record) => record.band === current.band).at(-1)
-      : null;
-    if (!previous) {
-      setComparisonImage('');
-      setComparisonLoading(false);
-      return undefined;
-    }
-
-    let cancelled = false;
-    setComparisonLoading(true);
-    const params = new URLSearchParams({
-      action: 'frame',
-      url: previous.url,
-      center: `${imageCenter.ra},${imageCenter.dec}`,
-    });
-    fetch(`/api/spherex?${params}`)
-      .then(async (response) => {
-        if (!response.ok) throw new Error('No se pudo cargar la fecha de referencia.');
-        return response.arrayBuffer();
-      })
-      .then((buffer) => {
-        if (!cancelled) setComparisonImage(parseFits(buffer, stretchRef.current).src);
-      })
-      .catch(() => {
-        if (!cancelled) setComparisonImage('');
-      })
-      .finally(() => {
-        if (!cancelled) setComparisonLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [visibleRecords, frameIndex, imageCenter]);
-
-  useEffect(() => {
     if (!playing || frameLoading || visibleRecords.length < 2) return undefined;
     const timer = setTimeout(
       () => setFrameIndex((index) => (index + 1) % visibleRecords.length),
@@ -238,9 +177,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
   const step = (amount) =>
     setFrameIndex((index) => (index + amount + visibleRecords.length) % visibleRecords.length);
   const frame = visibleRecords[frameIndex];
-  const previousFrame = frame
-    ? visibleRecords.slice(0, frameIndex).filter((record) => record.band === frame.band).at(-1)
-    : null;
+  const previousFrame = visibleRecords[frameIndex - 1];
   const selectedTarget = TARGETS[selected];
   const missionObjective =
     SPHEREX_MISSION_TYPES.find((mission) => mission.key === selectedTarget.mission)?.objective || '';
@@ -264,7 +201,6 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
         note: findingNote.trim(),
         target: selectedTarget.name,
         band: frame.band,
-        category: findingCategory,
         previousDate: previousFrame ? formatDate(previousFrame.date) : 'Sin observación anterior',
         currentDate: formatDate(frame.date),
         frameId: frame.id,
@@ -278,20 +214,13 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
     setMarker(null);
   };
 
-  const compatibleFindingCount = findings.filter((finding) => {
-    const expected = TARGETS.find((target) => target.name === finding.target)?.mission;
-    return (expected === 'motion' && finding.category === 'movement') ||
-      (expected === 'variable' && finding.category === 'brightness');
-  }).length;
-
   const exportFindings = () => {
     const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
     const rows = [
-      ['Objetivo', 'Banda', 'Tipo de cambio', 'Fecha anterior', 'Fecha actual', 'X del visor (%)', 'Y del visor (%)', 'Hallazgo'],
+      ['Objetivo', 'Banda', 'Fecha anterior', 'Fecha actual', 'X del visor (%)', 'Y del visor (%)', 'Hallazgo'],
       ...findings.map((finding) => [
         finding.target,
         finding.band,
-        finding.category,
         finding.previousDate,
         finding.currentDate,
         finding.x.toFixed(2),
@@ -355,27 +284,6 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                 </button>
               ))}
             </div>
-            <section className="spherexGuidedDemo">
-              <div>
-                <b>Recorrido guiado</b>
-                <small>Explora los cinco objetivos del reto paso a paso.</small>
-              </div>
-              {!guidedDemo ? (
-                <button type="button" onClick={startGuidedDemo}>
-                  Iniciar recorrido
-                </button>
-              ) : (
-                <>
-                  <p>
-                    <strong>{guideIndex + 1} / {TARGETS.length} · {TARGETS[guideIndex].name}</strong>
-                    {guideInstructions[guideIndex]}
-                  </p>
-                  <button type="button" onClick={advanceGuidedDemo}>
-                    {guideIndex === TARGETS.length - 1 ? 'Terminar recorrido' : 'Siguiente objetivo →'}
-                  </button>
-                </>
-              )}
-            </section>
             <div className="spherexSectionTitle">Coordenadas ICRS · grados</div>
             <form
               className="spherexCoordinates"
@@ -448,6 +356,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                   ))}
                 </select>
               </label>
+              <button type="button" className="spherexExpandButton" onClick={() => setExpanded(true)} disabled={!image}>⤢ Ampliar</button>
             </div>
             {frame && (
               <div className="spherexCompareHint">
@@ -507,83 +416,6 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                 </span>
               )}
             </div>
-            <section className="spherexComparisonPanel" aria-label="Comparación entre fechas">
-              <div className="spherexComparisonHeading">
-                <div>
-                  <b>Comparación temporal</b>
-                  <small>
-                    {previousFrame
-                      ? `${formatDate(previousFrame.date)} frente a ${formatDate(frame.date)}`
-                      : 'Avanza a una fecha posterior para elegir una observación de referencia.'}
-                  </small>
-                </div>
-                <div className="spherexComparisonModes">
-                  <button
-                    type="button"
-                    className={comparisonMode === 'split' ? 'active' : ''}
-                    onClick={() => setComparisonMode('split')}
-                    disabled={!previousFrame}
-                  >
-                    Lado a lado
-                  </button>
-                  <button
-                    type="button"
-                    className={comparisonMode === 'overlay' ? 'active' : ''}
-                    onClick={() => setComparisonMode('overlay')}
-                    disabled={!previousFrame}
-                  >
-                    Superponer
-                  </button>
-                </div>
-              </div>
-              {previousFrame && (
-                comparisonLoading ? (
-                  <div className="spherexComparisonPlaceholder">
-                    <span className="spherexSpinner" /> Cargando la fecha de referencia…
-                  </div>
-                ) : comparisonImage && image ? (
-                  comparisonMode === 'split' ? (
-                    <div className="spherexComparisonSplit">
-                      <figure>
-                        <img src={comparisonImage} alt={`SPHEREx ${formatDate(previousFrame.date)}`} />
-                        <figcaption>ANTES · {formatDate(previousFrame.date)}</figcaption>
-                      </figure>
-                      <figure>
-                        <img src={image} alt={`SPHEREx ${formatDate(frame.date)}`} />
-                        <figcaption>AHORA · {formatDate(frame.date)}</figcaption>
-                      </figure>
-                    </div>
-                  ) : (
-                    <div className="spherexOverlayWrap">
-                      <div className="spherexOverlayImages">
-                        <img src={comparisonImage} alt={`Imagen base ${formatDate(previousFrame.date)}`} />
-                        <img
-                          className="spherexOverlayTop"
-                          src={image}
-                          alt={`Imagen superpuesta ${formatDate(frame.date)}`}
-                          style={{ clipPath: `inset(0 ${100 - overlayOpacity}% 0 0)` }}
-                        />
-                        <span className="spherexOverlayLabel before">ANTES</span>
-                        <span className="spherexOverlayLabel after">AHORA</span>
-                      </div>
-                      <label className="spherexOverlaySlider">
-                        Opacidad de imagen actual
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={overlayOpacity}
-                          onChange={(event) => setOverlayOpacity(Number(event.target.value))}
-                        />
-                        <span>{overlayOpacity}%</span>
-                      </label>
-                    </div>
-                  )
-                ) : (
-                  <div className="spherexComparisonPlaceholder">No se pudo abrir la imagen anterior.</div>
-                )
-              )}
-            </section>
             {error && (
               <p className="spherexError" role="alert">
                 {error}
@@ -658,15 +490,6 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
               </div>
               {marker && (
                 <div className="spherexFindingForm">
-                  <select
-                    value={findingCategory}
-                    onChange={(event) => setFindingCategory(event.target.value)}
-                    aria-label="Tipo de cambio detectado"
-                  >
-                    <option value="movement">Movimiento de posición</option>
-                    <option value="brightness">Cambio de brillo</option>
-                    <option value="no-change">Sin cambio visible</option>
-                  </select>
                   <input
                     value={findingNote}
                     onChange={(event) => setFindingNote(event.target.value)}
@@ -680,20 +503,13 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
                 </div>
               )}
               {findings.length > 0 && (
-                <div className="spherexFindingSummary" role="status">
-                  <b>Resumen de hallazgos</b>
-                  <span>{findings.length} registrados · {compatibleFindingCount} compatibles con el tipo de objetivo</span>
-                  <small>La compatibilidad es orientativa según la misión seleccionada; no confirma una medición científica.</small>
-                </div>
-              )}
-              {findings.length > 0 && (
                 <ul className="spherexFindingList">
                   {findings.map((finding, index) => (
                     <li key={finding.id}>
                         <span className="spherexFindingNumber">{finding.markerNumber}</span>
                       <div>
                         <b>{finding.target} · {finding.band}</b>
-                        <p><strong>{finding.category === 'movement' ? 'Movimiento' : finding.category === 'brightness' ? 'Cambio de brillo' : 'Sin cambio visible'}:</strong> {finding.note}</p>
+                        <p>{finding.note}</p>
                         <small>{finding.previousDate} → {finding.currentDate}</small>
                       </div>
                       <button
@@ -737,6 +553,26 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard' }
           </main>
         </div>
       </section>
+      {expanded && image && (
+        <div
+          className="spherexLightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Imagen SPHEREx ampliada"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setExpanded(false);
+          }}
+        >
+          <header>
+            <div>
+              <b>{selectedTarget.name}</b>
+              <span>{frame ? formatDate(frame.date) : ''} · {frame?.band}</span>
+            </div>
+            <button type="button" onClick={() => setExpanded(false)}>Cerrar ✕</button>
+          </header>
+          <img src={image} alt={`Imagen SPHEREx ampliada de ${selectedTarget.name}`} />
+        </div>
+      )}
     </div>
   );
 }
