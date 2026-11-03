@@ -456,6 +456,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   glowContext.fillRect(0, 0, 128, 128);
   const missionGlowMap = new THREE.CanvasTexture(glowCanvas);
   const missionMarkers = new Map();
+  const missionMarkerEffects = [];
   SPHEREX_TARGETS.forEach((target) => {
     const color = target.mission === 'motion' ? 0x73eaff : 0xffbd72;
     const marker = new THREE.Group();
@@ -502,8 +503,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         depthWrite: false,
       }),
     );
-    nebula.scale.set(100, 62, 1);
+    nebula.scale.set(120, 74, 1);
     marker.add(nebula);
+    const corona = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: missionGlowMap,
+        color: target.mission === 'motion' ? 0xc8fbff : 0xffe2b2,
+        transparent: true,
+        opacity: 0.34,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    corona.scale.set(40, 40, 1);
+    marker.add(corona);
     const glow = new THREE.Sprite(
       new THREE.SpriteMaterial({
         map: missionGlowMap,
@@ -514,11 +527,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         depthWrite: false,
       }),
     );
-    glow.scale.set(24, 24, 1);
+    glow.scale.set(20, 20, 1);
     marker.add(glow);
     const star = new THREE.Mesh(
-      new THREE.SphereGeometry(2.8, 24, 18),
-      new THREE.MeshBasicMaterial({ color: 0xf5fbff }),
+      new THREE.SphereGeometry(2.6, 32, 24),
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        toneMapped: false,
+      }),
     );
     marker.add(star);
     const starGlow = new THREE.Sprite(
@@ -531,14 +547,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         depthWrite: false,
       }),
     );
-    starGlow.scale.set(15, 15, 1);
+    starGlow.scale.set(30, 30, 1);
     marker.add(starGlow);
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(5.5, 0.28, 6, 48),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.82 }),
+      new THREE.TorusGeometry(5.4, 0.12, 8, 64),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.76 }),
     );
     ring.rotation.x = Math.PI / 2;
     marker.add(ring);
+    const orbitRing = new THREE.Mesh(
+      new THREE.TorusGeometry(7.1, 0.055, 6, 64),
+      new THREE.MeshBasicMaterial({
+        color: target.mission === 'motion' ? 0xb9f5ff : 0xffe0ae,
+        transparent: true,
+        opacity: 0.42,
+      }),
+    );
+    orbitRing.rotation.set(Math.PI / 2.6, 0.16, 0.22);
+    marker.add(orbitRing);
     const label = lab(target.name);
     label.position.set(0, 10, 0);
     label.visible = false;
@@ -546,6 +572,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     LB.push(label);
     gal.add(marker);
     missionMarkers.set(target.key, { target, marker, label });
+    missionMarkerEffects.push({
+      star,
+      glow,
+      corona,
+      ring,
+      orbitRing,
+      phase: Math.random() * TAU,
+    });
   });
   // cuerpos
   const B = [];
@@ -915,13 +949,25 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     dom = R.domElement,
     ship = new THREE.Group(),
     sm = new THREE.MeshStandardMaterial({
-      color: 0xc9d3e6,
-      metalness: 0.5,
-      roughness: 0.4,
-      emissive: 0x3a4a66,
+      color: 0xcbd9e8,
+      metalness: 0.68,
+      roughness: 0.28,
+      emissive: 0x182c40,
     }),
     em = new THREE.MeshStandardMaterial({ color: 0xff8844, emissive: 0xff6622 }),
-    cm = new THREE.MeshStandardMaterial({ color: 0x66ccff, emissive: 0x2a8fd0 }),
+    cm = new THREE.MeshStandardMaterial({
+      color: 0x70d8ff,
+      metalness: 0.36,
+      roughness: 0.16,
+      emissive: 0x164566,
+    }),
+    wingMat = new THREE.MeshStandardMaterial({
+      color: 0x526a82,
+      metalness: 0.7,
+      roughness: 0.34,
+      emissive: 0x101d2a,
+      side: THREE.DoubleSide,
+    }),
     sa = (g, m, x, y, z, rx) => {
       const o = new THREE.Mesh(g, m);
       o.position.set(x, y, z);
@@ -930,11 +976,42 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     };
   sa(new THREE.ConeGeometry(0.3, 1, 24), sm, 0, 0, -0.7, -Math.PI / 2);
   sa(new THREE.CylinderGeometry(0.3, 0.3, 1.2, 24), sm, 0, 0, 0.4, Math.PI / 2);
-  sa(new THREE.BoxGeometry(2.2, 0.04, 0.7), sm, 0, -0.05, 0.55);
-  sa(new THREE.BoxGeometry(0.04, 0.45, 0.5), sm, 0, 0.3, 0.8);
+  const wingShape = new THREE.Shape();
+  wingShape.moveTo(0.08, -0.22);
+  wingShape.lineTo(0.3, -0.02);
+  wingShape.lineTo(1.13, 0.45);
+  wingShape.lineTo(1.06, 0.68);
+  wingShape.lineTo(0.34, 0.43);
+  wingShape.lineTo(0.27, 0.94);
+  wingShape.lineTo(0.06, 0.8);
+  wingShape.closePath();
+  const wingGeometry = new THREE.ExtrudeGeometry(wingShape, {
+    depth: 0.065,
+    bevelEnabled: true,
+    bevelSegments: 2,
+    steps: 1,
+    bevelSize: 0.022,
+    bevelThickness: 0.018,
+  });
+  [-1, 1].forEach((direction) => {
+    const wing = new THREE.Mesh(wingGeometry, wingMat);
+    wing.scale.x = direction;
+    wing.rotation.x = Math.PI / 2;
+    wing.position.set(0, -0.055, 0.32);
+    ship.add(wing);
+  });
+  sa(new THREE.BoxGeometry(0.035, 0.022, 0.48), em, -0.76, -0.045, 0.74);
+  sa(new THREE.BoxGeometry(0.035, 0.022, 0.48), em, 0.76, -0.045, 0.74);
   sa(new THREE.CylinderGeometry(0.12, 0.15, 0.4, 16), em, -0.4, 0, 1, Math.PI / 2);
   sa(new THREE.CylinderGeometry(0.12, 0.15, 0.4, 16), em, 0.4, 0, 1, Math.PI / 2);
-  sa(new THREE.SphereGeometry(0.2, 16, 12), cm, 0, 0.2, -0.3);
+  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 24), cm);
+  cockpit.scale.set(0.21, 0.17, 0.34);
+  cockpit.position.set(0, 0.17, -0.29);
+  ship.add(cockpit);
+  const cockpitFrame = new THREE.Mesh(new THREE.TorusGeometry(0.21, 0.025, 8, 32), sm);
+  cockpitFrame.scale.set(1, 0.82, 1.48);
+  cockpitFrame.position.set(0, 0.17, -0.29);
+  ship.add(cockpitFrame);
   const fl2 = new THREE.Sprite(
     new THREE.SpriteMaterial({
       map: B[0].glow.material.map,
@@ -977,8 +1054,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   sa(new THREE.BoxGeometry(2.24, 0.05, 0.12), am, 0, -0.045, 0.35);
   sa(new THREE.BoxGeometry(0.04, 0.36, 0.3), dm, -1.1, 0.12, 0.62);
   sa(new THREE.BoxGeometry(0.04, 0.36, 0.3), dm, 1.1, 0.12, 0.62);
-  sa(new THREE.CylinderGeometry(0.22, 0.22, 0.9, 20), dm, 0, -0.02, 0.75, Math.PI / 2);
-  sa(new THREE.CylinderGeometry(0.015, 0.015, 0.5, 6), dm, 0, 0.05, -1.3, Math.PI / 2);
+  sa(new THREE.CylinderGeometry(0.16, 0.24, 0.4, 24, 1, true), dm, 0, -0.02, 1.03, Math.PI / 2);
+  const mainEngineRim = new THREE.Mesh(
+    new THREE.TorusGeometry(0.22, 0.035, 8, 32),
+    new THREE.MeshStandardMaterial({
+      color: 0x87dfff,
+      emissive: 0x1d83bc,
+      metalness: 0.5,
+      roughness: 0.24,
+    }),
+  );
+  mainEngineRim.position.set(0, -0.02, 1.25);
+  ship.add(mainEngineRim);
+  sa(new THREE.CylinderGeometry(0.018, 0.018, 0.5, 8), dm, 0, 0.36, 0.45, Math.PI / 2);
   [
     [-0.4, 1.2],
     [0.4, 1.2],
@@ -1515,6 +1603,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         .applyQuaternion(gal.quaternion)
         .negate();
       LB.forEach((l) => (l.visible = !!fl.lab));
+      missionMarkerEffects.forEach((effect) => {
+        const pulse = 0.96 + Math.sin(clk.elapsedTime * 1.8 + effect.phase) * 0.055;
+        effect.star.scale.setScalar(pulse);
+        effect.glow.scale.set(20 * pulse, 20 * pulse, 1);
+        effect.corona.scale.set(40 * (1.08 - pulse), 40 * (1.08 - pulse), 1);
+        effect.ring.material.opacity = 0.68 + (pulse - 0.96) * 1.3;
+        effect.orbitRing.rotation.y += dt * 0.08;
+      });
       const activeMissionMarker = activeMissionKey && missionMarkers.get(activeMissionKey);
       if (activeMissionMarker) activeMissionMarker.label.visible = true;
       B[0].glow.scale.setScalar(Math.max(B[0].r * (real ? 40 : 6), cam.position.length() * 0.012));
