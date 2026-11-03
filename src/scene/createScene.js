@@ -1033,7 +1033,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     nav = null,
     nearKey = null,
     activeMissionKey = null;
-  function tripTo(target, clearance, name, b, onArrive) {
+  function tripTo(target, clearance, name, b, onArrive, respectSpeed = false) {
     const from = sp.clone(),
       away = from.clone().sub(target);
     if (away.lengthSq() < 1e-10) away.set(0, 0.25, 1);
@@ -1053,15 +1053,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       elapsed: 0,
       phase: 'align',
       align: Math.min(1.7, Math.max(0.7, 0.8 + distance / (speed * 10))),
-      duration: Math.min(
-        16,
-        Math.max(2, distance / (speed * (long ? Math.max(1, distance / (speed * 8)) : 1))),
-      ),
+      duration: respectSpeed
+        ? Math.min(16, Math.max(2, distance / speed))
+        : Math.min(
+            16,
+            Math.max(2, distance / (speed * (long ? Math.max(1, distance / (speed * 8)) : 1))),
+          ),
+      distance,
       long,
+      respectSpeed,
       oldFs: fs,
       onArrive,
     };
-    if (long) S.fv(Math.min(5e4, Math.max(fs, distance / nav.duration)));
+    if (long && !respectSpeed) S.fv(Math.min(5e4, Math.max(fs, distance / nav.duration)));
     S.f(name);
   }
   function focus(n, k) {
@@ -1166,6 +1170,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         found.label.visible = true;
         if (onArrive) onArrive();
       },
+      true,
     );
   }
   function lvl(k) {
@@ -1676,9 +1681,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           q.copy(nav.q);
           if (nav.elapsed >= 0.9) {
             const oldFs = nav.oldFs;
+            const restoreAutoSpeed = !nav.respectSpeed;
             const onArrive = nav.onArrive;
             nav = null;
-            S.fv(oldFs);
+            if (restoreAutoSpeed) S.fv(oldFs);
             if (onArrive) onArrive();
           }
         } else if (nav.phase === 'jumpout') {
@@ -1954,6 +1960,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     },
     speed: (v) => {
       fs = Math.max(0.01, Math.min(5e4, v));
+      if (nav?.respectSpeed && nav.phase !== 'arrival') {
+        if (nav.phase === 'transit') {
+          const progress = Math.min(1, nav.elapsed / nav.duration);
+          const eased = progress * progress * (3 - 2 * progress);
+          nav.from.lerp(nav.to, eased);
+          nav.distance = nav.from.distanceTo(nav.to);
+          nav.elapsed = 0;
+        }
+        nav.duration = Math.min(16, Math.max(0.4, nav.distance / fs));
+      }
       S.fv(fs);
     },
     opt: (o) => {
