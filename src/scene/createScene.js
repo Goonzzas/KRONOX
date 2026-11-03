@@ -731,9 +731,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         plane.add(track);
         const objects = [];
         for (let index = 0; index < orbit.count; index++) {
-          const satellite = makeSatellite(orbit.size || 0.62, orbit.station);
+          const satellite = makeSatellite(orbit.size || 1.05, orbit.station);
+          const beacon = new THREE.Sprite(
+            new THREE.SpriteMaterial({
+              map: missionGlowMap,
+              color: orbit.color,
+              transparent: true,
+              opacity: orbit.station ? 0.8 : 0.62,
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
+              sizeAttenuation: false,
+            }),
+          );
+          // A tiny fixed-pixel beacon keeps the hardware identifiable when
+          // the planet is not zoomed all the way in.
+          beacon.scale.set(0.1, 0.1, 1);
+          plane.add(beacon);
           plane.add(satellite);
-          objects.push({ object: satellite, phase: (index / orbit.count) * TAU });
+          objects.push({ object: satellite, beacon, phase: (index / orbit.count) * TAU });
         }
         if (orbit.name !== 'STARLINK' || orbitIndex === 0) {
           const label = lab(orbit.name === 'STARLINK' ? 'STARLINK · CONSTELACIÓN' : orbit.name);
@@ -752,10 +767,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       pivot.add(system);
       b.moonSystem = system;
       b.jupiterMoons = [
-        { name: 'Ío', radius: 2.05, size: 0.052, period: 1.769, color: 0xd9a65a, phase: 0.4 },
-        { name: 'Europa', radius: 2.75, size: 0.042, period: 3.551, color: 0xd8d2bb, phase: 2.1 },
-        { name: 'Ganímedes', radius: 3.65, size: 0.058, period: 7.155, color: 0x999387, phase: 3.8 },
-        { name: 'Calisto', radius: 4.75, size: 0.052, period: 16.689, color: 0x625448, phase: 5.1 },
+        { name: 'Ío', radius: 2.05, size: 0.12, period: 1.769, color: 0xd9a65a, phase: 0.4 },
+        { name: 'Europa', radius: 2.75, size: 0.105, period: 3.551, color: 0xd8d2bb, phase: 2.1 },
+        { name: 'Ganímedes', radius: 3.65, size: 0.14, period: 7.155, color: 0x999387, phase: 3.8 },
+        { name: 'Calisto', radius: 4.75, size: 0.13, period: 16.689, color: 0x625448, phase: 5.1 },
       ].map((moon, index) => {
         const orbit = makeOrbitTrack(moon.radius, index % 2 ? 0x9fb7ca : 0xd9c29c, 0.34);
         system.add(orbit);
@@ -773,12 +788,26 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           }),
         );
         moonPivot.add(mesh);
+        const beacon = new THREE.Sprite(
+          new THREE.SpriteMaterial({
+            map: missionGlowMap,
+            color: moon.color,
+            transparent: true,
+            opacity: 0.85,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            sizeAttenuation: false,
+          }),
+        );
+        beacon.scale.set(0.02, 0.02, 1);
+        beacon.position.z = moon.size * 1.4;
+        moonPivot.add(beacon);
         const label = lab(moon.name);
         label.position.set(0, moon.size * 2.4, 0);
         label.visible = false;
         moonPivot.add(label);
         LB.push(label);
-        return { ...moon, orbit, moonPivot, mesh };
+        return { ...moon, orbit, moonPivot, mesh, beacon };
       });
     }
     if (p.ring) {
@@ -1438,10 +1467,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         b.satellitePlanes.forEach((plane) => {
           plane.track.visible = !!fl.orb;
           const orbitAngle = (sim / plane.period) * TAU;
-          plane.objects.forEach(({ object, phase }) => {
+          plane.objects.forEach(({ object, beacon, phase }) => {
             const angle = orbitAngle + phase;
             object.position.set(Math.cos(angle) * plane.radius, 0, Math.sin(angle) * plane.radius);
             object.rotation.y = -angle;
+            beacon.position.copy(object.position).add(new THREE.Vector3(0, 0.16, 0));
           });
         });
       }
