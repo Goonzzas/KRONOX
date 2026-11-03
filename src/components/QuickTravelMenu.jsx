@@ -45,6 +45,7 @@ export default function QuickTravelMenu({
                 onClick={() => onPlanetTravel(planet.n)}
               >
                 {t(planet.n, language)}
+                {planet.dwarf && ` · ${t('Planeta enano', language)}`}
               </button>
             ))}
           </div>
