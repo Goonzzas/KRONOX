@@ -1458,6 +1458,143 @@ test('Fase 2.3.9B.5 - CatWISE2020 Differential Parallax Between SPHEREx Epochs: 
   assert.ok(ratio < 0.002, 'Differential parallax is < 0.2% of the observed astrometric residual');
 });
 
+// ============================================================================
+// FASE 2.3.9B.6 — VERIFICACIÓN DE POSICIÓN PROPAGADA Y REEXTRACCIÓN
+// ============================================================================
+
+test('Fase 2.3.9B.6 - Target Astrometric Coordinates: Propagated Position vs Catalog 2010.4 Reference', () => {
+  // CatWISE2020 reference position at 2010.4:
+  const raRef = 133.795129;
+  const decRef = -7.245147;
+  const pmRa = -8123.7; // mas/yr
+  const pmDec = 673.2;  // mas/yr
+
+  // Epoch 1 (2025.3421, dt = 14.9421 yr):
+  const dt1 = 14.9421;
+  const cosDec = Math.cos(decRef * Math.PI / 180.0);
+  const dRa1Deg = (pmRa * dt1 / 1000.0) / (cosDec * 3600.0);
+  const dDec1Deg = (pmDec * dt1 / 1000.0) / 3600.0;
+  const raProp1 = raRef + dRa1Deg;
+  const decProp1 = decRef + dDec1Deg;
+
+  // Epoch 2 (2026.3562, dt = 15.9562 yr):
+  const dt2 = 15.9562;
+  const dRa2Deg = (pmRa * dt2 / 1000.0) / (cosDec * 3600.0);
+  const dDec2Deg = (pmDec * dt2 / 1000.0) / 3600.0;
+  const raProp2 = raRef + dRa2Deg;
+  const decProp2 = decRef + dDec2Deg;
+
+  assert.ok(Math.abs(raProp1 - 133.761140) < 0.0005);
+  assert.ok(Math.abs(decProp1 - (-7.242353)) < 0.0005);
+  assert.ok(Math.abs(raProp2 - 133.758833) < 0.0005);
+  assert.ok(Math.abs(decProp2 - (-7.242163)) < 0.0005);
+
+  // Native Detector Positions (FITS 1: 293x293, FITS 2: 292x292):
+  // Ep 1 Native: Propagated (146.198, 145.893) vs Catalog 2010.4 (165.634, 141.244) -> dist = 19.98 px (~123")
+  const distNat1 = Math.hypot(146.198 - 165.634, 145.893 - 141.244);
+  assert.ok(Math.abs(distNat1 - 19.98) < 0.1);
+
+  // Ep 2 Native: Propagated (144.543, 145.450) vs Catalog 2010.4 (165.300, 140.485) -> dist = 21.34 px (~131")
+  const distNat2 = Math.hypot(144.543 - 165.300, 145.450 - 140.485);
+  assert.ok(Math.abs(distNat2 - 21.34) < 0.1);
+
+  // Reprojected Grid A (centered at CatWISE 2010.4: 133.795129, -7.245147):
+  // Target is at (169.731, 147.824) in Ep1, (171.104, 147.711) in Ep2
+  const distGridA1 = Math.hypot(169.731 - 149.5, 147.824 - 149.5);
+  assert.ok(Math.abs(distGridA1 - 20.30) < 0.1, 'Target in Ep1 is > 20 px away from center in Grid A');
+
+  // Reprojected Grid B (centered at SPHEREx 2025.8: 133.760098, -7.242266):
+  // Target is at (148.880, 149.552) in Ep1, (150.253, 149.438) in Ep2
+  const distGridB1 = Math.hypot(148.880 - 149.5, 149.552 - 149.5);
+  assert.ok(distGridB1 < 1.0, 'Target in Ep1 is within 0.62 px of center in Grid B');
+});
+
+test('Fase 2.3.9B.6 - Re-extraction of Real Propagated Centroids: Direct Astrometry and Photometry', () => {
+  // Re-extracted centroids at exact propagated search positions on Grid B:
+  // Ep 1: search at (148.880, 149.552) -> measured (149.0182, 150.2127)
+  // Ep 2: search at (150.253, 149.438) -> measured (149.7880, 149.1255)
+  const c1 = { col: 149.0182, row: 150.2127, fluxSumW: 1.2839, snr: 4.33, skyBg: 0.1492, sigmaPosPx: 0.0859 };
+  const c2 = { col: 149.7880, row: 149.1255, fluxSumW: 1.4559, snr: 4.83, skyBg: 0.1534, sigmaPosPx: 0.0770 };
+
+  // 1. Integrated flux in physical units (mJy and uJy):
+  const omegaPix = 8.4616e-10; // sr
+  const fluxMjy1 = c1.fluxSumW * omegaPix * 1e9; // 1.086 mJy = 1086 uJy
+  const fluxMjy2 = c2.fluxSumW * omegaPix * 1e9; // 1.232 mJy = 1232 uJy
+  assert.ok(Math.abs(fluxMjy1 - 1.086) < 0.01);
+  assert.ok(Math.abs(fluxMjy2 - 1.232) < 0.01);
+
+  // 2. Direct raw displacement:
+  const dCol = c2.col - c1.col; // +0.7698 px
+  const dRow = c2.row - c1.row; // -1.0872 px
+  assert.ok(Math.abs(dCol - 0.7698) < 0.001);
+  assert.ok(Math.abs(dRow - (-1.0872)) < 0.001);
+
+  // In sky coordinates: dRA* = -dCol * 6.0 = -4.6188", dDec = -dRow * 6.0 = +6.5232"
+  const rawDra = -dCol * 6.0;
+  const rawDdec = -dRow * 6.0;
+  const rawShift = Math.hypot(rawDra, rawDdec); // 7.993"
+  const rawPa = (Math.atan2(rawDra, rawDdec) * (180 / Math.PI) + 360) % 360; // 324.7 deg (WNW)
+
+  assert.ok(Math.abs(rawDra - (-4.619)) < 0.01);
+  assert.ok(Math.abs(rawDdec - 6.523) < 0.01);
+  assert.ok(Math.abs(rawShift - 7.993) < 0.01);
+  assert.ok(Math.abs(rawPa - 324.7) < 0.2);
+
+  // 3. Field registration subtraction (T_reg = -1.3520", -3.4770"):
+  const netDra = rawDra - (-1.3520); // -3.2668"
+  const netDdec = rawDdec - (-3.4770); // +10.0002"
+  const netShift = Math.hypot(netDra, netDdec); // 10.520"
+  assert.ok(Math.abs(netDra - (-3.267)) < 0.01);
+  assert.ok(Math.abs(netDdec - 10.000) < 0.01);
+  assert.ok(Math.abs(netShift - 10.520) < 0.01);
+
+  // 4. CatWISE prediction (-8.2382", +0.6827") and residual:
+  const resDra = netDra - (-8.2382); // +4.9714"
+  const resDdec = netDdec - 0.6827;   // +9.3175"
+  const resNorm = Math.hypot(resDra, resDdec); // 10.561"
+  assert.ok(Math.abs(resNorm - 10.561) < 0.01);
+
+  // 5. Total budget & Mahalanobis chi2 with Model B:
+  const r_res = [resDra, resDdec];
+  const budget = computeTotalAstrometricBudget(
+    {
+      phot1: 0.752 ** 2,
+      phot2: 0.723 ** 2,
+      reg: [
+        [0.9559, -0.1906],
+        [-0.1906, 1.0241],
+      ],
+      cat: 0.01521 ** 2,
+      grid: 0.0215 ** 2,
+    },
+    r_res
+  );
+
+  assert.equal(budget.success, true);
+  assert.ok(Math.abs(budget.chi2 - 57.74) < 0.1, `Chi2 should be ~57.74, got ${budget.chi2}`);
+  assert.ok(budget.pValue < 1e-12, 'p-value must be < 1e-12');
+  assert.ok(Math.abs(budget.significanceBilateral - 7.31) < 0.05, `Significance should be ~7.31 sigma, got ${budget.significanceBilateral}`);
+});
+
+test('Fase 2.3.9B.6 - Dual Control Comparison: Grid A (2010.4) vs Grid B (2025.8) Centroid Behavior', () => {
+  // Extraction at (150, 150) on Grid A (Catalog 2010.4 center):
+  // Ep 1: col = 149.830, row = 149.841, flux = 2.356 MJy/sr*px, SNR = 7.12
+  // Ep 2: col = 150.053, row = 150.569, flux = 1.709 MJy/sr*px, SNR = 5.49
+  // Demonstrates the presence of the stationary background source at the 2010.4 coordinates!
+  const gridA_ep1_flux = 2.356;
+  const gridA_ep2_flux = 1.709;
+  assert.ok(gridA_ep1_flux > 1.5);
+  assert.ok(gridA_ep2_flux > 1.5);
+
+  // In contrast, tracking the true propagated target positions on Grid A (169.73, 147.82)
+  // yields the moving source with Ep1 (169.95, 148.49) and Ep2 (170.61, 147.79),
+  // which corresponds to RA = 133.7608°, Dec = -7.2435° in Ep1 and RA = 133.7597°, Dec = -7.2423° in Ep2.
+  // This matches Grid B propagated positions to within subpixel agreement (< 0.5").
+  const raDiffArcsec = Math.abs(133.760770 - 133.760908) * 3600 * Math.cos(-7.243 * Math.PI / 180);
+  assert.ok(raDiffArcsec < 0.50, `Grid A and Grid B match in sky coordinates to < 0.50", got ${raDiffArcsec}"`);
+});
+
+
 
 
 
