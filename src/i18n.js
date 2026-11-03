@@ -317,6 +317,8 @@ const en = {
   'Vectores de velocidad activados.': 'Velocity vectors enabled.',
   'Modo galáctico activado.': 'Galactic mode enabled.',
   'Ingresando en la nave planetaria.': 'Entering the planetary spacecraft.',
+  'Despegando desde la Tierra. Tendrás el control al llegar al espacio.':
+    'Launching from Earth. You will take control once we reach space.',
   'Ya estás dentro de la nave planetaria.': 'You are already aboard the planetary spacecraft.',
   'Saliendo de la cámara libre.': 'Leaving free camera.',
   'Salir de cámara libre': 'Exit free camera',
