@@ -1281,7 +1281,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     shipScale = () => (Rd(P[3]) * (SHIP_LENGTH_METERS / 1000)) / (P[3].km * SHIP_MODEL_LENGTH),
     // Keep the external follow camera at a planet-relative distance; a
     // hull-relative camera makes even a physically small ship fill the view.
-    shipOffset = () => Math.max(shipSz * 7, Rd(P[3]) * 0.015);
+    shipCameraDistance = () =>
+      Math.max(shipSz * 16, Rd(P[3]) * 0.08, real ? 0.04 : 0.025) * shipZoom,
+    // Keep the external follow camera planet-relative so the craft reads as a point.
+    shipOffset = () => Math.max(shipSz * 7, Rd(P[3]) * 0.08) * shipZoom;
   function layout() {
     B.forEach((b) => {
       const r = Rd(b.p);
@@ -1469,6 +1472,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     V = THREE.Vector3;
   let free = false,
     spectator = false,
+    shipZoom = 1,
     fy = 0,
     fp = 0,
     fs = 1,
@@ -1715,7 +1719,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     ship.scale.setScalar(shipSz);
     ship.quaternion.copy(q);
     ship.visible = true;
-    const d = Math.max(shipSz * 16, Rd(P[3]) * 0.08, real ? 0.04 : 0.025),
+    const d = shipCameraDistance(),
       offset = new V(1, 0.55, 2).applyQuaternion(q).multiplyScalar(d);
     ct.target.copy(sp);
     cam.position.copy(sp).add(offset);
@@ -1803,10 +1807,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   };
   const onWheel = (e) => {
     if (free) {
-      fs = Math.max(0.01, Math.min(5e4, fs * (e.deltaY < 0 ? 1.2 : 1 / 1.2)));
-      S.fv(fs);
-      clearTimeout(speedNoticeTimer);
-      speedNoticeTimer = setTimeout(() => S.speedNotice(fs), 700);
+      e.preventDefault();
+      if (pv == 3) {
+        shipZoom = Math.max(0.1, Math.min(100, shipZoom * (e.deltaY < 0 ? 0.8 : 1.25)));
+      } else {
+        fs = Math.max(0.01, Math.min(5e4, fs * (e.deltaY < 0 ? 1.2 : 1 / 1.2)));
+        S.fv(fs);
+        clearTimeout(speedNoticeTimer);
+        speedNoticeTimer = setTimeout(() => S.speedNotice(fs), 700);
+      }
     }
   };
   const onKeyDown = (e) => {
@@ -1824,7 +1833,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   dom.addEventListener('pointerdown', onPointerDown);
   dom.addEventListener('pointerup', onPointerUp);
   dom.addEventListener('pointermove', onPointerMove);
-  dom.addEventListener('wheel', onWheel, { passive: true });
+  dom.addEventListener('wheel', onWheel, { passive: false });
   addEventListener('keydown', onKeyDown);
   addEventListener('keyup', onKeyUp);
   addEventListener('resize', onResize);
