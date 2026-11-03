@@ -778,8 +778,11 @@ export default function App() {
                         );
                       } else if (!fr) {
                         setFr(true);
-                        A().free(true);
-                        notify('Ingresando en la nave planetaria.', 'Nave planetaria');
+                        A().free(true, true);
+                        notify(
+                          'Despegando desde la Tierra. Tendrás el control al llegar al espacio.',
+                          'Nave planetaria',
+                        );
                       } else notify('Ya estás dentro de la nave planetaria.', 'Nave planetaria');
                     },
                   },
@@ -851,7 +854,7 @@ export default function App() {
                         }
                         if (!fr) {
                           setFr(true);
-                          A().free(true);
+                          A().free(true, true);
                         }
                         setPv(v);
                         A().view(v);
