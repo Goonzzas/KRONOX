@@ -3417,3 +3417,202 @@ small {
     grid-template-columns: 1fr;
   }
 }
+
+/* Pulido visual de la interfaz de exploración. Los estilos SPHEREx/astrometría
+   quedan fuera de este bloque para mantener esa parte intacta. */
+:root {
+  --ui-line: rgba(147, 190, 220, 0.2);
+  --ui-line-strong: rgba(111, 226, 255, 0.48);
+  --ui-surface: rgba(5, 13, 25, 0.88);
+  --ui-cyan: #70e4ff;
+  --ui-shadow: 0 14px 36px rgba(0, 0, 0, 0.38);
+}
+
+.pn,
+.in,
+.qpanel {
+  border-color: var(--ui-line);
+  background-color: var(--ui-surface);
+  box-shadow: var(--ui-shadow), inset 0 1px rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(16px) saturate(125%);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
+}
+
+.pn {
+  border-radius: 14px;
+  scrollbar-color: rgba(112, 228, 255, 0.4) transparent;
+  scrollbar-width: thin;
+}
+
+.panelHeading {
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(147, 190, 220, 0.12);
+}
+
+.panelHeading h1 {
+  color: #f1f7ff;
+  letter-spacing: 0.015em;
+}
+
+.menuContent {
+  gap: 10px;
+}
+
+.menuTabs {
+  gap: 6px;
+  padding: 4px 0 8px;
+  background: linear-gradient(var(--ui-surface) 78%, transparent);
+}
+
+.menuTabs button {
+  min-height: 34px;
+  border-color: rgba(147, 190, 220, 0.14);
+  border-radius: 8px;
+  color: #aabbd0;
+  background: rgba(255, 255, 255, 0.035);
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.menuTabs button:hover {
+  color: #eefaff;
+  border-color: var(--ui-line-strong);
+  background: rgba(82, 195, 232, 0.09);
+}
+
+.menuTabs button.active {
+  color: #e8fbff;
+  border-color: var(--ui-line-strong);
+  background: linear-gradient(135deg, rgba(52, 172, 207, 0.2), rgba(121, 105, 208, 0.15));
+  box-shadow: inset 0 -2px var(--ui-cyan), 0 4px 14px rgba(41, 173, 211, 0.1);
+}
+
+.pn button,
+.bd > button,
+.qpanel button,
+.missionLaunchButton {
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.pn button:hover,
+.bd > button:hover,
+.qpanel button:hover {
+  border-color: var(--ui-line-strong);
+  background-color: rgba(84, 198, 230, 0.12);
+  transform: translateY(-1px);
+}
+
+.pn button.on,
+.qpanel button.on {
+  color: #eafcff;
+  border-color: rgba(112, 228, 255, 0.62);
+  background: linear-gradient(135deg, rgba(47, 174, 209, 0.28), rgba(118, 99, 201, 0.2));
+  box-shadow: inset 0 0 0 1px rgba(112, 228, 255, 0.08), 0 0 14px rgba(62, 190, 225, 0.11);
+}
+
+.pn button:focus-visible,
+.bd button:focus-visible,
+.qpanel button:focus-visible,
+.missionLaunchButton:focus-visible {
+  outline: 2px solid var(--ui-cyan);
+  outline-offset: 2px;
+  border-color: transparent;
+}
+
+.qpanel {
+  border-radius: 12px;
+}
+
+.qtitle {
+  color: #89a6bd;
+  font-weight: 650;
+}
+
+.in {
+  border-radius: 13px;
+  color: #c6d5e7;
+  line-height: 1.5;
+}
+
+.in b {
+  color: #f1f7ff;
+}
+
+.hud {
+  border-color: rgba(112, 228, 255, 0.42);
+  border-radius: 999px;
+  padding: 7px 14px;
+  background: rgba(4, 14, 25, 0.82);
+  box-shadow: 0 0 24px rgba(42, 179, 218, 0.12), inset 0 0 12px rgba(65, 204, 236, 0.05);
+}
+
+.speedStages > div {
+  letter-spacing: 0.075em;
+}
+
+.speedStages .active {
+  color: #f1fcff;
+}
+
+.gaugeFace {
+  border-color: rgba(112, 228, 255, 0.48);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(24, 53, 72, 0.95), rgba(4, 13, 23, 0.98) 74%),
+    conic-gradient(from 0deg, rgba(109, 234, 255, 0.12), rgba(10, 20, 32, 0.5));
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.9), 0 0 12px rgba(66, 202, 255, 0.1);
+}
+
+.flightGauge strong {
+  letter-spacing: 0.025em;
+}
+
+.missionMenuCard {
+  border-color: rgba(112, 228, 255, 0.3);
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(91, 117, 205, 0.15), transparent 52%),
+    linear-gradient(145deg, rgba(7, 21, 38, 0.94), rgba(11, 12, 31, 0.9));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.missionLaunchButton {
+  border-radius: 8px;
+}
+
+.mobileFlightControls button:active {
+  transform: scale(0.94);
+  filter: brightness(1.2);
+}
+
+@media (max-width: 760px), (pointer: coarse) {
+  .mobileMode .pn,
+  .mobileMode .in,
+  .mobileMode .qpanel {
+    background-color: rgba(5, 13, 25, 0.94);
+  }
+
+  .mobileMode .menuTabs button {
+    min-height: 38px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menuTabs button,
+  .pn button,
+  .bd > button,
+  .qpanel button,
+  .missionLaunchButton,
+  .mobileFlightControls button,
+  .speedStages > div,
+  .speedStages i,
+  .gaugeNeedle {
+    transition: none !important;
+  }
+}
