@@ -19,10 +19,10 @@ export default function App() {
     api = useRef(),
     dayRef = useRef(),
     distRef = useRef(),
-    spR = useRef(1),
+    spR = useRef(0.1),
     paR = useRef(false),
     [real, setReal] = useState(false),
-    [sp, setSp] = useState(0),
+    [sp, setSp] = useState(-1),
     [pause, setPause] = useState(false),
     [f, setF] = useState(null),
     [near, setNear] = useState(null),
@@ -713,7 +713,7 @@ export default function App() {
                     onClick: () => {
                       A().reset();
                       setPause(false);
-                      setSp(0);
+                      setSp(-1);
                     },
                   },
                   'Restablecer',
