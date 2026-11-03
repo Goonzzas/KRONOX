@@ -1596,17 +1596,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             0,
             Math.sin(angle) * moon.radius,
           );
-          moon.mesh.rotation.y += dt * 0.3;
+          // The Galilean moons are tidally locked: one axial turn per orbit.
+          moon.mesh.rotation.y = -angle;
         });
       }
       if (!p.moon) {
-        const rs = ((TAU * 24) / p.rot) * spd,
-          rate = (rs * 3) / (3 + rs);
-        // Jupiter's fast atmospheric rotation is visually overwhelming at the
-        // default time scale, so soften only its rendered spin. Orbital
-        // positions and the simulated date continue to use the same timeline.
-        const visualSpinMultiplier = p.n === 'Júpiter' ? 0.18 : 1;
-        b.spin.rotation.y += rate * dt * visualSpinMultiplier;
+        const rate = ((TAU * 24) / p.rot) * spd;
+        b.spin.rotation.y += rate * dt;
       }
       b.lab.visible = !!fl.lab;
       b.ax.visible = !!fl.ax;
