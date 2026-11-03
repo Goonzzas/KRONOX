@@ -3,12 +3,11 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { P, D2R, TAU, T0, kep, pos } from '../data/planetData.js';
 import { SPHEREX_TARGETS } from '../data/spherexTargets.js';
 
-// The Milky Way view compresses the solar neighborhood into a tiny pixel.
-// The global Milky Way view compresses nearby stars into an indistinguishable
-// dot. Exaggerate only the inner 25 light-years; preserve distant targets'
-// placement by letting the expansion become a fixed offset beyond that zone.
+// A single scale cannot show both the Milky Way and nearby star systems
+// clearly. Expand only the inner 25 light-years to 1,000 map units per
+// light-year, then return to the galaxy-wide scale beyond that neighborhood.
 const GALACTIC_MAP_UNITS_PER_LIGHT_YEAR = 3;
-const LOCAL_NEIGHBORHOOD_EXTRA_UNITS_PER_LIGHT_YEAR = 9;
+const LOCAL_NEIGHBORHOOD_EXTRA_UNITS_PER_LIGHT_YEAR = 997;
 const LOCAL_NEIGHBORHOOD_RADIUS_LY = 25;
 const PLANET_TEXTURE_FILES = {
   Mercurio: '2k_mercury.jpg',
@@ -1160,7 +1159,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     activeMissionKey = key;
     tripTo(
       destination,
-      Math.max(22, visualDistanceInMapUnits(found.target.distanceLy) * 0.16),
+      Math.max(22, Math.min(60, visualDistanceInMapUnits(found.target.distanceLy) * 0.04)),
       found.target.name,
       null,
       () => {
