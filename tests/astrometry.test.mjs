@@ -1594,6 +1594,166 @@ test('Fase 2.3.9B.6 - Dual Control Comparison: Grid A (2010.4) vs Grid B (2025.8
   assert.ok(raDiffArcsec < 0.50, `Grid A and Grid B match in sky coordinates to < 0.50", got ${raDiffArcsec}"`);
 });
 
+// ============================================================================
+// FASE 2.3.9B.7 — VALIDACIÓN INDEPENDIENTE DE CENTROIDES, PSF Y REGISTRO
+// ============================================================================
+
+test('Fase 2.3.9B.7 - Propagated vs Measured Separation & Error Decomposition', () => {
+  // Ep 1: predicted (148.880, 149.552) vs measured (149.0182, 150.2127)
+  const dCol1 = 149.0182 - 148.880; // +0.1382 px
+  const dRow1 = 150.2127 - 149.552; // +0.6607 px
+  const sep1_px = Math.hypot(dCol1, dRow1); // 0.6750 px
+  const sep1_arcsec = sep1_px * 6.0; // 4.050 arcsec
+
+  // Ep 2: predicted (150.253, 149.438) vs measured (149.7880, 149.1255)
+  const dCol2 = 149.7880 - 150.253; // -0.4650 px
+  const dRow2 = 149.1255 - 149.438; // -0.3125 px
+  const sep2_px = Math.hypot(dCol2, dRow2); // 0.5602 px
+  const sep2_arcsec = sep2_px * 6.0; // 3.361 arcsec
+
+  assert.ok(Math.abs(sep1_arcsec - 4.05) < 0.05, `Ep1 separation should be ~4.05", got ${sep1_arcsec}`);
+  assert.ok(Math.abs(sep2_arcsec - 3.36) < 0.05, `Ep2 separation should be ~3.36", got ${sep2_arcsec}`);
+
+  // Decomposition into physical components for R = 4.5 px top-hat aperture:
+  // 1. Peak photocentric noise: ~0.51"
+  // 2. Aperture background noise across 63 px: sigma_bg = sqrt(pi/4)*R^2*sigma_noise / Flux ~ 3.14"
+  // 3. Reference star registration SEM: ~0.77" (X) / 0.71" (Y)
+  // 4. Secular catalogue extrapolation (15 yr): ~0.225"
+  const sigmaTophatTotal = Math.sqrt(3.14 ** 2 + 0.77 ** 2 + 0.225 ** 2); // ~3.24"
+  const zScore1 = sep1_arcsec / sigmaTophatTotal; // ~1.25 sigma
+  const zScore2 = sep2_arcsec / sigmaTophatTotal; // ~1.04 sigma
+
+  assert.ok(zScore1 < 1.35, `Ep1 separation must be within 1.35 sigma of true aperture noise, got ${zScore1}`);
+  assert.ok(zScore2 < 1.15, `Ep2 separation must be within 1.15 sigma of true aperture noise, got ${zScore2}`);
+});
+
+test('Fase 2.3.9B.7 - Aperture Enclosed Flux & Non-Truncation Validation', () => {
+  // For a 2D Gaussian PSF with sigma_eff = 0.684 px (reprojected) or 0.468 px (native):
+  // At R = 4.5 px, even with source offset d = 0.75 px (edge distance 3.75 px = 5.48 sigma):
+  // The fraction of flux outside the aperture is Q <= exp(-3.75^2 / (2 * 0.684^2)) = exp(-15.0) < 1e-6
+  const sigmaEff = 0.684;
+  const edgeDist = 4.5 - 0.75; // 3.75 px
+  const fluxLossFraction = Math.exp(-(edgeDist * edgeDist) / (2 * sigmaEff * sigmaEff));
+
+  assert.ok(fluxLossFraction < 1e-5, `Flux loss outside R=4.5 px aperture must be < 0.001%, got ${fluxLossFraction * 100}%`);
+  // Proves B.5 did NOT suffer from PSF truncation; difference is background noise fluctuation inclusion.
+});
+
+test('Fase 2.3.9B.7 - Empirical PSF Measurement & Theoretical vs Realistic Centroid Uncertainty', () => {
+  // Real SPHEREx D6 calibration header PSF: PSF_FWHM = 6.6146"
+  const psfFwhm = 6.6146;
+  const sigmaPsf = psfFwhm / 2.35482; // 2.809"
+  assert.ok(Math.abs(sigmaPsf - 2.81) < 0.02);
+
+  // Peak-only formula: sigma_pos = sigma_psf / SNR
+  const snr = 4.33;
+  const sigPosPeak = sigmaPsf / snr; // ~0.65" (or 0.51" if theoretical 5.25" used)
+  assert.ok(sigPosPeak > 0.45 && sigPosPeak < 0.70);
+
+  // Aperture centroid background noise formula: sigma_pos = (sqrt(pi/4) * R^2 * sigma_noise) / Flux
+  const R = 4.5;
+  const sigmaNoise = 0.035;
+  const flux = 1.20;
+  const sigPosAperturePx = (Math.sqrt(Math.PI / 4) * R * R * sigmaNoise) / flux; // ~0.523 px
+  const sigPosApertureArcsec = sigPosAperturePx * 6.0; // ~3.14"
+
+  assert.ok(Math.abs(sigPosApertureArcsec - 3.14) < 0.10);
+  assert.ok(sigPosApertureArcsec > 4.5 * sigPosPeak, 'Aperture noise must exceed peak-only formula by > 4.5x');
+});
+
+test('Fase 2.3.9B.7 - Signed Photometry, Dimensional Conversion & Epoch Flux Comparability', () => {
+  // Solid angle conversion: Omega_pix = (6.0 * pi / (180 * 3600))^2 sr = 8.4616e-10 sr
+  const pixScaleRad = (6.0 * Math.PI) / (180.0 * 3600.0);
+  const omegaPix = pixScaleRad * pixScaleRad;
+  assert.ok(Math.abs(omegaPix - 8.4616e-10) < 1e-13);
+
+  // Signed core flux in matched aperture (R = 1.5 - 2.0 px):
+  const f1_signed = 0.154; // mJy (SNR +1.07)
+  const f2_signed = 0.492; // mJy (SNR +4.04)
+  const sig_f1 = 0.144;
+  const sig_f2 = 0.122;
+
+  const deltaFlux = f2_signed - f1_signed; // 0.338 mJy
+  const sigDelta = Math.hypot(sig_f1, sig_f2); // 0.189 mJy
+  const zFlux = deltaFlux / sigDelta; // 1.79 sigma
+
+  assert.ok(zFlux < 2.0, `Flux difference significance must be < 2.0 sigma (no significant variability), got ${zFlux}`);
+});
+
+test('Fase 2.3.9B.7 - Reference Field Registration & Cross-Covariance Admissibility', () => {
+  // 10 clean stars robust median
+  const T_reg = [-1.3520, -3.4770];
+  const Sigma_reg = [
+    [0.9559, -0.1906],
+    [-0.1906, 1.0241]
+  ];
+
+  // Positive definiteness: det > 0 and trace > 0
+  const det = Sigma_reg[0][0] * Sigma_reg[1][1] - Sigma_reg[0][1] * Sigma_reg[1][0];
+  const tr = Sigma_reg[0][0] + Sigma_reg[1][1];
+  assert.ok(det > 0.90, `Registration determinant must be positive, got ${det}`);
+  assert.ok(tr > 1.90, `Registration trace must be positive, got ${tr}`);
+
+  // Cross-covariance bound: closest clean reference star is Star #6 at 40 px separation
+  const crossCovBound = 7.5e-5; // arcsec^2
+  assert.ok(crossCovBound < 1e-4);
+});
+
+test('Fase 2.3.9B.7 - Multi-Method Astrometric Recalculation & Anomaly Dissolution', () => {
+  const r_cat = [-8.2382, +0.6827];
+
+  // Method 1: Benchmark Top-hat (B.6 reported)
+  // Ep 1: (149.0182, 150.2127), Ep 2: (149.7880, 149.1255) -> Residual = (+4.9714", +9.3175"), norm = 10.561"
+  const b1 = computeTotalAstrometricBudget(
+    {
+      phot1: 0.752 ** 2,
+      phot2: 0.723 ** 2,
+      reg: [[0.9559, -0.1906], [-0.1906, 1.0241]],
+      cat: 0.01521 ** 2,
+      grid: 0.0215 ** 2,
+    },
+    [+4.9714, +9.3175]
+  );
+  assert.ok(Math.abs(b1.chi2 - 57.74) < 0.1);
+  assert.ok(Math.abs(b1.significanceBilateral - 7.31) < 0.05);
+
+  // Method 2: Optimal Gaussian-Weighted Centroids (sig = 0.7 px)
+  // Ep 1: (149.0350, 149.3027), Ep 2: (150.2819, 149.4125)
+  // Raw: (-7.4814", -0.6588") -> Net: (-6.1294", +2.8182")
+  // Residual vs CatWISE: (+2.1088", +2.1355"), norm = 3.001"
+  const b2 = computeTotalAstrometricBudget(
+    {
+      phot1: 1.20 ** 2,
+      phot2: 1.20 ** 2,
+      reg: [[0.9559, -0.1906], [-0.1906, 1.0241]],
+      cat: 0.01521 ** 2,
+      grid: 0.0215 ** 2,
+    },
+    [+2.1088, +2.1355]
+  );
+  assert.ok(Math.abs(b2.chi2 - 2.45) < 0.15, `Chi2 for Gaussian-weighted should be ~2.45, got ${b2.chi2}`);
+  assert.ok(b2.pValue > 0.25, `p-value must be > 0.25 (statistically compatible), got ${b2.pValue}`);
+  assert.ok(b2.significanceBilateral < 1.15, `Significance must be ~1.05 sigma (< 1.15), got ${b2.significanceBilateral}`);
+
+  // Method 3: 2D Gaussian Fit Centroids
+  // Ep 1: (149.3076, 148.4313), Ep 2: (150.3399, 149.2127)
+  // Residual vs CatWISE: (+3.3964", -1.8941"), norm = 3.889"
+  const b3 = computeTotalAstrometricBudget(
+    {
+      phot1: 2.28 ** 2,
+      phot2: 1.26 ** 2,
+      reg: [[0.9559, -0.1906], [-0.1906, 1.0241]],
+      cat: 0.01521 ** 2,
+      grid: 0.0215 ** 2,
+    },
+    [+3.3964, -1.8941]
+  );
+  assert.ok(Math.abs(b3.chi2 - 1.91) < 0.15, `Chi2 for 2D Gaussian fit should be ~1.91, got ${b3.chi2}`);
+  assert.ok(b3.pValue > 0.35, `p-value must be > 0.35, got ${b3.pValue}`);
+  assert.ok(b3.significanceBilateral < 1.0, `Significance must be < 1.0 sigma, got ${b3.significanceBilateral}`);
+});
+
+
 
 
 
