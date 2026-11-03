@@ -304,6 +304,10 @@ const en = {
   'Cambio de escala': 'Scale changed',
   'Control activado': 'Control enabled',
   'Viaje rápido': 'Quick travel',
+  'Viaje largo': 'Long journey',
+  'Objetivo alcanzado': 'Target reached',
+  'Llegamos. Cambia a velocidad planetaria para explorar con calma. ¿Empezamos?':
+    'We have arrived. Switch to Planet speed to explore at a calmer pace. Shall we begin?',
   'Nave planetaria': 'Planetary spacecraft',
   'Cámara libre': 'Free camera',
   'Cambio de velocidad': 'Speed changed',
@@ -590,12 +594,20 @@ const patterns = [
   ],
   [/^¡Salto iniciado! Rumbo a (.+)\.$/, 'Jump started! Heading to $1.'],
   [
+    /^Vas avanzando despacio para la distancia que nos separa\. Puedes subir la velocidad a Galaxia o Hiper en el menú Nave espacial para llegar antes\.$/,
+    'We are moving slowly for the distance ahead. Increase speed to Galaxy or Hyper in the Spaceship menu to arrive sooner.',
+  ],
+  [
     /^Destino fijado: (.+)\. Prepararé el salto hasta su posición en el vecindario galáctico\.$/,
     'Destination set: $1. I will prepare the jump to its location in the galactic neighborhood.',
   ],
   [
     /^Hemos llegado a (.+)\. El objetivo está localizado; puedes iniciar la observación cuando quieras\.$/,
     'We have arrived at $1. The target is located; you can begin observing whenever you are ready.',
+  ],
+  [
+    /^Hemos llegado a (.+)\. Para explorar con calma, cambia la velocidad a planetaria en Nave espacial\.$/,
+    'We have arrived at $1. Switch to Planet speed in the Spaceship menu to explore at a calmer pace.',
   ],
   [/^Tu misión: (.+)$/, 'Your mission: $1'],
   [/^Cambiando nivel de vista a (primera|tercera) persona\.$/, 'Switching to $1 person view.'],
