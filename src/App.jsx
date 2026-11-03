@@ -62,6 +62,7 @@ export default function App() {
     [fv, setFv] = useState(60),
     flR = useRef(fl),
     countTimers = useRef([]),
+    missionTravelTipTimer = useRef(null),
     voiceRef = useRef(false),
     voiceAudio = useRef(null),
     voiceToken = useRef(0),
@@ -403,6 +404,7 @@ export default function App() {
   useEffect(
     () => () => {
       clearTimeout(noticeTimer.current);
+      clearTimeout(missionTravelTipTimer.current);
       voiceToken.current++;
       clearTimeout(kronoxCloseTimer.current);
       if (voiceAudio.current) voiceAudio.current.pause();
@@ -420,6 +422,7 @@ export default function App() {
       gal: 'Movimiento galáctico',
     },
     startTravel = (run, label, afterArrival, awaitSceneArrival = false) => {
+      clearTimeout(missionTravelTipTimer.current);
       travelRef.current = true;
       countTimers.current.forEach(clearTimeout);
       clearTimeout(noticeTimer.current);
@@ -435,8 +438,16 @@ export default function App() {
           setCountdown(null);
           notify('¡Salto iniciado! Rumbo a ' + t(label, language) + '.', 'Viaje rápido');
           if (awaitSceneArrival) {
+            missionTravelTipTimer.current = setTimeout(() => {
+              if (travelRef.current)
+                notify(
+                  'Vas avanzando despacio para la distancia que nos separa. Puedes subir la velocidad a Galaxia o Hiper en el menú Nave espacial para llegar antes.',
+                  'Viaje largo',
+                );
+            }, 8000);
             run(() => {
               travelRef.current = false;
+              clearTimeout(missionTravelTipTimer.current);
               if (afterArrival) afterArrival();
             });
           } else {
@@ -481,10 +492,11 @@ export default function App() {
         () => {
           setMissionTraveling(false);
           setMissionArrival(true);
-          setGuide(
+          notify(
             'Hemos llegado a ' +
               t(target.name, language) +
-              '. El objetivo está localizado; puedes iniciar la observación cuando quieras.',
+              '. Para explorar con calma, cambia la velocidad a planetaria en Nave espacial.',
+            'Objetivo alcanzado',
           );
           setTimeout(() => {
             setMissionArrival(false);
@@ -1152,7 +1164,7 @@ export default function App() {
           { className: 'missionLaunchCopy' },
           h('small', null, 'DESTINO LOCALIZADO · SPHEREx'),
           h('b', null, missionLaunchTarget.name),
-          h('span', null, 'La nave llegó al objetivo. ¿Empezamos la misión?'),
+          h('span', null, 'Llegamos. Cambia a velocidad planetaria para explorar con calma. ¿Empezamos?'),
         ),
         h(
           'button',
@@ -1166,7 +1178,7 @@ export default function App() {
         { className: 'missionArrivalOverlay', role: 'status', 'aria-live': 'polite' },
         h('span', null, 'SALTO COMPLETADO'),
         h('b', null, missionArrivalName),
-        h('small', null, 'Objetivo localizado en el vecindario galáctico.'),
+        h('small', null, 'Llegamos. Cambia a velocidad planetaria para explorar con calma.'),
       ),
     h(PlanetInfoModal, {
       planet: more,
