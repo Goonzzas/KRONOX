@@ -1281,10 +1281,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     shipScale = () => (Rd(P[3]) * (SHIP_LENGTH_METERS / 1000)) / (P[3].km * SHIP_MODEL_LENGTH),
     // Keep the external follow camera at a planet-relative distance; a
     // hull-relative camera makes even a physically small ship fill the view.
-    shipCameraDistance = () =>
-      Math.max(shipSz * 16, Rd(P[3]) * 0.08, real ? 0.04 : 0.025) * shipZoom,
-    // Keep the external follow camera planet-relative so the craft reads as a point.
-    shipOffset = () => Math.max(shipSz * 7, Rd(P[3]) * 0.08) * shipZoom;
+    shipCameraDistance = () => {
+      let distance = Math.max(shipSz * 16, Rd(P[3]) * 0.08, real ? 0.04 : 0.025);
+      const solarViewLimit = Dd(30.07) * 2;
+      // Frame the ship against nearby planetary bodies by angular size, not
+      // only by distance to the hull. This stops it appearing oversized when
+      // a planet is farther away in the shot.
+      B.forEach((body) => {
+        if (!body.p.au || body.r <= 0) return;
+        const bodyDistance = sp.distanceTo(body.pivot.position);
+        if (bodyDistance < solarViewLimit) {
+          distance = Math.max(distance, (shipSz * 64 * bodyDistance) / body.r);
+        }
+      });
+      return distance * shipZoom;
+    },
+    // The exterior follow camera uses the same frame distance so the craft
+    // remains visible while its angular size stays small beside the planets.
+    shipOffset = () => shipCameraDistance();
   function layout() {
     B.forEach((b) => {
       const r = Rd(b.p);
