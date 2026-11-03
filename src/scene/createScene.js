@@ -1294,6 +1294,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           distance = Math.max(distance, (shipSz * 64 * bodyDistance) / body.r);
         }
       });
+      // Keep the physically scaled hull large enough to recognize in the
+      // default chase view. Zoom can still pull back to inspect system scale.
+      distance = Math.min(distance, shipSz * 220);
       return distance * shipZoom;
     },
     // The exterior follow camera uses the same frame distance so the craft
