@@ -36,11 +36,9 @@ function localGalacticPosition(target) {
   const x = Math.cos(dec) * Math.cos(ra);
   const y = Math.cos(dec) * Math.sin(ra);
   const z = Math.sin(dec);
-  const towardCenter =
-    -0.0548755604 * x - 0.8734370902 * y - 0.4838350155 * z;
-  const towardLongitude90 =
-    0.4941094279 * x - 0.4448296300 * y + 0.7469822445 * z;
-  const north = -0.8676661490 * x - 0.1980763734 * y + 0.4559837762 * z;
+  const towardCenter = -0.0548755604 * x - 0.8734370902 * y - 0.4838350155 * z;
+  const towardLongitude90 = 0.4941094279 * x - 0.44482963 * y + 0.7469822445 * z;
+  const north = -0.867666149 * x - 0.1980763734 * y + 0.4559837762 * z;
   // Put the Sun at the map's existing Orion-arm marker, then offset each
   // named star by its approximate heliocentric distance (the map uses ly).
   // Directions remain based on the real coordinates. The nearby-neighborhood
@@ -53,12 +51,12 @@ function localGalacticPosition(target) {
   );
 }
 
-function lab(text) {
+function lab(text, scale = 0.4, fontSize = 30) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 64;
   const context = canvas.getContext('2d');
-  context.font = '30px Segoe UI, sans-serif';
+  context.font = `${fontSize}px Segoe UI, sans-serif`;
   context.textAlign = 'center';
   context.fillStyle = '#fff';
   context.shadowColor = '#000';
@@ -73,7 +71,7 @@ function lab(text) {
       sizeAttenuation: false,
     }),
   );
-  sprite.scale.set(0.4, 0.05, 1);
+  sprite.scale.set(scale, scale * 0.125, 1);
   sprite.center.set(0.5, -0.3);
   sprite.renderOrder = 9;
   return sprite;
@@ -189,21 +187,24 @@ export function setupScene(el, S) {
           context.fillRect(0, 0, canvas.width, canvas.height);
           context.filter = 'blur(5px)';
           context.fillStyle = 'rgba(246, 255, 255, 0.22)';
-          [[0.22, 0.29, 0.04], [0.63, 0.39, 0.06], [0.81, 0.61, 0.045], [0.4, 0.72, 0.035]].forEach(
-            ([x, y, width]) => {
-              context.beginPath();
-              context.ellipse(
-                canvas.width * x,
-                canvas.height * y,
-                canvas.width * width,
-                canvas.height * 0.006,
-                0,
-                0,
-                Math.PI * 2,
-              );
-              context.fill();
-            },
-          );
+          [
+            [0.22, 0.29, 0.04],
+            [0.63, 0.39, 0.06],
+            [0.81, 0.61, 0.045],
+            [0.4, 0.72, 0.035],
+          ].forEach(([x, y, width]) => {
+            context.beginPath();
+            context.ellipse(
+              canvas.width * x,
+              canvas.height * y,
+              canvas.width * width,
+              canvas.height * 0.006,
+              0,
+              0,
+              Math.PI * 2,
+            );
+            context.fill();
+          });
         }
         loaded.image = canvas;
         loaded.needsUpdate = true;
@@ -469,11 +470,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     for (let i = 0; i < 280; i++) {
       const angle = Math.random() * TAU;
       const radius = 12 + Math.random() ** 1.7 * 44;
-      dustPositions.push(
-        Math.cos(angle) * radius,
-        gs() * radius * 0.36,
-        Math.sin(angle) * radius,
-      );
+      dustPositions.push(Math.cos(angle) * radius, gs() * radius * 0.36, Math.sin(angle) * radius);
       const tint = 0.35 + Math.random() * 0.6;
       dustColors.push(baseColor.r * tint, baseColor.g * tint, baseColor.b * tint);
     }
@@ -603,27 +600,62 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   });
   const satelliteBodyGeometry = new THREE.BoxGeometry(0.055, 0.052, 0.07);
   const satellitePanelGeometry = new THREE.BoxGeometry(0.12, 0.012, 0.06);
-  const makeSatellite = (size = 1, station = false) => {
+  const makeSatellite = (size = 0.42, station = false) => {
     const object = new THREE.Group();
-    const body = new THREE.Mesh(
-      station ? new THREE.BoxGeometry(0.13, 0.095, 0.18) : satelliteBodyGeometry,
-      station ? goldSatelliteMaterial : satelliteBodyMaterial,
-    );
-    object.add(body);
-    const panelGeometry = station
-      ? new THREE.BoxGeometry(0.19, 0.014, 0.09)
-      : satellitePanelGeometry;
-    [-1, 1].forEach((side) => {
-      const panel = new THREE.Mesh(panelGeometry, satellitePanelMaterial);
-      panel.position.x = side * (station ? 0.18 : 0.105);
-      object.add(panel);
-      const strut = new THREE.Mesh(
-        new THREE.BoxGeometry(0.035, 0.018, 0.018),
+    if (station) {
+      // Compact ISS silhouette: pressurised modules along a central truss,
+      // paired solar wings, radiator panels, and a small docking port.
+      const truss = new THREE.Mesh(
+        new THREE.BoxGeometry(1.14, 0.035, 0.035),
+        goldSatelliteMaterial,
+      );
+      object.add(truss);
+      const module = (geometry, position, material = satelliteBodyMaterial) => {
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(...position);
+        object.add(mesh);
+      };
+      module(
+        new THREE.CylinderGeometry(0.067, 0.067, 0.44, 10),
+        [0, 0, -0.03],
         satelliteBodyMaterial,
       );
-      strut.position.x = side * 0.065;
-      object.add(strut);
-    });
+      module(
+        new THREE.CylinderGeometry(0.055, 0.055, 0.27, 10),
+        [0, 0.018, 0.32],
+        goldSatelliteMaterial,
+      );
+      module(
+        new THREE.CylinderGeometry(0.052, 0.052, 0.26, 10),
+        [0, 0.018, -0.34],
+        goldSatelliteMaterial,
+      );
+      module(new THREE.BoxGeometry(0.19, 0.065, 0.11), [0, 0.025, -0.02], satelliteBodyMaterial);
+      [-1, 1].forEach((side) => {
+        [-1, 1].forEach((pair) => {
+          const panel = new THREE.Mesh(
+            new THREE.BoxGeometry(0.26, 0.012, 0.12),
+            satellitePanelMaterial,
+          );
+          panel.position.set(side * 0.42, 0.018, pair * 0.14);
+          object.add(panel);
+          const fineLines = new THREE.Mesh(
+            new THREE.BoxGeometry(0.27, 0.004, 0.006),
+            satelliteBodyMaterial,
+          );
+          fineLines.position.set(side * 0.42, 0.026, pair * 0.14);
+          object.add(fineLines);
+        });
+      });
+      module(new THREE.CylinderGeometry(0.026, 0.035, 0.11, 8), [0, 0, 0.5], satelliteBodyMaterial);
+    } else {
+      object.add(new THREE.Mesh(satelliteBodyGeometry, satelliteBodyMaterial));
+      [-1, 1].forEach((side) => {
+        const panel = new THREE.Mesh(satellitePanelGeometry, satellitePanelMaterial);
+        panel.position.x = side * 0.105;
+        object.add(panel);
+      });
+    }
     object.scale.setScalar(size);
     return object;
   };
@@ -715,23 +747,59 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       const system = new THREE.Group();
       pivot.add(system);
       b.satelliteSystem = system;
-      b.satellitePlanes = [];
+      b.satellites = [];
       const constellation = [
-        { name: 'STARLINK', count: 16, radius: 1.18, inclination: 0.28, period: 0.0667, color: 0x68caff },
-        { name: 'STARLINK', count: 14, radius: 1.38, inclination: 0.72, period: 0.071, color: 0x68caff },
-        { name: 'STARLINK', count: 12, radius: 1.6, inclination: 1.02, period: 0.076, color: 0x68caff },
-        { name: 'ISS · Estación Espacial Internacional', count: 1, radius: 1.9, inclination: 0.9, period: 0.0646, color: 0xffc979, station: true, size: 0.36 },
-        { name: 'Hubble · NASA/ESA', count: 1, radius: 2.16, inclination: 0.35, period: 0.066, color: 0xe6efff, size: 0.4 },
+        {
+          name: 'STARLINK',
+          count: 16,
+          radius: 1.18,
+          inclination: 0.28,
+          period: 0.0667,
+          color: 0x68caff,
+        },
+        {
+          name: 'STARLINK',
+          count: 14,
+          radius: 1.38,
+          inclination: 0.72,
+          period: 0.071,
+          color: 0x68caff,
+        },
+        {
+          name: 'STARLINK',
+          count: 12,
+          radius: 1.6,
+          inclination: 1.02,
+          period: 0.076,
+          color: 0x68caff,
+        },
+        {
+          name: 'ISS · Estación Espacial Internacional',
+          count: 1,
+          radius: 1.9,
+          inclination: 0.9,
+          period: 0.0646,
+          color: 0xffc979,
+          station: true,
+          size: 0.17,
+        },
+        {
+          name: 'Hubble · NASA/ESA',
+          count: 1,
+          radius: 2.16,
+          inclination: 0.35,
+          period: 0.066,
+          color: 0xe6efff,
+          size: 0.4,
+        },
       ];
       constellation.forEach((orbit, orbitIndex) => {
         const plane = new THREE.Group();
         plane.rotation.set(orbit.inclination, 0, orbitIndex * 0.71);
         system.add(plane);
-        const track = makeOrbitTrack(orbit.radius, orbit.color, orbit.station ? 0.55 : 0.24);
-        plane.add(track);
         const objects = [];
         for (let index = 0; index < orbit.count; index++) {
-          const satellite = makeSatellite(orbit.size || 1.05, orbit.station);
+          const satellite = makeSatellite(orbit.size || 0.42, orbit.station);
           const beacon = new THREE.Sprite(
             new THREE.SpriteMaterial({
               map: missionGlowMap,
@@ -743,21 +811,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               sizeAttenuation: false,
             }),
           );
-          // A tiny fixed-pixel beacon keeps the hardware identifiable when
-          // the planet is not zoomed all the way in.
-          beacon.scale.set(0.1, 0.1, 1);
+          beacon.scale.set(0.035, 0.035, 1);
           plane.add(beacon);
           plane.add(satellite);
           objects.push({ object: satellite, beacon, phase: (index / orbit.count) * TAU });
         }
         if (orbit.name !== 'STARLINK' || orbitIndex === 0) {
-          const label = lab(orbit.name === 'STARLINK' ? 'STARLINK · CONSTELACIÓN' : orbit.name);
+          const label = lab(orbit.name === 'STARLINK' ? 'STARLINK' : orbit.name, 0.15, 18);
           label.position.set(0, orbit.radius + 0.16, 0);
           label.visible = false;
           plane.add(label);
           LB.push(label);
         }
-        b.satellitePlanes.push({ ...orbit, plane, track, objects });
+        b.satellites.push({ ...orbit, plane, objects });
       });
     }
     if (p.n === 'Júpiter') {
@@ -772,8 +838,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         { name: 'Ganímedes', radius: 3.65, size: 0.14, period: 7.155, color: 0x999387, phase: 3.8 },
         { name: 'Calisto', radius: 4.75, size: 0.13, period: 16.689, color: 0x625448, phase: 5.1 },
       ].map((moon, index) => {
-        const orbit = makeOrbitTrack(moon.radius, index % 2 ? 0x9fb7ca : 0xd9c29c, 0.34);
-        system.add(orbit);
         const moonPivot = new THREE.Group();
         moonPivot.rotation.x = (index - 1.5) * 0.045;
         system.add(moonPivot);
@@ -802,12 +866,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         beacon.scale.set(0.02, 0.02, 1);
         beacon.position.z = moon.size * 1.4;
         moonPivot.add(beacon);
-        const label = lab(moon.name);
+        const label = lab(moon.name, 0.12, 16);
         label.position.set(0, moon.size * 2.4, 0);
         label.visible = false;
         moonPivot.add(label);
         LB.push(label);
-        return { ...moon, orbit, moonPivot, mesh, beacon };
+        return { ...moon, moonPivot, mesh, beacon };
       });
     }
     if (p.ring) {
@@ -1443,7 +1507,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       spd = S.pause.current ? 0 : S.speed.current;
     sim += dt * spd;
     S.day(sim);
-    const fl = S.fl.current;
+    const fl = S.fl.current,
+      solarOrbitVisibility = fl.orb
+        ? 1 - THREE.MathUtils.smoothstep(cam.position.length(), 150, 240)
+        : 0;
     B.forEach((b) => {
       const p = b.p;
       if (p.au) {
@@ -1463,9 +1530,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         b.spin.rotation.y = an + Math.PI / 2;
         b.ar.setDirection(new THREE.Vector3(-Math.sin(an), 0, -Math.cos(an)));
       }
-      if (b.satellitePlanes) {
-        b.satellitePlanes.forEach((plane) => {
-          plane.track.visible = !!fl.orb;
+      if (b.satellites) {
+        b.satellites.forEach((plane) => {
           const orbitAngle = (sim / plane.period) * TAU;
           plane.objects.forEach(({ object, beacon, phase }) => {
             const angle = orbitAngle + phase;
@@ -1477,9 +1543,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
       if (b.jupiterMoons) {
         b.jupiterMoons.forEach((moon) => {
-          moon.orbit.visible = !!fl.orb;
           const angle = (sim / moon.period) * TAU + moon.phase;
-          moon.moonPivot.position.set(Math.cos(angle) * moon.radius, 0, Math.sin(angle) * moon.radius);
+          moon.moonPivot.position.set(
+            Math.cos(angle) * moon.radius,
+            0,
+            Math.sin(angle) * moon.radius,
+          );
           moon.mesh.rotation.y += dt * 0.3;
         });
       }
@@ -1490,7 +1559,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
       b.lab.visible = !!fl.lab;
       b.ax.visible = !!fl.ax;
-      if (b.orbit) b.orbit.visible = !!fl.orb;
+      if (b.orbit) {
+        b.orbit.material.opacity = 0.5 * solarOrbitVisibility;
+        b.orbit.visible = solarOrbitVisibility > 0.01;
+      }
       if (b.ar) {
         b.ar.visible = !!fl.vel;
         const L = cam.position.distanceTo(b.pivot.position) * 0.12;
