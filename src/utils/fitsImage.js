@@ -353,16 +353,66 @@ export function computeLocalWcsJacobian(wcs, xFits, yFits) {
   const cd21 = wcs.cd21;
   const cd22 = wcs.cd22;
 
-  // Linear Jacobian (no SIP): 3600 * CD
+  // Linear Jacobian (no SIP): 3600 * CD (in arcseconds per pixel)
   const J_linear = [
     [3600.0 * cd11, 3600.0 * cd12],
     [3600.0 * cd21, 3600.0 * cd22],
   ];
 
-  // Total Jacobian with SIP: 3600 * CD * J_SIP
-  const J_total = [
+  // Tangent-plane Jacobian with SIP: 3600 * CD * J_SIP (in arcseconds per pixel)
+  const J_tangent = [
     [3600.0 * (cd11 * jSip11 + cd12 * jSip21), 3600.0 * (cd11 * jSip12 + cd12 * jSip22)],
     [3600.0 * (cd21 * jSip11 + cd22 * jSip21), 3600.0 * (cd21 * jSip12 + cd22 * jSip22)],
+  ];
+
+  // Full celestial spherical Jacobian incorporating the gnomic projection tensor J_proj:
+  // J_total = J_proj * J_tangent
+  const evalSipVal = (terms, uu, vv) => {
+    if (!terms) return 0;
+    let sum = 0;
+    for (let i = 0; i < terms.length; i++) {
+      const { p, q, coeff } = terms[i];
+      let powU = 1, powV = 1;
+      for (let k = 0; k < p; k++) powU *= uu;
+      for (let k = 0; k < q; k++) powV *= vv;
+      sum += coeff * powU * powV;
+    }
+    return sum;
+  };
+
+  const up = u + evalSipVal(wcs.aSip, u, v);
+  const vp = v + evalSipVal(wcs.bSip, u, v);
+  const xiDeg = cd11 * up + cd12 * vp;
+  const etaDeg = cd21 * up + cd22 * vp;
+
+  const xi = xiDeg * DEG2RAD;
+  const eta = etaDeg * DEG2RAD;
+  const delta0 = wcs.crval2 * DEG2RAD;
+
+  const denom = Math.cos(delta0) - eta * Math.sin(delta0);
+  const R2 = xi * xi + denom * denom;
+  const rho = Math.sqrt(R2);
+  const num = Math.sin(delta0) + eta * Math.cos(delta0);
+
+  const dra_dxi = denom / R2;
+  const dra_deta = (xi * Math.sin(delta0)) / R2;
+
+  const sec2Dec = 1.0 + (num / rho) * (num / rho);
+  const ddec_dxi = (-num * xi / (rho * rho * rho)) / sec2Dec;
+  const ddec_deta = ((Math.cos(delta0) * rho + (num * denom * Math.sin(delta0)) / rho) / (rho * rho)) / sec2Dec;
+
+  const cWorld = wcs.pixelToWorld(xFits, yFits);
+  const cosDec = Math.cos(cWorld.dec * DEG2RAD);
+
+  const jProj11 = cosDec * dra_dxi;
+  const jProj12 = cosDec * dra_deta;
+  const jProj21 = ddec_dxi;
+  const jProj22 = ddec_deta;
+
+  // Complete spherical Jacobian J_total: J_proj * J_tangent
+  const J_total = [
+    [jProj11 * J_tangent[0][0] + jProj12 * J_tangent[1][0], jProj11 * J_tangent[0][1] + jProj12 * J_tangent[1][1]],
+    [jProj21 * J_tangent[0][0] + jProj22 * J_tangent[1][0], jProj21 * J_tangent[0][1] + jProj22 * J_tangent[1][1]],
   ];
 
   const colNorm0 = Math.hypot(J_total[0][0], J_total[1][0]);
@@ -372,7 +422,12 @@ export function computeLocalWcsJacobian(wcs, xFits, yFits) {
 
   return {
     J_total,
+    J_tangent,
     J_linear,
+    J_proj: [
+      [jProj11, jProj12],
+      [jProj21, jProj22],
+    ],
     J_sip: [
       [jSip11, jSip12],
       [jSip21, jSip22],

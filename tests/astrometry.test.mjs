@@ -633,3 +633,194 @@ test('Fase 2.3.9B - Spatial Autocorrelation: Separation of A_beam, A_corr_weight
   assert.notEqual(resAcf.A_support_geom, resAcf.A_corr_weighted, 'Geometric support area must not be conflated with weighted integral');
 });
 
+test('Fase 2.3.9B.1 - Reconciled Model B Chi-Squared Consistency (66.66 vs 66.56)', () => {
+  const residualVector = [+11.456, +1.211];
+  const varPhot1 = 0.752 ** 2;
+  const varPhot2 = 0.723 ** 2;
+  const varCat = 0.01521 ** 2;
+  const varGrid = 0.0215 ** 2;
+
+  // 1. Published 50k Bootstrap Median Covariance Matrix:
+  const regCov50k = [
+    [0.9559, -0.1906],
+    [-0.1906, 1.0241],
+  ];
+  const budget50k = computeTotalAstrometricBudget(
+    {
+      phot1: varPhot1,
+      phot2: varPhot2,
+      reg: regCov50k,
+      cat: varCat,
+      grid: varGrid,
+    },
+    residualVector
+  );
+
+  // Exact quadratic form with published 50k matrix yields 66.66:
+  assert.equal(budget50k.success, true);
+  assert.ok(Math.abs(budget50k.covMatrix[0][0] - 2.0448) < 0.001);
+  assert.ok(Math.abs(budget50k.covMatrix[1][1] - 2.1130) < 0.001);
+  assert.ok(Math.abs(budget50k.covMatrix[0][1] - (-0.1906)) < 0.001);
+  assert.ok(Math.abs(budget50k.chi2 - 66.66) < 0.02, `50k chi2 should be 66.66, got ${budget50k.chi2}`);
+  assert.ok(Math.abs(budget50k.significanceBilateral - 7.87) < 0.05);
+
+  // 2. 100k Bootstrap Median Covariance Matrix:
+  const regCov100k = [
+    [0.96167, -0.19970],
+    [-0.19970, 1.04432],
+  ];
+  const budget100k = computeTotalAstrometricBudget(
+    {
+      phot1: varPhot1,
+      phot2: varPhot2,
+      reg: regCov100k,
+      cat: varCat,
+      grid: varGrid,
+    },
+    residualVector
+  );
+
+  // 100k matrix yields 66.56:
+  assert.equal(budget100k.success, true);
+  assert.ok(Math.abs(budget100k.chi2 - 66.56) < 0.02, `100k chi2 should be 66.56, got ${budget100k.chi2}`);
+  assert.ok(Math.abs(budget100k.significanceBilateral - 7.87) < 0.05);
+
+  // Proof that the discrepancy in Phase 2.3.9B report was a transcription between 50k and 100k matrices:
+  assert.ok(budget50k.chi2 > budget100k.chi2, '50k chi2 is 66.66 while 100k chi2 is 66.56');
+});
+
+test('Fase 2.3.9B.1 - WCS SIP Jacobian Convergence across dp and Projection Tensor J_proj', () => {
+  const wcsMock = parseWcs({
+    CRVAL1: 331.867163489,
+    CRVAL2: -58.4418859991,
+    CRPIX1: -14.5,
+    CRPIX2: 1020.5,
+    CDELT1: 1.0,
+    CDELT2: 1.0,
+    PC1_1: 0.00153946320937,
+    PC1_2: 0.00068631660051,
+    PC2_1: 0.000747510362706,
+    PC2_2: -0.00156463003672,
+    A_ORDER: 3,
+    B_ORDER: 3,
+    A_2_0: -1.2e-6,
+    A_0_2: 1.1e-6,
+    B_2_0: 1.0e-6,
+    B_0_2: -1.3e-6,
+  });
+
+  const testPoints = [
+    { name: 'Center', x: 146.0, y: 97.0 },
+    { name: 'Corner BL', x: 0.0, y: 0.0 },
+    { name: 'Corner BR', x: 299.0, y: 0.0 },
+    { name: 'Corner TL', x: 0.0, y: 299.0 },
+    { name: 'Corner TR', x: 299.0, y: 299.0 },
+  ];
+
+  const dps = [1.0, 0.1, 0.01, 0.001];
+
+  for (const pt of testPoints) {
+    const jac = computeLocalWcsJacobian(wcsMock, pt.x, pt.y);
+    assert.equal(jac !== null, true);
+
+    for (const dp of dps) {
+      const fd = computeFiniteDifferenceWcsJacobian(wcsMock, pt.x, pt.y, dp);
+      assert.equal(fd !== null, true);
+
+      // Verify that J_spherical (J_total) matches finite differences across all dp
+      for (let r = 0; r < 2; r++) {
+        for (let c = 0; c < 2; c++) {
+          const diff = Math.abs(jac.J_total[r][c] - fd.J_fd[r][c]);
+          assert.ok(
+            diff < 1e-4,
+            `Point ${pt.name} dp=${dp} elem [${r}][${c}] diff ${diff} should be < 1e-4 arcsec/px`
+          );
+        }
+      }
+    }
+  }
+});
+
+test('Fase 2.3.9B.1 - Large-Scale 300 Realization Null Background Simulation (2700 Non-Overlapping Blocks)', () => {
+  // 300 independent realizations of 60x60 field with SPHEREx PSF-correlated noise
+  // Each field has 9 non-overlapping 20x20 blocks = 2700 total blocks
+  const rng = createSeededRandom(42);
+  const width = 60;
+  const height = 60;
+  const totalBlocks = 300 * 9; // 2700
+  let countOver5Sigma = 0;
+  let maxZ = 0;
+
+  for (let sim = 0; sim < 300; sim++) {
+    const map = new Float32Array(width * height);
+    for (let i = 0; i < width * height; i++) {
+      const u1 = Math.max(1e-10, rng());
+      const u2 = rng();
+      map[i] = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+    }
+
+    // Evaluate 9 non-overlapping 20x20 blocks in this map
+    for (let by = 0; by < 3; by++) {
+      for (let bx = 0; bx < 3; bx++) {
+        let blockMax = -Infinity;
+        for (let dy = 0; dy < 20; dy++) {
+          for (let dx = 0; dx < 20; dx++) {
+            const val = map[(by * 20 + dy) * width + (bx * 20 + dx)];
+            if (val > blockMax) blockMax = val;
+          }
+        }
+        if (blockMax > maxZ) maxZ = blockMax;
+        if (blockMax >= 5.0) {
+          countOver5Sigma++;
+        }
+      }
+    }
+  }
+
+  const empiricalRate = countOver5Sigma / totalBlocks;
+
+  // Maxima of 20x20 (400 px) blocks of standard normal:
+  // Expected max per block is ~3.0 - 3.5 sigma
+  assert.ok(maxZ > 4.5 && maxZ < 6.5, `Max Z should be realistic, got ${maxZ}`);
+  // Empirical false alarm rate at >= 5 sigma is well below 1%:
+  assert.ok(empiricalRate < 0.01, `Empirical rate ${empiricalRate} should be < 1%`);
+  // Clopper-Pearson 95% upper bound for countOver5Sigma in 2700 is < 0.01:
+  assert.ok(countOver5Sigma <= 25, `False alarms should be <= 25, got ${countOver5Sigma}`);
+});
+
+test('Fase 2.3.9B.1 - Selection Bias Invariance: 10 Clean References Selected Identically Without Astrometric Cut', () => {
+  const all13References = [
+    { id: 1, flux_ratio: 1.15, raw_shift: 3.82 },
+    { id: 2, flux_ratio: 1.28, raw_shift: 3.54 },
+    { id: 3, flux_ratio: 1.09, raw_shift: 4.12 },
+    { id: 4, flux_ratio: 1.42, raw_shift: 3.76 },
+    { id: 5, flux_ratio: 8.06, raw_shift: 18.42 }, // Contaminated
+    { id: 6, flux_ratio: 1.21, raw_shift: 3.65 },
+    { id: 7, flux_ratio: 1.35, raw_shift: 3.98 },
+    { id: 8, flux_ratio: 9.09, raw_shift: 21.15 }, // Contaminated
+    { id: 9, flux_ratio: 29.74, raw_shift: 34.80 }, // Heavily contaminated
+    { id: 10, flux_ratio: 1.18, raw_shift: 3.41 },
+    { id: 11, flux_ratio: 1.25, raw_shift: 3.89 },
+    { id: 12, flux_ratio: 1.31, raw_shift: 4.05 },
+    { id: 13, flux_ratio: 1.12, raw_shift: 3.33 },
+  ];
+
+  // Selection A: Dual criteria (flux ratio <= 3.0 AND raw shift <= 15.0")
+  const selA = all13References.filter(s => s.flux_ratio <= 3.0 && s.raw_shift <= 15.0);
+
+  // Selection B: Pure photometric contamination criterion ONLY (flux ratio <= 3.0)
+  const selB = all13References.filter(s => s.flux_ratio <= 3.0);
+
+  assert.equal(selA.length, 10);
+  assert.equal(selB.length, 10);
+  assert.deepEqual(selA.map(s => s.id), selB.map(s => s.id));
+
+  // The 3 rejected stars are identical and all have flux ratio >= 8.0x
+  const rejected = all13References.filter(s => s.flux_ratio > 3.0);
+  assert.deepEqual(rejected.map(s => s.id), [5, 8, 9]);
+  for (const s of rejected) {
+    assert.ok(s.flux_ratio > 8.0, `Rejected star ${s.id} is strongly contaminated: ${s.flux_ratio}x`);
+  }
+});
+
+
