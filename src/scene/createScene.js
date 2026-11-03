@@ -288,14 +288,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   };
   // brazos espirales logarítmicos (pitch ~17°), trailing, saliendo de los extremos de la barra
   const arm = (r, k) => 0.739 + (k * TAU) / 4 - Math.log(r / 9000) / 0.3;
-  // El Sol está en el Espolón de Orión, una rama local entre Sagitario-Carina
-  // y Perseo. Hacer que la curva pase por el marcador solar evita representarlo
-  // como una línea recta o como uno de los brazos principales.
-  const orionSunX = 24500;
-  const orionSunZ = -3500;
-  const orionSunRadius = Math.hypot(orionSunX, orionSunZ);
-  const orionSunAngle = Math.atan2(orionSunZ, orionSunX);
-  const orionSpur = (r) => orionSunAngle - Math.log(r / orionSunRadius) / 0.3;
   a = [];
   c = [];
   let Rr = [],
@@ -339,24 +331,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     Z.push(0);
   }
   gal.add(gp(a, c, Rr, Z, 2.2, 1));
-  // Densidad de estrellas del espolón local: una banda curva y delgada que
-  // cruza exactamente por la ubicación del Sol y continúa hacia sus vecinas.
-  a = [];
-  c = [];
-  Rr = [];
-  Z = [];
-  for (let i = 0; i < 5200; i++) {
-    const r = 10500 + Math.random() * 28500;
-    const an = orionSpur(r) + (Math.random() - 0.5) * 0.075;
-    const x = Math.cos(an) * r + (Math.random() - 0.5) * 850;
-    const z = Math.sin(an) * r + (Math.random() - 0.5) * 850;
-    a.push(x, (Math.random() - 0.5) * 240, z);
-    const brightness = 0.45 + Math.random() * 0.55;
-    c.push(0.48 * brightness, 0.72 * brightness, brightness);
-    Rr.push(Math.hypot(x, z));
-    Z.push(0);
-  }
-  gal.add(gp(a, c, Rr, Z, 2.5, 1));
   // nebulosas: nubes de gas (rosa/azul/violeta/ámbar) a lo largo de los brazos, spur de Orión y brillo del núcleo
   a = [];
   c = [];
@@ -379,18 +353,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     c.push(...cl);
     Rr.push(Math.hypot(x, z));
     Z.push(1500 + Math.random() * 3500);
-  }
-  // Nebulosidad tenue para distinguir el espolón local sin competir con los
-  // brazos galácticos principales.
-  for (let i = 0; i < 620; i++) {
-    const r = 11500 + Math.random() * 26500;
-    const an = orionSpur(r) + (Math.random() - 0.5) * 0.11;
-    const x = Math.cos(an) * r + (Math.random() - 0.5) * 1150;
-    const z = Math.sin(an) * r + (Math.random() - 0.5) * 1150;
-    a.push(x, (Math.random() - 0.5) * 320, z);
-    c.push(0.38, 0.62, 1);
-    Rr.push(Math.hypot(x, z));
-    Z.push(900 + Math.random() * 1900);
   }
   for (let i = 0; i < 220; i++) {
     const q = gs() * 5000;
@@ -470,23 +432,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       gal.add(l);
       LB.push(l);
     };
-    const armLabel = (t, r, angle, scale = 0.72) => {
-      const l = lab(t, scale, 27);
-      l.position.set(Math.cos(angle) * r, 0, Math.sin(angle) * r);
-      gal.add(l);
-      LB.push(l);
-    };
     q('Centro galáctico (barra)', 0, 0);
-    q('Espolón de Orión · Sol', orionSunX, orionSunZ);
+    q('Brazo de Orión · Sol', 24500, -3500);
     q('Órbita aproximada del Sol', 0, -23500);
-    // Los nombres siguen la convención habitual de los mapas de la Vía Láctea.
-    // Escudo-Cruz y Norma-Centauro aparecen también con sus nombres alternos.
-    armLabel('Norma · Centauro', 30500, arm(30500, 0), 0.78);
-    armLabel('Escudo · Cruz', 34500, arm(34500, 1), 0.78);
-    armLabel('Sagitario · Carina', 32500, arm(32500, 2), 0.82);
-    armLabel('Perseo', 36500, arm(36500, 3), 0.82);
-    armLabel('Brazo Exterior', 41000, arm(41000, 3) + 0.2, 0.78);
-    armLabel('Espolón de Orión', 31500, orionSpur(31500), 0.82);
   }
   gal.quaternion.setFromRotationMatrix(
     new THREE.Matrix4().makeBasis(
