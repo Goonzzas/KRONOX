@@ -32,6 +32,9 @@ const PLANET_TEXTURE_FILES = {
 // Scale it as a compact 120 m exploration craft against Earth's physical size.
 const SHIP_LENGTH_METERS = 120;
 const SHIP_MODEL_LENGTH = 2.5;
+// Satellite paths are illustrative; slow only their visual animation so the
+// accelerated day clock does not make them race around the Earth.
+const SATELLITE_VISUAL_TIME_SCALE = 0.0001;
 
 function visualDistanceInMapUnits(distanceLy) {
   return (
@@ -1489,6 +1492,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     V = THREE.Vector3;
   let free = false,
     spectator = false,
+    launchSequence = null,
+    launchCameraBlend = null,
     shipZoom = 1,
     fy = 0,
     fp = 0,
@@ -1676,7 +1681,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   sc.add(tr);
   ship.visible = false;
   sc.add(ship);
-  function setFree(on) {
+  function setFree(on, launchFromEarth = false) {
     spectator = false;
     free = on;
     ct.enabled = !on;
@@ -1684,7 +1689,36 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       foc = null;
       S.f(null);
       tw = null;
-      if (earth && cam.position.length() > Dd(earth.p.au) * 3) {
+      launchSequence = null;
+      launchCameraBlend = null;
+      if (launchFromEarth) nav = null;
+      if (launchFromEarth && earth) {
+        const radial = new V(0, 1, 0);
+        if (sp.lengthSq()) radial.copy(sp).sub(earth.pivot.position);
+        if (radial.lengthSq() < 1e-10) radial.set(0, 1, 0);
+        radial.normalize();
+        const tangent = new V(0, 0, 1).cross(radial);
+        if (tangent.lengthSq() < 1e-10) tangent.set(1, 0, 0).cross(radial);
+        tangent.normalize();
+        const launchQ = new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), radial);
+        shipSz = shipScale();
+        sp.copy(earth.pivot.position).addScaledVector(radial, earth.r * 1.005);
+        launchSequence = {
+          elapsed: 0,
+          duration: 5.5,
+          radial,
+          cameraOffset: radial
+            .clone()
+            .add(tangent)
+            .multiplyScalar(shipSz * 220),
+          startRadius: earth.r * 1.005,
+          endRadius: earth.r * 6,
+        };
+        cam.position.copy(sp).add(launchSequence.cameraOffset);
+        cam.lookAt(sp);
+        fy = new THREE.Euler().setFromQuaternion(launchQ, 'YXZ').y;
+        fp = new THREE.Euler().setFromQuaternion(launchQ, 'YXZ').x;
+      } else if (earth && cam.position.length() > Dd(earth.p.au) * 3) {
         // The overview camera starts several AU away. Board near Earth's
         // orbit so the first view reads as a spacecraft-scale perspective.
         const standOff = Math.max(earth.r * 12, Dm());
@@ -1694,11 +1728,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       } else {
         sp.copy(cam.position);
       }
-      const e = new THREE.Euler().setFromQuaternion(cam.quaternion, 'YXZ');
-      fy = e.y;
-      fp = e.x;
+      if (!launchSequence) {
+        const e = new THREE.Euler().setFromQuaternion(cam.quaternion, 'YXZ');
+        fy = e.y;
+        fp = e.x;
+      }
       shipSz = shipScale();
-      fs = Math.max(0.01, Math.min(5e4, cam.position.distanceTo(ct.target) * 0.4));
+      fs = launchSequence
+        ? Math.max(0.01, earth.r * 0.5)
+        : Math.max(0.01, Math.min(5e4, cam.position.distanceTo(ct.target) * 0.4));
       S.fv(fs);
       ti = 0;
       vel.set(0, 0, 0);
@@ -1706,6 +1744,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       tr.visible = true;
       S.intro(true);
     } else {
+      launchSequence = null;
+      launchCameraBlend = null;
       ship.visible = false;
       tr.visible = false;
       S.intro(false);
@@ -1815,7 +1855,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     drag = 0;
   };
   const onPointerMove = (e) => {
-    if (free && drag) {
+    if (free && drag && !launchSequence && !launchCameraBlend) {
       fy -= e.movementX * 0.003;
       fp = Math.max(-1.55, Math.min(1.55, fp - e.movementY * 0.003));
       yw = Math.max(-80, Math.min(80, yw + e.movementX));
@@ -1887,7 +1927,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
       if (b.satellites) {
         b.satellites.forEach((plane) => {
-          const orbitAngle = (sim / plane.period) * TAU;
+          const orbitAngle = ((sim * SATELLITE_VISUAL_TIME_SCALE) / plane.period) * TAU;
           plane.objects.forEach(({ object, phase }) => {
             const angle = orbitAngle + phase;
             object.position.set(Math.cos(angle) * plane.radius, 0, Math.sin(angle) * plane.radius);
@@ -1967,14 +2007,37 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         r = new V(1, 0, 0).applyQuaternion(q),
         bs = fs * (keys.shift ? 5 : 1);
       pvl.copy(vel);
-      vel.lerp(
-        f
-          .multiplyScalar(mx * bs)
-          .addScaledVector(cam.up, (ok ? mv.y : 0) * bs)
-          .addScaledVector(r, (ok ? mv.z : 0) * bs),
-        1 - Math.exp(-dt * (O.in ? 1.2 : 14)),
-      );
-      sp.addScaledVector(vel, dt);
+      if (launchSequence) {
+        const launch = launchSequence;
+        launch.elapsed = Math.min(launch.duration, launch.elapsed + dt);
+        const progress = launch.elapsed / launch.duration,
+          eased = progress * progress * (3 - 2 * progress),
+          previous = sp.clone(),
+          radius = launch.startRadius + (launch.endRadius - launch.startRadius) * eased;
+        sp.copy(earth.pivot.position).addScaledVector(launch.radial, radius);
+        vel.copy(sp).sub(previous).divideScalar(Math.max(dt, 1e-4));
+        if (progress >= 1) {
+          launchSequence = null;
+          launchCameraBlend = {
+            elapsed: 0,
+            duration: 0.9,
+            fromPosition: cam.position.clone(),
+            fromQuaternion: cam.quaternion.clone(),
+          };
+          vel.set(0, 0, 0);
+          ti = 4.1;
+          S.intro(false);
+        }
+      } else {
+        vel.lerp(
+          f
+            .multiplyScalar(mx * bs)
+            .addScaledVector(cam.up, (ok ? mv.y : 0) * bs)
+            .addScaledVector(r, (ok ? mv.z : 0) * bs),
+          1 - Math.exp(-dt * (O.in ? 1.2 : 14)),
+        );
+        sp.addScaledVector(vel, dt);
+      }
       ac += (vel.distanceTo(pvl) / Math.max(dt, 1e-4) - ac) * Math.min(1, dt * 8);
       if (nav) {
         nav.elapsed += dt;
@@ -2033,17 +2096,37 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       cam.quaternion.copy(q);
       if (pv == 1)
         cam.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new V(0, 0, 1), bk * 0.35));
-      cam.position
-        .copy(sp)
-        .add(
-          new V(0, 0.3, 1).multiplyScalar(shipOffset() * e * (pv == 3 ? 1 : 0)).applyQuaternion(q),
-        );
+      const pilotQuaternion = cam.quaternion.clone(),
+        pilotPosition = sp
+          .clone()
+          .add(
+            new V(0, 0.3, 1)
+              .multiplyScalar(shipOffset() * e * (pv == 3 ? 1 : 0))
+              .applyQuaternion(q),
+          );
+      if (launchSequence) {
+        cam.position.copy(sp).add(launchSequence.cameraOffset);
+        cam.lookAt(sp);
+      } else if (launchCameraBlend) {
+        const blend = launchCameraBlend;
+        blend.elapsed = Math.min(blend.duration, blend.elapsed + dt);
+        const amount = blend.elapsed / blend.duration,
+          eased = amount * amount * (3 - 2 * amount);
+        cam.position.lerpVectors(blend.fromPosition, pilotPosition, eased);
+        cam.quaternion.copy(blend.fromQuaternion).slerp(pilotQuaternion, eased);
+        if (amount >= 1) launchCameraBlend = null;
+      } else {
+        cam.position.copy(pilotPosition);
+      }
       const tt =
         ti < 5
           ? 1.2 * (1 - Math.min(1, Math.max(0, (ti - 3.2) / 1.8))) + 0.3
           : Math.min(1.6, vel.length() / fs) + 0.15;
       th += (tt - th) * Math.min(1, dt * 6);
-      ship.visible = pv == 3 && kk > 0.02 && !(nav && nav.long && nav.phase === 'transit');
+      ship.visible =
+        !!launchSequence ||
+        (!!launchCameraBlend && pv == 1) ||
+        (pv == 3 && kk > 0.02 && !(nav && nav.long && nav.phase === 'transit'));
       ship.position.copy(sp);
       ship.scale.setScalar(sz);
       ship.quaternion.copy(q).multiply(new THREE.Quaternion().setFromAxisAngle(new V(0, 0, 1), bk));
