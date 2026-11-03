@@ -1318,6 +1318,32 @@ export function createSeededRandom(seed = 42) {
 }
 
 /**
+ * Inverse survival function (quantile for upper tail q): returns Z such that P(N(0, 1) > Z) = q.
+ * Evaluates without catastrophic cancellation for small tail probabilities q << 1e-16.
+ *
+ * @param {number} q - Upper tail probability (0 < q < 1)
+ * @returns {number} Standard normal quantile Z
+ */
+export function normalInverseSurvival(q) {
+  if (q <= 0.0) return Infinity;
+  if (q >= 1.0) return -Infinity;
+  if (q === 0.5) return 0.0;
+  if (q > 0.5) return -normalInverseSurvival(1.0 - q);
+
+  const t = Math.sqrt(-2.0 * Math.log(q));
+  const c0 = 2.515517;
+  const c1 = 0.802853;
+  const c2 = 0.010328;
+  const d1 = 1.432788;
+  const d2 = 0.189269;
+  const d3 = 0.001308;
+
+  const num = (c2 * t + c1) * t + c0;
+  const den = ((d3 * t + d2) * t + d1) * t + 1.0;
+  return t - num / den;
+}
+
+/**
  * Rational approximation for the standard normal quantile function (inverse CDF) Phi^-1(p),
  * achieving relative accuracy < 1e-6 across extreme tails (Beasley-Springer-Moro / Hastings).
  *
@@ -1329,23 +1355,10 @@ export function normalInverseCdf(p) {
   if (p >= 1.0) return Infinity;
   if (p === 0.5) return 0.0;
 
-  const isUpper = p > 0.5;
-  const q = isUpper ? 1.0 - p : p;
-  const t = Math.sqrt(-2.0 * Math.log(q));
-
-  // Hastings rational coefficients
-  const c0 = 2.515517;
-  const c1 = 0.802853;
-  const c2 = 0.010328;
-  const d1 = 1.432788;
-  const d2 = 0.189269;
-  const d3 = 0.001308;
-
-  const num = (c2 * t + c1) * t + c0;
-  const den = ((d3 * t + d2) * t + d1) * t + 1.0;
-  const z = t - num / den;
-
-  return isUpper ? z : -z;
+  if (p > 0.5) {
+    return normalInverseSurvival(1.0 - p);
+  }
+  return -normalInverseSurvival(p);
 }
 
 /**
@@ -1571,7 +1584,18 @@ export function computeTotalAstrometricBudget(components, residualVector) {
   const pValue = Math.exp(-0.5 * chi2);
 
   // Equivalent 2-sided standard normal significance: Z = Phi^-1(1 - p/2)
-  const significanceBilateral = normalInverseCdf(1.0 - pValue * 0.5);
+  // For Chi2 with df=2, the upper tail probability is q = pValue / 2 = 0.5 * exp(-chi2 / 2).
+  // Analytically, t = sqrt(-2 ln(q)) = sqrt(chi2 + 2 * ln(2)), evaluating without float64 (1 - p/2) saturation:
+  const tAnalytic = Math.sqrt(chi2 + 2.0 * Math.LN2);
+  const c0 = 2.515517;
+  const c1 = 0.802853;
+  const c2 = 0.010328;
+  const d1 = 1.432788;
+  const d2 = 0.189269;
+  const d3 = 0.001308;
+  const num = (c2 * tAnalytic + c1) * tAnalytic + c0;
+  const den = ((d3 * tAnalytic + d2) * tAnalytic + d1) * tAnalytic + 1.0;
+  const significanceBilateral = tAnalytic - num / den;
 
   // Normalized radial distance (Rayleigh equivalent): d_radial = sqrt(chi2)
   const normalizedRadialDistance = Math.sqrt(Math.max(0, chi2));
