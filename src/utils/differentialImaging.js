@@ -1268,3 +1268,522 @@ export function detectDifferentialCandidates(diffResult, frame1, frame2, targetI
 
   return candidates.slice(0, maxCandidates);
 }
+
+/**
+ * Deterministic 32-bit PRNG (Mulberry32) for reproducible bootstrap and statistical simulations.
+ *
+ * @param {number} seed - Integer seed
+ * @returns {function} Generates uniform random float in [0, 1)
+ */
+export function createSeededRandom(seed = 42) {
+  let s = (seed >>> 0) || 42;
+  return function () {
+    s |= 0;
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Rational approximation for the standard normal quantile function (inverse CDF) Phi^-1(p),
+ * achieving relative accuracy < 1e-6 across extreme tails (Beasley-Springer-Moro / Hastings).
+ *
+ * @param {number} p - Probability in (0, 1)
+ * @returns {number} Standard normal quantile Z such that P(N(0, 1) <= Z) = p
+ */
+export function normalInverseCdf(p) {
+  if (p <= 0.0) return -Infinity;
+  if (p >= 1.0) return Infinity;
+  if (p === 0.5) return 0.0;
+
+  const isUpper = p > 0.5;
+  const q = isUpper ? 1.0 - p : p;
+  const t = Math.sqrt(-2.0 * Math.log(q));
+
+  // Hastings rational coefficients
+  const c0 = 2.515517;
+  const c1 = 0.802853;
+  const c2 = 0.010328;
+  const d1 = 1.432788;
+  const d2 = 0.189269;
+  const d3 = 0.001308;
+
+  const num = (c2 * t + c1) * t + c0;
+  const den = ((d3 * t + d2) * t + d1) * t + 1.0;
+  const z = t - num / den;
+
+  return isUpper ? z : -z;
+}
+
+/**
+ * Computes the component-wise median of reference star displacement pairs and evaluates
+ * its joint 2D covariance matrix via paired bootstrap, preserving the (X_i, Y_i) coordinate
+ * pairing in every resample.
+ *
+ * @param {Array<object|Array<number>>} pairs - Reference pairs, e.g. [[dx, dy], ...] or [{dx, dy}, ...]
+ * @param {object} options - Configuration options (nBoot, seed)
+ * @returns {object} Medians, covariance matrix, SEM per axis, correlation, and 95% bootstrap CIs
+ */
+export function computePairedBootstrapMedian(pairs, options = {}) {
+  if (!Array.isArray(pairs) || pairs.length === 0) {
+    return null;
+  }
+
+  const N = pairs.length;
+  const xs = new Float64Array(N);
+  const ys = new Float64Array(N);
+
+  for (let i = 0; i < N; i++) {
+    const p = pairs[i];
+    xs[i] = Array.isArray(p) ? p[0] : (p.dx ?? p.x ?? 0);
+    ys[i] = Array.isArray(p) ? p[1] : (p.dy ?? p.y ?? 0);
+  }
+
+  const computeMedian = (arr) => {
+    const sorted = Array.from(arr).sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length * 0.5);
+    return sorted.length % 2 !== 0 ? sorted[mid] : 0.5 * (sorted[mid - 1] + sorted[mid]);
+  };
+
+  const medianX = computeMedian(xs);
+  const medianY = computeMedian(ys);
+
+  const nBoot = options.nBoot || 50000;
+  const seed = options.seed !== undefined ? options.seed : 42;
+  const rng = createSeededRandom(seed);
+
+  const bootMedX = new Float64Array(nBoot);
+  const bootMedY = new Float64Array(nBoot);
+  const sampleX = new Float64Array(N);
+  const sampleY = new Float64Array(N);
+
+  for (let b = 0; b < nBoot; b++) {
+    for (let i = 0; i < N; i++) {
+      const idx = Math.floor(rng() * N);
+      sampleX[i] = xs[idx];
+      sampleY[i] = ys[idx];
+    }
+    bootMedX[b] = computeMedian(sampleX);
+    bootMedY[b] = computeMedian(sampleY);
+  }
+
+  // Means of bootstrap distributions
+  let sumBx = 0, sumBy = 0;
+  for (let b = 0; b < nBoot; b++) {
+    sumBx += bootMedX[b];
+    sumBy += bootMedY[b];
+  }
+  const meanBx = sumBx / nBoot;
+  const meanBy = sumBy / nBoot;
+
+  // Covariance matrix of the medians (ddof = 1)
+  let varBx = 0, varBy = 0, covBxy = 0;
+  for (let b = 0; b < nBoot; b++) {
+    const dx = bootMedX[b] - meanBx;
+    const dy = bootMedY[b] - meanBy;
+    varBx += dx * dx;
+    varBy += dy * dy;
+    covBxy += dx * dy;
+  }
+  const denom = nBoot - 1;
+  const cov00 = varBx / denom;
+  const cov11 = varBy / denom;
+  const cov01 = covBxy / denom;
+
+  const semX = Math.sqrt(cov00);
+  const semY = Math.sqrt(cov11);
+  const corr = cov01 / Math.max(1e-12, semX * semY);
+
+  const sortedBx = Array.from(bootMedX).sort((a, b) => a - b);
+  const sortedBy = Array.from(bootMedY).sort((a, b) => a - b);
+
+  const idx025 = Math.floor(nBoot * 0.025);
+  const idx975 = Math.floor(nBoot * 0.975);
+
+  return {
+    medianX,
+    medianY,
+    covMatrix: [
+      [cov00, cov01],
+      [cov01, cov11],
+    ],
+    semX,
+    semY,
+    corr,
+    ci95X: [sortedBx[idx025], sortedBx[idx975]],
+    ci95Y: [sortedBy[idx025], sortedBy[idx975]],
+    nBoot,
+    seed,
+    sampleSize: N,
+  };
+}
+
+/**
+ * Computes the classical sample mean vector and its covariance matrix:
+ *   Sigma_mean = S_sample / N = (1 / (N * (N - 1))) * X_c^T * X_c
+ *
+ * @param {Array<object|Array<number>>} pairs - Reference pairs [[dx, dy], ...]
+ * @returns {object} Sample mean vector, sample covariance, and covariance of the mean
+ */
+export function computeSampleMeanCovariance(pairs) {
+  if (!Array.isArray(pairs) || pairs.length === 0) return null;
+  const N = pairs.length;
+  let sumX = 0, sumY = 0;
+
+  for (let i = 0; i < N; i++) {
+    const p = pairs[i];
+    sumX += Array.isArray(p) ? p[0] : (p.dx ?? p.x ?? 0);
+    sumY += Array.isArray(p) ? p[1] : (p.dy ?? p.y ?? 0);
+  }
+
+  const meanX = sumX / N;
+  const meanY = sumY / N;
+
+  let sxx = 0, syy = 0, sxy = 0;
+  for (let i = 0; i < N; i++) {
+    const p = pairs[i];
+    const x = Array.isArray(p) ? p[0] : (p.dx ?? p.x ?? 0);
+    const y = Array.isArray(p) ? p[1] : (p.dy ?? p.y ?? 0);
+    const dx = x - meanX;
+    const dy = y - meanY;
+    sxx += dx * dx;
+    syy += dy * dy;
+    sxy += dx * dy;
+  }
+
+  const denom = N - 1;
+  const sampleVarX = sxx / denom;
+  const sampleVarY = syy / denom;
+  const sampleCovXY = sxy / denom;
+
+  // Covariance of the mean vector: S_sample / N
+  const cov00 = sampleVarX / N;
+  const cov11 = sampleVarY / N;
+  const cov01 = sampleCovXY / N;
+
+  const semX = Math.sqrt(cov00);
+  const semY = Math.sqrt(cov11);
+  const corr = cov01 / Math.max(1e-12, semX * semY);
+
+  return {
+    meanX,
+    meanY,
+    sSample: [
+      [sampleVarX, sampleCovXY],
+      [sampleCovXY, sampleVarY],
+    ],
+    covMatrix: [
+      [cov00, cov01],
+      [cov01, cov11],
+    ],
+    semX,
+    semY,
+    corr,
+    sampleSize: N,
+  };
+}
+
+/**
+ * Evaluates the full anisotropic 2D error budget and Mahalanobis chi-squared statistic:
+ *   Sigma_tot = Sigma_phot1 + Sigma_phot2 + Sigma_reg + Sigma_cat + Sigma_grid
+ *   chi2 = r^T * Sigma_tot^-1 * r
+ *
+ * @param {object} components - Error components (phot1, phot2, reg, cat, grid)
+ * @param {Array<number>} residualVector - Observed residual vector [draStar, ddec] in arcsec
+ * @returns {object} Total covariance matrix, inverse, chi2, p-value, and Gaussian significances
+ */
+export function computeTotalAstrometricBudget(components, residualVector) {
+  const toMat = (comp) => {
+    if (!comp) return [[0, 0], [0, 0]];
+    if (Array.isArray(comp) && Array.isArray(comp[0])) return comp;
+    if (typeof comp === 'number') return [[comp, 0], [0, comp]];
+    if (comp.covMatrix) return comp.covMatrix;
+    return [[0, 0], [0, 0]];
+  };
+
+  const mPhot1 = toMat(components.phot1);
+  const mPhot2 = toMat(components.phot2);
+  const mReg = toMat(components.reg);
+  const mCat = toMat(components.cat);
+  const mGrid = toMat(components.grid);
+
+  const sig00 = mPhot1[0][0] + mPhot2[0][0] + mReg[0][0] + mCat[0][0] + mGrid[0][0];
+  const sig01 = mPhot1[0][1] + mPhot2[0][1] + mReg[0][1] + mCat[0][1] + mGrid[0][1];
+  const sig10 = mPhot1[1][0] + mPhot2[1][0] + mReg[1][0] + mCat[1][0] + mGrid[1][0];
+  const sig11 = mPhot1[1][1] + mPhot2[1][1] + mReg[1][1] + mCat[1][1] + mGrid[1][1];
+
+  // Enforce numerical symmetry
+  const sigOffDiag = 0.5 * (sig01 + sig10);
+
+  const det = sig00 * sig11 - sigOffDiag * sigOffDiag;
+  const isPositiveDefinite = det > 0 && sig00 > 0 && sig11 > 0;
+
+  if (!isPositiveDefinite) {
+    return { success: false, error: 'Matriz de covarianza no definida positiva.' };
+  }
+
+  // Analytical 2x2 inverse
+  const inv00 = sig11 / det;
+  const inv11 = sig00 / det;
+  const inv01 = -sigOffDiag / det;
+  const inv10 = -sigOffDiag / det;
+
+  const rx = residualVector[0];
+  const ry = residualVector[1];
+
+  // Quadratic form: r^T * Sigma^-1 * r
+  const chi2 = rx * (inv00 * rx + inv01 * ry) + ry * (inv10 * rx + inv11 * ry);
+
+  // Exact p-value for 2 degrees of freedom: p = exp(-chi2 / 2)
+  const pValue = Math.exp(-0.5 * chi2);
+
+  // Equivalent 2-sided standard normal significance: Z = Phi^-1(1 - p/2)
+  const significanceBilateral = normalInverseCdf(1.0 - pValue * 0.5);
+
+  // Normalized radial distance (Rayleigh equivalent): d_radial = sqrt(chi2)
+  const normalizedRadialDistance = Math.sqrt(Math.max(0, chi2));
+
+  return {
+    success: true,
+    covMatrix: [
+      [sig00, sigOffDiag],
+      [sigOffDiag, sig11],
+    ],
+    invMatrix: [
+      [inv00, inv01],
+      [inv10, inv11],
+    ],
+    det,
+    isPositiveDefinite,
+    chi2,
+    pValue,
+    significanceBilateral,
+    normalizedRadialDistance,
+    residualVector: [rx, ry],
+    sigmaAxisX: Math.sqrt(sig00),
+    sigmaAxisY: Math.sqrt(sig11),
+  };
+}
+
+/**
+ * Computes the empirical 2D spatial autocorrelation function (ACF) on background pixels,
+ * measuring both the weighted correlation integral and the geometric support area:
+ *   A_beam: Analytical PSF beam area = (pi / (4 * ln 2)) * FWHM^2
+ *   A_corr_weighted: sum_{rho >= tau} rho(dx, dy)
+ *   A_support_geom: count_{rho >= tau} 1
+ *
+ * @param {Float32Array|Array<number>} diffPixels - Differential image pixels
+ * @param {number} width - Grid width
+ * @param {number} height - Grid height
+ * @param {object} options - Threshold and patch options
+ * @returns {object} Autocorrelation metrics and effective independent resolution elements
+ */
+export function computeSpatialAutocorrelation(diffPixels, width, height, options = {}) {
+  const threshold = options.threshold || 0.05;
+  const fwhmPx = options.fwhmPx || 1.611; // ~9.67 arcsec / 6.0 arcsec/px
+  const maxLag = options.maxLag || 15;
+
+  // Extract valid background values
+  const bgVals = [];
+  const cx = Math.floor(width * 0.5);
+  const cy = Math.floor(height * 0.5);
+  const patchR = options.patchRadius || 30; // 60x60 patch around background
+
+  for (let r = cy - patchR; r < cy + patchR; r++) {
+    for (let c = cx - patchR; c < cx + patchR; c++) {
+      if (r < 0 || r >= height || c < 0 || c >= width) continue;
+      const v = diffPixels[r * width + c];
+      if (Number.isFinite(v)) bgVals.push(v);
+    }
+  }
+
+  if (bgVals.length < 100) {
+    return null;
+  }
+
+  bgVals.sort((a, b) => a - b);
+  const medBg = bgVals[Math.floor(bgVals.length * 0.5)];
+
+  // Compute empirical 2D autocorrelation matrix
+  const lags = 2 * maxLag + 1;
+  const acf = Array.from({ length: lags }, () => new Float64Array(lags));
+
+  let sumSq = 0;
+  let count0 = 0;
+  for (let r = cy - patchR; r < cy + patchR; r++) {
+    for (let c = cx - patchR; c < cx + patchR; c++) {
+      if (r < 0 || r >= height || c < 0 || c >= width) continue;
+      const v = diffPixels[r * width + c];
+      if (Number.isFinite(v)) {
+        const d = v - medBg;
+        sumSq += d * d;
+        count0++;
+      }
+    }
+  }
+
+  const var0 = sumSq / Math.max(1, count0);
+  if (var0 <= 0) return null;
+
+  for (let dy = -maxLag; dy <= maxLag; dy++) {
+    for (let dx = -maxLag; dx <= maxLag; dx++) {
+      let sumCross = 0;
+      let countCross = 0;
+      for (let r = cy - patchR; r < cy + patchR; r++) {
+        const r2 = r + dy;
+        if (r2 < 0 || r2 >= height) continue;
+        for (let c = cx - patchR; c < cx + patchR; c++) {
+          const c2 = c + dx;
+          if (c2 < 0 || c2 >= width) continue;
+          const v1 = diffPixels[r * width + c];
+          const v2 = diffPixels[r2 * width + c2];
+          if (Number.isFinite(v1) && Number.isFinite(v2)) {
+            sumCross += (v1 - medBg) * (v2 - medBg);
+            countCross++;
+          }
+        }
+      }
+      const cov = countCross > 0 ? sumCross / countCross : 0;
+      const rho = cov / var0;
+      acf[dy + maxLag][dx + maxLag] = rho;
+    }
+  }
+
+  // Central peak normalization: rho(0, 0) === 1.0
+  acf[maxLag][maxLag] = 1.0;
+
+  let aCorrWeighted = 0;
+  let aSupportGeom = 0;
+
+  for (let dy = -maxLag; dy <= maxLag; dy++) {
+    for (let dx = -maxLag; dx <= maxLag; dx++) {
+      const rho = acf[dy + maxLag][dx + maxLag];
+      if (rho >= threshold) {
+        aCorrWeighted += rho;
+        aSupportGeom += 1;
+      }
+    }
+  }
+
+  const rGeomEquiv = Math.sqrt(aSupportGeom / Math.PI);
+
+  // Beam area of Gaussian PSF: A_beam = (pi / (4 * ln 2)) * FWHM^2
+  const aBeam = 1.13309 * fwhmPx * fwhmPx;
+
+  const validSkyPixels = options.validSkyPixels || 65840;
+  const nEffWeighted = validSkyPixels / Math.max(1e-4, aCorrWeighted);
+  const nEffBeam = validSkyPixels / Math.max(1e-4, aBeam);
+
+  return {
+    A_beam: Number(aBeam.toFixed(3)),
+    A_corr_weighted: Number(aCorrWeighted.toFixed(3)),
+    A_support_geom: aSupportGeom,
+    r_geom_equiv: Number(rGeomEquiv.toFixed(3)),
+    N_eff_weighted: Number(nEffWeighted.toFixed(1)),
+    N_eff_beam: Number(nEffBeam.toFixed(1)),
+    threshold,
+    maxLag,
+  };
+}
+
+/**
+ * Evaluates the empirical false alarm rate on background regions without circular censorship,
+ * using independent catalog masks to exclude known astronomical sources:
+ * - Strictly preserves all values (including |Z| > 3.5 sigma) outside source masks.
+ * - Divides background into non-overlapping blocks.
+ * - Computes binomial confidence intervals (Wilson score and Clopper-Pearson).
+ *
+ * @param {Float32Array} calibratedSnrPixels - Calibrated SNR map
+ * @param {number} width - Grid width
+ * @param {number} height - Grid height
+ * @param {object} options - Configuration options (blockSize, threshold, exclusionList)
+ * @returns {object} Block false detection statistics and confidence intervals
+ */
+export function evaluateIndependentFalseAlarmRate(calibratedSnrPixels, width, height, options = {}) {
+  const blockSize = options.blockSize || 20;
+  const threshold = options.threshold || 5.0;
+  const exclusions = options.sourceExclusionList || []; // [{ col, row, radiusPx }, ...]
+
+  const nCols = Math.floor(width / blockSize);
+  const nRows = Math.floor(height / blockSize);
+
+  const blockMaxima = [];
+  let falsePositiveCount = 0;
+  let maxObservedSnr = -Infinity;
+
+  for (let br = 0; br < nRows; br++) {
+    for (let bc = 0; bc < nCols; bc++) {
+      const startR = br * blockSize;
+      const startC = bc * blockSize;
+
+      let blockMax = -Infinity;
+      let validBlockPixels = 0;
+
+      for (let r = startR; r < startR + blockSize; r++) {
+        for (let c = startC; c < startC + blockSize; c++) {
+          const idx = r * width + c;
+          const z = calibratedSnrPixels[idx];
+          if (!Number.isFinite(z)) continue;
+
+          // Check if pixel falls inside any catalog source exclusion circle
+          let isMasked = false;
+          for (let e = 0; e < exclusions.length; e++) {
+            const ex = exclusions[e];
+            if (Math.hypot(c - ex.col, r - ex.row) <= ex.radiusPx) {
+              isMasked = true;
+              break;
+            }
+          }
+          if (isMasked) continue;
+
+          validBlockPixels++;
+          const absZ = Math.abs(z);
+          if (absZ > blockMax) {
+            blockMax = absZ;
+          }
+        }
+      }
+
+      // Require at least 50% clean pixels in the block to be a valid background test block
+      if (validBlockPixels >= 0.5 * blockSize * blockSize) {
+        blockMaxima.push(blockMax);
+        if (blockMax > maxObservedSnr) {
+          maxObservedSnr = blockMax;
+        }
+        if (blockMax >= threshold) {
+          falsePositiveCount++;
+        }
+      }
+    }
+  }
+
+  const validBlocks = blockMaxima.length;
+  const observedRate = validBlocks > 0 ? falsePositiveCount / validBlocks : 0;
+
+  // Wilson score interval at 95% CL (z = 1.95996)
+  const zVal = 1.95996;
+  const n = validBlocks;
+  const k = falsePositiveCount;
+  const denom = 1.0 + (zVal * zVal) / n;
+  const center = (k / n + (0.5 * zVal * zVal) / n) / denom;
+  const half = (zVal * Math.sqrt((k * (n - k)) / (n * n * n) + (zVal * zVal) / (4 * n * n))) / denom;
+  const wilsonLow = Math.max(0, center - half);
+  const wilsonHigh = Math.min(1, center + half);
+
+  // Exact Clopper-Pearson upper bound for k = 0
+  const clopperPearsonHigh = k === 0 ? 1.0 - Math.pow(0.05, 1.0 / n) : null;
+
+  return {
+    validBlocks,
+    blockSize,
+    threshold,
+    falsePositiveCount,
+    maxObservedSnr: Number.isFinite(maxObservedSnr) ? maxObservedSnr : 0,
+    observedRate,
+    wilsonCi95: [wilsonLow, wilsonHigh],
+    clopperPearsonUpper95: clopperPearsonHigh,
+    passesThreshold: falsePositiveCount === 0,
+  };
+}

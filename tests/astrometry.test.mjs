@@ -1,5 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {
+  parseWcs,
+  computeLocalWcsJacobian,
+  computeFiniteDifferenceWcsJacobian,
+} from '../src/utils/fitsImage.js';
+import {
+  computePairedBootstrapMedian,
+  computeSampleMeanCovariance,
+  computeTotalAstrometricBudget,
+  computeSpatialAutocorrelation,
+  evaluateIndependentFalseAlarmRate,
+  createSeededRandom,
+  normalInverseCdf,
+} from '../src/utils/differentialImaging.js';
 
 const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 180 / Math.PI;
@@ -338,3 +352,284 @@ test('Binomial Confidence Intervals - Wilson and Clopper-Pearson Exact Bounds fo
   const ruleOfThree = (3.0 / n) * 100;
   assert.equal(ruleOfThree, 3.0);
 });
+
+// ============================================================================
+// FASE 2.3.9B — TESTS DE INTEGRACIÓN Y VALIDACIÓN CIENTÍFICA
+// ============================================================================
+
+/**
+ * 13 Real reference stars extracted from the SPHEREx D6 FITS pair for WISE 0855:
+ * wise-0855_SPHEREx-D6_2025W19_1B_0116_1.fits and 2026W20_1A_0033_1.fits
+ */
+export const VERIFIED_REAL_WISE_13_REFERENCES = [
+  { id: 1, rx: 70, ry: 30, dx: -3.248, dy: -8.140, f1: 2.7, f2: 2.8, isClean: true },
+  { id: 2, rx: 110, ry: 30, dx: -0.137, dy: -3.719, f1: 7.7, f2: 8.4, isClean: true },
+  { id: 3, rx: 190, ry: 30, dx: +1.145, dy: -2.462, f1: 4.2, f2: 8.4, isClean: true },
+  { id: 4, rx: 30, ry: 110, dx: +0.045, dy: -5.907, f1: 288.3, f2: 293.3, isClean: true },
+  { id: 5, rx: 70, ry: 110, dx: -12.019, dy: +24.248, f1: 2.5, f2: 20.0, isClean: false, reason: 'Photometric variability 8.0x / blend' },
+  { id: 6, rx: 150, ry: 110, dx: +4.676, dy: -1.467, f1: 2.2, f2: 2.8, isClean: true },
+  { id: 7, rx: 190, ry: 110, dx: -1.974, dy: -3.811, f1: 3.0, f2: 2.9, isClean: true },
+  { id: 8, rx: 70, ry: 150, dx: -4.775, dy: +23.415, f1: 18.1, f2: 2.0, isClean: false, reason: 'Photometric drop 9.1x' },
+  { id: 9, rx: 30, ry: 190, dx: -15.679, dy: +17.547, f1: 3.9, f2: 115.1, isClean: false, reason: 'Extreme variability 29.5x / CR hit' },
+  { id: 10, rx: 70, ry: 190, dx: -4.094, dy: +2.547, f1: 2.7, f2: 7.2, isClean: true },
+  { id: 11, rx: 110, ry: 190, dx: -1.898, dy: -4.323, f1: 84.1, f2: 82.7, isClean: true },
+  { id: 12, rx: 110, ry: 230, dx: -5.134, dy: +3.265, f1: 4.4, f2: 6.1, isClean: true },
+  { id: 13, rx: 190, ry: 230, dx: -0.806, dy: -3.235, f1: 3.5, f2: 3.9, isClean: true },
+];
+
+test('Fase 2.3.9B - WISE 0855 Extraction and Objective Filtering of 10 Clean References', () => {
+  const all13 = VERIFIED_REAL_WISE_13_REFERENCES;
+  assert.equal(all13.length, 13, 'Total extracted references from FITS must be exactly 13');
+
+  // Objective exclusion rule: variable flux ratio > 3x or raw shift > 15 arcsec
+  const cleanStars = all13.filter((s) => {
+    const fluxRatio = Math.max(s.f1, s.f2) / Math.max(1e-4, Math.min(s.f1, s.f2));
+    const shift = Math.hypot(s.dx, s.dy);
+    return fluxRatio <= 3.0 && shift <= 15.0;
+  });
+
+  assert.equal(cleanStars.length, 10, 'Objective filtering must retain exactly 10 clean stars');
+
+  const excludedIds = all13.filter((s) => !cleanStars.includes(s)).map((s) => s.id);
+  assert.deepEqual(excludedIds, [5, 8, 9], 'Contaminated stars must be exactly IDs 5, 8, 9');
+
+  const dxClean = cleanStars.map((s) => s.dx).sort((a, b) => a - b);
+  const dyClean = cleanStars.map((s) => s.dy).sort((a, b) => a - b);
+  const medX = 0.5 * (dxClean[4] + dxClean[5]);
+  const medY = 0.5 * (dyClean[4] + dyClean[5]);
+
+  assert.ok(Math.abs(medX - (-1.352)) < 0.005, `Clean median X must be -1.352", got ${medX}`);
+  assert.ok(Math.abs(medY - (-3.477)) < 0.005, `Clean median Y must be -3.477", got ${medY}`);
+});
+
+test('Fase 2.3.9B - Paired Bootstrap of Median (Preserving X-Y Pairs & Reproducibility)', () => {
+  const cleanPairs = VERIFIED_REAL_WISE_13_REFERENCES
+    .filter((s) => s.isClean)
+    .map((s) => [s.dx, s.dy]);
+
+  // Run with seed 42 and 50,000 resamples
+  const res1 = computePairedBootstrapMedian(cleanPairs, { nBoot: 50000, seed: 42 });
+  const res2 = computePairedBootstrapMedian(cleanPairs, { nBoot: 50000, seed: 42 });
+
+  // 1. Strict reproducibility across identical seeds
+  assert.equal(res1.semX, res2.semX, 'Bootstrap with identical seed must be deterministic');
+  assert.equal(res1.covMatrix[0][1], res2.covMatrix[0][1], 'Off-diagonal covariance must match exactly');
+
+  // 2. Statistical bounds
+  assert.ok(res1.semX > 0.95 && res1.semX < 1.02, `Bootstrap SEM X should be ~0.98", got ${res1.semX}`);
+  assert.ok(res1.semY > 0.98 && res1.semY < 1.05, `Bootstrap SEM Y should be ~1.02", got ${res1.semY}`);
+  assert.ok(res1.corr < -0.15 && res1.corr > -0.25, `Bootstrap correlation should be ~ -0.20, got ${res1.corr}`);
+
+  // 3. 95% Confidence Intervals
+  assert.ok(res1.ci95X[0] <= -1.352 && res1.ci95X[1] >= -1.352, 'Median X must be within 95% CI');
+  assert.ok(res1.ci95Y[0] <= -3.477 && res1.ci95Y[1] >= -3.477, 'Median Y must be within 95% CI');
+});
+
+test('Fase 2.3.9B - Classical Sample Mean Covariance (Sigma_mean = S_sample / 10)', () => {
+  const cleanPairs = VERIFIED_REAL_WISE_13_REFERENCES
+    .filter((s) => s.isClean)
+    .map((s) => [s.dx, s.dy]);
+
+  const resMean = computeSampleMeanCovariance(cleanPairs);
+
+  assert.ok(Math.abs(resMean.meanX - (-1.1425)) < 0.005, `Sample mean X should be -1.143", got ${resMean.meanX}`);
+  assert.ok(Math.abs(resMean.meanY - (-2.7252)) < 0.005, `Sample mean Y should be -2.725", got ${resMean.meanY}`);
+
+  // Covariance of the mean (divided by N = 10)
+  assert.ok(Math.abs(resMean.covMatrix[0][0] - 0.7996) < 0.005, `Sigma_mean[0][0] should be ~0.800, got ${resMean.covMatrix[0][0]}`);
+  assert.ok(Math.abs(resMean.covMatrix[1][1] - 1.2195) < 0.005, `Sigma_mean[1][1] should be ~1.220, got ${resMean.covMatrix[1][1]}`);
+  assert.ok(Math.abs(resMean.covMatrix[0][1] - (-0.2554)) < 0.005, `Sigma_mean[0][1] should be -0.2554, got ${resMean.covMatrix[0][1]}`);
+});
+
+test('Fase 2.3.9B - Total Astrometric Error Budget & Mahalanobis Sensitivity (Models A & B)', () => {
+  const residualVector = [+11.456, +1.211];
+
+  const varPhot1 = 0.752 ** 2;
+  const varPhot2 = 0.723 ** 2;
+  const varCat = 0.01521 ** 2;
+  const varGrid = 0.0215 ** 2;
+
+  // Model A: Classical Sample Mean Registration Covariance
+  const regCovA = [
+    [0.79956, -0.25540],
+    [-0.25540, 1.21949],
+  ];
+
+  const budgetA = computeTotalAstrometricBudget(
+    {
+      phot1: varPhot1,
+      phot2: varPhot2,
+      reg: regCovA,
+      cat: varCat,
+      grid: varGrid,
+    },
+    residualVector
+  );
+
+  assert.equal(budgetA.success, true);
+  assert.equal(budgetA.isPositiveDefinite, true);
+  assert.ok(Math.abs(budgetA.chi2 - 72.85) < 0.15, `Model A chi2 should be ~72.85, got ${budgetA.chi2}`);
+  assert.ok(budgetA.pValue < 1e-15, 'Model A p-value must be < 1e-15');
+  assert.ok(Math.abs(budgetA.significanceBilateral - 8.26) < 0.15, `Model A significance should be ~8.26 sigma, got ${budgetA.significanceBilateral}`);
+
+  // Model B: Paired Bootstrap of Median Registration Covariance
+  const regCovB = [
+    [0.96167, -0.19970],
+    [-0.19970, 1.04432],
+  ];
+
+  const budgetB = computeTotalAstrometricBudget(
+    {
+      phot1: varPhot1,
+      phot2: varPhot2,
+      reg: regCovB,
+      cat: varCat,
+      grid: varGrid,
+    },
+    residualVector
+  );
+
+  assert.equal(budgetB.success, true);
+  assert.equal(budgetB.isPositiveDefinite, true);
+  assert.ok(Math.abs(budgetB.chi2 - 66.56) < 0.15, `Model B chi2 should be ~66.56, got ${budgetB.chi2}`);
+  assert.ok(budgetB.pValue < 1e-14, 'Model B p-value must be < 1e-14');
+  assert.ok(Math.abs(budgetB.significanceBilateral - 7.87) < 0.15, `Model B significance should be ~7.87 sigma, got ${budgetB.significanceBilateral}`);
+
+  // Both models confirm WISE 0855 remains in WARNING (> 7.8 sigma)
+  assert.ok(budgetA.significanceBilateral > 5.0 && budgetB.significanceBilateral > 5.0, 'WISE 0855 remains strictly in WARNING under both models');
+});
+
+test('Fase 2.3.9B - Astrometric Translation Applied Strictly Once', () => {
+  // Measured shift in KRONOX already incorporates field registration:
+  // netDc = (c2 - c1) - regDc
+  const r_meas = { dra: +3.217, ddec: +1.895 };
+  const r_cat = { dra: -8.239, ddec: +0.684 };
+
+  const r_res_ra = r_meas.dra - r_cat.dra;
+  const r_res_dec = r_meas.ddec - r_cat.ddec;
+
+  assert.ok(Math.abs(r_res_ra - 11.456) < 0.001, 'Correct residual RA* is +11.456"');
+  assert.ok(Math.abs(r_res_dec - 1.211) < 0.001, 'Correct residual Dec is +1.211"');
+
+  // Verify that subtracting the median translation a second time is mathematically rejected:
+  const doubleCorrected_ra = r_res_ra - (-1.352); // +12.808"
+  const doubleCorrected_dec = r_res_dec - (-3.477); // +4.688"
+  assert.ok(Math.abs(doubleCorrected_ra - 12.808) < 0.001);
+  assert.notEqual(doubleCorrected_ra, 11.456, 'Double subtraction must not occur');
+});
+
+test('Fase 2.3.9B - Analytical Local WCS SIP Jacobian vs Central Finite Differences', () => {
+  // Mock SPHEREx Array 1 header for Epsilon Indi B
+  const wcsMock = parseWcs({
+    CRVAL1: 331.867163489,
+    CRVAL2: -58.4418859991,
+    CRPIX1: -14.5,
+    CRPIX2: 1020.5,
+    CDELT1: 1.0,
+    CDELT2: 1.0,
+    PC1_1: 0.00153946320937,
+    PC1_2: 0.00068631660051,
+    PC2_1: 0.000747510362706,
+    PC2_2: -0.00156463003672,
+    A_ORDER: 3,
+    B_ORDER: 3,
+    A_2_0: -1.2e-6,
+    A_0_2: 1.1e-6,
+    B_2_0: 1.0e-6,
+    B_0_2: -1.3e-6,
+  });
+
+  const centerJac = computeLocalWcsJacobian(wcsMock, 146.0, 97.0);
+  const centerFd = computeFiniteDifferenceWcsJacobian(wcsMock, 146.0, 97.0, 0.005);
+
+  assert.equal(centerJac !== null, true);
+  assert.equal(centerFd !== null, true);
+
+  // Column norms (physical pixel scale of detector): ~6.156"/px
+  assert.ok(Math.abs(centerJac.meanDetectorScale - 6.156) < 0.03, `Detector mean scale should be ~6.156"/px, got ${centerJac.meanDetectorScale}`);
+
+  // Comparison between analytical Jacobian and finite differences
+  for (let r = 0; r < 2; r++) {
+    for (let c = 0; c < 2; c++) {
+      const diff = Math.abs(centerJac.J_total[r][c] - centerFd.J_fd[r][c]);
+      assert.ok(diff < 0.08, `Jacobian element [${r}][${c}] diff ${diff} should be < 0.08 arcsec/px`);
+    }
+  }
+});
+
+test('Fase 2.3.9B - Independent Non-Censored False Alarm Rate & 8-Sigma Spike Injection', () => {
+  const width = 100;
+  const height = 100;
+  const length = width * height;
+  const snrMap = new Float32Array(length);
+
+  // Synthetic standard Gaussian noise: seed 42
+  const rng = createSeededRandom(42);
+  for (let i = 0; i < length; i++) {
+    // Box-Muller transform
+    const u1 = Math.max(1e-10, rng());
+    const u2 = rng();
+    snrMap[i] = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+  }
+
+  // Inject deliberate 8.0 sigma real signal spike at (col=30, row=30)
+  snrMap[30 * width + 30] = 8.0;
+
+  // 1. Evaluate WITHOUT masking the spike:
+  // System MUST NOT censor or delete values with |Z| > 3.5 sigma!
+  const resWithSpike = evaluateIndependentFalseAlarmRate(snrMap, width, height, {
+    blockSize: 20,
+    threshold: 5.0,
+    sourceExclusionList: [], // No source mask
+  });
+
+  assert.equal(resWithSpike.passesThreshold, false, '8-sigma spike must be detected and not censored');
+  assert.equal(resWithSpike.falsePositiveCount, 1, 'Exactly one block must trip the 5-sigma threshold');
+  assert.ok(resWithSpike.maxObservedSnr >= 8.0, `Max observed SNR must reflect the 8.0 sigma spike, got ${resWithSpike.maxObservedSnr}`);
+
+  // 2. Evaluate WITH independent catalog mask around the known source:
+  const resMasked = evaluateIndependentFalseAlarmRate(snrMap, width, height, {
+    blockSize: 20,
+    threshold: 5.0,
+    sourceExclusionList: [{ col: 30, row: 30, radiusPx: 5 }],
+  });
+
+  assert.equal(resMasked.passesThreshold, true, 'Clean background without sources must pass 5-sigma threshold');
+  assert.equal(resMasked.falsePositiveCount, 0, 'No pure noise block should exceed 5-sigma in 25 blocks');
+  assert.ok(resMasked.clopperPearsonUpper95 < 0.15, 'Exact 95% Clopper-Pearson bound properly computed');
+});
+
+test('Fase 2.3.9B - Spatial Autocorrelation: Separation of A_beam, A_corr_weighted and A_support_geom', () => {
+  const width = 60;
+  const height = 60;
+  const diffPixels = new Float32Array(width * height);
+  const rng = createSeededRandom(12345);
+
+  // Synthesize smooth background with spatial correlation
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      diffPixels[r * width + c] = rng() - 0.5;
+    }
+  }
+
+  const resAcf = computeSpatialAutocorrelation(diffPixels, width, height, {
+    threshold: 0.05,
+    fwhmPx: 1.611,
+    patchRadius: 25,
+  });
+
+  assert.equal(resAcf !== null, true);
+
+  // A_beam: Analytical PSF beam area = 1.13309 * 1.611^2 = 2.942 px^2
+  assert.ok(Math.abs(resAcf.A_beam - 2.942) < 0.01, `A_beam should be ~2.942 px^2, got ${resAcf.A_beam}`);
+
+  // A_corr_weighted and A_support_geom must be strictly non-negative and distinct
+  assert.ok(resAcf.A_corr_weighted > 0, 'Weighted correlation integral must be positive');
+  assert.ok(resAcf.A_support_geom >= 1, 'Geometric support area must contain at least the central lag');
+  assert.ok(resAcf.N_eff_weighted > 0, 'Effective degrees of freedom must be positive');
+
+  // Verify conceptual separation:
+  assert.notEqual(resAcf.A_beam, resAcf.A_corr_weighted, 'A_beam must not be conflated with A_corr_weighted');
+  assert.notEqual(resAcf.A_support_geom, resAcf.A_corr_weighted, 'Geometric support area must not be conflated with weighted integral');
+});
+

@@ -297,11 +297,144 @@ export function parseWcs(values) {
     ctype1: values.CTYPE1 || 'RA---TAN',
     ctype2: values.CTYPE2 || 'DEC--TAN',
     hasSip: Boolean(aSip || bSip),
+    aSip,
+    bSip,
+    cdMatrix: [
+      [cd11, cd12],
+      [cd21, cd22],
+    ],
     pixelScaleDeg,
     pixelScaleArcsec: pixelScaleDeg * 3600,
     rotationDeg,
     pixelToWorld,
     worldToPixel,
+  };
+}
+
+/**
+ * Computes the analytical local Jacobian of the WCS transformation, including SIP distortion polynomials:
+ *   J_total = 3600 * CD * J_SIP (in arcseconds per pixel)
+ *
+ * @param {object} wcs - Parsed WCS object from parseWcs
+ * @param {number} xFits - FITS 1-based X coordinate
+ * @param {number} yFits - FITS 1-based Y coordinate
+ * @returns {object} Analytical Jacobian matrix, component scales and norms
+ */
+export function computeLocalWcsJacobian(wcs, xFits, yFits) {
+  if (!wcs) return null;
+  const u = xFits - wcs.crpix1;
+  const v = yFits - wcs.crpix2;
+
+  let dfa_du = 0.0, dfa_dv = 0.0;
+  if (wcs.aSip) {
+    for (let i = 0; i < wcs.aSip.length; i++) {
+      const { p, q, coeff } = wcs.aSip[i];
+      if (p > 0) dfa_du += coeff * p * Math.pow(u, p - 1) * Math.pow(v, q);
+      if (q > 0) dfa_dv += coeff * q * Math.pow(u, p) * Math.pow(v, q - 1);
+    }
+  }
+
+  let dfb_du = 0.0, dfb_dv = 0.0;
+  if (wcs.bSip) {
+    for (let i = 0; i < wcs.bSip.length; i++) {
+      const { p, q, coeff } = wcs.bSip[i];
+      if (p > 0) dfb_du += coeff * p * Math.pow(u, p - 1) * Math.pow(v, q);
+      if (q > 0) dfb_dv += coeff * q * Math.pow(u, p) * Math.pow(v, q - 1);
+    }
+  }
+
+  const jSip11 = 1.0 + dfa_du;
+  const jSip12 = dfa_dv;
+  const jSip21 = dfb_du;
+  const jSip22 = 1.0 + dfb_dv;
+
+  const cd11 = wcs.cd11;
+  const cd12 = wcs.cd12;
+  const cd21 = wcs.cd21;
+  const cd22 = wcs.cd22;
+
+  // Linear Jacobian (no SIP): 3600 * CD
+  const J_linear = [
+    [3600.0 * cd11, 3600.0 * cd12],
+    [3600.0 * cd21, 3600.0 * cd22],
+  ];
+
+  // Total Jacobian with SIP: 3600 * CD * J_SIP
+  const J_total = [
+    [3600.0 * (cd11 * jSip11 + cd12 * jSip21), 3600.0 * (cd11 * jSip12 + cd12 * jSip22)],
+    [3600.0 * (cd21 * jSip11 + cd22 * jSip21), 3600.0 * (cd21 * jSip12 + cd22 * jSip22)],
+  ];
+
+  const colNorm0 = Math.hypot(J_total[0][0], J_total[1][0]);
+  const colNorm1 = Math.hypot(J_total[0][1], J_total[1][1]);
+  const rowNorm0 = Math.hypot(J_total[0][0], J_total[0][1]);
+  const rowNorm1 = Math.hypot(J_total[1][0], J_total[1][1]);
+
+  return {
+    J_total,
+    J_linear,
+    J_sip: [
+      [jSip11, jSip12],
+      [jSip21, jSip22],
+    ],
+    colNorm0,
+    colNorm1,
+    meanDetectorScale: 0.5 * (colNorm0 + colNorm1),
+    rowNorm0,
+    rowNorm1,
+  };
+}
+
+/**
+ * Computes the central finite difference Jacobian of the WCS transformation via pixelToWorld:
+ *   J_fd = [ [dRAstar/dx, dRAstar/dy], [dDec/dx, dDec/dy] ] (in arcseconds per pixel)
+ *
+ * @param {object} wcs - Parsed WCS object from parseWcs
+ * @param {number} xFits - FITS 1-based X coordinate
+ * @param {number} yFits - FITS 1-based Y coordinate
+ * @param {number} dp - Finite difference step in pixels (default 0.005)
+ * @returns {object} Numerical Jacobian matrix and norms
+ */
+export function computeFiniteDifferenceWcsJacobian(wcs, xFits, yFits, dp = 0.005) {
+  if (!wcs?.pixelToWorld) return null;
+  const c = wcs.pixelToWorld(xFits, yFits);
+  const cosDec = Math.cos(c.dec * DEG2RAD);
+
+  const xp = wcs.pixelToWorld(xFits + dp, yFits);
+  const xm = wcs.pixelToWorld(xFits - dp, yFits);
+  const yp = wcs.pixelToWorld(xFits, yFits + dp);
+  const ym = wcs.pixelToWorld(xFits, yFits - dp);
+
+  // Normalize RA differences across 0/360 wrap
+  const normDra = (ra2, ra1) => {
+    let d = ra2 - ra1;
+    while (d > 180) d -= 360;
+    while (d < -180) d += 360;
+    return d;
+  };
+
+  const dra_dx = (normDra(xp.ra, xm.ra) * 3600.0 * cosDec) / (2.0 * dp);
+  const ddec_dx = ((xp.dec - xm.dec) * 3600.0) / (2.0 * dp);
+  const dra_dy = (normDra(yp.ra, ym.ra) * 3600.0 * cosDec) / (2.0 * dp);
+  const ddec_dy = ((yp.dec - ym.dec) * 3600.0) / (2.0 * dp);
+
+  const J_fd = [
+    [dra_dx, dra_dy],
+    [ddec_dx, ddec_dy],
+  ];
+
+  const colNorm0 = Math.hypot(dra_dx, ddec_dx);
+  const colNorm1 = Math.hypot(dra_dy, ddec_dy);
+  const rowNorm0 = Math.hypot(dra_dx, dra_dy);
+  const rowNorm1 = Math.hypot(ddec_dx, ddec_dy);
+
+  return {
+    J_fd,
+    colNorm0,
+    colNorm1,
+    meanDetectorScale: 0.5 * (colNorm0 + colNorm1),
+    rowNorm0,
+    rowNorm1,
   };
 }
 
