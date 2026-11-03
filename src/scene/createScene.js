@@ -585,13 +585,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     color: 0xd9e4ed,
     metalness: 0.72,
     roughness: 0.3,
-    emissive: 0x172b3d,
   });
   const satellitePanelMaterial = new THREE.MeshStandardMaterial({
     color: 0x315e89,
     metalness: 0.42,
     roughness: 0.38,
-    emissive: 0x10233e,
   });
   const goldSatelliteMaterial = new THREE.MeshStandardMaterial({
     color: 0xc89d58,
@@ -669,6 +667,67 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       new THREE.BufferGeometry().setFromPoints(points),
       new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false }),
     );
+  };
+  const makeMoonTexture = (moon) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+    context.fillStyle = moon.base;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const shading = context.createLinearGradient(0, 0, 0, canvas.height);
+    shading.addColorStop(0, 'rgba(255,255,255,.18)');
+    shading.addColorStop(0.5, 'rgba(255,255,255,0)');
+    shading.addColorStop(1, 'rgba(0,0,0,.24)');
+    context.fillStyle = shading;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Stable, deterministic surface marks keep the procedural maps consistent
+    // between visits while giving each moon a distinct visual character.
+    let seed = moon.seed;
+    const random = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+    if (moon.name === 'Europa') {
+      for (let i = 0; i < 46; i++) {
+        const x = random() * canvas.width;
+        const y = random() * canvas.height;
+        context.beginPath();
+        context.moveTo(x, y);
+        context.bezierCurveTo(
+          x + (random() - 0.5) * 80,
+          y + 20,
+          x + (random() - 0.5) * 100,
+          y - 20,
+          x + (random() - 0.5) * 110,
+          y + (random() - 0.5) * 70,
+        );
+        context.strokeStyle = i % 4 === 0 ? 'rgba(151,83,67,.5)' : 'rgba(190,112,84,.3)';
+        context.lineWidth = 1 + random() * 2.5;
+        context.stroke();
+      }
+    } else {
+      const count = moon.name === 'Ío' ? 55 : 95;
+      for (let i = 0; i < count; i++) {
+        const x = random() * canvas.width;
+        const y = random() * canvas.height;
+        const radius = 2 + random() * (moon.name === 'Ío' ? 10 : 15);
+        const colors = moon.craterColors;
+        context.beginPath();
+        context.ellipse(x, y, radius * 1.4, radius, random() * Math.PI, 0, Math.PI * 2);
+        context.fillStyle = colors[Math.floor(random() * colors.length)];
+        context.fill();
+        context.beginPath();
+        context.ellipse(x - radius * 0.18, y - radius * 0.2, radius * 0.78, radius * 0.55, 0, 0, Math.PI * 2);
+        context.fillStyle = 'rgba(255,235,195,.12)';
+        context.fill();
+      }
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.encoding = THREE.sRGBEncoding;
+    texture.anisotropy = Math.min(8, R.capabilities.getMaxAnisotropy());
+    return texture;
   };
   P.forEach((p) => {
     const pivot = new THREE.Group(),
@@ -800,21 +859,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         const objects = [];
         for (let index = 0; index < orbit.count; index++) {
           const satellite = makeSatellite(orbit.size || 0.42, orbit.station);
-          const beacon = new THREE.Sprite(
-            new THREE.SpriteMaterial({
-              map: missionGlowMap,
-              color: orbit.color,
-              transparent: true,
-              opacity: orbit.station ? 0.8 : 0.62,
-              blending: THREE.AdditiveBlending,
-              depthWrite: false,
-              sizeAttenuation: false,
-            }),
-          );
-          beacon.scale.set(0.035, 0.035, 1);
-          plane.add(beacon);
           plane.add(satellite);
-          objects.push({ object: satellite, beacon, phase: (index / orbit.count) * TAU });
+          objects.push({ object: satellite, phase: (index / orbit.count) * TAU });
         }
         if (orbit.name !== 'STARLINK' || orbitIndex === 0) {
           const label = lab(orbit.name === 'STARLINK' ? 'STARLINK' : orbit.name, 0.15, 18);
@@ -833,45 +879,47 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       pivot.add(system);
       b.moonSystem = system;
       b.jupiterMoons = [
-        { name: 'Ío', radius: 2.05, size: 0.12, period: 1.769, color: 0xd9a65a, phase: 0.4 },
-        { name: 'Europa', radius: 2.75, size: 0.105, period: 3.551, color: 0xd8d2bb, phase: 2.1 },
-        { name: 'Ganímedes', radius: 3.65, size: 0.14, period: 7.155, color: 0x999387, phase: 3.8 },
-        { name: 'Calisto', radius: 4.75, size: 0.13, period: 16.689, color: 0x625448, phase: 5.1 },
-      ].map((moon, index) => {
+        {
+          name: 'Ío', radius: 2.05, size: 0.15, period: 1.769, inclination: 0.0035,
+          base: '#bd8c42', seed: 17,
+          craterColors: ['rgba(255,216,98,.42)', 'rgba(187,82,36,.32)', 'rgba(88,53,35,.25)'],
+          phase: 0.4,
+        },
+        {
+          name: 'Europa', radius: 2.75, size: 0.13, period: 3.551, inclination: 0.0082,
+          base: '#c9c3ad', seed: 31, phase: 2.1,
+        },
+        {
+          name: 'Ganímedes', radius: 3.65, size: 0.22, period: 7.155, inclination: 0.0041,
+          base: '#817a6e', seed: 47,
+          craterColors: ['rgba(47,48,46,.35)', 'rgba(183,164,133,.3)', 'rgba(107,88,67,.3)'],
+          phase: 3.8,
+        },
+        {
+          name: 'Calisto', radius: 4.75, size: 0.19, period: 16.689, inclination: 0.0087,
+          base: '#514b43', seed: 63,
+          craterColors: ['rgba(21,22,22,.45)', 'rgba(158,145,126,.25)', 'rgba(86,74,62,.4)'],
+          phase: 5.1,
+        },
+      ].map((moon) => {
         const moonPivot = new THREE.Group();
-        moonPivot.rotation.x = (index - 1.5) * 0.045;
+        moonPivot.rotation.x = moon.inclination;
         system.add(moonPivot);
         const mesh = new THREE.Mesh(
           new THREE.SphereGeometry(moon.size, 20, 14),
           new THREE.MeshStandardMaterial({
-            color: moon.color,
+            map: makeMoonTexture(moon),
             roughness: 0.88,
             metalness: 0,
-            emissive: moon.color,
-            emissiveIntensity: 0.045,
           }),
         );
         moonPivot.add(mesh);
-        const beacon = new THREE.Sprite(
-          new THREE.SpriteMaterial({
-            map: missionGlowMap,
-            color: moon.color,
-            transparent: true,
-            opacity: 0.85,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            sizeAttenuation: false,
-          }),
-        );
-        beacon.scale.set(0.02, 0.02, 1);
-        beacon.position.z = moon.size * 1.4;
-        moonPivot.add(beacon);
         const label = lab(moon.name, 0.12, 16);
         label.position.set(0, moon.size * 2.4, 0);
         label.visible = false;
         moonPivot.add(label);
         LB.push(label);
-        return { ...moon, moonPivot, mesh, beacon };
+        return { ...moon, moonPivot, mesh };
       });
     }
     if (p.ring) {
@@ -1533,11 +1581,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (b.satellites) {
         b.satellites.forEach((plane) => {
           const orbitAngle = (sim / plane.period) * TAU;
-          plane.objects.forEach(({ object, beacon, phase }) => {
+          plane.objects.forEach(({ object, phase }) => {
             const angle = orbitAngle + phase;
             object.position.set(Math.cos(angle) * plane.radius, 0, Math.sin(angle) * plane.radius);
             object.rotation.y = -angle;
-            beacon.position.copy(object.position).add(new THREE.Vector3(0, 0.16, 0));
           });
         });
       }
