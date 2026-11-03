@@ -768,21 +768,44 @@ export function measureSubpixelAstrometry(frame1, frame2, col, row) {
     }
   }
 
+  // Raw displacement before field registration correction
+  const rawDc = c2.col - c1.col;
+  const rawDr = c2.row - c1.row;
+
   // Net motion vector corrected for field registration
-  const netDc = (c2.col - c1.col) - regDc;
-  const netDr = (c2.row - c1.row) - regDr;
+  const netDc = rawDc - regDc;
+  const netDr = rawDr - regDr;
 
   let measuredShiftArcsec = 0;
   let measuredPaDeg = 0;
+  let rawShiftArcsec = 0;
+  let rawPaDeg = 0;
+  let draRaw = 0;
+  let ddecRaw = 0;
+  let draNet = 0;
+  let ddecNet = 0;
 
   if (gridToWorld1 && gridToWorld2) {
     const w1 = gridToWorld1(c1.col, c1.row);
-    const w2 = gridToWorld2(c1.col + netDc, c1.row + netDr);
-    const dra = (w2.ra - w1.ra) * Math.cos(((w1.dec + w2.dec) * 0.5 * Math.PI) / 180) * 3600;
-    const ddec = (w2.dec - w1.dec) * 3600;
-    measuredShiftArcsec = Math.hypot(dra, ddec);
-    measuredPaDeg = ((Math.atan2(dra, ddec) * 180) / Math.PI + 360) % 360;
+    const w2Raw = gridToWorld2(c2.col, c2.row);
+    draRaw = (w2Raw.ra - w1.ra) * Math.cos(((w1.dec + w2Raw.dec) * 0.5 * Math.PI) / 180) * 3600;
+    ddecRaw = (w2Raw.dec - w1.dec) * 3600;
+    rawShiftArcsec = Math.hypot(draRaw, ddecRaw);
+    rawPaDeg = ((Math.atan2(draRaw, ddecRaw) * 180) / Math.PI + 360) % 360;
+
+    const w2Net = gridToWorld2(c1.col + netDc, c1.row + netDr);
+    draNet = (w2Net.ra - w1.ra) * Math.cos(((w1.dec + w2Net.dec) * 0.5 * Math.PI) / 180) * 3600;
+    ddecNet = (w2Net.dec - w1.dec) * 3600;
+    measuredShiftArcsec = Math.hypot(draNet, ddecNet);
+    measuredPaDeg = ((Math.atan2(draNet, ddecNet) * 180) / Math.PI + 360) % 360;
   } else {
+    draRaw = -rawDc * scaleArcsec;
+    ddecRaw = -rawDr * scaleArcsec;
+    rawShiftArcsec = Math.hypot(rawDc, rawDr) * scaleArcsec;
+    rawPaDeg = ((Math.atan2(rawDc, -rawDr) * 180) / Math.PI + 360) % 360;
+
+    draNet = -netDc * scaleArcsec;
+    ddecNet = -netDr * scaleArcsec;
     measuredShiftArcsec = Math.hypot(netDc, netDr) * scaleArcsec;
     measuredPaDeg = ((Math.atan2(netDc, -netDr) * 180) / Math.PI + 360) % 360;
   }
@@ -797,6 +820,14 @@ export function measureSubpixelAstrometry(frame1, frame2, col, row) {
     astrometricSnr: Number(astrometricSnr.toFixed(1)),
     centroid1: { col: Number(c1.col.toFixed(3)), row: Number(c1.row.toFixed(3)), flux: Number(c1.flux.toFixed(2)) },
     centroid2: { col: Number(c2.col.toFixed(3)), row: Number(c2.row.toFixed(3)), flux: Number(c2.flux.toFixed(2)) },
+    rawShiftPx: { dcPx: Number(rawDc.toFixed(4)), drPx: Number(rawDr.toFixed(4)) },
+    netShiftPx: { dcPx: Number(netDc.toFixed(4)), drPx: Number(netDr.toFixed(4)) },
+    rawShiftArcsec: Number(rawShiftArcsec.toFixed(4)),
+    rawPaDeg: Number(rawPaDeg.toFixed(2)),
+    dRaRawArcsec: Number(draRaw.toFixed(4)),
+    dDecRawArcsec: Number(ddecRaw.toFixed(4)),
+    dRaNetArcsec: Number(draNet.toFixed(4)),
+    dDecNetArcsec: Number(ddecNet.toFixed(4)),
     fieldRegistration: { dcPx: Number(regDc.toFixed(3)), drPx: Number(regDr.toFixed(3)) },
   };
 }
