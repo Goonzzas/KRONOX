@@ -1602,7 +1602,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (!p.moon) {
         const rs = ((TAU * 24) / p.rot) * spd,
           rate = (rs * 3) / (3 + rs);
-        b.spin.rotation.y += rate * dt;
+        // Jupiter's fast atmospheric rotation is visually overwhelming at the
+        // default time scale, so soften only its rendered spin. Orbital
+        // positions and the simulated date continue to use the same timeline.
+        const visualSpinMultiplier = p.n === 'Júpiter' ? 0.18 : 1;
+        b.spin.rotation.y += rate * dt * visualSpinMultiplier;
       }
       b.lab.visible = !!fl.lab;
       b.ax.visible = !!fl.ax;
