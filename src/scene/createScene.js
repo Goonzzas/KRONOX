@@ -28,6 +28,10 @@ const PLANET_TEXTURE_FILES = {
   Urano: '2k_uranus.jpg',
   Neptuno: '2k_neptune.jpg',
 };
+// The spacecraft model spans about 2.5 local units from nose to engine.
+// Scale it as a compact 120 m exploration craft against Earth's physical size.
+const SHIP_LENGTH_METERS = 120;
+const SHIP_MODEL_LENGTH = 2.5;
 
 function visualDistanceInMapUnits(distanceLy) {
   return (
@@ -222,7 +226,7 @@ export function setupScene(el, S) {
     return texture;
   };
   const sc = new THREE.Scene(),
-    cam = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.0005, 4e5),
+    cam = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 1e-8, 4e5),
     ct = new OrbitControls(cam, R.domElement);
   let rafId = 0,
     disposed = false;
@@ -1274,7 +1278,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   ),
     Dd = (au) => (real ? au * 149.6 : 14 + 16 * Math.pow(au, 0.62)),
     Dm = () => (real ? 0.3844 : 1.3),
-    shipOffset = () => Math.max(shipSz * 7, Rd(P[3]) * 0.015);
+    shipScale = () => (Rd(P[3]) * (SHIP_LENGTH_METERS / 1000)) / (P[3].km * SHIP_MODEL_LENGTH),
+    shipOffset = () => shipSz * 5;
   function layout() {
     B.forEach((b) => {
       const r = Rd(b.p);
@@ -1656,11 +1661,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       foc = null;
       S.f(null);
       tw = null;
+      if (earth && cam.position.length() > Dd(earth.p.au) * 3) {
+        // The overview camera starts several AU away. Board near Earth's
+        // orbit so the first view reads as a spacecraft-scale perspective.
+        const standOff = Math.max(earth.r * 12, Dm());
+        sp.copy(earth.pivot.position).add(new V(standOff, 0, 0));
+        cam.position.copy(sp);
+        cam.lookAt(earth.pivot.position);
+      } else {
+        sp.copy(cam.position);
+      }
       const e = new THREE.Euler().setFromQuaternion(cam.quaternion, 'YXZ');
       fy = e.y;
       fp = e.x;
-      sp.copy(cam.position);
-      shipSz = (2 * Rd(P[3]) * 0.02) / 2.2;
+      shipSz = shipScale();
       fs = Math.max(0.01, Math.min(5e4, cam.position.distanceTo(ct.target) * 0.4));
       S.fv(fs);
       ti = 0;
@@ -1699,7 +1713,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     ship.scale.setScalar(shipSz);
     ship.quaternion.copy(q);
     ship.visible = true;
-    const d = Math.max(shipSz * 16, Rd(P[3]) * 0.08, real ? 0.04 : 0.025),
+    const d = Math.max(shipSz * 4, 1e-7),
       offset = new V(1, 0.55, 2).applyQuaternion(q).multiplyScalar(d);
     ct.target.copy(sp);
     cam.position.copy(sp).add(offset);
@@ -1763,7 +1777,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     fy = e.y;
     fp = e.x;
     sp.copy(cam.position);
-    shipSz = (2 * Rd(P[3]) * 0.02) / 2.2;
+    shipSz = shipScale();
     fs = [3000, 300, 30][k];
     S.fv(fs);
   }
