@@ -1200,7 +1200,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     spectator = false,
     fy = 0,
     fp = 0,
-    fs = 60,
+    fs = 1,
     shipSz = 0.5,
     fovBase = 55,
     drag = 0,
