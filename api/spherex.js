@@ -1,5 +1,5 @@
 const IRSA_SIA = 'https://irsa.ipac.caltech.edu/SIA';
-const MAX_SEARCH_RESULTS = 250;
+const MAX_SEARCH_RESULTS = 1000;
 
 /**
  * Official NASA SPHEREx detector bandpass definitions (in microns).

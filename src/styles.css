@@ -3102,3 +3102,318 @@ small {
     10px ui-monospace,
     monospace;
 }
+
+/* ==========================================================================
+   KRONOX PHASE 2: BLINK COMPARATOR, SIDE-BY-SIDE & DIFFERENTIAL IMAGING
+   ========================================================================== */
+
+/* Mode selector tab bar */
+.spherexViewModeTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 16px;
+  padding: 4px;
+  background: rgba(13, 21, 38, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 8px;
+}
+.spherexViewModeTab {
+  flex: 1 1 auto;
+  min-width: 100px;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.spherexViewModeTab:hover {
+  color: #e2e8f0;
+  background: rgba(56, 189, 248, 0.08);
+}
+.spherexViewModeTab.active {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.4);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+}
+
+/* Blink Comparator Toolbar & HUD */
+.spherexBlinkToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+.spherexBlinkToolbar button {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #cbd5e1;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.spherexBlinkToolbar button:hover {
+  color: #fff;
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+}
+.spherexBlinkToolbar button.active {
+  color: #0369a1;
+  background: #38bdf8;
+  border-color: #38bdf8;
+  font-weight: 700;
+}
+.spherexBlinkToolbar select {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #cbd5e1;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+}
+.spherexBlinkHud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 5;
+  padding: 6px 12px;
+  background: rgba(10, 15, 26, 0.82);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 6px;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.spherexBlinkHud .badge {
+  color: #38bdf8;
+  font-weight: bold;
+}
+
+/* Side-by-side Dual View */
+.spherexDualViewport {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.spherexDualPane {
+  display: flex;
+  flex-direction: column;
+  background: rgba(13, 21, 38, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.spherexDualHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+}
+.spherexDualHeader b {
+  color: #38bdf8;
+}
+.spherexDualMeta {
+  padding: 8px 12px;
+  background: rgba(10, 15, 28, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: ui-monospace, monospace;
+  font-size: 10.5px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+/* Differential Imaging Controls and Colormap Legend */
+.spherexDiffControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: rgba(13, 21, 38, 0.9);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 8px;
+}
+.spherexColormapLegend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+.spherexColormapGradient {
+  width: 140px;
+  height: 12px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #00dcff 0%, #0050c8 30%, #0a0f1a 50%, #ea580c 70%, #ffedd5 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.spherexNormCard {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  font-size: 11px;
+  color: #cbd5e1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.spherexNormCard span b {
+  color: #38bdf8;
+  font-family: ui-monospace, monospace;
+}
+
+/* Candidate Discovery Panel */
+.spherexCandidatePanel {
+  margin-top: 14px;
+  background: rgba(13, 21, 38, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.spherexCandidateHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.spherexCandidateHeader h4 {
+  margin: 0;
+  font-size: 12px;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.spherexCandidateList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.spherexCandidateCard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(20, 30, 52, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  font-size: 11px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.spherexCandidateCard:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+.spherexCandidateCard.matched {
+  border-color: rgba(251, 146, 60, 0.6);
+  background: rgba(251, 146, 60, 0.08);
+}
+.spherexCandidateBadge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.spherexCandidateBadge.dipole {
+  color: #fed7aa;
+  background: #c2410c;
+}
+.spherexCandidateBadge.variable {
+  color: #bae6fd;
+  background: #0369a1;
+}
+.spherexCandidateBadge.transient {
+  color: #fbcfe8;
+  background: #be185d;
+}
+.spherexCandidateBadge.targetMatch {
+  color: #fef08a;
+  background: #854d0e;
+  margin-left: 6px;
+}
+.spherexCandidateBadge.artifact {
+  color: #fecaca;
+  background: #7f1d1d;
+}
+.spherexCandidateBadge.caution {
+  color: #fed7aa;
+  background: #7c2d12;
+  margin-left: 6px;
+}
+
+/* Scientific Accordion */
+.spherexAccordion {
+  margin-top: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.spherexAccordionSummary {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  background: rgba(15, 23, 42, 0.85);
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.spherexAccordionSummary:hover {
+  color: #e2e8f0;
+}
+.spherexAccordionBody {
+  padding: 10px 14px;
+  background: rgba(10, 15, 28, 0.95);
+  font-size: 11px;
+  color: #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 860px) {
+  .spherexDualViewport {
+    grid-template-columns: 1fr;
+  }
+}
