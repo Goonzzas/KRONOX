@@ -10,6 +10,17 @@ import { SPHEREX_TARGETS } from '../data/spherexTargets.js';
 const GALACTIC_MAP_UNITS_PER_LIGHT_YEAR = 3;
 const LOCAL_NEIGHBORHOOD_EXTRA_UNITS_PER_LIGHT_YEAR = 9;
 const LOCAL_NEIGHBORHOOD_RADIUS_LY = 25;
+const PLANET_TEXTURE_FILES = {
+  Mercurio: '2k_mercury.jpg',
+  Venus: '2k_venus.jpg',
+  Tierra: '2k_earth_daymap.jpg',
+  Luna: '2k_moon.jpg',
+  Marte: '2k_mars.jpg',
+  Júpiter: '2k_jupiter.jpg',
+  Saturno: '2k_saturn.jpg',
+  Urano: '2k_uranus.jpg',
+  Neptuno: '2k_neptune.jpg',
+};
 
 function visualDistanceInMapUnits(distanceLy) {
   return (
@@ -97,7 +108,7 @@ function fbm(u, v, f) {
   return s / 0.97;
 }
 const mix = (a, b, t) => a.map((q, i) => q + (b[i] - q) * t);
-function tex(p) {
+function sunTexture(p) {
   const W = 512,
     H = 256,
     cv = document.createElement('canvas');
@@ -111,30 +122,8 @@ function tex(p) {
       const u = i / W,
         v = j / H;
       let c;
-      if (p.t == 'sun') {
-        const n = fbm(u, v, 10);
-        c = [255, 170 + n * 85, 40 + n * 90];
-      } else if (p.t == 'rock') {
-        const k = 0.5 + 0.7 * fbm(u, v, 8);
-        c = p.c.map((q) => q * k);
-      } else if (p.t == 'venus') {
-        const k = 0.8 + 0.4 * fbm(u + 0.2 * fbm(u, v, 3), v, 4);
-        c = p.c.map((q) => q * k);
-      } else if (p.t == 'earth') {
-        const n = fbm(u, v, 4),
-          la = Math.abs(v - 0.5) * 2;
-        if (la > 0.88 + 0.05 * n) c = [240, 245, 250];
-        else if (n > 0.52) c = [40 + (n - 0.5) * 330, 115 + (0.7 - n) * 120, 50];
-        else c = [15, 55 + n * 90, 150 + n * 70];
-        const m = fbm(u + 0.3, v, 6);
-        if (m > 0.58) c = mix(c, [255, 255, 255], Math.min(0.85, (m - 0.58) * 4));
-      } else {
-        const f = (Math.sin(v * TAU * 5 + 4 * fbm(u, v, 3)) * 0.5 + 0.5) * 3,
-          k = Math.min(2, Math.floor(f));
-        c = mix(p.c[k], p.c[k + 1], f - k);
-        const s = 0.9 + 0.2 * fbm(u, v, 12);
-        c = c.map((q) => q * s);
-      }
+      const n = fbm(u, v, 10);
+      c = [255, 170 + n * 85, 40 + n * 90];
       const o = (j * W + i) * 4;
       d[o] = c[0];
       d[o + 1] = c[1];
@@ -142,19 +131,6 @@ function tex(p) {
       d[o + 3] = 255;
     }
   g.putImageData(im, 0, 0);
-  if (p.t == 'rock')
-    for (let k = 0; k < 70; k++) {
-      const x = Math.random() * W,
-        y = Math.random() * H,
-        r = 2 + Math.random() * Math.random() * 16;
-      g.beginPath();
-      g.arc(x, y, r, 0, TAU);
-      g.fillStyle = 'rgba(0,0,0,.16)';
-      g.fill();
-      g.strokeStyle = 'rgba(255,255,255,.14)';
-      g.lineWidth = 1.2;
-      g.stroke();
-    }
   return new THREE.CanvasTexture(cv);
 }
 const gs = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
@@ -180,6 +156,15 @@ export function setupScene(el, S) {
   R.setPixelRatio(Math.min(2, devicePixelRatio));
   R.setSize(innerWidth, innerHeight);
   el.appendChild(R.domElement);
+  const textureLoader = new THREE.TextureLoader();
+  const loadTexture = (file, colorMap = true) => {
+    const texture = textureLoader.load(
+      `${import.meta.env.BASE_URL}textures/planets/${file}`,
+    );
+    if (colorMap) texture.encoding = THREE.sRGBEncoding;
+    texture.anisotropy = Math.min(8, R.capabilities.getMaxAnisotropy());
+    return texture;
+  };
   const sc = new THREE.Scene(),
     cam = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.0005, 4e5),
     ct = new OrbitControls(cam, R.domElement);
@@ -521,11 +506,42 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const pivot = new THREE.Group(),
       tilt = new THREE.Group(),
       mat = p.sun
-        ? new THREE.MeshBasicMaterial({ map: tex(p) })
-        : new THREE.MeshStandardMaterial({ map: tex(p), roughness: 1, metalness: 0 }),
+        ? new THREE.MeshBasicMaterial({ map: sunTexture(p) })
+        : new THREE.MeshStandardMaterial({
+            map: loadTexture(PLANET_TEXTURE_FILES[p.n]),
+            roughness: p.n === 'Venus' ? 0.88 : 0.96,
+            metalness: 0,
+            ...(p.n === 'Tierra'
+              ? {
+                  normalMap: loadTexture('2k_earth_normal_map.jpg', false),
+                  normalScale: new THREE.Vector2(0.11, 0.11),
+                }
+              : {}),
+          }),
       spin = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 48), mat);
     tilt.rotation.z = ((p.tilt || 0) * Math.PI) / 180;
     tilt.add(spin);
+    if (p.n === 'Tierra' || p.n === 'Venus') {
+      const isEarth = p.n === 'Tierra';
+      const atmosphericMap = loadTexture(
+        isEarth ? '2k_earth_clouds.jpg' : '2k_venus_atmosphere.jpg',
+      );
+      const atmosphere = new THREE.Mesh(
+        new THREE.SphereGeometry(1.009, 64, 48),
+        new THREE.MeshStandardMaterial({
+          map: atmosphericMap,
+          alphaMap: isEarth ? atmosphericMap : null,
+          color: isEarth ? 0xffffff : 0xffe5c2,
+          transparent: true,
+          opacity: isEarth ? 0.76 : 0.52,
+          roughness: 1,
+          metalness: 0,
+          depthWrite: false,
+          side: THREE.FrontSide,
+        }),
+      );
+      spin.add(atmosphere);
+    }
     pivot.add(tilt);
     sc.add(pivot);
     const b = { p, pivot, tilt, spin };
