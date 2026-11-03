@@ -1279,7 +1279,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     Dd = (au) => (real ? au * 149.6 : 14 + 16 * Math.pow(au, 0.62)),
     Dm = () => (real ? 0.3844 : 1.3),
     shipScale = () => (Rd(P[3]) * (SHIP_LENGTH_METERS / 1000)) / (P[3].km * SHIP_MODEL_LENGTH),
-    shipOffset = () => shipSz * 5;
+    // Keep the external follow camera at a planet-relative distance; a
+    // hull-relative camera makes even a physically small ship fill the view.
+    shipOffset = () => Math.max(shipSz * 7, Rd(P[3]) * 0.015);
   function layout() {
     B.forEach((b) => {
       const r = Rd(b.p);
@@ -1713,7 +1715,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     ship.scale.setScalar(shipSz);
     ship.quaternion.copy(q);
     ship.visible = true;
-    const d = Math.max(shipSz * 4, 1e-7),
+    const d = Math.max(shipSz * 16, Rd(P[3]) * 0.08, real ? 0.04 : 0.025),
       offset = new V(1, 0.55, 2).applyQuaternion(q).multiplyScalar(d);
     ct.target.copy(sp);
     cam.position.copy(sp).add(offset);
