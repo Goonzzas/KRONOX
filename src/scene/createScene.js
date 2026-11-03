@@ -9,6 +9,14 @@ import { SPHEREX_TARGETS } from '../data/spherexTargets.js';
 const GALACTIC_MAP_UNITS_PER_LIGHT_YEAR = 3;
 const LOCAL_NEIGHBORHOOD_EXTRA_UNITS_PER_LIGHT_YEAR = 997;
 const LOCAL_NEIGHBORHOOD_RADIUS_LY = 25;
+// Visual parameters only; mission astrometry and target coordinates remain untouched.
+const SPHEREX_VISUALS = {
+  barnard: { type: 'red-dwarf', radiusSolar: 0.196, color: '#d96c42', seed: 17 },
+  'epsilon-indi-b': { type: 'brown-binary', radiusSolar: 0.093, color: '#b77a50', seed: 29 },
+  'wise-0855': { type: 'ultracool', radiusSolar: 0.1, color: '#8f9fc9', seed: 41 },
+  'rw-aurigae': { type: 'young-variable', radiusSolar: 1.5, color: '#ffc071', seed: 53 },
+  'r-draconis': { type: 'mira-variable', radiusSolar: 100, color: '#e86b48', seed: 67 },
+};
 const PLANET_TEXTURE_FILES = {
   Mercurio: '2k_mercury.jpg',
   Venus: '2k_venus.jpg',
@@ -455,10 +463,64 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   glowContext.fillStyle = glowGradient;
   glowContext.fillRect(0, 0, 128, 128);
   const missionGlowMap = new THREE.CanvasTexture(glowCanvas);
+  const makeMissionStarTexture = (visual, seedOffset = 0) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+    context.fillStyle = visual.color;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const palette = {
+      'red-dwarf': ['rgba(255,196,124,.34)', 'rgba(73,24,29,.35)', 'rgba(236,113,66,.28)'],
+      'brown-binary': ['rgba(255,202,139,.24)', 'rgba(58,33,46,.46)', 'rgba(208,121,71,.28)'],
+      ultracool: ['rgba(208,218,255,.2)', 'rgba(35,43,77,.46)', 'rgba(162,117,148,.25)'],
+      'young-variable': ['rgba(255,245,190,.38)', 'rgba(112,46,25,.24)', 'rgba(255,149,70,.26)'],
+      'mira-variable': ['rgba(255,187,112,.28)', 'rgba(89,25,32,.4)', 'rgba(229,84,60,.25)'],
+    }[visual.type];
+    let seed = visual.seed + seedOffset;
+    const random = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+    const bands = visual.type === 'brown-binary' || visual.type === 'ultracool' ? 18 : 8;
+    for (let band = 0; band < bands; band++) {
+      const y = (band / bands) * canvas.height + (random() - 0.5) * 18;
+      context.beginPath();
+      context.moveTo(0, y);
+      context.bezierCurveTo(
+        canvas.width * 0.28,
+        y + (random() - 0.5) * 34,
+        canvas.width * 0.68,
+        y + (random() - 0.5) * 34,
+        canvas.width,
+        y + (random() - 0.5) * 18,
+      );
+      context.strokeStyle = palette[band % palette.length];
+      context.lineWidth = 4 + random() * (visual.type === 'mira-variable' ? 26 : 15);
+      context.stroke();
+    }
+    const cells = visual.type === 'mira-variable' ? 38 : 74;
+    for (let index = 0; index < cells; index++) {
+      const x = random() * canvas.width;
+      const y = random() * canvas.height;
+      const rx = (visual.type === 'mira-variable' ? 14 : 5) + random() * 29;
+      const ry = rx * (0.4 + random() * 0.8);
+      context.beginPath();
+      context.ellipse(x, y, rx, ry, random() * Math.PI, 0, TAU);
+      context.fillStyle = palette[index % palette.length];
+      context.fill();
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.encoding = THREE.sRGBEncoding;
+    texture.anisotropy = Math.min(8, R.capabilities.getMaxAnisotropy());
+    return texture;
+  };
   const missionMarkers = new Map();
   const missionMarkerEffects = [];
   SPHEREX_TARGETS.forEach((target) => {
-    const color = target.mission === 'motion' ? 0x73eaff : 0xffbd72;
+    const visual = SPHEREX_VISUALS[target.key];
+    const color = new THREE.Color(visual.color);
+    const markerRadius = Math.max(0.07, Math.min(0.82, 0.08 * Math.sqrt(visual.radiusSolar)));
     const marker = new THREE.Group();
     marker.position.copy(localGalacticPosition(target));
     // A quiet, softly scattered dust pocket gives the destination a sense of
@@ -466,9 +528,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const dustPositions = [];
     const dustColors = [];
     const baseColor = new THREE.Color(color);
-    for (let i = 0; i < 280; i++) {
+    for (let i = 0; i < 180; i++) {
       const angle = Math.random() * TAU;
-      const radius = 12 + Math.random() ** 1.7 * 44;
+      const radius = 2 + Math.random() ** 1.7 * 10;
       dustPositions.push(Math.cos(angle) * radius, gs() * radius * 0.36, Math.sin(angle) * radius);
       const tint = 0.35 + Math.random() * 0.6;
       dustColors.push(baseColor.r * tint, baseColor.g * tint, baseColor.b * tint);
@@ -479,11 +541,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const dust = new THREE.Points(
       dustGeometry,
       new THREE.PointsMaterial({
-        size: 5.5,
+        size: 2.8,
         sizeAttenuation: true,
         vertexColors: true,
         transparent: true,
-        opacity: 0.44,
+        opacity: 0.3,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
       }),
@@ -499,19 +561,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         depthWrite: false,
       }),
     );
-    nebula.scale.set(120, 74, 1);
+    nebula.scale.set(markerRadius * 9, markerRadius * 5.6, 1);
     marker.add(nebula);
     const corona = new THREE.Sprite(
       new THREE.SpriteMaterial({
         map: missionGlowMap,
-        color: target.mission === 'motion' ? 0xc8fbff : 0xffe2b2,
+        color: color.clone().lerp(new THREE.Color(0xffffff), 0.55),
         transparent: true,
         opacity: 0.34,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       }),
     );
-    corona.scale.set(40, 40, 1);
+    corona.scale.setScalar(markerRadius * 4.8);
     marker.add(corona);
     const glow = new THREE.Sprite(
       new THREE.SpriteMaterial({
@@ -523,16 +585,68 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         depthWrite: false,
       }),
     );
-    glow.scale.set(20, 20, 1);
+    glow.scale.setScalar(markerRadius * 2.7);
     marker.add(glow);
+    const starTexture = makeMissionStarTexture(visual);
     const star = new THREE.Mesh(
-      new THREE.SphereGeometry(2.6, 32, 24),
-      new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        toneMapped: false,
+      new THREE.SphereGeometry(1, 48, 32),
+      new THREE.MeshStandardMaterial({
+        map: starTexture,
+        emissive: 0xffffff,
+        emissiveMap: starTexture,
+        emissiveIntensity: 0.38,
+        roughness: 0.92,
+        metalness: 0,
       }),
     );
+    star.scale.setScalar(markerRadius);
     marker.add(star);
+    let companion = null;
+    if (target.key === 'epsilon-indi-b') {
+      const companionTexture = makeMissionStarTexture(visual, 7);
+      companion = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 40, 28),
+        new THREE.MeshStandardMaterial({
+          map: companionTexture,
+          emissive: 0xffffff,
+          emissiveMap: companionTexture,
+          emissiveIntensity: 0.32,
+          roughness: 0.94,
+        }),
+      );
+      companion.scale.setScalar(markerRadius * 0.94);
+      marker.add(companion);
+      const binaryTrack = new THREE.Mesh(
+        new THREE.TorusGeometry(0.66, 0.012, 5, 80),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.24 }),
+      );
+      binaryTrack.rotation.x = Math.PI / 2.5;
+      marker.add(binaryTrack);
+    }
+    if (target.key === 'rw-aurigae') {
+      const diskMaterial = new THREE.MeshBasicMaterial({
+        color: 0xc68e56,
+        transparent: true,
+        opacity: 0.16,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const disk = new THREE.Mesh(new THREE.RingGeometry(0.48, 2.2, 112), diskMaterial);
+      disk.rotation.set(Math.PI / 2, 0.18, 0.26);
+      marker.add(disk);
+      const innerDisk = new THREE.Mesh(
+        new THREE.RingGeometry(0.38, 0.56, 96),
+        new THREE.MeshBasicMaterial({
+          color: 0xffc477,
+          transparent: true,
+          opacity: 0.2,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        }),
+      );
+      innerDisk.rotation.copy(disk.rotation);
+      marker.add(innerDisk);
+    }
     const starGlow = new THREE.Sprite(
       new THREE.SpriteMaterial({
         map: missionGlowMap,
@@ -543,26 +657,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         depthWrite: false,
       }),
     );
-    starGlow.scale.set(30, 30, 1);
+    starGlow.scale.setScalar(markerRadius * 3.2);
     marker.add(starGlow);
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(5.4, 0.12, 8, 64),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.76 }),
+      new THREE.TorusGeometry(1, 0.035, 6, 48),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.34 }),
     );
+    ring.scale.setScalar(markerRadius * 2.25);
     ring.rotation.x = Math.PI / 2;
     marker.add(ring);
-    const orbitRing = new THREE.Mesh(
-      new THREE.TorusGeometry(7.1, 0.055, 6, 64),
-      new THREE.MeshBasicMaterial({
-        color: target.mission === 'motion' ? 0xb9f5ff : 0xffe0ae,
-        transparent: true,
-        opacity: 0.42,
-      }),
-    );
-    orbitRing.rotation.set(Math.PI / 2.6, 0.16, 0.22);
-    marker.add(orbitRing);
     const label = lab(target.name);
-    label.position.set(0, 10, 0);
+    label.position.set(0, markerRadius * 2.5 + 0.6, 0);
     label.visible = false;
     marker.add(label);
     LB.push(label);
@@ -570,10 +675,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     missionMarkers.set(target.key, { target, marker, label });
     missionMarkerEffects.push({
       star,
+      companion,
+      markerRadius,
+      visual,
       glow,
       corona,
       ring,
-      orbitRing,
+      starGlow,
       phase: Math.random() * TAU,
     });
   });
@@ -1073,18 +1181,88 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (p.n == 'Tierra') earth = b;
     B.push(b);
   });
-  // cinturón de asteroides
-  a = [];
-  c = [];
-  for (let i = 0; i < 3500; i++) {
-    const r = 0.85 + Math.random() * 0.3,
-      an = Math.random() * TAU;
-    a.push(Math.cos(an) * r, gs() * 0.03, Math.sin(an) * r);
-    c.push(0.6, 0.55, 0.5);
+  // Belt made from instanced, irregular 3D bodies instead of point sprites.
+  const belt = new THREE.Group();
+  const asteroidMeshes = [];
+  const asteroidRecords = [];
+  const asteroidPalette = [0x887c70, 0x9c8d7a, 0x6e6c68, 0xa09382, 0x776454, 0xaaa196];
+  const asteroidVariantCount = 8;
+  const asteroidCountPerVariant = 110;
+  let asteroidSeed = 92071;
+  const asteroidRandom = () => {
+    asteroidSeed = (asteroidSeed * 1664525 + 1013904223) >>> 0;
+    return asteroidSeed / 4294967296;
+  };
+  for (let variant = 0; variant < asteroidVariantCount; variant++) {
+    const geometries = [
+      new THREE.IcosahedronGeometry(1, 1),
+      new THREE.DodecahedronGeometry(1, 1),
+      new THREE.OctahedronGeometry(1, 1),
+      new THREE.IcosahedronGeometry(1, 2),
+    ];
+    const geometry = geometries[variant % geometries.length];
+    const positions = geometry.attributes.position;
+    const vertexSeed = 1789 + variant * 7919;
+    let vertexState = vertexSeed;
+    for (let vertex = 0; vertex < positions.count; vertex++) {
+      vertexState = (vertexState * 1664525 + 1013904223) >>> 0;
+      const roughness = 0.78 + (vertexState / 4294967296) * 0.42;
+      positions.setXYZ(vertex, positions.getX(vertex) * roughness, positions.getY(vertex) * roughness, positions.getZ(vertex) * roughness);
+    }
+    geometry.computeVertexNormals();
+    const material = new THREE.MeshStandardMaterial({ roughness: 0.94, metalness: 0.035, vertexColors: true });
+    const mesh = new THREE.InstancedMesh(geometry, material, asteroidCountPerVariant);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.frustumCulled = false;
+    belt.add(mesh);
+    asteroidMeshes.push(mesh);
+    for (let index = 0; index < asteroidCountPerVariant; index++) {
+      const au = 2.05 + asteroidRandom() * 1.25;
+      const radiusKm = 0.5 + Math.pow(asteroidRandom(), 2.1) * 469;
+      const visualRadius = 0.009 + Math.pow(radiusKm / 469, 0.58) * 0.066;
+      const color = new THREE.Color(asteroidPalette[Math.floor(asteroidRandom() * asteroidPalette.length)]);
+      color.multiplyScalar(0.82 + asteroidRandom() * 0.34);
+      mesh.setColorAt(index, color);
+      asteroidRecords.push({
+        mesh,
+        index,
+        au,
+        radiusKm,
+        visualRadius,
+        phase: asteroidRandom() * TAU,
+        inclination: (asteroidRandom() - 0.5) * 0.13,
+        period: 365.25 * Math.pow(au, 1.5),
+        spin: asteroidRandom() * TAU,
+        spinRate: (asteroidRandom() - 0.5) * 0.9,
+        shape: new THREE.Vector3(0.78 + asteroidRandom() * 0.42, 0.72 + asteroidRandom() * 0.52, 0.78 + asteroidRandom() * 0.42),
+      });
+    }
   }
-  const belt = pts(a, c, 1.2, 0.7);
   sc.add(belt);
+  const asteroidDummy = new THREE.Object3D();
   let real = false;
+  let sim = T0();
+  function updateAsteroids(day) {
+    asteroidRecords.forEach((asteroid) => {
+      const angle = asteroid.phase + (day / asteroid.period) * TAU;
+      const radius = asteroid.au / 2.7;
+      asteroidDummy.position.set(
+        Math.cos(angle) * radius,
+        Math.sin(angle) * radius * Math.sin(asteroid.inclination),
+        Math.sin(angle) * radius,
+      );
+      asteroidDummy.rotation.set(asteroid.spin + day * asteroid.spinRate * 0.0008, asteroid.phase, asteroid.inclination);
+      const size = real ? (asteroid.radiusKm / 1e6) / Dd(2.7) : asteroid.visualRadius / Dd(2.7);
+      asteroidDummy.scale.set(size * asteroid.shape.x, size * asteroid.shape.y, size * asteroid.shape.z);
+      asteroidDummy.updateMatrix();
+      asteroid.mesh.setMatrixAt(asteroid.index, asteroidDummy.matrix);
+    });
+    asteroidMeshes.forEach((mesh) => {
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    });
+  }
+
   const Rd = (p) => (
     p.sun
       ? real ? p.km / 1e6 : 4
@@ -1108,6 +1286,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (b.moonSystem) b.moonSystem.scale.setScalar(r);
     });
     belt.scale.setScalar(Dd(2.7));
+    updateAsteroids(sim);
     ct.minDistance = 0.0005;
   }
   let foc = null,
@@ -1278,7 +1457,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
   layout();
   cam.position.set(0, 90, 230);
-  let sim = T0();
   const clk = new THREE.Clock(),
     keys = {},
     V = THREE.Vector3;
@@ -1641,6 +1819,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       spd = S.pause.current ? 0 : S.speed.current;
     sim += dt * spd;
     S.day(sim);
+    updateAsteroids(sim);
     const fl = S.fl.current,
       solarOrbitVisibility = fl.orb
         ? 1 - THREE.MathUtils.smoothstep(cam.position.length(), 150, 240)
@@ -1988,12 +2167,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       LB.forEach((l) => (l.visible = !!fl.lab));
       missionMarkerEffects.forEach((effect) => {
         const pulse = 0.96 + Math.sin(clk.elapsedTime * 1.8 + effect.phase) * 0.055;
-        effect.star.scale.setScalar(pulse);
-        effect.glow.scale.set(20 * pulse, 20 * pulse, 1);
-        effect.corona.scale.set(40 * (1.08 - pulse), 40 * (1.08 - pulse), 1);
-        effect.ring.material.opacity = 0.68 + (pulse - 0.96) * 1.3;
-        effect.orbitRing.rotation.y += dt * 0.08;
+        const radius = effect.markerRadius;
+        effect.star.scale.setScalar(radius * pulse);
+        effect.glow.scale.setScalar(radius * 2.7 * pulse);
+        effect.corona.scale.setScalar(radius * 4.8 * (1.08 - pulse));
+        effect.starGlow.scale.setScalar(radius * 3.2 * pulse);
+        effect.ring.material.opacity = 0.28 + (pulse - 0.96) * 0.9;
+        if (effect.companion) {
+          const orbit = clk.elapsedTime * 0.46 + effect.phase;
+          effect.companion.position.set(Math.cos(orbit) * 0.33, 0, Math.sin(orbit) * 0.33);
+          effect.star.position.set(-Math.cos(orbit) * 0.33, 0, -Math.sin(orbit) * 0.33);
+        }
       });
+
       const activeMissionMarker = activeMissionKey && missionMarkers.get(activeMissionKey);
       if (activeMissionMarker) activeMissionMarker.label.visible = true;
       B[0].glow.scale.setScalar(Math.max(B[0].r * (real ? 40 : 6), cam.position.length() * 0.012));
