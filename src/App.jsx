@@ -19,10 +19,10 @@ export default function App() {
     api = useRef(),
     dayRef = useRef(),
     distRef = useRef(),
-    spR = useRef(10),
+    spR = useRef(1),
     paR = useRef(false),
     [real, setReal] = useState(false),
-    [sp, setSp] = useState(1),
+    [sp, setSp] = useState(0),
     [pause, setPause] = useState(false),
     [f, setF] = useState(null),
     [near, setNear] = useState(null),
@@ -48,7 +48,7 @@ export default function App() {
     [voiceAccent, setVoiceAccent] = useState(() => voiceLanguage(detectLanguage(), 'es-US')),
     [notice, setNotice] = useState(null),
     [countdown, setCountdown] = useState(null),
-    [fl, setFl] = useState({ orb: 1, lab: 1, ax: 0, vel: 0, gal: 0 }),
+    [fl, setFl] = useState({ orb: 1, lab: 0, ax: 0, vel: 0, gal: 0 }),
     [open, setOpen] = useState(() => deviceGuess() !== 'mobile'),
     [menuSection, setMenuSection] = useState('interface'),
     [quickOpen, setQuickOpen] = useState(false),
@@ -414,7 +414,7 @@ export default function App() {
   const A = () => api.current,
     nm = {
       orb: 'Órbitas',
-      lab: 'Etiquetas',
+      lab: 'Mostrar nombres',
       ax: 'Ejes',
       vel: 'Velocidad',
       gal: 'Movimiento galáctico',
@@ -701,7 +701,7 @@ export default function App() {
                     onClick: () => {
                       A().reset();
                       setPause(false);
-                      setSp(1);
+                      setSp(0);
                     },
                   },
                   'Restablecer',
