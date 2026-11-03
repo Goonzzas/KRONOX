@@ -195,6 +195,7 @@ const en = {
   Bajar: 'Descend',
   'Reducir velocidad': 'Reduce speed',
   'Aumentar velocidad': 'Increase speed',
+  'Mostrar nombres': 'Show names',
   'Pulsar para habilitar mi voz y continuar.': 'Enable my voice and continue.',
   'El navegador bloqueó el audio. Pulsa «Activar voz» otra vez.':
     'Your browser blocked audio. Press “Enable voice” again.',
