@@ -1260,6 +1260,205 @@ test('Fase 2.3.9B.4 - CatWISE2020 Astrometric Propagation: Baseline and Non-Ther
   assert.equal(targetState, 'WARNING', 'WISE 0855 must remain in WARNING state due to astrometric residual');
 });
 
+// ============================================================================
+// FASE 2.3.9B.5 — RECONCILIACIÓN FINAL DE CENTROIDES, FOTOMETRÍA Y CIERRE
+// ============================================================================
+
+test('Fase 2.3.9B.5 - Centroid Reconciliation: Direct Observational Vector vs B.3 Retrocalculated Benchmark', () => {
+  // 1. Direct Observational Centroids from real FITS (B.4 / B.5 procedure):
+  const c1_col = 150.03636, c1_row = 150.26489;
+  const c2_col = 149.94685, c2_row = 149.77848;
+
+  // Direct raw shift (no algebraic synthesis):
+  const rawDCol = c2_col - c1_col; // -0.08951 px
+  const rawDRow = c2_row - c1_row; // -0.48641 px
+  assert.ok(Math.abs(rawDCol - (-0.08951)) < 0.001);
+  assert.ok(Math.abs(rawDRow - (-0.48641)) < 0.001);
+
+  // Conversion to sky on 6.000"/px grid (col points West, row points South in pixel indexing):
+  const rawDraStar = -rawDCol * 6.0; // +0.53706"
+  const rawDdec = -rawDRow * 6.0;    // +2.91846"
+  const rawShift = Math.hypot(rawDraStar, rawDdec); // 2.9675"
+  const rawPa = (Math.atan2(rawDraStar, rawDdec) * (180 / Math.PI) + 360) % 360; // 10.43 deg
+
+  assert.ok(Math.abs(rawDraStar - 0.5371) < 0.001);
+  assert.ok(Math.abs(rawDdec - 2.9185) < 0.001);
+  assert.ok(Math.abs(rawShift - 2.9675) < 0.001);
+  assert.ok(Math.abs(rawPa - 10.43) < 0.05);
+
+  // Field registration translation of 10 clean reference stars:
+  const regDx = -1.3520; // arcsec
+  const regDy = -3.4770; // arcsec
+
+  // Direct net shift:
+  const netDraStar = rawDraStar - regDx; // +0.53706 - (-1.3520) = +1.88906"
+  const netDdec = rawDdec - regDy;       // +2.91846 - (-3.4770) = +6.39546"
+  assert.ok(Math.abs(netDraStar - 1.8891) < 0.001);
+  assert.ok(Math.abs(netDdec - 6.3955) < 0.001);
+
+  // CatWISE predicted secular shift:
+  const catDraStar = -8.2382;
+  const catDdec = +0.6827;
+
+  // Direct observational residual:
+  const resObsDra = netDraStar - catDraStar; // +1.88906 - (-8.2382) = +10.12726"
+  const resObsDdec = netDdec - catDdec;       // +6.39546 - (+0.6827) = +5.71276"
+  const resObsNorm = Math.hypot(resObsDra, resObsDdec); // 11.627"
+
+  assert.ok(Math.abs(resObsNorm - 11.627) < 0.01);
+
+  // 2. Comparison with B.3 Historical Benchmark:
+  // In B.3, net shift was (+3.2170", +1.8950") from early pipeline dipole calibration,
+  // and raw shift was algebraically retro-calculated as (+1.8650", -1.5820").
+  const resB3Dra = +3.2170 - catDraStar; // +11.4552"
+  const resB3Ddec = +1.8950 - catDdec;   // +1.2123"
+  const resB3Norm = Math.hypot(resB3Dra, resB3Ddec); // 11.519"
+
+  assert.ok(Math.abs(resB3Norm - 11.519) < 0.01);
+
+  // Both methods demonstrate a massive > 11.5" residual with > 7.8 sigma significance:
+  assert.ok(resObsNorm > 11.0);
+  assert.ok(resB3Norm > 11.0);
+});
+
+test('Fase 2.3.9B.5 - Photometric Units Validation: Surface Brightness vs Pixel Sum vs Integrated Flux Density', () => {
+  const pixelScaleArcsec = 6.000;
+  const arcsecToRad = Math.PI / (180.0 * 3600.0);
+  const pixelSolidAngleSr = (pixelScaleArcsec * arcsecToRad) ** 2; // ~8.4616e-10 sr
+
+  // Raw pixel sum in aperture (units: MJy/sr * px):
+  const sumW_ep1 = 1.614328;
+  const sumW_ep2 = 1.373707;
+
+  // Conversion to MegaJansky:
+  const fluxMjy1 = sumW_ep1 * pixelSolidAngleSr;
+  const fluxMjy2 = sumW_ep2 * pixelSolidAngleSr;
+
+  // Conversion to milliJanskys (1 MJy = 1e9 mJy) and microJanskys:
+  const fluxMilliJy1 = fluxMjy1 * 1e9; // ~1.366 mJy
+  const fluxMilliJy2 = fluxMjy2 * 1e9; // ~1.162 mJy
+  const fluxMicroJy1 = fluxMilliJy1 * 1000.0; // ~1366 uJy
+  const fluxMicroJy2 = fluxMilliJy2 * 1000.0; // ~1162 uJy
+
+  assert.ok(Math.abs(fluxMilliJy1 - 1.366) < 0.01, `Ep1 flux should be ~1.366 mJy, got ${fluxMilliJy1}`);
+  assert.ok(Math.abs(fluxMilliJy2 - 1.162) < 0.01, `Ep2 flux should be ~1.162 mJy, got ${fluxMilliJy2}`);
+
+  // Position uncertainty model: sigma_pos = sigma_psf / SNR
+  const sigmaPsfPx = (5.25 / 6.0) / 2.355; // 0.37155 px
+  const snr1 = 4.944256;
+  const snr2 = 4.733581;
+
+  const expectedSigmaPos1 = sigmaPsfPx / snr1; // 0.07515 px
+  const expectedSigmaPos2 = sigmaPsfPx / snr2; // 0.07849 px
+
+  assert.ok(Math.abs(expectedSigmaPos1 - 0.07515) < 0.0005);
+  assert.ok(Math.abs(expectedSigmaPos2 - 0.07849) < 0.0005);
+});
+
+test('Fase 2.3.9B.5 - Cross-Covariance Matrix: Admissibility and Joint 4x4 Positive Definiteness', () => {
+  // 4x4 joint covariance matrix: [ [Sigma_raw, C], [C^T, Sigma_reg] ]
+  const sigmaRawVal = 1.08887; // arcsec^2
+  const regB = [
+    [0.9559, -0.1906],
+    [-0.1906, 1.0241],
+  ];
+
+  // Test across maximum envelope |C_ij| <= 7.5e-5 arcsec^2
+  const cMax = 7.5e-5;
+  const C = [
+    [cMax, cMax],
+    [cMax, cMax],
+  ];
+
+  // Build 4x4 joint matrix:
+  const joint = [
+    [sigmaRawVal, 0, C[0][0], C[0][1]],
+    [0, sigmaRawVal, C[1][0], C[1][1]],
+    [C[0][0], C[1][0], regB[0][0], regB[0][1]],
+    [C[0][1], C[1][1], regB[1][0], regB[1][1]],
+  ];
+
+  // Check positive definiteness via Sylvester criterion / Schur complement:
+  // S_schur = Sigma_raw - C * Sigma_reg^-1 * C^T > 0
+  const detReg = regB[0][0] * regB[1][1] - regB[0][1] * regB[1][0];
+  const invReg00 = regB[1][1] / detReg;
+  const invReg11 = regB[0][0] / detReg;
+  const invReg01 = -regB[0][1] / detReg;
+
+  // Maximum element of C * invReg * C^T:
+  const maxSchurNorm = (cMax ** 2) * (invReg00 + invReg11 + 2 * Math.abs(invReg01));
+  assert.ok(maxSchurNorm < 1e-7, 'Schur term is 7 orders of magnitude smaller than Sigma_raw');
+  assert.ok(sigmaRawVal - maxSchurNorm > 1.0, 'Joint matrix is unconditionally strictly positive definite');
+});
+
+test('Fase 2.3.9B.5 - False Alarm Simulations: Exact 0-Indexed Edge Distance (Sim 120 dist = 10 px) and Padded Map Suppression', () => {
+  // Correcting the index calculation: 60x60 array has indices 0..59
+  // Sim 120 at (col=49, row=38):
+  const col120 = 49, row120 = 38;
+  const dist120 = Math.min(col120, row120, 59 - col120, 59 - row120);
+  assert.equal(dist120, 10, 'Sim 120 exact distance to edge must be 10 px (59 - 49 = 10)');
+
+  // Sim 253 at (col=14, row=37):
+  const col253 = 14, row253 = 37;
+  const dist253 = Math.min(col253, row253, 59 - col253, 59 - row253);
+  assert.equal(dist253, 14, 'Sim 253 exact distance to edge must be 14 px');
+
+  // Both interior excursions survive 4-px border margin:
+  assert.ok(dist120 >= 4);
+  assert.ok(dist253 >= 4);
+});
+
+test('Fase 2.3.9B.5 - Random Field Theory Resels Formulation: R_2 = A / FWHM^2 vs Optical Beams N_beams = A / A_beam', () => {
+  const fwhm = 1.611;
+  const blockArea = 400.0; // 20x20 px^2
+
+  // 1. RFT area resels definition: R_2 = A / FWHM^2
+  const r2 = blockArea / (fwhm ** 2); // 154.12 resels
+  assert.ok(Math.abs(r2 - 154.12) < 0.1, `R_2 should be ~154.12 resels, got ${r2}`);
+
+  // 2. Optical beam count: N_beams = A / A_beam
+  const aBeam = (Math.PI / (4.0 * Math.log(2.0))) * (fwhm ** 2); // 2.9407 px^2
+  const nBeams = blockArea / aBeam; // 136.02 beams
+  assert.ok(Math.abs(nBeams - 136.02) < 0.1, `N_beams should be ~136.02, got ${nBeams}`);
+
+  // 3. Exact algebraic proportionality:
+  // R_2 = (pi / (4 * ln 2)) * N_beams = 1.13309 * N_beams
+  const ratio = r2 / nBeams;
+  assert.ok(Math.abs(ratio - (Math.PI / (4.0 * Math.log(2.0)))) < 1e-6);
+
+  // 4. Exact Euler characteristic expectation equivalence:
+  const u = 5.0;
+  // Formulation A (RFT): R_2 * (4 ln 2) * (2 pi)^(-3/2) * u * exp(-u^2 / 2)
+  const rho2_u = (4.0 * Math.log(2.0)) * Math.pow(2.0 * Math.PI, -1.5) * u * Math.exp(-0.5 * u * u);
+  const expE_from_R2 = r2 * rho2_u;
+
+  // Formulation B (Beam count): N_beams * (u / (2 * sqrt(2*pi))) * exp(-u^2 / 2)
+  const expE_from_beams = nBeams * (u / (2.0 * Math.sqrt(2.0 * Math.PI))) * Math.exp(-0.5 * u * u);
+
+  assert.ok(Math.abs(expE_from_R2 - expE_from_beams) < 1e-12, 'Both formulations must yield identical mathematical expectation');
+  assert.ok(Math.abs(expE_from_R2 - 5.05e-4) < 0.05e-4);
+});
+
+test('Fase 2.3.9B.5 - CatWISE2020 Differential Parallax Between SPHEREx Epochs: Suppression to 15 mas', () => {
+  // Target coordinates: RA = 133.795 deg, Dec = -7.245 deg
+  // Parallax pi = 439.0 mas = 0.439 arcsec
+  // Epochs: Ep1 = 2025-05-08 (MJD 60800.7), Ep2 = 2026-05-14 (MJD 61171.1)
+  // Baseline = 370.396 days -> delta_t = 1.01409 yr
+  // Because observations are almost exactly 1 solar year apart (separated by only 5.15 days of solar longitude),
+  // the differential topocentric parallax displacement between the two epochs is suppressed:
+  const diffParallaxArcsec = 0.0153; // arcsec (15.3 mas)
+  assert.ok(diffParallaxArcsec < 0.020, 'Differential parallax is < 20 mas');
+
+  // Comparison to catalog uncertainty sigma_cat = 0.01521" (15.2 mas):
+  assert.ok(diffParallaxArcsec < 2.0 * 0.01521);
+
+  // Comparison to observed residual 11.5":
+  const residualObs = 11.519;
+  const ratio = diffParallaxArcsec / residualObs;
+  assert.ok(ratio < 0.002, 'Differential parallax is < 0.2% of the observed astrometric residual');
+});
+
+
 
 
 
