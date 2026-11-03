@@ -728,13 +728,82 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     texture.anisotropy = Math.min(8, R.capabilities.getMaxAnisotropy());
     return texture;
   };
+  const makeDwarfTexture = (planet) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+    const [red, green, blue] = planet.c;
+    context.fillStyle = `rgb(${red},${green},${blue})`;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const shading = context.createLinearGradient(0, 0, 0, canvas.height);
+    shading.addColorStop(0, 'rgba(255,255,255,.16)');
+    shading.addColorStop(0.5, 'rgba(255,255,255,0)');
+    shading.addColorStop(1, 'rgba(0,0,0,.3)');
+    context.fillStyle = shading;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    let seed = planet.seed;
+    const random = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+    const markCount = planet.n === 'Ceres' ? 115 : 75;
+    for (let index = 0; index < markCount; index++) {
+      const x = random() * canvas.width;
+      const y = random() * canvas.height;
+      const radius = 2 + random() * (planet.n === 'Ceres' ? 11 : 8);
+      const opacity = 0.08 + random() * 0.16;
+      context.beginPath();
+      context.ellipse(x, y, radius * 1.5, radius, random() * Math.PI, 0, TAU);
+      context.fillStyle = random() > 0.5
+        ? `rgba(255,245,225,${opacity})`
+        : `rgba(35,28,25,${opacity + 0.04})`;
+      context.fill();
+    }
+    if (planet.n === 'Plutón') {
+      // Pale, irregular Tombaugh Regio hint; the map is an illustration, not
+      // a spacecraft-derived albedo mosaic.
+      context.beginPath();
+      context.moveTo(310, 95);
+      context.bezierCurveTo(340, 54, 382, 64, 394, 88);
+      context.bezierCurveTo(427, 66, 458, 83, 448, 111);
+      context.bezierCurveTo(432, 137, 385, 141, 360, 126);
+      context.bezierCurveTo(333, 143, 302, 126, 310, 95);
+      context.fillStyle = 'rgba(255,229,202,.44)';
+      context.fill();
+    } else if (planet.n === 'Ceres') {
+      [[244, 116, 4], [246, 115, 2], [104, 157, 2.5]].forEach(([x, y, radius]) => {
+        context.beginPath();
+        context.arc(x, y, radius * 2.2, 0, TAU);
+        context.fillStyle = 'rgba(255,250,230,.55)';
+        context.fill();
+        context.beginPath();
+        context.arc(x, y, radius, 0, TAU);
+        context.fillStyle = 'rgba(255,255,245,.86)';
+        context.fill();
+      });
+    } else if (planet.n === 'Makemake') {
+      context.fillStyle = 'rgba(119,48,35,.12)';
+      for (let band = 0; band < 7; band++) {
+        const y = 25 + band * 34 + random() * 12;
+        context.fillRect(0, y, canvas.width, 4 + random() * 12);
+      }
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.encoding = THREE.sRGBEncoding;
+    texture.anisotropy = Math.min(8, R.capabilities.getMaxAnisotropy());
+    return texture;
+  };
   P.forEach((p) => {
     const pivot = new THREE.Group(),
       tilt = new THREE.Group(),
       mat = p.sun
         ? new THREE.MeshBasicMaterial({ map: sunTexture(p) })
         : new THREE.MeshStandardMaterial({
-            map: loadTexture(PLANET_TEXTURE_FILES[p.n], true, p.n),
+            map: p.dwarf
+              ? makeDwarfTexture(p)
+              : loadTexture(PLANET_TEXTURE_FILES[p.n], true, p.n),
             roughness: p.n === 'Venus' ? 0.88 : 0.96,
             metalness: 0,
             ...(p.n === 'Tierra'
@@ -745,6 +814,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               : {}),
           }),
       spin = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 48), mat);
+    if (p.shape) spin.scale.y = p.shape;
     tilt.rotation.z = ((p.tilt || 0) * Math.PI) / 180;
     tilt.add(spin);
     if (p.n === 'Tierra' || p.n === 'Venus') {
@@ -958,7 +1028,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       G.setAttribute('position', new THREE.Float32BufferAttribute(pp, 3));
       b.orbit = new THREE.LineLoop(
         G,
-        new THREE.LineBasicMaterial({ color: 0x5a7090, transparent: true, opacity: 0.5 }),
+        new THREE.LineBasicMaterial({
+          color: p.dwarf ? 0xa58ad7 : 0x5a7090,
+          transparent: true,
+          opacity: 0.5,
+        }),
       );
       sc.add(b.orbit);
     }
@@ -1011,7 +1085,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const belt = pts(a, c, 1.2, 0.7);
   sc.add(belt);
   let real = false;
-  const Rd = (p) => (p.sun ? (real ? p.km / 1e6 : 4) : real ? p.km / 1e6 : 0.35 * (p.km / 6371)),
+  const Rd = (p) => (
+    p.sun
+      ? real ? p.km / 1e6 : 4
+      : real
+        ? p.km / 1e6
+        : p.dwarf
+          ? Math.max(0.075, 0.35 * (p.km / 6371))
+          : 0.35 * (p.km / 6371)
+  ),
     Dd = (au) => (real ? au * 149.6 : 14 + 16 * Math.pow(au, 0.62)),
     Dm = () => (real ? 0.3844 : 1.3),
     shipOffset = () => Math.max(shipSz * 7, Rd(P[3]) * 0.015);
