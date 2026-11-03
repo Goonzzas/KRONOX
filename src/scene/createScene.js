@@ -844,83 +844,178 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     return texture;
   };
   const makeDwarfTexture = (planet) => {
+    const width = 1024;
+    const height = 512;
+    const sampleWidth = 512;
+    const sampleHeight = 256;
     const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 256;
+    const reliefCanvas = document.createElement('canvas');
+    const baseCanvas = document.createElement('canvas');
+    const baseReliefCanvas = document.createElement('canvas');
+    canvas.width = reliefCanvas.width = width;
+    canvas.height = reliefCanvas.height = height;
     const context = canvas.getContext('2d');
-    const [red, green, blue] = planet.c;
-    context.fillStyle = `rgb(${red},${green},${blue})`;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    const shading = context.createLinearGradient(0, 0, 0, canvas.height);
-    shading.addColorStop(0, 'rgba(255,255,255,.16)');
-    shading.addColorStop(0.5, 'rgba(255,255,255,0)');
-    shading.addColorStop(1, 'rgba(0,0,0,.3)');
-    context.fillStyle = shading;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-
+    const reliefContext = reliefCanvas.getContext('2d');
+    baseCanvas.width = baseReliefCanvas.width = sampleWidth;
+    baseCanvas.height = baseReliefCanvas.height = sampleHeight;
+    const baseContext = baseCanvas.getContext('2d');
+    const baseReliefContext = baseReliefCanvas.getContext('2d');
+    const image = baseContext.createImageData(sampleWidth, sampleHeight);
+    const relief = baseReliefContext.createImageData(sampleWidth, sampleHeight);
+    const palettes = {
+      Ceres: [[43, 42, 40], [91, 87, 80], [142, 136, 126], [184, 178, 163]],
+      'Plutón': [[76, 48, 42], [132, 83, 66], [184, 132, 105], [225, 194, 158]],
+      Haumea: [[72, 76, 74], [132, 139, 136], [195, 201, 195], [233, 233, 222]],
+      Makemake: [[76, 40, 34], [130, 66, 51], [181, 108, 82], [221, 169, 129]],
+      Eris: [[102, 105, 103], [151, 154, 151], [198, 200, 195], [232, 231, 222]],
+    };
+    const palette = palettes[planet.n] || [
+      [planet.c[0] * 0.45, planet.c[1] * 0.45, planet.c[2] * 0.45],
+      planet.c,
+      [planet.c[0] * 1.18, planet.c[1] * 1.18, planet.c[2] * 1.18],
+      [230, 220, 205],
+    ];
     let seed = planet.seed;
     const random = () => {
       seed = (seed * 1664525 + 1013904223) >>> 0;
       return seed / 4294967296;
     };
-    const markCount = planet.n === 'Ceres' ? 115 : 75;
-    for (let index = 0; index < markCount; index++) {
-      const x = random() * canvas.width;
-      const y = random() * canvas.height;
-      const radius = 2 + random() * (planet.n === 'Ceres' ? 11 : 8);
-      const opacity = 0.08 + random() * 0.16;
+    const seedOffset = planet.seed * 0.013;
+    const interpolate = (a, b, amount) => a + (b - a) * amount;
+    for (let y = 0; y < sampleHeight; y++) {
+      const v = y / sampleHeight;
+      for (let x = 0; x < sampleWidth; x++) {
+        const u = x / sampleWidth;
+        const broad = fbm(u + seedOffset, v + seedOffset * 0.31, 4.5);
+        const detail = fbm(u + seedOffset * 0.7, v + seedOffset * 0.9, 27);
+        const latitude = planet.n === 'Eris' ? Math.abs(v - 0.5) * 0.2 : 0;
+        let tone = THREE.MathUtils.clamp(0.5 + (broad - 0.5) * 2.1 + (detail - 0.5) * 1.1 + latitude, 0, 0.999);
+        const band = Math.min(2, Math.floor(tone * 3));
+        const blend = tone * 3 - band;
+        const color = palette[3].map((channel, index) =>
+          interpolate(palette[band][index], palette[band + 1][index], blend),
+        );
+        const pixel = (y * sampleWidth + x) * 4;
+        image.data[pixel] = color[0];
+        image.data[pixel + 1] = color[1];
+        image.data[pixel + 2] = color[2];
+        image.data[pixel + 3] = 255;
+        const heightValue = THREE.MathUtils.clamp(110 + (broad - 0.5) * 110 + (detail - 0.5) * 54, 0, 255);
+        relief.data[pixel] = relief.data[pixel + 1] = relief.data[pixel + 2] = heightValue;
+        relief.data[pixel + 3] = 255;
+      }
+    }
+    baseContext.putImageData(image, 0, 0);
+    baseReliefContext.putImageData(relief, 0, 0);
+    context.drawImage(baseCanvas, 0, 0, width, height);
+    reliefContext.drawImage(baseReliefCanvas, 0, 0, width, height);
+
+    const craterCount = { Ceres: 205, 'Plutón': 170, Haumea: 110, Makemake: 150, Eris: 185 }[planet.n] || 140;
+    for (let index = 0; index < craterCount; index++) {
+      const x = random() * width;
+      const y = random() * height;
+      const radius = 2 + Math.pow(random(), 2.1) * 37;
+      const flatten = 0.65 + random() * 0.65;
+      const rotation = random() * Math.PI;
+      const shadow = context.createRadialGradient(x - radius * 0.18, y - radius * 0.2, radius * 0.12, x, y, radius);
+      shadow.addColorStop(0, 'rgba(18,18,20,.48)');
+      shadow.addColorStop(0.48, 'rgba(28,25,24,.22)');
+      shadow.addColorStop(0.74, 'rgba(245,235,218,.35)');
+      shadow.addColorStop(1, 'rgba(20,18,18,0)');
       context.beginPath();
-      context.ellipse(x, y, radius * 1.5, radius, random() * Math.PI, 0, TAU);
-      context.fillStyle = random() > 0.5
-        ? `rgba(255,245,225,${opacity})`
-        : `rgba(35,28,25,${opacity + 0.04})`;
+      context.ellipse(x, y, radius, radius * flatten, rotation, 0, TAU);
+      context.fillStyle = shadow;
       context.fill();
+
+      const reliefGradient = reliefContext.createRadialGradient(x, y, radius * 0.28, x, y, radius);
+      reliefGradient.addColorStop(0, 'rgba(32,32,32,.7)');
+      reliefGradient.addColorStop(0.68, 'rgba(72,72,72,.3)');
+      reliefGradient.addColorStop(0.84, 'rgba(238,238,238,.62)');
+      reliefGradient.addColorStop(1, 'rgba(128,128,128,0)');
+      reliefContext.beginPath();
+      reliefContext.ellipse(x, y, radius, radius * flatten, rotation, 0, TAU);
+      reliefContext.fillStyle = reliefGradient;
+      reliefContext.fill();
     }
     if (planet.n === 'Plutón') {
-      // Pale, irregular Tombaugh Regio hint; the map is an illustration, not
-      // a spacecraft-derived albedo mosaic.
+      // Broad, irregular bright ice plains inspired by Tombaugh Regio.
       context.beginPath();
-      context.moveTo(310, 95);
-      context.bezierCurveTo(340, 54, 382, 64, 394, 88);
-      context.bezierCurveTo(427, 66, 458, 83, 448, 111);
-      context.bezierCurveTo(432, 137, 385, 141, 360, 126);
-      context.bezierCurveTo(333, 143, 302, 126, 310, 95);
-      context.fillStyle = 'rgba(255,229,202,.44)';
+      context.moveTo(570, 192);
+      context.bezierCurveTo(618, 111, 700, 121, 735, 170);
+      context.bezierCurveTo(793, 115, 872, 151, 855, 205);
+      context.bezierCurveTo(838, 259, 745, 285, 694, 258);
+      context.bezierCurveTo(633, 293, 556, 256, 570, 192);
+      context.fillStyle = 'rgba(255,230,194,.54)';
       context.fill();
+      context.strokeStyle = 'rgba(246,214,180,.3)';
+      context.lineWidth = 10;
+      context.stroke();
+      const ice = context.createRadialGradient(713, 204, 14, 713, 204, 150);
+      ice.addColorStop(0, 'rgba(255,241,211,.28)');
+      ice.addColorStop(1, 'rgba(255,241,211,0)');
+      context.fillStyle = ice;
+      context.fillRect(548, 94, 332, 230);
     } else if (planet.n === 'Ceres') {
-      [[244, 116, 4], [246, 115, 2], [104, 157, 2.5]].forEach(([x, y, radius]) => {
-        context.beginPath();
-        context.arc(x, y, radius * 2.2, 0, TAU);
-        context.fillStyle = 'rgba(255,250,230,.55)';
-        context.fill();
-        context.beginPath();
-        context.arc(x, y, radius, 0, TAU);
-        context.fillStyle = 'rgba(255,255,245,.86)';
-        context.fill();
+      [[488, 232, 22], [493, 229, 11], [211, 326, 8], [793, 117, 6]].forEach(([x, y, radius]) => {
+        const salt = context.createRadialGradient(x, y, 1, x, y, radius * 2.8);
+        salt.addColorStop(0, 'rgba(255,255,244,.96)');
+        salt.addColorStop(0.3, 'rgba(251,249,232,.78)');
+        salt.addColorStop(1, 'rgba(245,241,224,0)');
+        context.fillStyle = salt;
+        context.fillRect(x - radius * 3, y - radius * 3, radius * 6, radius * 6);
       });
+    } else if (planet.n === 'Haumea') {
+      context.save();
+      context.translate(562, 246);
+      context.rotate(-0.22);
+      const dark = context.createRadialGradient(0, 0, 14, 0, 0, 146);
+      dark.addColorStop(0, 'rgba(108,52,43,.55)');
+      dark.addColorStop(1, 'rgba(108,52,43,0)');
+      context.fillStyle = dark;
+      context.fillRect(-160, -75, 320, 150);
+      context.restore();
+      context.strokeStyle = 'rgba(255,255,245,.25)';
+      context.lineWidth = 2;
+      for (let groove = 0; groove < 24; groove++) {
+        const y = random() * height;
+        const x = random() * width;
+        context.beginPath();
+        context.moveTo(x, y);
+        context.quadraticCurveTo(x + 18 + random() * 70, y - 8 + random() * 16, x + 48 + random() * 95, y + random() * 14);
+        context.stroke();
+      }
     } else if (planet.n === 'Makemake') {
-      context.fillStyle = 'rgba(119,48,35,.12)';
-      for (let band = 0; band < 7; band++) {
-        const y = 25 + band * 34 + random() * 12;
-        context.fillRect(0, y, canvas.width, 4 + random() * 12);
+      for (let patch = 0; patch < 34; patch++) {
+        const x = random() * width;
+        const y = random() * height;
+        const radius = 18 + random() * 74;
+        const frost = context.createRadialGradient(x, y, radius * 0.1, x, y, radius);
+        frost.addColorStop(0, random() > 0.5 ? 'rgba(242,213,171,.3)' : 'rgba(72,35,31,.24)');
+        frost.addColorStop(1, 'rgba(100,50,40,0)');
+        context.fillStyle = frost;
+        context.fillRect(x - radius, y - radius, radius * 2, radius * 2);
       }
     }
     const texture = new THREE.CanvasTexture(canvas);
+    const bumpTexture = new THREE.CanvasTexture(reliefCanvas);
     texture.encoding = THREE.sRGBEncoding;
-    texture.anisotropy = Math.min(8, R.capabilities.getMaxAnisotropy());
-    return texture;
+    const anisotropy = Math.min(8, R.capabilities.getMaxAnisotropy());
+    texture.anisotropy = bumpTexture.anisotropy = anisotropy;
+    return { map: texture, bumpMap: bumpTexture };
   };
   P.forEach((p) => {
+    const dwarfSurface = p.dwarf ? makeDwarfTexture(p) : null;
     const pivot = new THREE.Group(),
       tilt = new THREE.Group(),
       mat = p.sun
         ? new THREE.MeshBasicMaterial({ map: sunTexture(p) })
         : new THREE.MeshStandardMaterial({
-            map: p.dwarf
-              ? makeDwarfTexture(p)
+            map: dwarfSurface
+              ? dwarfSurface.map
               : loadTexture(PLANET_TEXTURE_FILES[p.n], true, p.n),
             roughness: p.n === 'Venus' ? 0.88 : 0.96,
             metalness: 0,
+            ...(dwarfSurface ? { bumpMap: dwarfSurface.bumpMap, bumpScale: 0.022 } : {}),
             ...(p.n === 'Tierra'
               ? {
                   normalMap: loadTexture('2k_earth_normal_map.jpg', false),
