@@ -157,9 +157,57 @@ export function setupScene(el, S) {
   R.setSize(innerWidth, innerHeight);
   el.appendChild(R.domElement);
   const textureLoader = new THREE.TextureLoader();
-  const loadTexture = (file, colorMap = true) => {
+  const loadTexture = (file, colorMap = true, planetName = '') => {
     const texture = textureLoader.load(
       `${import.meta.env.BASE_URL}textures/planets/${file}`,
+      (loaded) => {
+        if (planetName !== 'Urano' && planetName !== 'Neptuno') return;
+        const source = loaded.image;
+        const canvas = document.createElement('canvas');
+        canvas.width = source.width;
+        canvas.height = source.height;
+        const context = canvas.getContext('2d');
+        if (planetName === 'Neptuno') {
+          // The source already contains cloud bands and a storm; lift their
+          // contrast gently so the detail survives the planet's shading.
+          context.filter = 'contrast(1.4) saturate(0.92)';
+          context.drawImage(source, 0, 0);
+        } else {
+          context.drawImage(source, 0, 0);
+          // The source Uranus map is almost featureless. Add restrained,
+          // soft latitude bands and a few high cloud streaks for depth.
+          const banding = context.createLinearGradient(0, 0, 0, canvas.height);
+          banding.addColorStop(0, 'rgba(72, 158, 174, 0.12)');
+          banding.addColorStop(0.12, 'rgba(231, 255, 255, 0.08)');
+          banding.addColorStop(0.27, 'rgba(64, 154, 171, 0.13)');
+          banding.addColorStop(0.43, 'rgba(235, 255, 255, 0.07)');
+          banding.addColorStop(0.57, 'rgba(58, 143, 163, 0.14)');
+          banding.addColorStop(0.72, 'rgba(226, 255, 255, 0.08)');
+          banding.addColorStop(0.88, 'rgba(72, 158, 174, 0.12)');
+          banding.addColorStop(1, 'rgba(220, 250, 255, 0.08)');
+          context.fillStyle = banding;
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.filter = 'blur(5px)';
+          context.fillStyle = 'rgba(246, 255, 255, 0.22)';
+          [[0.22, 0.29, 0.04], [0.63, 0.39, 0.06], [0.81, 0.61, 0.045], [0.4, 0.72, 0.035]].forEach(
+            ([x, y, width]) => {
+              context.beginPath();
+              context.ellipse(
+                canvas.width * x,
+                canvas.height * y,
+                canvas.width * width,
+                canvas.height * 0.006,
+                0,
+                0,
+                Math.PI * 2,
+              );
+              context.fill();
+            },
+          );
+        }
+        loaded.image = canvas;
+        loaded.needsUpdate = true;
+      },
     );
     if (colorMap) texture.encoding = THREE.sRGBEncoding;
     texture.anisotropy = Math.min(8, R.capabilities.getMaxAnisotropy());
@@ -508,7 +556,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       mat = p.sun
         ? new THREE.MeshBasicMaterial({ map: sunTexture(p) })
         : new THREE.MeshStandardMaterial({
-            map: loadTexture(PLANET_TEXTURE_FILES[p.n]),
+            map: loadTexture(PLANET_TEXTURE_FILES[p.n], true, p.n),
             roughness: p.n === 'Venus' ? 0.88 : 0.96,
             metalness: 0,
             ...(p.n === 'Tierra'
@@ -538,6 +586,34 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           metalness: 0,
           depthWrite: false,
           side: THREE.FrontSide,
+        }),
+      );
+      spin.add(atmosphere);
+    }
+    if (p.n === 'Urano' || p.n === 'Neptuno') {
+      // Thin limb haze gives the ice giants depth without turning their
+      // atmospheres into a bright, opaque blue shell.
+      const atmosphereColor = p.n === 'Urano' ? 0x8fe8ed : 0x4e9dff;
+      const atmosphere = new THREE.Mesh(
+        new THREE.SphereGeometry(1.035, 64, 48),
+        new THREE.ShaderMaterial({
+          uniforms: { glowColor: { value: new THREE.Color(atmosphereColor) } },
+          vertexShader: `varying vec3 vNormal; varying vec3 vViewDirection;
+            void main() {
+              vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+              vNormal = normalize(normalMatrix * normal);
+              vViewDirection = normalize(-viewPosition.xyz);
+              gl_Position = projectionMatrix * viewPosition;
+            }`,
+          fragmentShader: `uniform vec3 glowColor; varying vec3 vNormal; varying vec3 vViewDirection;
+            void main() {
+              float rim = pow(1.0 - max(dot(normalize(vNormal), normalize(vViewDirection)), 0.0), 3.0);
+              gl_FragColor = vec4(glowColor, rim * 0.34);
+            }`,
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          side: THREE.BackSide,
+          depthWrite: false,
         }),
       );
       spin.add(atmosphere);
