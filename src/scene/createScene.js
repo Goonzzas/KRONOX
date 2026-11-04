@@ -226,6 +226,33 @@ function makeDeepGalaxyTexture({ seed = 1, color = '#8ecbff', arms = 4, edgeOn =
   return new THREE.CanvasTexture(canvas);
 }
 
+function makeGalaxyCoreGlow(color = '#8fcaff', size = 10) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const context = canvas.getContext('2d');
+  const glow = context.createRadialGradient(64, 64, 1, 64, 64, 63);
+  glow.addColorStop(0, 'rgba(255,250,237,1)');
+  glow.addColorStop(0.06, color);
+  glow.addColorStop(0.22, `${color}b8`);
+  glow.addColorStop(0.55, `${color}38`);
+  glow.addColorStop(1, `${color}00`);
+  context.fillStyle = glow;
+  context.fillRect(0, 0, 128, 128);
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(canvas),
+      transparent: true,
+      opacity: 0.76,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    }),
+  );
+  sprite.scale.set(size, size, 1);
+  sprite.renderOrder = 3;
+  return sprite;
+}
+
 export function setupScene(el, S) {
   let qualityMode = S.quality || 'auto';
   const isMobileDevice = () =>
@@ -715,10 +742,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       pointSize: 1.05,
     }),
   );
-  const galacticMapCore = new THREE.Mesh(
-    new THREE.SphereGeometry(4.1, 20, 16),
-    new THREE.MeshBasicMaterial({ color: 0xffd39b, transparent: true, opacity: 0.94 }),
-  );
+  const galacticMapCore = makeGalaxyCoreGlow('#ffd39b', 13);
   galacticMapDisk.add(galacticMapCore);
   const solarSystemMapMarker = new THREE.Group();
   solarSystemMapMarker.position.x = 54;
@@ -800,7 +824,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const color = entry.key === 'milky-way' ? 0x8fdfff : isGroup ? 0xffbc72 : 0xa8c9ff;
     const marker = new THREE.Mesh(
       nearbyMarkerGeometry,
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: isGroup ? 0.86 : 0.96 }),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
     );
     // Keep the Milky Way's pick target compact so it does not cover the
     // larger spiral-disk illustration drawn behind it.
@@ -821,6 +845,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           pointSize: 0.62,
         }),
       );
+      group.add(makeGalaxyCoreGlow(isGroup ? '#ffc27d' : '#d9edff', 9));
     }
     if (isGroup) {
       const ring = new THREE.Mesh(
