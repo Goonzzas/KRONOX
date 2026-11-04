@@ -391,6 +391,7 @@ export default function App() {
   useEffect(() => {
     api.current = setupScene(el.current, {
       quality,
+      reducedMotion: () => reducedMotion,
       onNavigation: (status) => {
         setNavigation((current) => {
           if (!status) {
