@@ -5,6 +5,8 @@ import KronoxWidget from './components/KronoxWidget.jsx';
 import ToastNotification from './components/ToastNotification.jsx';
 import PlanetInfoModal from './components/PlanetInfoModal.jsx';
 import QuickTravelMenu from './components/QuickTravelMenu.jsx';
+import { NearbyGalaxyControls, NearbyGalaxyInfoModal } from './components/NearbyGalaxies.jsx';
+import { NEARBY_GALAXIES } from './data/nearbyGalaxies.js';
 import MobileFlightControls from './components/MobileFlightControls.jsx';
 import SpherexMission from './components/SpherexMission.jsx';
 import SpherexMissionSelector from './components/SpherexMissionSelector.jsx';
@@ -80,6 +82,9 @@ export default function App() {
     [open, setOpen] = useState(() => deviceGuess() !== 'mobile'),
     [menuSection, setMenuSection] = useState('interface'),
     [quickOpen, setQuickOpen] = useState(false),
+    [nearbyMapActive, setNearbyMapActive] = useState(false),
+    [nearbyGalaxyKey, setNearbyGalaxyKey] = useState('milky-way'),
+    [nearbyGalaxyInfoKey, setNearbyGalaxyInfoKey] = useState(null),
     [src, setSrc] = useState(false),
     [fr, setFr] = useState(false),
     [spec, setSpec] = useState(false),
@@ -392,6 +397,10 @@ export default function App() {
     api.current = setupScene(el.current, {
       quality,
       reducedMotion: () => reducedMotion,
+      onNearbyGalaxySelect: (key) => {
+        setNearbyGalaxyKey(key);
+        setNearbyGalaxyInfoKey(key);
+      },
       onNavigation: (status) => {
         setNavigation((current) => {
           if (!status) {
@@ -638,8 +647,26 @@ export default function App() {
     pi = f && P.find((x) => x.n == f);
   return h(
     'div',
-    { className: `app ${deviceMode === 'mobile' ? 'mobileMode' : ''} ${fr ? 'flightMode' : ''}` },
+    {
+      className: `app ${deviceMode === 'mobile' ? 'mobileMode' : ''} ${fr ? 'flightMode' : ''} ${nearbyMapActive ? 'nearbyMapMode' : ''}`,
+    },
     h('div', { ref: el, style: { position: 'absolute', inset: 0 } }),
+    nearbyMapActive &&
+      h(NearbyGalaxyControls, {
+        language,
+        selectedKey: nearbyGalaxyKey,
+        onSelect: (key) => {
+          setNearbyGalaxyKey(key);
+          A().focusNearbyGalaxy(key);
+        },
+        onFocus: (key) => A().focusNearbyGalaxy(key),
+        onInfo: setNearbyGalaxyInfoKey,
+        onReturn: () => {
+          A().returnFromNearbyMap();
+          setNearbyMapActive(false);
+          setNearbyGalaxyInfoKey(null);
+        },
+      }),
     h(
       'div',
       { className: `pn ${open ? 'panelOpen' : 'panelClosed'}` },
@@ -1193,6 +1220,14 @@ export default function App() {
                 onToggle: setQuickOpen,
                 selectedPlanet: f,
                 planets: P,
+                onGalaxyNeighborhood: () => {
+                  A().nearbyMap();
+                  setNearbyMapActive(true);
+                  setNearbyGalaxyKey('milky-way');
+                  setQuickOpen(false);
+                  setFr(false);
+                  setSpec(false);
+                },
                 onFree: () => {
                   A().focus(null);
                   setQuickOpen(false);
@@ -1441,6 +1476,17 @@ export default function App() {
         if (selectedPlanet) A().focus(selectedPlanet);
       },
       language,
+    }),
+    h(NearbyGalaxyInfoModal, {
+      galaxy:
+        nearbyGalaxyInfoKey && NEARBY_GALAXIES.find((item) => item.key === nearbyGalaxyInfoKey),
+      language,
+      onClose: () => setNearbyGalaxyInfoKey(null),
+      onFocus: (key) => {
+        setNearbyGalaxyKey(key);
+        setNearbyGalaxyInfoKey(null);
+        A().focusNearbyGalaxy(key);
+      },
     }),
     missionSelectorOpen &&
       h(SpherexMissionSelector, {

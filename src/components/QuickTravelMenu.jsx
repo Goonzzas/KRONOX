@@ -17,6 +17,7 @@ export default function QuickTravelMenu({
   onFree,
   onQuickTravel,
   onPlanetTravel,
+  onGalaxyNeighborhood,
 }) {
   return (
     <div className="bd">
@@ -26,6 +27,11 @@ export default function QuickTravelMenu({
       {open && (
         <div className="qpanel">
           <div className="qtitle">{t('Destinos rápidos', language)}</div>
+          <div className="qrow">
+            <button className="galaxyNeighborhoodButton" onClick={onGalaxyNeighborhood}>
+              {language === 'en' ? 'Nearby galaxies ↗' : 'Vecindario galáctico ↗'}
+            </button>
+          </div>
           <div className="qrow">
             {DESTINATIONS.map(([label, key]) => (
               <button key={key} onClick={() => onQuickTravel(key, t(label, language))}>
