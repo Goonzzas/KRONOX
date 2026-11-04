@@ -405,7 +405,9 @@ export function setupScene(el, S) {
     deepGalaxyMaterials.push(material);
     const sprite = new THREE.Sprite(material);
     sprite.position.fromArray(entry.direction).normalize().multiplyScalar(entry.distance);
-    sprite.scale.set(entry.size, entry.size * 0.74, 1);
+    // Enlarge the apparent angular diameter so the galaxies read clearly
+    // against the starfield while remaining far from the Milky Way scene.
+    sprite.scale.set(entry.size * 2.2, entry.size * 1.63, 1);
     sprite.renderOrder = -2;
     deepGalaxyBackdrop.add(sprite);
   });
