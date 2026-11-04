@@ -487,36 +487,84 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   nearbyGalaxyGroup.add(galacticMapFrame);
   const galacticMapDisk = new THREE.Group();
   galacticMapFrame.add(galacticMapDisk);
+  // Build a stable, textured spiral from individual stars rather than smooth
+  // lines. The small random offsets create dust lanes and bright star-forming
+  // knots while preserving four clearly legible arms.
+  const makeGalaxyParticles = ({
+    seed = 1,
+    count = 2200,
+    arms = 4,
+    radius = 40,
+    color = '#80c9ff',
+    irregular = false,
+    pointSize = 1.25,
+  } = {}) => {
+    let state = seed >>> 0;
+    const random = () => {
+      state = (1664525 * state + 1013904223) >>> 0;
+      return state / 4294967296;
+    };
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+    const baseColor = new THREE.Color(color);
+    const warm = new THREE.Color('#ffd39b');
+    const hot = new THREE.Color('#fff4db');
+    for (let i = 0; i < count; i++) {
+      const core = random() < 0.2;
+      const arm = Math.floor(random() * arms);
+      const progress = core ? Math.pow(random(), 1.8) * 0.36 : 0.16 + random() * 0.84;
+      const r = (core ? 0.04 + progress * 0.48 : 0.12 + progress * 0.88) * radius;
+      const twist = irregular ? 1.5 : 5.15;
+      const theta =
+        arm * (TAU / arms) + progress * twist + (random() - 0.5) * (irregular ? 2.2 : 0.42);
+      const spread = irregular ? 0.2 : 0.055 + progress * 0.12;
+      const jitter = (random() + random() + random() - 1.5) * radius * spread;
+      const x = Math.cos(theta) * r + Math.cos(theta + Math.PI / 2) * jitter;
+      const z = Math.sin(theta) * r + Math.sin(theta + Math.PI / 2) * jitter;
+      const y = (random() + random() - 1) * radius * (irregular ? 0.15 : 0.025 + progress * 0.035);
+      positions[i * 3] = x;
+      positions[i * 3 + 1] = y;
+      positions[i * 3 + 2] = z;
+      const knot = random() > 0.93;
+      const tint = core ? warm : knot ? hot : baseColor;
+      const brightness = core ? 0.72 + random() * 0.48 : 0.48 + random() * 0.72;
+      colors[i * 3] = tint.r * brightness;
+      colors[i * 3 + 1] = tint.g * brightness;
+      colors[i * 3 + 2] = tint.b * brightness;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    const points = new THREE.Points(
+      geometry,
+      new THREE.PointsMaterial({
+        size: pointSize,
+        sizeAttenuation: true,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    points.frustumCulled = false;
+    return points;
+  };
+  galacticMapDisk.add(
+    makeGalaxyParticles({
+      seed: 2048,
+      count: 10500,
+      arms: 4,
+      radius: 84,
+      color: '#75bfff',
+      pointSize: 1.05,
+    }),
+  );
   const galacticMapCore = new THREE.Mesh(
-    new THREE.SphereGeometry(6, 18, 14),
-    new THREE.MeshBasicMaterial({ color: 0xffbd74, transparent: true, opacity: 0.85 }),
+    new THREE.SphereGeometry(4.1, 20, 16),
+    new THREE.MeshBasicMaterial({ color: 0xffd39b, transparent: true, opacity: 0.94 }),
   );
   galacticMapDisk.add(galacticMapCore);
-  for (let armIndex = 0; armIndex < 4; armIndex++) {
-    const points = [];
-    for (let step = 0; step <= 90; step++) {
-      const progress = step / 90;
-      const radius = 8 + progress * 78;
-      const angle = armIndex * (TAU / 4) + progress * 2.8;
-      points.push(
-        new THREE.Vector3(
-          Math.cos(angle) * radius,
-          Math.sin(angle) * radius * 0.055,
-          Math.sin(angle) * radius,
-        ),
-      );
-    }
-    galacticMapDisk.add(
-      new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(points),
-        new THREE.LineBasicMaterial({
-          color: armIndex % 2 ? 0x627eca : 0x55b8dc,
-          transparent: true,
-          opacity: 0.62,
-        }),
-      ),
-    );
-  }
   const solarSystemMapMarker = new THREE.Group();
   solarSystemMapMarker.position.x = 54;
   galacticMapDisk.add(solarSystemMapMarker);
@@ -580,58 +628,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const nearbyGalaxyMarkers = new Map();
   const nearbyMarkerGeometry = new THREE.SphereGeometry(1, 12, 10);
   const galaxyDistance = (entry) => Math.sqrt(Math.max(0, entry.distanceMly || 0)) * 76;
-  const galaxyIconTextures = new Map();
-  const makeGalaxyIconTexture = (color, irregular = false) => {
-    const cacheKey = `${color}-${irregular}`;
-    if (galaxyIconTextures.has(cacheKey)) return galaxyIconTextures.get(cacheKey);
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 256;
-    const context = canvas.getContext('2d');
-    const gradient = context.createRadialGradient(128, 128, 8, 128, 128, 118);
-    gradient.addColorStop(0, '#ffffff');
-    gradient.addColorStop(0.1, color);
-    gradient.addColorStop(0.34, `${color}bb`);
-    gradient.addColorStop(0.7, `${color}48`);
-    gradient.addColorStop(1, `${color}00`);
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, 256, 256);
-    context.globalCompositeOperation = 'screen';
-    context.strokeStyle = `${color}a0`;
-    context.lineWidth = irregular ? 7 : 5;
-    context.lineCap = 'round';
-    for (let arm = 0; arm < (irregular ? 8 : 4); arm++) {
-      context.beginPath();
-      for (let step = 0; step <= 100; step++) {
-        const progress = step / 100;
-        const angle = arm * (TAU / (irregular ? 8 : 4)) + progress * (irregular ? 4 : 16);
-        const radius =
-          12 + progress * 94 * (irregular ? 0.72 + 0.24 * Math.sin(step * 0.31 + arm) : 1);
-        const x = 128 + Math.cos(angle) * radius;
-        const y = 128 + Math.sin(angle) * radius * (irregular ? 0.72 : 0.42);
-        if (step === 0) context.moveTo(x, y);
-        else context.lineTo(x, y);
-      }
-      context.stroke();
-    }
-    context.globalCompositeOperation = 'source-over';
-    const texture = new THREE.CanvasTexture(canvas);
-    galaxyIconTextures.set(cacheKey, texture);
-    return texture;
-  };
-  const milkyWayMapIcon = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: makeGalaxyIconTexture('#70c8ff'),
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
-      opacity: 0.48,
-    }),
-  );
-  milkyWayMapIcon.scale.set(180, 122, 1);
-  milkyWayMapIcon.position.z = -1;
-  milkyWayMapIcon.renderOrder = -1;
-  milkyWayMapIcon.userData.rotationSpeed = 0.12;
-  galacticMapFrame.add(milkyWayMapIcon);
   const galaxyDirection = (entry) => {
     if (!Number.isFinite(entry.raDeg) || !Number.isFinite(entry.decDeg)) return new THREE.Vector3();
     const ra = (entry.raDeg * Math.PI) / 180;
@@ -658,22 +654,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     marker.userData.nearbyGalaxyKey = entry.key;
     group.add(marker);
     if (entry.key !== 'milky-way') {
-      const icon = new THREE.Sprite(
-        new THREE.SpriteMaterial({
-          map: makeGalaxyIconTexture(
-            isGroup ? '#ffc27d' : '#9edcff',
-            entry.kind === 'group' || entry.type?.en?.includes('Irregular'),
-          ),
-          transparent: true,
-          depthWrite: false,
-          opacity: 0.95,
+      const irregular = entry.type?.en?.includes('Irregular') || isGroup;
+      group.add(
+        makeGalaxyParticles({
+          seed: entry.key.split('').reduce((acc, char) => acc + char.charCodeAt(0), 31),
+          count: isGroup ? 2100 : 2800,
+          arms: irregular ? 5 : entry.key.includes('andromeda') ? 2 : 3,
+          radius: isGroup ? 25 : 20,
+          color: isGroup ? '#ffc27d' : '#9edcff',
+          irregular,
+          pointSize: 0.62,
         }),
       );
-      const iconSize = isGroup ? 43 : 34;
-      icon.scale.set(iconSize, iconSize * 0.68, 1);
-      icon.userData.rotationSpeed = isGroup ? 0.07 : 0.16;
-      group.add(icon);
-      group.userData.galaxyIcon = icon;
     }
     if (isGroup) {
       const ring = new THREE.Mesh(
@@ -2924,7 +2916,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         nearbyMapRotation
       );
       nearbyMapRotation = (nearbyMapRotation + dt * 0.12) % TAU;
-      milkyWayMapIcon.material.rotation += dt * milkyWayMapIcon.userData.rotationSpeed;
       solarSystemLabel.visible =
         nearbySelectedKey === 'milky-way' ||
         cam.position.distanceTo(solarSystemMapMarker.getWorldPosition(nearbyMarkerWorld)) < 170;
@@ -2940,10 +2931,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         marker.userData.label.visible =
           key === nearbySelectedKey ||
           cam.position.distanceTo(marker.getWorldPosition(nearbyMarkerWorld)) < 280;
-        if (marker.userData.galaxyIcon) {
-          marker.userData.galaxyIcon.material.rotation +=
-            dt * marker.userData.galaxyIcon.userData.rotationSpeed;
-        }
       });
     }
     if (tw) {
