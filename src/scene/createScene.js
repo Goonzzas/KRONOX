@@ -712,7 +712,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   });
   const satelliteBodyGeometry = new THREE.BoxGeometry(0.055, 0.052, 0.07);
   const satellitePanelGeometry = new THREE.BoxGeometry(0.12, 0.012, 0.06);
-  const makeSatellite = (size = 0.42, station = false) => {
+  const makeSatellite = (size = 0.04, station = false) => {
     const object = new THREE.Group();
     if (station) {
       // Compact ISS silhouette: pressurised modules along a central truss,
@@ -1089,7 +1089,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       const constellation = [
         {
           name: 'STARLINK',
-          count: 16,
+          count: 28,
           radius: 1.18,
           inclination: 0.28,
           period: 0.0667,
@@ -1097,7 +1097,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         },
         {
           name: 'STARLINK',
-          count: 14,
+          count: 26,
           radius: 1.38,
           inclination: 0.72,
           period: 0.071,
@@ -1105,10 +1105,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         },
         {
           name: 'STARLINK',
-          count: 12,
+          count: 24,
           radius: 1.6,
           inclination: 1.02,
           period: 0.076,
+          color: 0x68caff,
+        },
+        {
+          name: 'STARLINK',
+          count: 20,
+          radius: 1.82,
+          inclination: 1.31,
+          period: 0.079,
           color: 0x68caff,
         },
         {
@@ -1119,7 +1127,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           period: 0.0646,
           color: 0xffc979,
           station: true,
-          size: 0.17,
+          size: 0.055,
         },
         {
           name: 'Hubble · NASA/ESA',
@@ -1128,7 +1136,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           inclination: 0.35,
           period: 0.066,
           color: 0xe6efff,
-          size: 0.4,
+          size: 0.055,
         },
       ];
       constellation.forEach((orbit, orbitIndex) => {
@@ -1137,7 +1145,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         system.add(plane);
         const objects = [];
         for (let index = 0; index < orbit.count; index++) {
-          const satellite = makeSatellite(orbit.size || 0.42, orbit.station);
+          const satellite = makeSatellite(orbit.size || 0.04, orbit.station);
           plane.add(satellite);
           objects.push({ object: satellite, phase: (index / orbit.count) * TAU });
         }
