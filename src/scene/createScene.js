@@ -398,7 +398,8 @@ export function setupScene(el, S) {
       map: makeDeepGalaxyTexture(entry),
       transparent: true,
       opacity: 0,
-      depthTest: false,
+      // Keep nearby planets and the spacecraft in front of the distant art.
+      depthTest: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
@@ -2611,7 +2612,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     rafId = requestAnimationFrame(tick);
     const dt = Math.min(clk.getDelta(), 0.1),
       spd = S.pause.current ? 0 : S.speed.current;
-    const deepSkyVisibility = THREE.MathUtils.smoothstep(cam.position.length(), 1800, 10000);
+    const deepSkyVisibility =
+      0.55 + 0.45 * THREE.MathUtils.smoothstep(cam.position.length(), 1800, 10000);
     deepGalaxyMaterials.forEach((material) => {
       material.opacity = deepSkyVisibility * 0.68;
     });
