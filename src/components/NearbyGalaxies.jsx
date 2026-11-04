@@ -9,6 +9,7 @@ export function NearbyGalaxyControls({
   selectedKey,
   onSelect,
   onFocus,
+  onFocusSolarSystem,
   onInfo,
   onReturn,
 }) {
@@ -56,14 +57,17 @@ export function NearbyGalaxyControls({
         <button type="button" onClick={() => onFocus(selected.key)}>
           {en ? 'Center view' : 'Centrar vista'}
         </button>
+        <button type="button" onClick={onFocusSolarSystem}>
+          {en ? 'Center Solar System' : 'Centrar Sistema Solar'}
+        </button>
         <button type="button" onClick={() => onInfo(selected.key)}>
           {en ? 'Object details' : 'Ficha del objeto'}
         </button>
       </div>
       <p className="nearbyGalaxyDisclaimer">
         {en
-          ? 'Schematic map. Marker directions are approximate and visual distances are compressed; real distance estimates are shown in object details.'
-          : 'Mapa esquemático. Las direcciones de los marcadores son aproximadas y las distancias visuales están comprimidas; las estimaciones reales aparecen en cada ficha.'}
+          ? 'Schematic map. Marker directions are approximate and visual distances are compressed; real distance estimates are shown in object details. The Solar System marker follows the Milky Way’s visual rotation, while its miniature planets use the current simulation clock. This is not a complete physical model of the Sun’s galactic orbit.'
+          : 'Mapa esquemático. Las direcciones son aproximadas y las distancias visuales están comprimidas; las estimaciones reales aparecen en cada ficha. El indicador del Sistema Solar sigue el giro visual de la Vía Láctea y sus planetas en miniatura usan el reloj actual. No es un modelo físico completo de la órbita del Sol por la galaxia.'}
       </p>
       <button type="button" className="nearbyGalaxyReturn" onClick={onReturn}>
         {en ? 'Return to the Milky Way / Solar System' : 'Volver a la Vía Láctea / sistema solar'}

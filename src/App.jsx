@@ -660,6 +660,10 @@ export default function App() {
           A().focusNearbyGalaxy(key);
         },
         onFocus: (key) => A().focusNearbyGalaxy(key),
+        onFocusSolarSystem: () => {
+          setNearbyGalaxyKey('milky-way');
+          A().focusSolarSystemMap();
+        },
         onInfo: setNearbyGalaxyInfoKey,
         onReturn: () => {
           A().returnFromNearbyMap();

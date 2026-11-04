@@ -564,6 +564,7 @@ small {
 }
 .nearbyGalaxyActions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .nearbyGalaxyActions button,
@@ -575,6 +576,9 @@ small {
   color: #e9f7ff;
   background: rgba(37, 100, 144, 0.22);
   cursor: pointer;
+}
+.nearbyGalaxyActions button {
+  flex: 1 1 100px;
 }
 .nearbyGalaxyActions button:hover,
 .nearbyGalaxyReturn:hover {
