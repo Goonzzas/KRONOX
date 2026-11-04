@@ -341,6 +341,7 @@ export function setupScene(el, S) {
   const deepGalaxyBackdrop = new THREE.Group();
   deepGalaxyBackdrop.name = 'Deep galaxy backdrop';
   const deepGalaxyMaterials = [];
+  const deepGalaxyMotion = [];
   const distantGalaxies = [
     {
       direction: [0.08, 0.13, -1],
@@ -411,6 +412,20 @@ export function setupScene(el, S) {
     sprite.scale.set(entry.size * 3.6, entry.size * 2.66, 1);
     sprite.renderOrder = -2;
     deepGalaxyBackdrop.add(sprite);
+    const direction = new THREE.Vector3().fromArray(entry.direction).normalize();
+    const orbitAxis = new THREE.Vector3(
+      Math.sin(entry.seed * 0.17),
+      0.8 + Math.cos(entry.seed * 0.11) * 0.2,
+      Math.cos(entry.seed * 0.23),
+    ).normalize();
+    deepGalaxyMotion.push({
+      sprite,
+      material,
+      initialPosition: direction.multiplyScalar(entry.distance),
+      orbitAxis,
+      orbitSpeed: 0.0012 + (entry.seed % 5) * 0.00025,
+      spinSpeed: 0.006 + (entry.seed % 7) * 0.001,
+    });
   });
   sc.add(deepGalaxyBackdrop);
   const LB = [];
@@ -2617,6 +2632,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     deepGalaxyMaterials.forEach((material) => {
       material.opacity = deepSkyVisibility * 0.68;
     });
+    deepGalaxyMotion.forEach(
+      ({ sprite, material, initialPosition, orbitAxis, orbitSpeed, spinSpeed }) => {
+        sprite.position
+          .copy(initialPosition)
+          .applyAxisAngle(orbitAxis, clk.elapsedTime * orbitSpeed);
+        material.rotation += dt * spinSpeed;
+      },
+    );
     sim += dt * spd;
     S.day(sim);
     updateAsteroids(sim);
