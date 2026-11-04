@@ -1440,6 +1440,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     nearKey = null,
     activeMissionKey = null;
   function tripTo(target, clearance, name, b, onArrive, respectSpeed = false) {
+    const motionFactor = S.reducedMotion?.() ? 0.45 : 1;
     const from = sp.clone(),
       away = from.clone().sub(target);
     if (away.lengthSq() < 1e-10) away.set(0, 0.25, 1);
@@ -1458,13 +1459,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       q: look.quaternion.clone(),
       elapsed: 0,
       phase: 'align',
-      align: Math.min(1.7, Math.max(0.7, 0.8 + distance / (speed * 10))),
+      align: Math.min(1.7, Math.max(0.7, 0.8 + distance / (speed * 10))) * motionFactor,
       duration: respectSpeed
-        ? Math.min(16, Math.max(2, distance / speed))
+        ? Math.min(16, Math.max(2, distance / speed)) * motionFactor
         : Math.min(
             16,
             Math.max(2, distance / (speed * (long ? Math.max(1, distance / (speed * 8)) : 1))),
-          ),
+          ) * motionFactor,
+      motionFactor,
       distance,
       long,
       respectSpeed,
@@ -2030,9 +2032,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           : nav.phase === 'transit'
             ? 0.15 + Math.min(0.68, (nav.elapsed / nav.duration) * 0.68)
             : nav.phase === 'jumpin'
-              ? 0.88 + Math.min(0.08, (nav.elapsed / 0.38) * 0.08)
+              ? 0.88 + Math.min(0.08, (nav.elapsed / (0.38 * nav.motionFactor)) * 0.08)
               : nav.phase === 'arrival'
-                ? 0.96 + Math.min(0.04, (nav.elapsed / 0.9) * 0.04)
+                ? 0.96 + Math.min(0.04, (nav.elapsed / (0.9 * nav.motionFactor)) * 0.04)
                 : 0.1;
         S.onNavigation({ phase: nav.phase, progress });
       }
@@ -2180,7 +2182,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           sp.copy(nav.to);
           vel.multiplyScalar(Math.exp(-dt * 7));
           q.copy(nav.q);
-          if (nav.elapsed >= 0.9) {
+          if (nav.elapsed >= 0.9 * nav.motionFactor) {
             const oldFs = nav.oldFs;
             const restoreAutoSpeed = !nav.respectSpeed;
             const onArrive = nav.onArrive;
@@ -2190,7 +2192,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           }
         } else if (nav.phase === 'jumpout') {
           q.copy(nav.q);
-          if (nav.elapsed >= 0.3) {
+          if (nav.elapsed >= 0.3 * nav.motionFactor) {
             nav.phase = 'transit';
             nav.elapsed = 0;
           }
@@ -2198,7 +2200,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           sp.copy(nav.to);
           vel.set(0, 0, 0);
           q.copy(nav.q);
-          if (nav.elapsed >= 0.38) {
+          if (nav.elapsed >= 0.38 * nav.motionFactor) {
             nav.phase = 'arrival';
             nav.elapsed = 0;
           }
