@@ -1,11 +1,38 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { t } from '../i18n.js';
 
-export default function PlanetInfoModal({ planet, data, onClose, language = 'es' }) {
+export default function PlanetInfoModal({ planet, data, onClose, onExplore, language = 'es' }) {
+  const cardRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    if (!planet) return undefined;
+    const previousFocus = document.activeElement;
+    cardRef.current?.querySelector('button')?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onCloseRef.current();
+      if (event.key !== 'Tab') return;
+      const focusable = [...(cardRef.current?.querySelectorAll('button, a[href]') || [])];
+      if (!focusable.length) return;
+      if (event.shiftKey && document.activeElement === focusable[0]) {
+        event.preventDefault();
+        focusable.at(-1).focus();
+      } else if (!event.shiftKey && document.activeElement === focusable.at(-1)) {
+        event.preventDefault();
+        focusable[0].focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previousFocus?.focus?.();
+    };
+  }, [planet]);
   if (!planet || !data) return null;
   return (
     <div className="modalShade" onClick={onClose}>
       <article
+        ref={cardRef}
         className="infoCard"
         role="dialog"
         aria-modal="true"
@@ -60,6 +87,17 @@ export default function PlanetInfoModal({ planet, data, onClose, language = 'es'
           >
             {t('Temperaturas del sistema solar', language)}
           </a>
+        </div>
+        <div className="infoActions">
+          <button type="button" className="infoExploreButton" onClick={onExplore}>
+            {language === 'en'
+              ? `Explore ${t(planet, language)}`
+              : `Explorar ${t(planet, language)}`}{' '}
+            <span aria-hidden="true">↗</span>
+          </button>
+          <button type="button" onClick={onClose}>
+            {language === 'en' ? 'Return to the solar system' : 'Volver al sistema solar'}
+          </button>
         </div>
       </article>
     </div>
