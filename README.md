@@ -22,16 +22,6 @@ KRONOX es una aplicación web educativa e interactiva que combina una exploraci�
 
 También incluye texturas procedurales para planetas enanos, asteroides y lunas, satélites más visibles, entrada a la nave desde la Tierra, fichas planetarias con referencias de NASA, Kronox en español e inglés y controles táctiles para móvil. Las preferencias incluyen calidad gráfica, alto contraste, reducción de movimiento y sonidos de juego opcionales.
 
-## Novedades desde la actualización anterior
-
-Se revisaron **31 commits**, desde `e1b29b6` hasta `3d344e5`. Estos son los cambios incorporados:
-
-- **Sistema solar y cuerpos menores:** se añadieron Ceres, Plutón, Haumea, Makemake y Eris con órbitas aproximadas, texturas procedurales y acceso desde viajes rápidos. Se renovó el aspecto de sus superficies, se mejoraron las texturas de las lunas de Júpiter, se redujo el tamaño y se amplió la cantidad de satélites terrestres, y se sincronizaron y ralentizaron los movimientos visuales de Júpiter. Commits: `e923acf`, `48ea36b`, `5e6ae7e`, `18a1231`, `aeceea3`, `df77f15`, `fecfa38`, `f6e61a8`, `c71ef53`, `6b2b21e`.
-- **Vía Láctea y entorno:** se dio más volumen a la vista galáctica, se separaron visualmente sistemas estelares próximos y se añadieron estrellas con textura y asteroides 3D. Una prueba de visualización del espolón de Orión se revirtió después; esas mejoras no forman parte de la vista actual. Commits: `3d344e5`, `159716b`, `74b927a`, `5e65869`, `2755903`.
-- **Nave y viajes:** se ajustaron escala, encuadre y perspectiva de la nave junto a los planetas; la vista de tercera persona ahora ofrece zoom y mantiene la nave visible. El ingreso a la nave comienza desde la Tierra con una secuencia de lanzamiento. Commits: `60af42d`, `de4b7e4`, `5ba92f3`, `a09f322`, `b64fca6`, `ecd0f88`, `323b971`.
-- **Viajes de misión y simulación:** los viajes de misión se pueden acelerar y muestran consejos de velocidad; sus avisos y el mensaje de lanzamiento se tradujeron. También se revisaron los controles de nombres y la velocidad inicial, que ahora parte de **0,10 días simulados por segundo**. Commits: `0b4dd7d`, `267cd6d`, `b579e97`, `b4f6e14`, `23af5fb`, `c8f0848`, `774c2ca`, `9816d6e`.
-- **Accesibilidad y respuesta de vuelo:** se añadieron preferencias de calidad gráfica, alto contraste y movimiento reducido; la opción de movimiento reducido también se respeta en los viajes guiados. Hay señales sonoras opcionales, una indicación de progreso de navegación y ajustes a los controles y a la interacción con las fichas planetarias. Commits: `9bed709`.
-
 ## 🛰️ Consola SPHEREx: Ecos en infrarrojo
 
 La consola integra selección de misión, objetivos astronómicos, navegación hasta el observatorio y visualización de recortes FITS. Permite trabajar con los archivos públicos **QR2** y **QR3**, filtrar observaciones por banda y recorrerlas mediante una línea de tiempo o reproducción automática.
@@ -157,57 +147,6 @@ El frontend se puede servir como sitio estático. Para habilitar consultas SPHER
 
 Vite usa la ruta base `/` en Vercel y `/KRONOX/` en otros entornos, configuración prevista para GitHub Pages. Sin funciones serverless, la escena 3D sigue disponible, pero las consultas de misión y los endpoints de voz/localización no tienen backend.
 
-## 🔍 Guía de auditoría y traspaso
-
-Para que la revisión sea reproducible, anota la rama, el SHA del commit, el entorno y las limitaciones de acceso inspeccionados.
-
-### Sistemas que debe cubrir la revisión
-
-1. **Escena y simulación:** ciclo de renderizado, limpieza de eventos y recursos WebGL, escalas visual/física, fecha y velocidad.
-2. **Vuelo y navegación:** entradas de teclado/táctiles, cámaras, piloto automático, inercia, destinos y saltos.
-3. **Fichas y datos:** catálogo planetario, referencias, recursos externos y limitaciones científicas descritas.
-4. **Idioma y voz:** traducciones completas, persistencia de preferencia, accesibilidad y datos enviados al proveedor de voz.
-5. **SPHEREx/FITS:** validación de coordenadas, filtros y fechas, respuestas de IRSA, lectura de encabezados, reproyección WCS/SIP, transparencia, ampliación y exportación CSV.
-6. **API e infraestructura:** validación de solicitudes, límites, caché, errores del servicio externo y configuración Vercel/GitHub Pages.
-
-### Puntos de atención
-
-Son temas para verificar durante la auditoría; no representan vulnerabilidades confirmadas.
-
-- Los endpoints serverless son públicos y no requieren autenticación: revisar límites de uso, tamaño de respuesta y controles contra abuso.
-- Revisar memoria y tiempo de ejecución al descargar/procesar FITS, errores del servicio externo y respuestas inesperadas.
-- Confirmar la validación de URLs upstream y el manejo de redirecciones en la función de recorte.
-- Revisar qué información se transmite a IRSA y a Google Translate TTS; no enviar datos sensibles en las notas o mensajes.
-- Comprobar dependencias y licencias, rendimiento WebGL, experiencia móvil, accesibilidad y tratamiento de errores.
-- `package.json` no declara scripts de pruebas, lint ni typecheck; anótalo como limitación de cobertura, no como prueba de fallo.
-
-### Registro de revisión
-
-| Campo | Valor |
-|---|---|
-| Auditor/a y fecha | _Completar_ |
-| Rama y commit SHA | _Completar_ |
-| Entorno y versiones de Node/npm | _Completar_ |
-| Alcance y exclusiones | _Completar_ |
-| Comandos ejecutados y resultados | _Completar_ |
-| Limitaciones de acceso o datos | _Completar_ |
-
-### Plantilla de hallazgo
-
-```text
-[ID] Título — Prioridad P0 / P1 / P2 / P3
-Área:
-Ubicación (archivo, función o endpoint):
-Descripción y condición observada:
-Pasos para reproducir:
-Impacto:
-Evidencia (sin secretos ni datos personales):
-Recomendación concreta:
-Estado / responsable / fecha objetivo:
-```
-
-Prioriza según impacto, probabilidad y exposición: **P0 crítica**, **P1 alta**, **P2 media**, **P3 baja**. Separa defectos reproducidos de recomendaciones preventivas.
-
 ## ⚠️ Alcance y limitaciones
 
 KRONOX es una experiencia educativa y visual, no una herramienta de navegación espacial ni de efemérides de precisión. La escala visual altera tamaños y distancias; las órbitas son aproximadas, y la Luna y la Vía Láctea se representan de forma simplificada. Las imágenes reproyectadas facilitan la comparación visual, pero no sustituyen análisis astrométrico o fotométrico calibrado.
@@ -219,4 +158,3 @@ La aplicación depende de internet para imágenes, observaciones IRSA y voz. El 
 - [Guía de usuario](docs/GUIA_USUARIO.md)
 - [Arquitectura y desarrollo](docs/ARQUITECTURA.md)
 - [Fuentes, datos y limitaciones](docs/FUENTES_Y_LIMITACIONES.md)
-- [Registro de cambios](CHANGELOG.md)
