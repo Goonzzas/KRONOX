@@ -491,6 +491,162 @@ small {
     animation-duration: 10s !important;
   }
 }
+
+.nearbyMapMode .pn,
+.nearbyMapMode .mobileFlightControls,
+.nearbyMapMode .kw,
+.nearbyMapMode .kronoxWidget,
+.nearbyMapMode .toastNotification,
+.nearbyMapMode .noticeToast {
+  display: none !important;
+}
+
+.nearbyGalaxyControls {
+  position: absolute;
+  z-index: 50;
+  top: clamp(12px, 3vh, 28px);
+  left: clamp(12px, 3vw, 30px);
+  width: min(360px, calc(100vw - 24px));
+  padding: 20px;
+  border: 1px solid rgba(107, 207, 255, 0.32);
+  border-radius: 18px;
+  color: #eaf6ff;
+  background: linear-gradient(145deg, rgba(9, 20, 37, 0.96), rgba(5, 12, 25, 0.91));
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.48),
+    inset 0 1px rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+}
+.nearbyGalaxyEyebrow {
+  color: #6edbff;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  font-weight: 800;
+}
+.nearbyGalaxyControls h2 {
+  margin: 7px 0 18px;
+  font-size: 22px;
+  font-weight: 600;
+}
+.nearbyGalaxySelectLabel {
+  display: block;
+  margin-bottom: 6px;
+  color: #aab9ce;
+  font-size: 12px;
+}
+.nearbyGalaxyControls select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  color: #f2f8ff;
+  background: #101d31;
+  border: 1px solid #3b5977;
+  border-radius: 9px;
+}
+.nearbyGalaxyQuickFact {
+  display: grid;
+  gap: 5px;
+  margin: 14px 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(78, 143, 193, 0.1);
+}
+.nearbyGalaxyQuickFact span,
+.nearbyGalaxyFacts small {
+  color: #74d8ff;
+  font-size: 9px;
+  letter-spacing: 0.11em;
+  font-weight: 700;
+}
+.nearbyGalaxyQuickFact b {
+  font-size: 13px;
+  font-weight: 500;
+}
+.nearbyGalaxyActions {
+  display: flex;
+  gap: 8px;
+}
+.nearbyGalaxyActions button,
+.nearbyGalaxyReturn {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid rgba(102, 206, 255, 0.4);
+  border-radius: 9px;
+  color: #e9f7ff;
+  background: rgba(37, 100, 144, 0.22);
+  cursor: pointer;
+}
+.nearbyGalaxyActions button:hover,
+.nearbyGalaxyReturn:hover {
+  background: rgba(37, 139, 190, 0.38);
+}
+.nearbyGalaxyDisclaimer {
+  margin: 15px 0;
+  color: #b4c0d2;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.nearbyGalaxyReturn {
+  width: 100%;
+  border-color: rgba(255, 199, 117, 0.4);
+  background: rgba(132, 91, 33, 0.2);
+}
+.nearbyGalaxyInfo {
+  max-height: min(88vh, 800px);
+  overflow-y: auto;
+}
+.nearbyGalaxyFacts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.nearbyGalaxyFacts > div {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid rgba(111, 174, 219, 0.17);
+  border-radius: 10px;
+  background: rgba(46, 92, 130, 0.1);
+}
+.nearbyGalaxyFacts b {
+  color: #e1edf8;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.nearbyGalaxyDescription {
+  color: #e1eaf4;
+  line-height: 1.55;
+}
+.nearbyGalaxySources {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid rgba(128, 171, 204, 0.2);
+}
+.nearbyGalaxySources a {
+  color: #6bd4ff;
+  font-size: 12px;
+}
+@media (max-width: 600px) {
+  .nearbyGalaxyControls {
+    top: auto;
+    bottom: 12px;
+    left: 12px;
+    padding: 15px;
+  }
+  .nearbyGalaxyControls h2 {
+    margin-bottom: 10px;
+    font-size: 19px;
+  }
+  .nearbyGalaxyDisclaimer {
+    margin: 9px 0;
+  }
+  .nearbyGalaxyFacts {
+    grid-template-columns: 1fr;
+  }
+}
 .kronoxBubble {
   pointer-events: auto;
   min-width: 0;

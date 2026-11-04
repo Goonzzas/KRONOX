@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { P, D2R, TAU, T0, kep, pos } from '../data/planetData.js';
 import { SPHEREX_TARGETS } from '../data/spherexTargets.js';
+import { NEARBY_GALAXIES } from '../data/nearbyGalaxies.js';
 
 // A single scale cannot show both the Milky Way and nearby star systems
 // clearly. Expand only the inner 25 light-years to 1,000 map units per
@@ -165,7 +166,8 @@ function pts(pos, col, size, op) {
 }
 export function setupScene(el, S) {
   let qualityMode = S.quality || 'auto';
-  const isMobileDevice = () => window.matchMedia?.('(max-width: 760px), (pointer: coarse)')?.matches;
+  const isMobileDevice = () =>
+    window.matchMedia?.('(max-width: 760px), (pointer: coarse)')?.matches;
   const pixelRatioFor = (mode) => {
     if (mode === 'performance') return 1;
     if (mode === 'quality') return Math.min(2, devicePixelRatio || 1);
@@ -474,6 +476,73 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     ),
   );
   sc.add(gal);
+  // Separate, schematic overview layer. It is shown only while the nearby-
+  // galaxies map is active and never participates in astronomical navigation.
+  const nearbyGalaxyGroup = new THREE.Group();
+  nearbyGalaxyGroup.visible = false;
+  const overviewStarPositions = [];
+  const overviewStarColors = [];
+  for (let index = 0; index < 1800; index++) {
+    const direction = new THREE.Vector3(gs(), gs(), gs()).normalize();
+    const radius = 760 + Math.random() * 1120;
+    overviewStarPositions.push(direction.x * radius, direction.y * radius, direction.z * radius);
+    const tint = Math.random();
+    overviewStarColors.push(0.56 + tint * 0.36, 0.68 + tint * 0.26, 0.82 + tint * 0.18);
+  }
+  nearbyGalaxyGroup.add(pts(overviewStarPositions, overviewStarColors, 1.25, 0.44));
+  const nearbyGalaxyMarkers = new Map();
+  const nearbyMarkerGeometry = new THREE.SphereGeometry(1, 12, 10);
+  const galaxyDistance = (entry) => Math.sqrt(Math.max(0, entry.distanceMly || 0)) * 135;
+  const galaxyDirection = (entry) => {
+    if (!Number.isFinite(entry.raDeg) || !Number.isFinite(entry.decDeg)) return new THREE.Vector3();
+    const ra = (entry.raDeg * Math.PI) / 180;
+    const dec = (entry.decDeg * Math.PI) / 180;
+    return new THREE.Vector3(
+      Math.cos(dec) * Math.cos(ra),
+      Math.sin(dec),
+      Math.cos(dec) * Math.sin(ra),
+    );
+  };
+  NEARBY_GALAXIES.forEach((entry) => {
+    const group = new THREE.Group();
+    group.userData.nearbyGalaxyKey = entry.key;
+    const isGroup = entry.kind === 'group';
+    const color = entry.key === 'milky-way' ? 0x8fdfff : isGroup ? 0xffbc72 : 0xa8c9ff;
+    const marker = new THREE.Mesh(
+      nearbyMarkerGeometry,
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: isGroup ? 0.72 : 0.92 }),
+    );
+    const radius = entry.key === 'milky-way' ? 13 : isGroup ? 8 : 5.5;
+    marker.scale.setScalar(radius);
+    marker.userData.nearbyGalaxyKey = entry.key;
+    group.add(marker);
+    if (isGroup) {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(radius * 1.6, 0.7, 4, 32),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55 }),
+      );
+      ring.rotation.x = Math.PI / 2.8;
+      group.add(ring);
+    }
+    const label = lab(entry.name.es, 52, 22);
+    label.visible = false;
+    label.position.set(0, radius + 7, 0);
+    group.add(label);
+    group.userData.label = label;
+    const offset =
+      entry.key === 'milky-way'
+        ? new THREE.Vector3()
+        : galaxyDirection(entry).multiplyScalar(galaxyDistance(entry));
+    if (entry.anchorKey) {
+      const anchor = NEARBY_GALAXIES.find((item) => item.key === entry.anchorKey);
+      if (anchor) offset.copy(galaxyDirection(anchor).multiplyScalar(galaxyDistance(anchor)));
+    }
+    if (entry.key === 'local-group') offset.set(0, 0, 28);
+    group.position.copy(offset);
+    nearbyGalaxyGroup.add(group);
+    nearbyGalaxyMarkers.set(entry.key, group);
+  });
+  sc.add(nearbyGalaxyGroup);
   const glowCanvas = document.createElement('canvas');
   glowCanvas.width = glowCanvas.height = 128;
   const glowContext = glowCanvas.getContext('2d');
@@ -848,7 +917,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         context.fillStyle = colors[Math.floor(random() * colors.length)];
         context.fill();
         context.beginPath();
-        context.ellipse(x - radius * 0.18, y - radius * 0.2, radius * 0.78, radius * 0.55, 0, 0, Math.PI * 2);
+        context.ellipse(
+          x - radius * 0.18,
+          y - radius * 0.2,
+          radius * 0.78,
+          radius * 0.55,
+          0,
+          0,
+          Math.PI * 2,
+        );
         context.fillStyle = 'rgba(255,235,195,.12)';
         context.fill();
       }
@@ -878,11 +955,36 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const image = baseContext.createImageData(sampleWidth, sampleHeight);
     const relief = baseReliefContext.createImageData(sampleWidth, sampleHeight);
     const palettes = {
-      Ceres: [[43, 42, 40], [91, 87, 80], [142, 136, 126], [184, 178, 163]],
-      'Plutón': [[76, 48, 42], [132, 83, 66], [184, 132, 105], [225, 194, 158]],
-      Haumea: [[72, 76, 74], [132, 139, 136], [195, 201, 195], [233, 233, 222]],
-      Makemake: [[76, 40, 34], [130, 66, 51], [181, 108, 82], [221, 169, 129]],
-      Eris: [[102, 105, 103], [151, 154, 151], [198, 200, 195], [232, 231, 222]],
+      Ceres: [
+        [43, 42, 40],
+        [91, 87, 80],
+        [142, 136, 126],
+        [184, 178, 163],
+      ],
+      Plutón: [
+        [76, 48, 42],
+        [132, 83, 66],
+        [184, 132, 105],
+        [225, 194, 158],
+      ],
+      Haumea: [
+        [72, 76, 74],
+        [132, 139, 136],
+        [195, 201, 195],
+        [233, 233, 222],
+      ],
+      Makemake: [
+        [76, 40, 34],
+        [130, 66, 51],
+        [181, 108, 82],
+        [221, 169, 129],
+      ],
+      Eris: [
+        [102, 105, 103],
+        [151, 154, 151],
+        [198, 200, 195],
+        [232, 231, 222],
+      ],
     };
     const palette = palettes[planet.n] || [
       [planet.c[0] * 0.45, planet.c[1] * 0.45, planet.c[2] * 0.45],
@@ -904,7 +1006,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         const broad = fbm(u + seedOffset, v + seedOffset * 0.31, 4.5);
         const detail = fbm(u + seedOffset * 0.7, v + seedOffset * 0.9, 27);
         const latitude = planet.n === 'Eris' ? Math.abs(v - 0.5) * 0.2 : 0;
-        let tone = THREE.MathUtils.clamp(0.5 + (broad - 0.5) * 2.1 + (detail - 0.5) * 1.1 + latitude, 0, 0.999);
+        let tone = THREE.MathUtils.clamp(
+          0.5 + (broad - 0.5) * 2.1 + (detail - 0.5) * 1.1 + latitude,
+          0,
+          0.999,
+        );
         const band = Math.min(2, Math.floor(tone * 3));
         const blend = tone * 3 - band;
         const color = palette[3].map((channel, index) =>
@@ -915,7 +1021,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         image.data[pixel + 1] = color[1];
         image.data[pixel + 2] = color[2];
         image.data[pixel + 3] = 255;
-        const heightValue = THREE.MathUtils.clamp(110 + (broad - 0.5) * 110 + (detail - 0.5) * 54, 0, 255);
+        const heightValue = THREE.MathUtils.clamp(
+          110 + (broad - 0.5) * 110 + (detail - 0.5) * 54,
+          0,
+          255,
+        );
         relief.data[pixel] = relief.data[pixel + 1] = relief.data[pixel + 2] = heightValue;
         relief.data[pixel + 3] = 255;
       }
@@ -925,14 +1035,22 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     context.drawImage(baseCanvas, 0, 0, width, height);
     reliefContext.drawImage(baseReliefCanvas, 0, 0, width, height);
 
-    const craterCount = { Ceres: 205, 'Plutón': 170, Haumea: 110, Makemake: 150, Eris: 185 }[planet.n] || 140;
+    const craterCount =
+      { Ceres: 205, Plutón: 170, Haumea: 110, Makemake: 150, Eris: 185 }[planet.n] || 140;
     for (let index = 0; index < craterCount; index++) {
       const x = random() * width;
       const y = random() * height;
       const radius = 2 + Math.pow(random(), 2.1) * 37;
       const flatten = 0.65 + random() * 0.65;
       const rotation = random() * Math.PI;
-      const shadow = context.createRadialGradient(x - radius * 0.18, y - radius * 0.2, radius * 0.12, x, y, radius);
+      const shadow = context.createRadialGradient(
+        x - radius * 0.18,
+        y - radius * 0.2,
+        radius * 0.12,
+        x,
+        y,
+        radius,
+      );
       shadow.addColorStop(0, 'rgba(18,18,20,.48)');
       shadow.addColorStop(0.48, 'rgba(28,25,24,.22)');
       shadow.addColorStop(0.74, 'rgba(245,235,218,.35)');
@@ -971,7 +1089,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       context.fillStyle = ice;
       context.fillRect(548, 94, 332, 230);
     } else if (planet.n === 'Ceres') {
-      [[488, 232, 22], [493, 229, 11], [211, 326, 8], [793, 117, 6]].forEach(([x, y, radius]) => {
+      [
+        [488, 232, 22],
+        [493, 229, 11],
+        [211, 326, 8],
+        [793, 117, 6],
+      ].forEach(([x, y, radius]) => {
         const salt = context.createRadialGradient(x, y, 1, x, y, radius * 2.8);
         salt.addColorStop(0, 'rgba(255,255,244,.96)');
         salt.addColorStop(0.3, 'rgba(251,249,232,.78)');
@@ -996,7 +1119,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         const x = random() * width;
         context.beginPath();
         context.moveTo(x, y);
-        context.quadraticCurveTo(x + 18 + random() * 70, y - 8 + random() * 16, x + 48 + random() * 95, y + random() * 14);
+        context.quadraticCurveTo(
+          x + 18 + random() * 70,
+          y - 8 + random() * 16,
+          x + 48 + random() * 95,
+          y + random() * 14,
+        );
         context.stroke();
       }
     } else if (planet.n === 'Makemake') {
@@ -1182,24 +1310,45 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       b.moonSystem = system;
       b.jupiterMoons = [
         {
-          name: 'Ío', radius: 2.05, size: 0.15, period: 1.769, inclination: 0.0035,
-          base: '#bd8c42', seed: 17,
+          name: 'Ío',
+          radius: 2.05,
+          size: 0.15,
+          period: 1.769,
+          inclination: 0.0035,
+          base: '#bd8c42',
+          seed: 17,
           craterColors: ['rgba(255,216,98,.42)', 'rgba(187,82,36,.32)', 'rgba(88,53,35,.25)'],
           phase: 0.4,
         },
         {
-          name: 'Europa', radius: 2.75, size: 0.13, period: 3.551, inclination: 0.0082,
-          base: '#c9c3ad', seed: 31, phase: 2.1,
+          name: 'Europa',
+          radius: 2.75,
+          size: 0.13,
+          period: 3.551,
+          inclination: 0.0082,
+          base: '#c9c3ad',
+          seed: 31,
+          phase: 2.1,
         },
         {
-          name: 'Ganímedes', radius: 3.65, size: 0.22, period: 7.155, inclination: 0.0041,
-          base: '#817a6e', seed: 47,
+          name: 'Ganímedes',
+          radius: 3.65,
+          size: 0.22,
+          period: 7.155,
+          inclination: 0.0041,
+          base: '#817a6e',
+          seed: 47,
           craterColors: ['rgba(47,48,46,.35)', 'rgba(183,164,133,.3)', 'rgba(107,88,67,.3)'],
           phase: 3.8,
         },
         {
-          name: 'Calisto', radius: 4.75, size: 0.19, period: 16.689, inclination: 0.0087,
-          base: '#514b43', seed: 63,
+          name: 'Calisto',
+          radius: 4.75,
+          size: 0.19,
+          period: 16.689,
+          inclination: 0.0087,
+          base: '#514b43',
+          seed: 63,
           craterColors: ['rgba(21,22,22,.45)', 'rgba(158,145,126,.25)', 'rgba(86,74,62,.4)'],
           phase: 5.1,
         },
@@ -1332,10 +1481,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     for (let vertex = 0; vertex < positions.count; vertex++) {
       vertexState = (vertexState * 1664525 + 1013904223) >>> 0;
       const roughness = 0.78 + (vertexState / 4294967296) * 0.42;
-      positions.setXYZ(vertex, positions.getX(vertex) * roughness, positions.getY(vertex) * roughness, positions.getZ(vertex) * roughness);
+      positions.setXYZ(
+        vertex,
+        positions.getX(vertex) * roughness,
+        positions.getY(vertex) * roughness,
+        positions.getZ(vertex) * roughness,
+      );
     }
     geometry.computeVertexNormals();
-    const material = new THREE.MeshStandardMaterial({ roughness: 0.94, metalness: 0.035, vertexColors: true });
+    const material = new THREE.MeshStandardMaterial({
+      roughness: 0.94,
+      metalness: 0.035,
+      vertexColors: true,
+    });
     const mesh = new THREE.InstancedMesh(geometry, material, asteroidCountPerVariant);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.frustumCulled = false;
@@ -1345,7 +1503,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       const au = 2.05 + asteroidRandom() * 1.25;
       const radiusKm = 0.5 + Math.pow(asteroidRandom(), 2.1) * 469;
       const visualRadius = 0.009 + Math.pow(radiusKm / 469, 0.58) * 0.066;
-      const color = new THREE.Color(asteroidPalette[Math.floor(asteroidRandom() * asteroidPalette.length)]);
+      const color = new THREE.Color(
+        asteroidPalette[Math.floor(asteroidRandom() * asteroidPalette.length)],
+      );
       color.multiplyScalar(0.82 + asteroidRandom() * 0.34);
       mesh.setColorAt(index, color);
       asteroidRecords.push({
@@ -1359,7 +1519,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         period: 365.25 * Math.pow(au, 1.5),
         spin: asteroidRandom() * TAU,
         spinRate: (asteroidRandom() - 0.5) * 0.9,
-        shape: new THREE.Vector3(0.78 + asteroidRandom() * 0.42, 0.72 + asteroidRandom() * 0.52, 0.78 + asteroidRandom() * 0.42),
+        shape: new THREE.Vector3(
+          0.78 + asteroidRandom() * 0.42,
+          0.72 + asteroidRandom() * 0.52,
+          0.78 + asteroidRandom() * 0.42,
+        ),
       });
     }
   }
@@ -1376,9 +1540,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         Math.sin(angle) * radius * Math.sin(asteroid.inclination),
         Math.sin(angle) * radius,
       );
-      asteroidDummy.rotation.set(asteroid.spin + day * asteroid.spinRate * 0.0008, asteroid.phase, asteroid.inclination);
-      const size = real ? (asteroid.radiusKm / 1e6) / Dd(2.7) : asteroid.visualRadius / Dd(2.7);
-      asteroidDummy.scale.set(size * asteroid.shape.x, size * asteroid.shape.y, size * asteroid.shape.z);
+      asteroidDummy.rotation.set(
+        asteroid.spin + day * asteroid.spinRate * 0.0008,
+        asteroid.phase,
+        asteroid.inclination,
+      );
+      const size = real ? asteroid.radiusKm / 1e6 / Dd(2.7) : asteroid.visualRadius / Dd(2.7);
+      asteroidDummy.scale.set(
+        size * asteroid.shape.x,
+        size * asteroid.shape.y,
+        size * asteroid.shape.z,
+      );
       asteroidDummy.updateMatrix();
       asteroid.mesh.setMatrixAt(asteroid.index, asteroidDummy.matrix);
     });
@@ -1388,15 +1560,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     });
   }
 
-  const Rd = (p) => (
-    p.sun
-      ? real ? p.km / 1e6 : 4
-      : real
-        ? p.km / 1e6
-        : p.dwarf
-          ? Math.max(0.075, 0.35 * (p.km / 6371))
-          : 0.35 * (p.km / 6371)
-  ),
+  const Rd = (p) =>
+      p.sun
+        ? real
+          ? p.km / 1e6
+          : 4
+        : real
+          ? p.km / 1e6
+          : p.dwarf
+            ? Math.max(0.075, 0.35 * (p.km / 6371))
+            : 0.35 * (p.km / 6371),
     Dd = (au) => (real ? au * 149.6 : 14 + 16 * Math.pow(au, 0.62)),
     Dm = () => (real ? 0.3844 : 1.3),
     shipScale = () => (Rd(P[3]) * (SHIP_LENGTH_METERS / 1000)) / (P[3].km * SHIP_MODEL_LENGTH),
@@ -1441,7 +1614,90 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     tw = null,
     nav = null,
     nearKey = null,
-    activeMissionKey = null;
+    activeMissionKey = null,
+    nearbyMapState = null,
+    nearbySelectedKey = 'milky-way';
+  const nearbyRaycaster = new THREE.Raycaster();
+  const nearbyPointer = new THREE.Vector2();
+  const nearbyMarkerWorld = new THREE.Vector3();
+  let nearbyPointerStart = null;
+  function nearbyMap() {
+    if (nearbyMapState) return;
+    nearbyMapState = {
+      camera: cam.position.clone(),
+      target: ct.target.clone(),
+      enabled: ct.enabled,
+      free,
+      spectator,
+      visibility: sc.children.map((child) => [child, child.visible]),
+      minDistance: ct.minDistance,
+      maxDistance: ct.maxDistance,
+    };
+    nav = null;
+    tw = null;
+    free = false;
+    spectator = false;
+    ct.enabled = true;
+    S.fr(false);
+    S.intro(false);
+    S.f(null);
+    nearbyMapState.visibility.forEach(([child]) => {
+      child.visible = false;
+    });
+    nearbyGalaxyGroup.visible = true;
+    nearbyGalaxyGroup.position.copy(gal.position);
+    nearbyGalaxyGroup.quaternion.copy(gal.quaternion);
+    ct.minDistance = 90;
+    ct.maxDistance = 2400;
+    const center = gal.position.clone();
+    tw = {
+      p0: cam.position.clone(),
+      t0: ct.target.clone(),
+      p1: center.clone().add(new THREE.Vector3(0, 420, 980)),
+      t1: center,
+      k: 0,
+    };
+  }
+  function returnFromNearbyMap() {
+    if (!nearbyMapState) return;
+    const saved = nearbyMapState;
+    nearbyMapState = null;
+    tw = {
+      p0: cam.position.clone(),
+      t0: ct.target.clone(),
+      p1: saved.camera,
+      t1: saved.target,
+      k: 0,
+    };
+    saved.visibility.forEach(([child, visible]) => {
+      child.visible = visible;
+    });
+    ct.enabled = saved.enabled;
+    ct.minDistance = saved.minDistance;
+    ct.maxDistance = saved.maxDistance;
+    free = saved.free;
+    spectator = saved.spectator;
+    S.fr(saved.free || saved.spectator);
+    S.intro(saved.free);
+  }
+  function focusNearbyGalaxy(key) {
+    if (!nearbyMapState) nearbyMap();
+    const marker = nearbyGalaxyMarkers.get(key);
+    if (!marker) return;
+    nearbySelectedKey = key;
+    const target = marker.getWorldPosition(new THREE.Vector3());
+    const direction = cam.position.clone().sub(ct.target);
+    if (direction.lengthSq() < 1e-8) direction.set(0.18, 0.32, 1);
+    direction.normalize();
+    const distance = key === 'milky-way' ? 360 : 150;
+    tw = {
+      p0: cam.position.clone(),
+      t0: ct.target.clone(),
+      p1: target.clone().addScaledVector(direction, distance),
+      t1: target,
+      k: 0,
+    };
+  }
   function tripTo(target, clearance, name, b, onArrive, respectSpeed = false) {
     const motionFactor = S.reducedMotion?.() ? 0.45 : 1;
     const from = sp.clone(),
@@ -1966,13 +2222,41 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
   let speedNoticeTimer;
   const onPointerDown = (e) => {
+    if (nearbyMapState) nearbyPointerStart = { x: e.clientX, y: e.clientY };
     if (free) {
       drag = 1;
       dom.setPointerCapture(e.pointerId);
     }
   };
-  const onPointerUp = () => {
+  const onPointerUp = (e) => {
     drag = 0;
+    if (nearbyMapState && nearbyPointerStart) {
+      const moved = Math.hypot(e.clientX - nearbyPointerStart.x, e.clientY - nearbyPointerStart.y);
+      nearbyPointerStart = null;
+      if (moved < 6) {
+        const rect = dom.getBoundingClientRect();
+        nearbyPointer.set(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1,
+        );
+        nearbyRaycaster.setFromCamera(nearbyPointer, cam);
+        const hits = nearbyRaycaster.intersectObjects(
+          [...nearbyGalaxyMarkers.values()].flatMap((g) => g.children),
+          true,
+        );
+        const key = hits
+          .map((hit) => {
+            let node = hit.object;
+            while (node && !node.userData.nearbyGalaxyKey) node = node.parent;
+            return node?.userData.nearbyGalaxyKey;
+          })
+          .find(Boolean);
+        if (key) {
+          focusNearbyGalaxy(key);
+          S.onNearbyGalaxySelect?.(key);
+        }
+      }
+    }
   };
   const onPointerMove = (e) => {
     if (free && drag && !launchSequence && !launchCameraBlend) {
@@ -2030,15 +2314,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         S.onNavigation(null);
       } else if (nav) {
         lastNavigationHadNav = true;
-        const progress = nav.phase === 'align'
-          ? Math.min(0.15, (nav.elapsed / nav.align) * 0.15)
-          : nav.phase === 'transit'
-            ? 0.15 + Math.min(0.68, (nav.elapsed / nav.duration) * 0.68)
-            : nav.phase === 'jumpin'
-              ? 0.88 + Math.min(0.08, (nav.elapsed / (0.38 * nav.motionFactor)) * 0.08)
-              : nav.phase === 'arrival'
-                ? 0.96 + Math.min(0.04, (nav.elapsed / (0.9 * nav.motionFactor)) * 0.04)
-                : 0.1;
+        const progress =
+          nav.phase === 'align'
+            ? Math.min(0.15, (nav.elapsed / nav.align) * 0.15)
+            : nav.phase === 'transit'
+              ? 0.15 + Math.min(0.68, (nav.elapsed / nav.duration) * 0.68)
+              : nav.phase === 'jumpin'
+                ? 0.88 + Math.min(0.08, (nav.elapsed / (0.38 * nav.motionFactor)) * 0.08)
+                : nav.phase === 'arrival'
+                  ? 0.96 + Math.min(0.04, (nav.elapsed / (0.9 * nav.motionFactor)) * 0.04)
+                  : 0.1;
         S.onNavigation({ phase: nav.phase, progress });
       }
     }
@@ -2450,6 +2735,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       B[0].glow.scale.setScalar(Math.max(B[0].r * (real ? 40 : 6), cam.position.length() * 0.012));
       if (foc && S.d) S.d(foc.au || 0);
     }
+    if (nearbyMapState) {
+      nearbyGalaxyGroup.position.copy(gal.position);
+      nearbyGalaxyGroup.quaternion.copy(gal.quaternion);
+      nearbyGalaxyMarkers.forEach((marker, key) => {
+        marker.userData.label.visible =
+          key === nearbySelectedKey ||
+          cam.position.distanceTo(marker.getWorldPosition(nearbyMarkerWorld)) < 280;
+      });
+    }
     if (tw) {
       tw.k = Math.min(1, tw.k + dt / 1.6);
       const e = tw.k * tw.k * (3 - 2 * tw.k);
@@ -2462,6 +2756,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
   tick();
   return {
+    nearbyMap,
+    returnFromNearbyMap,
+    focusNearbyGalaxy,
     navigationActive: () => !!nav,
     quality: (mode) => {
       qualityMode = mode;
