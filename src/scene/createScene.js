@@ -315,6 +315,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   };
   // brazos espirales logarítmicos (pitch ~17°), trailing, saliendo de los extremos de la barra
   const arm = (r, k) => 0.739 + (k * TAU) / 4 - Math.log(r / 9000) / 0.3;
+  // A deliberately generous scale height keeps the camera immersed in a
+  // three-dimensional stellar volume instead of seeing the galaxy as an edge-on line.
+  const diskHeight = (r) => 950 + 2600 * Math.exp(-r / 14000);
   a = [];
   c = [];
   let Rr = [],
@@ -330,14 +333,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         w = gs() * (i % 3 ? 1800 : 5000);
       x = u * 0.89 - w * 0.45;
       z = u * 0.45 + w * 0.89;
-      y = gs() * (i % 3 ? 900 : 2500);
+      y = gs() * (i % 3 ? 2500 : 6200);
       col = [1, 0.85, 0.6];
     } else if (i < 16000) {
       const r = 3000 + Math.random() * 10000,
         an = Math.random() * TAU;
       x = Math.cos(an) * r;
       z = Math.sin(an) * r;
-      y = gs() * 500;
+      y = gs() * (1100 + 3300 * Math.exp(-r / 7000));
       rr = r;
       col = [1, 0.82, 0.58];
     } else {
@@ -347,7 +350,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         t = r / 45000;
       x = Math.cos(an) * r + gs() * 2800;
       z = Math.sin(an) * r + gs() * 2800;
-      y = gs() * 600 * (1 - t * 0.5);
+      y = gs() * diskHeight(r);
       rr = Math.hypot(x, z);
       col = Math.random() < 0.05 ? [1, 0.45, 0.7] : mix([1, 0.8, 0.6], [0.45, 0.6, 1], t);
     }
@@ -376,14 +379,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       cl = nc(),
       x = Math.cos(an) * r + gs() * 3500,
       z = Math.sin(an) * r + gs() * 3500;
-    a.push(x, gs() * 500, z);
+    a.push(x, gs() * diskHeight(r), z);
     c.push(...cl);
     Rr.push(Math.hypot(x, z));
     Z.push(1500 + Math.random() * 3500);
   }
   for (let i = 0; i < 220; i++) {
     const q = gs() * 5000;
-    a.push(RG + q * 0.25 + gs() * 1500, gs() * 200, q + gs() * 1500);
+    a.push(RG + q * 0.25 + gs() * 1500, gs() * 2400, q + gs() * 1500);
     c.push(...nc());
     Rr.push(RG);
     Z.push(200 + Math.random() * 700);
@@ -391,7 +394,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   for (let i = 0; i < 60; i++) {
     const r = Math.random() * 4500,
       an = Math.random() * TAU;
-    a.push(Math.cos(an) * r, gs() * 600, Math.sin(an) * r);
+    a.push(Math.cos(an) * r, gs() * 3200, Math.sin(an) * r);
     c.push(1, 0.7, 0.4);
     Rr.push(RG);
     Z.push(3000 + Math.random() * 5000);
@@ -407,7 +410,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       t = r / 46000,
       b = 0.15 + 0.4 * Math.random(),
       cl = mix([1, 0.8, 0.6], [0.5, 0.65, 1], t);
-    a.push(Math.cos(an) * r, gs() * 500 * (1 - t * 0.5), Math.sin(an) * r);
+    a.push(Math.cos(an) * r, gs() * diskHeight(r), Math.sin(an) * r);
     c.push(cl[0] * b, cl[1] * b, cl[2] * b);
     Rr.push(r);
     Z.push(0);
@@ -423,7 +426,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       cl = nc(),
       x = Math.cos(an) * r,
       z = Math.sin(an) * r;
-    a.push(x, gs() * 400, z);
+    a.push(x, gs() * diskHeight(r), z);
     c.push(cl[0] * 0.6, cl[1] * 0.6, cl[2] * 0.7);
     Rr.push(r);
     Z.push(2500 + Math.random() * 4000);
@@ -435,7 +438,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   Z = [];
   for (let i = 0; i < 900; i++) {
     const q = gs() * 4500;
-    a.push(RG + q * 0.25 + gs() * 250, gs() * 80, q + gs() * 250);
+    a.push(RG + q * 0.25 + gs() * 250, gs() * 1800, q + gs() * 250);
     c.push(0.4, 0.9, 1);
     Rr.push(RG);
     Z.push(0);
