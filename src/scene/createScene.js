@@ -253,6 +253,39 @@ function makeGalaxyCoreGlow(color = '#8fcaff', size = 10) {
   return sprite;
 }
 
+function makeNebulaBackdropTexture({ seed = 1, color = '#a88cff' } = {}) {
+  let state = seed >>> 0;
+  const random = () => {
+    state = (1664525 * state + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+  const rgb = [1, 3, 5].map((offset) => parseInt(color.slice(offset, offset + 2), 16));
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 512;
+  const context = canvas.getContext('2d');
+  context.save();
+  context.translate(256, 256);
+  context.rotate(seed * 0.21);
+  context.scale(1, 0.62 + random() * 0.2);
+  context.globalCompositeOperation = 'screen';
+  for (let i = 0; i < 15; i++) {
+    const x = (random() - 0.5) * 320;
+    const y = (random() - 0.5) * 250;
+    const radius = 55 + random() * 115;
+    const alpha = 0.08 + random() * 0.07;
+    const cloud = context.createRadialGradient(x, y, 0, x, y, radius);
+    cloud.addColorStop(0, `rgba(${rgb.join(',')},${alpha})`);
+    cloud.addColorStop(0.4, `rgba(${rgb.join(',')},${alpha * 0.42})`);
+    cloud.addColorStop(1, `rgba(${rgb.join(',')},0)`);
+    context.fillStyle = cloud;
+    context.beginPath();
+    context.arc(x, y, radius, 0, TAU);
+    context.fill();
+  }
+  context.restore();
+  return new THREE.CanvasTexture(canvas);
+}
+
 export function setupScene(el, S) {
   let qualityMode = S.quality || 'auto';
   const isMobileDevice = () =>
@@ -368,6 +401,7 @@ export function setupScene(el, S) {
   const deepGalaxyBackdrop = new THREE.Group();
   deepGalaxyBackdrop.name = 'Deep galaxy backdrop';
   const deepGalaxyMaterials = [];
+  const deepSkyNebulaMaterials = [];
   const deepGalaxyMotion = [];
   const distantGalaxies = [
     {
@@ -453,6 +487,36 @@ export function setupScene(el, S) {
       orbitSpeed: 0.0012 + (entry.seed % 5) * 0.00025,
       spinSpeed: 0.006 + (entry.seed % 7) * 0.001,
     });
+  });
+  // Very soft colored dust clouds add depth to the empty intergalactic
+  // background without obscuring the galaxies or nearby planets.
+  [
+    { direction: [-0.28, 0.34, -0.9], distance: 156000, size: 76000, seed: 301, color: '#9b72ff' },
+    { direction: [0.68, 0.46, -0.56], distance: 187000, size: 69000, seed: 317, color: '#ff779e' },
+    {
+      direction: [-0.74, -0.24, -0.63],
+      distance: 174000,
+      size: 82000,
+      seed: 337,
+      color: '#55d8c4',
+    },
+    { direction: [0.14, -0.78, 0.61], distance: 196000, size: 73000, seed: 353, color: '#ffb45e' },
+    { direction: [0.86, -0.16, 0.48], distance: 164000, size: 66000, seed: 379, color: '#7186ff' },
+  ].forEach((entry) => {
+    const material = new THREE.SpriteMaterial({
+      map: makeNebulaBackdropTexture(entry),
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    deepSkyNebulaMaterials.push(material);
+    const sprite = new THREE.Sprite(material);
+    sprite.position.fromArray(entry.direction).normalize().multiplyScalar(entry.distance);
+    sprite.scale.set(entry.size, entry.size * 0.68, 1);
+    sprite.renderOrder = -3;
+    deepGalaxyBackdrop.add(sprite);
   });
   sc.add(deepGalaxyBackdrop);
   const LB = [];
@@ -662,6 +726,28 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   // galaxies map is active and never participates in astronomical navigation.
   const nearbyGalaxyGroup = new THREE.Group();
   nearbyGalaxyGroup.visible = false;
+  const nearbyNebulaColors = ['#9675ff', '#ff789f', '#54d7c5', '#ffb662', '#7489ff'];
+  nearbyNebulaColors.forEach((color, index) => {
+    const direction = new THREE.Vector3(
+      Math.sin(index * 2.4 + 0.6),
+      Math.cos(index * 1.7) * 0.58,
+      Math.cos(index * 2.4 + 0.6),
+    ).normalize();
+    const sprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: makeNebulaBackdropTexture({ seed: 401 + index * 17, color }),
+        transparent: true,
+        opacity: 0.58,
+        depthTest: false,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    sprite.position.copy(direction.multiplyScalar(440 + (index % 3) * 75));
+    sprite.scale.set(560 + (index % 2) * 90, 370 + (index % 2) * 60, 1);
+    sprite.renderOrder = -3;
+    nearbyGalaxyGroup.add(sprite);
+  });
   // Cartographic Milky Way frame used only by the neighborhood overview.
   // The small solar-system marker is parented here so it shares one absolute
   // galactic rotation transform without changing the live planetary scene.
@@ -835,7 +921,21 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const group = new THREE.Group();
     group.userData.nearbyGalaxyKey = entry.key;
     const isGroup = entry.kind === 'group';
-    const color = entry.key === 'milky-way' ? 0x8fdfff : isGroup ? 0xffbc72 : 0xa8c9ff;
+    const galaxyPalette = {
+      'milky-way': '#8acdf2',
+      'sagittarius-dwarf': '#c69aff',
+      lmc: '#ffad78',
+      smc: '#9daeff',
+      m31: '#edc18b',
+      m33: '#78d9c9',
+      'ngc-6822': '#d39aee',
+      'ngc-253': '#ff9270',
+      m81: '#edc97f',
+      m82: '#f07879',
+    };
+    const color = new THREE.Color(
+      isGroup ? '#ffc27d' : galaxyPalette[entry.key] || '#a9b8ff',
+    ).getHex();
     const visualRadius = isGroup ? 25 : galaxyVisualRadii[entry.key] || 28;
     const marker = new THREE.Mesh(
       nearbyMarkerGeometry,
@@ -855,12 +955,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           count: isGroup ? 2100 : Math.round(2400 * Math.min(3, Math.pow(visualRadius / 20, 1.2))),
           arms: irregular ? 5 : entry.key.includes('andromeda') ? 2 : 3,
           radius: visualRadius,
-          color: isGroup ? '#ffc27d' : '#9edcff',
+          color: isGroup ? '#ffc27d' : galaxyPalette[entry.key] || '#a9b8ff',
           irregular,
           pointSize: 0.62,
         }),
       );
-      group.add(makeGalaxyCoreGlow(isGroup ? '#ffc27d' : '#d9edff', Math.min(13, radius * 0.9)));
+      group.add(
+        makeGalaxyCoreGlow(
+          isGroup ? '#ffc27d' : galaxyPalette[entry.key] || '#d9edff',
+          Math.min(13, radius * 0.9),
+        ),
+      );
     }
     if (isGroup) {
       const ring = new THREE.Mesh(
@@ -2671,6 +2776,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       0.55 + 0.45 * THREE.MathUtils.smoothstep(cam.position.length(), 1800, 10000);
     deepGalaxyMaterials.forEach((material) => {
       material.opacity = deepSkyVisibility * 0.68;
+    });
+    deepSkyNebulaMaterials.forEach((material) => {
+      material.opacity = deepSkyVisibility * 0.22;
     });
     deepGalaxyMotion.forEach(
       ({ sprite, material, initialPosition, orbitAxis, orbitSpeed, spinSpeed }) => {
