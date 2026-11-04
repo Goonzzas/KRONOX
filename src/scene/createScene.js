@@ -344,16 +344,16 @@ export function setupScene(el, S) {
   const distantGalaxies = [
     {
       direction: [0.08, 0.13, -1],
-      distance: 176000,
-      size: 8200,
+      distance: 142000,
+      size: 22000,
       seed: 71,
       color: '#8fcaff',
-      arms: 4,
+      arms: 2,
     },
     {
       direction: [-0.48, 0.2, -0.86],
       distance: 190000,
-      size: 6400,
+      size: 9800,
       seed: 113,
       color: '#e2b2ff',
       arms: 3,
@@ -361,7 +361,7 @@ export function setupScene(el, S) {
     {
       direction: [0.72, -0.08, 0.69],
       distance: 185000,
-      size: 7400,
+      size: 10500,
       seed: 149,
       color: '#ffd29b',
       arms: 2,
@@ -370,7 +370,7 @@ export function setupScene(el, S) {
     {
       direction: [-0.94, 0.17, 0.3],
       distance: 168000,
-      size: 5600,
+      size: 8200,
       seed: 193,
       color: '#9ce8dd',
       arms: 5,
@@ -378,7 +378,7 @@ export function setupScene(el, S) {
     {
       direction: [0.24, 0.86, 0.45],
       distance: 198000,
-      size: 6800,
+      size: 9800,
       seed: 229,
       color: '#ffaed1',
       arms: 4,
@@ -386,7 +386,7 @@ export function setupScene(el, S) {
     {
       direction: [0.55, -0.73, -0.4],
       distance: 172000,
-      size: 5200,
+      size: 7600,
       seed: 271,
       color: '#b8c6ff',
       arms: 3,
@@ -405,9 +405,9 @@ export function setupScene(el, S) {
     deepGalaxyMaterials.push(material);
     const sprite = new THREE.Sprite(material);
     sprite.position.fromArray(entry.direction).normalize().multiplyScalar(entry.distance);
-    // Enlarge the apparent angular diameter so the galaxies read clearly
-    // against the starfield while remaining far from the Milky Way scene.
-    sprite.scale.set(entry.size * 2.2, entry.size * 1.63, 1);
+    // Show Andromeda as a prominent spiral and keep the other distant
+    // galaxies large enough to read clearly against the starfield.
+    sprite.scale.set(entry.size * 3.6, entry.size * 2.66, 1);
     sprite.renderOrder = -2;
     deepGalaxyBackdrop.add(sprite);
   });
