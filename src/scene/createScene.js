@@ -164,6 +164,68 @@ function pts(pos, col, size, op) {
     }),
   );
 }
+
+function makeDeepGalaxyTexture({ seed = 1, color = '#8ecbff', arms = 4, edgeOn = false } = {}) {
+  let state = seed >>> 0;
+  const random = () => {
+    state = (1664525 * state + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 384;
+  const context = canvas.getContext('2d');
+  context.save();
+  context.translate(256, 192);
+  context.rotate(seed * 0.37);
+  context.scale(1, edgeOn ? 0.19 : 0.68);
+  const halo = context.createRadialGradient(0, 0, 4, 0, 0, 178);
+  halo.addColorStop(0, '#fff8e8');
+  halo.addColorStop(0.08, color);
+  halo.addColorStop(0.3, `${color}a8`);
+  halo.addColorStop(0.68, `${color}26`);
+  halo.addColorStop(1, `${color}00`);
+  context.fillStyle = halo;
+  context.beginPath();
+  context.arc(0, 0, 178, 0, TAU);
+  context.fill();
+
+  context.globalCompositeOperation = 'lighter';
+  for (let arm = 0; arm < arms; arm++) {
+    for (let i = 0; i < 420; i++) {
+      const progress = 0.04 + random() * 0.96;
+      const angle = (arm / arms) * TAU + progress * 5.3 + (random() - 0.5) * 0.38;
+      const radius = 15 + progress * 158;
+      const scatter = (random() + random() - 1) * (4 + progress * 13);
+      const x = Math.cos(angle) * radius + Math.cos(angle + Math.PI / 2) * scatter;
+      const y = Math.sin(angle) * radius + Math.sin(angle + Math.PI / 2) * scatter;
+      const size = random() > 0.965 ? 2.8 : 0.7 + random() * 1.6;
+      context.globalAlpha = 0.2 + random() * 0.65;
+      context.fillStyle = random() > 0.9 ? '#ffe6c4' : color;
+      context.beginPath();
+      context.arc(x, y, size, 0, TAU);
+      context.fill();
+    }
+  }
+  // A handful of bright star-forming knots give each distant silhouette depth.
+  for (let i = 0; i < 90; i++) {
+    const angle = random() * TAU;
+    const radius = 18 + Math.pow(random(), 0.7) * 145;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+    const glow = context.createRadialGradient(x, y, 0, x, y, 5 + random() * 10);
+    glow.addColorStop(0, 'rgba(255,244,218,.9)');
+    glow.addColorStop(1, 'rgba(255,244,218,0)');
+    context.fillStyle = glow;
+    context.beginPath();
+    context.arc(x, y, 14, 0, TAU);
+    context.fill();
+  }
+  context.restore();
+  context.globalAlpha = 1;
+  return new THREE.CanvasTexture(canvas);
+}
+
 export function setupScene(el, S) {
   let qualityMode = S.quality || 'auto';
   const isMobileDevice = () =>
@@ -273,6 +335,81 @@ export function setupScene(el, S) {
     c.push(0.5 + Math.random() * 0.4, 0.55 + Math.random() * 0.2, 0.8);
   }
   sc.add(pts(a, c, 1, 0.35));
+  // Decorative deep-sky galaxies sit far beyond the Milky Way starfield.
+  // They fade in as the camera pulls back to explore galactic scales and stay
+  // subtle near planets, where they would otherwise distract from navigation.
+  const deepGalaxyBackdrop = new THREE.Group();
+  deepGalaxyBackdrop.name = 'Deep galaxy backdrop';
+  const deepGalaxyMaterials = [];
+  const distantGalaxies = [
+    {
+      direction: [0.08, 0.13, -1],
+      distance: 176000,
+      size: 8200,
+      seed: 71,
+      color: '#8fcaff',
+      arms: 4,
+    },
+    {
+      direction: [-0.48, 0.2, -0.86],
+      distance: 190000,
+      size: 6400,
+      seed: 113,
+      color: '#e2b2ff',
+      arms: 3,
+    },
+    {
+      direction: [0.72, -0.08, 0.69],
+      distance: 185000,
+      size: 7400,
+      seed: 149,
+      color: '#ffd29b',
+      arms: 2,
+      edgeOn: true,
+    },
+    {
+      direction: [-0.94, 0.17, 0.3],
+      distance: 168000,
+      size: 5600,
+      seed: 193,
+      color: '#9ce8dd',
+      arms: 5,
+    },
+    {
+      direction: [0.24, 0.86, 0.45],
+      distance: 198000,
+      size: 6800,
+      seed: 229,
+      color: '#ffaed1',
+      arms: 4,
+    },
+    {
+      direction: [0.55, -0.73, -0.4],
+      distance: 172000,
+      size: 5200,
+      seed: 271,
+      color: '#b8c6ff',
+      arms: 3,
+      edgeOn: true,
+    },
+  ];
+  distantGalaxies.forEach((entry) => {
+    const material = new THREE.SpriteMaterial({
+      map: makeDeepGalaxyTexture(entry),
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    deepGalaxyMaterials.push(material);
+    const sprite = new THREE.Sprite(material);
+    sprite.position.fromArray(entry.direction).normalize().multiplyScalar(entry.distance);
+    sprite.scale.set(entry.size, entry.size * 0.74, 1);
+    sprite.renderOrder = -2;
+    deepGalaxyBackdrop.add(sprite);
+  });
+  sc.add(deepGalaxyBackdrop);
   const LB = [];
   const gal = new THREE.Group(),
     RG = 22500,
@@ -2472,6 +2609,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     rafId = requestAnimationFrame(tick);
     const dt = Math.min(clk.getDelta(), 0.1),
       spd = S.pause.current ? 0 : S.speed.current;
+    const deepSkyVisibility = THREE.MathUtils.smoothstep(cam.position.length(), 1800, 10000);
+    deepGalaxyMaterials.forEach((material) => {
+      material.opacity = deepSkyVisibility * 0.68;
+    });
     sim += dt * spd;
     S.day(sim);
     updateAsteroids(sim);
