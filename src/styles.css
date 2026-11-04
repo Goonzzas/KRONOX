@@ -2963,7 +2963,6 @@ small {
   }
 }
 
-
 /* Give both complete frames the mission viewport while comparing dates. */
 .spherexBody.comparing {
   grid-template-columns: minmax(0, 1fr);
@@ -2983,7 +2982,6 @@ small {
   min-height: 0;
 }
 
-
 /* Fit the primary frame to the observed image while keeping the full sky visible. */
 .spherexImageFrame:not(.comparisonHidden) {
   flex: 0 1 auto;
@@ -2992,7 +2990,6 @@ small {
   max-height: min(65dvh, 680px);
   aspect-ratio: var(--spherex-image-ratio, 1.72);
 }
-
 
 /* Let the main mission window grow to the full natural image dimensions. */
 .spherexShade.hasFullImage {
@@ -3024,7 +3021,6 @@ small {
   max-height: none;
   aspect-ratio: var(--spherex-image-ratio, 1.72);
 }
-
 
 /* Astronomical WCS sky stage and reference coordinate reticle */
 .spherexSkyStage {
@@ -3273,7 +3269,14 @@ small {
   width: 140px;
   height: 12px;
   border-radius: 3px;
-  background: linear-gradient(to right, #00dcff 0%, #0050c8 30%, #0a0f1a 50%, #ea580c 70%, #ffedd5 100%);
+  background: linear-gradient(
+    to right,
+    #00dcff 0%,
+    #0050c8 30%,
+    #0a0f1a 50%,
+    #ea580c 70%,
+    #ffedd5 100%
+  );
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 .spherexNormCard {
@@ -3433,7 +3436,9 @@ small {
 .qpanel {
   border-color: var(--ui-line);
   background-color: var(--ui-surface);
-  box-shadow: var(--ui-shadow), inset 0 1px rgba(255, 255, 255, 0.035);
+  box-shadow:
+    var(--ui-shadow),
+    inset 0 1px rgba(255, 255, 255, 0.035);
   backdrop-filter: blur(16px) saturate(125%);
   -webkit-backdrop-filter: blur(16px) saturate(125%);
 }
@@ -3487,7 +3492,9 @@ small {
   color: #e8fbff;
   border-color: var(--ui-line-strong);
   background: linear-gradient(135deg, rgba(52, 172, 207, 0.2), rgba(121, 105, 208, 0.15));
-  box-shadow: inset 0 -2px var(--ui-cyan), 0 4px 14px rgba(41, 173, 211, 0.1);
+  box-shadow:
+    inset 0 -2px var(--ui-cyan),
+    0 4px 14px rgba(41, 173, 211, 0.1);
 }
 
 .pn button,
@@ -3515,7 +3522,9 @@ small {
   color: #eafcff;
   border-color: rgba(112, 228, 255, 0.62);
   background: linear-gradient(135deg, rgba(47, 174, 209, 0.28), rgba(118, 99, 201, 0.2));
-  box-shadow: inset 0 0 0 1px rgba(112, 228, 255, 0.08), 0 0 14px rgba(62, 190, 225, 0.11);
+  box-shadow:
+    inset 0 0 0 1px rgba(112, 228, 255, 0.08),
+    0 0 14px rgba(62, 190, 225, 0.11);
 }
 
 .pn button:focus-visible,
@@ -3551,7 +3560,9 @@ small {
   border-radius: 999px;
   padding: 7px 14px;
   background: rgba(4, 14, 25, 0.82);
-  box-shadow: 0 0 24px rgba(42, 179, 218, 0.12), inset 0 0 12px rgba(65, 204, 236, 0.05);
+  box-shadow:
+    0 0 24px rgba(42, 179, 218, 0.12),
+    inset 0 0 12px rgba(65, 204, 236, 0.05);
 }
 
 .speedStages > div {
@@ -3567,7 +3578,9 @@ small {
   background:
     radial-gradient(circle at 50% 42%, rgba(24, 53, 72, 0.95), rgba(4, 13, 23, 0.98) 74%),
     conic-gradient(from 0deg, rgba(109, 234, 255, 0.12), rgba(10, 20, 32, 0.5));
-  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.9), 0 0 12px rgba(66, 202, 255, 0.1);
+  box-shadow:
+    inset 0 0 12px rgba(0, 0, 0, 0.9),
+    0 0 12px rgba(66, 202, 255, 0.1);
 }
 
 .flightGauge strong {
@@ -3589,6 +3602,217 @@ small {
 .mobileFlightControls button:active {
   transform: scale(0.94);
   filter: brightness(1.2);
+}
+
+.playPreferences {
+  display: grid;
+  gap: 9px;
+  margin: 12px 0;
+  padding: 11px;
+  border: 1px solid rgba(112, 228, 255, 0.16);
+  border-radius: 11px;
+  background: rgba(3, 12, 24, 0.5);
+}
+.playPreferences > b {
+  color: #dff9ff;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.preferenceRow,
+.preferenceToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #bdcce0;
+  font-size: 12px;
+}
+.preferenceRow select {
+  max-width: 52%;
+  min-height: 34px;
+  padding: 5px 8px;
+  border: 1px solid #82dcf455;
+  border-radius: 7px;
+  color: #eafaff;
+  background: #0b1728;
+}
+.preferenceToggle {
+  justify-content: flex-start;
+  min-height: 32px;
+  cursor: pointer;
+}
+.preferenceToggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: #67dff7;
+}
+.soundPreference {
+  display: grid;
+  gap: 7px;
+}
+.soundPreference > button {
+  min-height: 38px;
+}
+.soundPreference input[type='range'] {
+  width: 48%;
+}
+.navigationGuide {
+  position: absolute;
+  z-index: 11;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 11px 14px;
+  border: 1px solid rgba(112, 228, 255, 0.38);
+  border-radius: 15px;
+  color: #eaf8ff;
+  background: linear-gradient(140deg, rgba(5, 18, 32, 0.94), rgba(19, 18, 42, 0.92));
+  box-shadow:
+    0 12px 35px #0008,
+    0 0 24px rgba(53, 190, 220, 0.12);
+  backdrop-filter: blur(14px);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.navigationGuideIcon {
+  display: grid;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid #74eaff55;
+  border-radius: 12px;
+  color: #8ef1ff;
+  background: #53dfff12;
+  font-size: 23px;
+}
+.navigationGuideText {
+  min-width: 0;
+  flex: 1;
+}
+.navigationGuideText small,
+.navigationGuideText b,
+.navigationGuideText span {
+  display: block;
+}
+.navigationGuideText small {
+  color: #82d8e9;
+  font:
+    9px ui-monospace,
+    monospace;
+  letter-spacing: 0.13em;
+}
+.navigationGuideText b {
+  overflow: hidden;
+  margin: 2px 0;
+  font:
+    600 15px Georgia,
+    serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.navigationGuideText span {
+  color: #aabbd0;
+  font-size: 11px;
+}
+.navigationProgress {
+  height: 3px;
+  margin-top: 7px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #9fb9c62a;
+}
+.navigationProgress i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #67dff7, #a895ff);
+  transform-origin: left center;
+  transition: transform 180ms linear;
+}
+.infoActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.infoActions button {
+  min-height: 42px;
+  padding: 9px 13px;
+}
+.infoActions .infoExploreButton {
+  border-color: #6fdef2aa;
+  background: linear-gradient(110deg, #237d98, #4d458b);
+  color: #f5fdff;
+  font-weight: 650;
+}
+.infoActions button:focus-visible,
+.infoHeader button:focus-visible {
+  outline: 2px solid #84efff;
+  outline-offset: 3px;
+}
+.reduceMotion *,
+.reduceMotion *::before,
+.reduceMotion *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+.highContrast {
+  --mut: #c6d4e7;
+  --ui-line: rgba(205, 232, 255, 0.48);
+  --ui-line-strong: rgba(127, 238, 255, 0.88);
+}
+.highContrast .pn,
+.highContrast .in,
+.highContrast .qpanel,
+.highContrast .navigationGuide,
+.highContrast .playPreferences {
+  border-color: rgba(205, 232, 255, 0.68);
+  background-color: rgba(2, 8, 18, 0.97);
+}
+.highContrast .navigationGuideText span,
+.highContrast .preferenceRow,
+.highContrast .preferenceToggle {
+  color: #edf6ff;
+}
+
+@media (max-width: 760px), (pointer: coarse) {
+  .mobileMode .navigationGuide {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    width: min(310px, calc(100vw - 24px));
+    padding: 8px 10px;
+    border-radius: 12px;
+  }
+  .mobileMode .navigationGuideIcon {
+    flex-basis: 32px;
+    width: 32px;
+    height: 32px;
+  }
+  .mobileMode .navigationGuideText b {
+    font-size: 13px;
+  }
+  .mobileMode .navigationGuideText span {
+    font-size: 10px;
+  }
+  .mobileMode .preferenceRow,
+  .mobileMode .preferenceToggle {
+    min-height: 38px;
+    font-size: 11px;
+  }
+}
+@media (max-width: 560px) {
+  .infoActions {
+    flex-direction: column;
+  }
+  .infoActions button {
+    width: 100%;
+  }
 }
 
 @media (max-width: 760px), (pointer: coarse) {
