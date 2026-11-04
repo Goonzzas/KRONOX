@@ -2021,7 +2021,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           : p.dwarf
             ? Math.max(0.075, 0.35 * (p.km / 6371))
             : 0.35 * (p.km / 6371),
-    Dd = (au) => (real ? au * 149.6 : 14 + 16 * Math.pow(au, 0.62)),
+    // Give the visual-scale planets more room. Jupiter's outer Galilean moon
+    // orbit was nearly as wide as the Mars–Jupiter gap, so their paths could
+    // overlap in projection. This only changes the display map; physical scale
+    // and the underlying Keplerian positions remain unchanged.
+    Dd = (au) => (real ? au * 149.6 : 14 + 20 * Math.pow(au, 0.68)),
     Dm = () => (real ? 0.3844 : 1.3),
     shipScale = () => (Rd(P[3]) * (SHIP_LENGTH_METERS / 1000)) / (P[3].km * SHIP_MODEL_LENGTH),
     // Keep the external follow camera at a planet-relative distance; a
