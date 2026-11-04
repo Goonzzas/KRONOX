@@ -488,7 +488,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const galacticMapDisk = new THREE.Group();
   galacticMapFrame.add(galacticMapDisk);
   const galacticMapCore = new THREE.Mesh(
-    new THREE.SphereGeometry(3.4, 18, 14),
+    new THREE.SphereGeometry(6, 18, 14),
     new THREE.MeshBasicMaterial({ color: 0xffbd74, transparent: true, opacity: 0.85 }),
   );
   galacticMapDisk.add(galacticMapCore);
@@ -496,12 +496,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const points = [];
     for (let step = 0; step <= 90; step++) {
       const progress = step / 90;
-      const radius = 4 + progress * 30;
+      const radius = 8 + progress * 78;
       const angle = armIndex * (TAU / 4) + progress * 2.8;
       points.push(
         new THREE.Vector3(
           Math.cos(angle) * radius,
-          Math.sin(angle) * radius * 0.08,
+          Math.sin(angle) * radius * 0.055,
           Math.sin(angle) * radius,
         ),
       );
@@ -512,13 +512,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         new THREE.LineBasicMaterial({
           color: armIndex % 2 ? 0x627eca : 0x55b8dc,
           transparent: true,
-          opacity: 0.34,
+          opacity: 0.62,
         }),
       ),
     );
   }
   const solarSystemMapMarker = new THREE.Group();
-  solarSystemMapMarker.position.x = 19;
+  solarSystemMapMarker.position.x = 54;
   galacticMapDisk.add(solarSystemMapMarker);
   const solarMapSun = new THREE.Mesh(
     new THREE.SphereGeometry(1.45, 16, 12),
@@ -539,7 +539,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   P.filter((planet) => planet.au).forEach((planet) => {
     // The overview compresses the real orbital radii while retaining each
     // planet's orbital phase from the existing simulation clock.
-    const visualOrbitRadius = Math.log1p(planet.au) * 3.4;
+    const visualOrbitRadius = Math.log1p(planet.au) * 2.8;
     const orbitPoints = [];
     for (let step = 0; step < 64; step++) {
       const angle = (step / 64) * TAU;
@@ -558,28 +558,80 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       ),
     );
     const marker = new THREE.Mesh(
-      new THREE.SphereGeometry(planet.au > 4 ? 0.62 : 0.46, 10, 8),
+      new THREE.SphereGeometry(planet.au > 4 ? 0.82 : 0.64, 10, 8),
       new THREE.MeshBasicMaterial({ color: miniPlanetColors[planet.n] || 0xc6d4e4 }),
     );
     solarSystemMapMarker.add(marker);
     solarMapPlanets.push({ planet, marker, visualOrbitRadius });
   });
   const solarSystemLabel = lab('Sistema Solar · Sol', 82, 22);
-  solarSystemLabel.position.set(0, 4, 0);
+  solarSystemLabel.position.set(0, 7, 0);
   solarSystemMapMarker.add(solarSystemLabel);
   const overviewStarPositions = [];
   const overviewStarColors = [];
   for (let index = 0; index < 1800; index++) {
     const direction = new THREE.Vector3(gs(), gs(), gs()).normalize();
-    const radius = 760 + Math.random() * 1120;
+    const radius = 520 + Math.random() * 980;
     overviewStarPositions.push(direction.x * radius, direction.y * radius, direction.z * radius);
     const tint = Math.random();
     overviewStarColors.push(0.56 + tint * 0.36, 0.68 + tint * 0.26, 0.82 + tint * 0.18);
   }
-  nearbyGalaxyGroup.add(pts(overviewStarPositions, overviewStarColors, 1.25, 0.44));
+  nearbyGalaxyGroup.add(pts(overviewStarPositions, overviewStarColors, 1.15, 0.3));
   const nearbyGalaxyMarkers = new Map();
   const nearbyMarkerGeometry = new THREE.SphereGeometry(1, 12, 10);
-  const galaxyDistance = (entry) => Math.sqrt(Math.max(0, entry.distanceMly || 0)) * 135;
+  const galaxyDistance = (entry) => Math.sqrt(Math.max(0, entry.distanceMly || 0)) * 76;
+  const galaxyIconTextures = new Map();
+  const makeGalaxyIconTexture = (color, irregular = false) => {
+    const cacheKey = `${color}-${irregular}`;
+    if (galaxyIconTextures.has(cacheKey)) return galaxyIconTextures.get(cacheKey);
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 256;
+    const context = canvas.getContext('2d');
+    const gradient = context.createRadialGradient(128, 128, 8, 128, 128, 118);
+    gradient.addColorStop(0, '#ffffff');
+    gradient.addColorStop(0.1, color);
+    gradient.addColorStop(0.34, `${color}bb`);
+    gradient.addColorStop(0.7, `${color}48`);
+    gradient.addColorStop(1, `${color}00`);
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 256, 256);
+    context.globalCompositeOperation = 'screen';
+    context.strokeStyle = `${color}a0`;
+    context.lineWidth = irregular ? 7 : 5;
+    context.lineCap = 'round';
+    for (let arm = 0; arm < (irregular ? 8 : 4); arm++) {
+      context.beginPath();
+      for (let step = 0; step <= 100; step++) {
+        const progress = step / 100;
+        const angle = arm * (TAU / (irregular ? 8 : 4)) + progress * (irregular ? 4 : 16);
+        const radius =
+          12 + progress * 94 * (irregular ? 0.72 + 0.24 * Math.sin(step * 0.31 + arm) : 1);
+        const x = 128 + Math.cos(angle) * radius;
+        const y = 128 + Math.sin(angle) * radius * (irregular ? 0.72 : 0.42);
+        if (step === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
+      }
+      context.stroke();
+    }
+    context.globalCompositeOperation = 'source-over';
+    const texture = new THREE.CanvasTexture(canvas);
+    galaxyIconTextures.set(cacheKey, texture);
+    return texture;
+  };
+  const milkyWayMapIcon = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: makeGalaxyIconTexture('#70c8ff'),
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      opacity: 0.48,
+    }),
+  );
+  milkyWayMapIcon.scale.set(180, 122, 1);
+  milkyWayMapIcon.position.z = -1;
+  milkyWayMapIcon.renderOrder = -1;
+  milkyWayMapIcon.userData.rotationSpeed = 0.12;
+  galacticMapFrame.add(milkyWayMapIcon);
   const galaxyDirection = (entry) => {
     if (!Number.isFinite(entry.raDeg) || !Number.isFinite(entry.decDeg)) return new THREE.Vector3();
     const ra = (entry.raDeg * Math.PI) / 180;
@@ -597,12 +649,32 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const color = entry.key === 'milky-way' ? 0x8fdfff : isGroup ? 0xffbc72 : 0xa8c9ff;
     const marker = new THREE.Mesh(
       nearbyMarkerGeometry,
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: isGroup ? 0.72 : 0.92 }),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: isGroup ? 0.86 : 0.96 }),
     );
-    const radius = entry.key === 'milky-way' ? 13 : isGroup ? 8 : 5.5;
+    // Keep the Milky Way's pick target compact so it does not cover the
+    // larger spiral-disk illustration drawn behind it.
+    const radius = entry.key === 'milky-way' ? 5 : isGroup ? 10 : 7;
     marker.scale.setScalar(radius);
     marker.userData.nearbyGalaxyKey = entry.key;
     group.add(marker);
+    if (entry.key !== 'milky-way') {
+      const icon = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: makeGalaxyIconTexture(
+            isGroup ? '#ffc27d' : '#9edcff',
+            entry.kind === 'group' || entry.type?.en?.includes('Irregular'),
+          ),
+          transparent: true,
+          depthWrite: false,
+          opacity: 0.95,
+        }),
+      );
+      const iconSize = isGroup ? 43 : 34;
+      icon.scale.set(iconSize, iconSize * 0.68, 1);
+      icon.userData.rotationSpeed = isGroup ? 0.07 : 0.16;
+      group.add(icon);
+      group.userData.galaxyIcon = icon;
+    }
     if (isGroup) {
       const ring = new THREE.Mesh(
         new THREE.TorusGeometry(radius * 1.6, 0.7, 4, 32),
@@ -1703,7 +1775,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     nearKey = null,
     activeMissionKey = null,
     nearbyMapState = null,
-    nearbySelectedKey = 'milky-way';
+    nearbySelectedKey = 'milky-way',
+    nearbyMapRotation = 0;
   const nearbyRaycaster = new THREE.Raycaster();
   const nearbyPointer = new THREE.Vector2();
   const nearbyMarkerWorld = new THREE.Vector3();
@@ -1740,7 +1813,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     tw = {
       p0: cam.position.clone(),
       t0: ct.target.clone(),
-      p1: center.clone().add(new THREE.Vector3(0, 420, 980)),
+      p1: center.clone().add(new THREE.Vector3(0, 270, 650)),
       t1: center,
       k: 0,
     };
@@ -2842,10 +2915,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       nearbyGalaxyGroup.position.set(0, 0, 0);
       nearbyGalaxyGroup.quaternion.copy(gal.quaternion);
       const solarGalacticRadius = Math.hypot(24500, 3500);
-      // The galaxy shader rotates x/z with the opposite sign convention to
-      // THREE.Euler.y, so negate its exact phase for a matching frame.
-      galacticMapDisk.rotation.y =
-        -(GU.uP.value + GU.uT.value * (RG / Math.max(solarGalacticRadius, 6000) - 1));
+      // Keep the solar-system marker on the same visible disk rotation as the
+      // Milky Way. The additional map-only phase makes that schematic motion
+      // perceptible without changing the physical simulation clock.
+      galacticMapDisk.rotation.y = -(
+        GU.uP.value +
+        GU.uT.value * (RG / Math.max(solarGalacticRadius, 6000) - 1) +
+        nearbyMapRotation
+      );
+      nearbyMapRotation = (nearbyMapRotation + dt * 0.12) % TAU;
+      milkyWayMapIcon.material.rotation += dt * milkyWayMapIcon.userData.rotationSpeed;
       solarSystemLabel.visible =
         nearbySelectedKey === 'milky-way' ||
         cam.position.distanceTo(solarSystemMapMarker.getWorldPosition(nearbyMarkerWorld)) < 170;
@@ -2861,6 +2940,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         marker.userData.label.visible =
           key === nearbySelectedKey ||
           cam.position.distanceTo(marker.getWorldPosition(nearbyMarkerWorld)) < 280;
+        if (marker.userData.galaxyIcon) {
+          marker.userData.galaxyIcon.material.rotation +=
+            dt * marker.userData.galaxyIcon.userData.rotationSpeed;
+        }
       });
     }
     if (tw) {
