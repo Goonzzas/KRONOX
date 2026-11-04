@@ -18,9 +18,19 @@ KRONOX es una aplicación web educativa e interactiva que combina una exploraci�
 
 | 🪐 Explorar | 🚀 Pilotar | 🔭 Investigar |
 |---|---|---|
-| Recorre el Sol, los planetas y una representación esquemática de la Vía Láctea en una escena WebGL. Ajusta escalas, fecha y velocidad de simulación. | Usa cámaras orbital, libre y de nave; viaja a destinos rápidos, realiza saltos espaciales o pilota con telemetría, inercia y piloto automático. | Busca observaciones SPHEREx, compara dos fechas con alineación WCS, registra notas sobre hallazgos y expórtalas a CSV. |
+| Recorre el Sol, los planetas, cinco planetas enanos y una Vía Láctea con mayor profundidad visual. Ajusta escalas, fecha y velocidad de simulación. | Usa cámaras orbital, libre y de nave; viaja a destinos rápidos, realiza saltos espaciales y pilota con telemetría, zoom de tercera persona e indicaciones durante el trayecto. | Busca observaciones SPHEREx, compara dos fechas con alineación WCS, registra notas sobre hallazgos y expórtalas a CSV. |
 
-También incluye fichas planetarias con referencias de NASA, mensajes del asistente Kronox, alertas de proximidad, selector de idioma y controles táctiles para móvil.
+También incluye texturas procedurales para planetas enanos, asteroides y lunas, satélites más visibles, entrada a la nave desde la Tierra, fichas planetarias con referencias de NASA, Kronox en español e inglés y controles táctiles para móvil. Las preferencias incluyen calidad gráfica, alto contraste, reducción de movimiento y sonidos de juego opcionales.
+
+## Novedades desde la actualización anterior
+
+Se revisaron **31 commits**, desde `e1b29b6` hasta `3d344e5`. Estos son los cambios incorporados:
+
+- **Sistema solar y cuerpos menores:** se añadieron Ceres, Plutón, Haumea, Makemake y Eris con órbitas aproximadas, texturas procedurales y acceso desde viajes rápidos. Se renovó el aspecto de sus superficies, se mejoraron las texturas de las lunas de Júpiter, se redujo el tamaño y se amplió la cantidad de satélites terrestres, y se sincronizaron y ralentizaron los movimientos visuales de Júpiter. Commits: `e923acf`, `48ea36b`, `5e6ae7e`, `18a1231`, `aeceea3`, `df77f15`, `fecfa38`, `f6e61a8`, `c71ef53`, `6b2b21e`.
+- **Vía Láctea y entorno:** se dio más volumen a la vista galáctica, se separaron visualmente sistemas estelares próximos y se añadieron estrellas con textura y asteroides 3D. Una prueba de visualización del espolón de Orión se revirtió después; esas mejoras no forman parte de la vista actual. Commits: `3d344e5`, `159716b`, `74b927a`, `5e65869`, `2755903`.
+- **Nave y viajes:** se ajustaron escala, encuadre y perspectiva de la nave junto a los planetas; la vista de tercera persona ahora ofrece zoom y mantiene la nave visible. El ingreso a la nave comienza desde la Tierra con una secuencia de lanzamiento. Commits: `60af42d`, `de4b7e4`, `5ba92f3`, `a09f322`, `b64fca6`, `ecd0f88`, `323b971`.
+- **Viajes de misión y simulación:** los viajes de misión se pueden acelerar y muestran consejos de velocidad; sus avisos y el mensaje de lanzamiento se tradujeron. También se revisaron los controles de nombres y la velocidad inicial, que ahora parte de **0,10 días simulados por segundo**. Commits: `0b4dd7d`, `267cd6d`, `b579e97`, `b4f6e14`, `23af5fb`, `c8f0848`, `774c2ca`, `9816d6e`.
+- **Accesibilidad y respuesta de vuelo:** se añadieron preferencias de calidad gráfica, alto contraste y movimiento reducido; la opción de movimiento reducido también se respeta en los viajes guiados. Hay señales sonoras opcionales, una indicación de progreso de navegación y ajustes a los controles y a la interacción con las fichas planetarias. Commits: `9bed709`.
 
 ## 🛰️ Consola SPHEREx: Ecos en infrarrojo
 
@@ -49,7 +59,7 @@ Los tipos de misión orientan la exploración hacia el rastreo de estrellas y el
 
 ## 🌐 Idiomas y voz
 
-La interfaz está disponible en **español e inglés**. KRONOX puede sugerir un idioma a partir del idioma del navegador o del país informado por Vercel, permite elegirlo manualmente y recuerda esa preferencia en el navegador. La voz usa Google Translate TTS y acepta español latino, español de España e inglés de EE. UU.; los avisos hablados se envían al servicio para generar audio.
+La interfaz está disponible en **español e inglés**. KRONOX puede sugerir un idioma a partir del navegador o del país informado por Vercel, permite elegirlo manualmente y recuerda la preferencia en el navegador. Los controles de vuelo y los avisos de misión también están traducidos. La voz usa Google Translate TTS y acepta español latino, español de España e inglés de EE. UU.; los avisos hablados se envían al servicio para generar audio.
 
 ## 🕹️ Controles rápidos
 
@@ -63,7 +73,7 @@ La interfaz está disponible en **español e inglés**. KRONOX puede sugerir un 
 | Acelerar temporalmente | `Shift` |
 | Pilotar en móvil | Controles táctiles en pantalla |
 
-La cámara de nave puede alternar entre primera y tercera persona. El menú de viaje rápido incluye planetas y puntos de interés galácticos.
+La cámara de nave puede alternar entre primera y tercera persona; la vista en tercera persona incluye zoom y encuadre ajustable. Los viajes guiados muestran el avance y permiten acelerar el trayecto. El menú de viaje rápido incluye planetas, planetas enanos y puntos de interés galácticos. En las preferencias se puede ajustar la calidad gráfica, activar alto contraste o reducir animaciones y movimiento.
 
 ## 🧰 Tecnologías y servicios
 
@@ -77,6 +87,8 @@ La cámara de nave puede alternar entre primera y tercera persona. El menú de v
 | Observaciones SPHEREx | NASA/IPAC Infrared Science Archive (IRSA), catálogo SIA y servicio IBE para recortes FITS |
 | Imágenes y contenido | Recursos públicos de NASA y catálogos locales del proyecto |
 | Voz | Google Translate TTS |
+| Sonidos de juego | Efectos y ambiente opcionales sintetizados en el navegador |
+| Preferencia de idioma | Traducciones español/inglés y sugerencia regional con Vercel |
 
 Las versiones exactas y dependencias se encuentran en `package.json` y `package-lock.json`. El procesamiento y la reproyección de imágenes FITS se realizan en el navegador con utilidades propias del proyecto.
 
