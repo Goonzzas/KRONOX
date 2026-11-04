@@ -164,8 +164,18 @@ function pts(pos, col, size, op) {
   );
 }
 export function setupScene(el, S) {
-  const R = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
-  R.setPixelRatio(Math.min(2, devicePixelRatio));
+  let qualityMode = S.quality || 'auto';
+  const isMobileDevice = () => window.matchMedia?.('(max-width: 760px), (pointer: coarse)')?.matches;
+  const pixelRatioFor = (mode) => {
+    if (mode === 'performance') return 1;
+    if (mode === 'quality') return Math.min(2, devicePixelRatio || 1);
+    return Math.min(isMobileDevice() ? 1.25 : 1.75, devicePixelRatio || 1);
+  };
+  const R = new THREE.WebGLRenderer({
+    antialias: qualityMode !== 'performance' && !isMobileDevice(),
+    logarithmicDepthBuffer: true,
+  });
+  R.setPixelRatio(pixelRatioFor(qualityMode));
   R.setSize(innerWidth, innerHeight);
   el.appendChild(R.domElement);
   const textureLoader = new THREE.TextureLoader();
@@ -232,7 +242,9 @@ export function setupScene(el, S) {
     cam = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 1e-8, 4e5),
     ct = new OrbitControls(cam, R.domElement);
   let rafId = 0,
-    disposed = false;
+    disposed = false,
+    lastNavigationPublish = -1,
+    lastNavigationHadNav = false;
   ct.enableDamping = true;
   ct.dampingFactor = 0.07;
   ct.maxDistance = 3e5;
@@ -1985,6 +1997,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     delete keys[e.key.toLowerCase()];
   };
   const onResize = () => {
+    R.setPixelRatio(pixelRatioFor(qualityMode));
     R.setSize(innerWidth, innerHeight);
     cam.aspect = innerWidth / innerHeight;
     cam.updateProjectionMatrix();
@@ -2005,6 +2018,25 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     sim += dt * spd;
     S.day(sim);
     updateAsteroids(sim);
+    if (S.onNavigation && clk.elapsedTime - lastNavigationPublish > 0.18) {
+      lastNavigationPublish = clk.elapsedTime;
+      if (!nav && lastNavigationHadNav) {
+        lastNavigationHadNav = false;
+        S.onNavigation(null);
+      } else if (nav) {
+        lastNavigationHadNav = true;
+        const progress = nav.phase === 'align'
+          ? Math.min(0.15, (nav.elapsed / nav.align) * 0.15)
+          : nav.phase === 'transit'
+            ? 0.15 + Math.min(0.68, (nav.elapsed / nav.duration) * 0.68)
+            : nav.phase === 'jumpin'
+              ? 0.88 + Math.min(0.08, (nav.elapsed / 0.38) * 0.08)
+              : nav.phase === 'arrival'
+                ? 0.96 + Math.min(0.04, (nav.elapsed / 0.9) * 0.04)
+                : 0.1;
+        S.onNavigation({ phase: nav.phase, progress });
+      }
+    }
     const fl = S.fl.current,
       solarOrbitVisibility = fl.orb
         ? 1 - THREE.MathUtils.smoothstep(cam.position.length(), 150, 240)
@@ -2425,6 +2457,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
   tick();
   return {
+    navigationActive: () => !!nav,
+    quality: (mode) => {
+      qualityMode = mode;
+      R.setPixelRatio(pixelRatioFor(qualityMode));
+      R.setSize(innerWidth, innerHeight);
+    },
     dispose: () => {
       disposed = true;
       cancelAnimationFrame(rafId);
