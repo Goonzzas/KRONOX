@@ -10,6 +10,7 @@ import SpherexMission from './components/SpherexMission.jsx';
 import SpherexMissionSelector from './components/SpherexMissionSelector.jsx';
 import { SPHEREX_MISSION_TYPES } from './data/spherexTargets.js';
 import { detectLanguage, hasSavedLanguage, LANGUAGES, t, voiceLanguage } from './i18n.js';
+import { createGameAudio } from './utils/gameAudio.js';
 import './styles.css';
 
 export default function App() {
@@ -34,6 +35,33 @@ export default function App() {
     [kronoxOpen, setKronoxOpen] = useState(false),
     [kronoxDialogHidden, setKronoxDialogHidden] = useState(false),
     [deviceMode, setDeviceMode] = useState(deviceGuess),
+    [quality, setQuality] = useState(() => {
+      try {
+        return localStorage.getItem('kronox-quality') || 'auto';
+      } catch {
+        return 'auto';
+      }
+    }),
+    [reducedMotion, setReducedMotion] = useState(() => {
+      try {
+        const saved = localStorage.getItem('kronox-reduced-motion');
+        return saved === null
+          ? window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches || false
+          : saved === 'true';
+      } catch {
+        return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches || false;
+      }
+    }),
+    [highContrast, setHighContrast] = useState(() => {
+      try {
+        return localStorage.getItem('kronox-high-contrast') === 'true';
+      } catch {
+        return false;
+      }
+    }),
+    [ambientEnabled, setAmbientEnabled] = useState(false),
+    [soundVolume, setSoundVolume] = useState(0.35),
+    [navigation, setNavigation] = useState(null),
     [welcomeOpen, setWelcomeOpen] = useState(true),
     [missionOpen, setMissionOpen] = useState(false),
     [missionSelectorOpen, setMissionSelectorOpen] = useState(false),
@@ -69,7 +97,8 @@ export default function App() {
     voiceAccentRef = useRef(voiceAccent),
     noticeQueue = useRef([]),
     noticeRef = useRef(null),
-    noticeTimer = useRef(null);
+    noticeTimer = useRef(null),
+    gameAudioRef = useRef(null);
   const languageManuallyChosen = useRef(false);
   const languagePreferenceExists = useRef(hasSavedLanguage());
   const setGuide = (message) => setGuideState(t(message, language));
@@ -104,6 +133,42 @@ export default function App() {
       /* Preference stays in memory. */
     }
   }, [language]);
+  useEffect(() => {
+    document.documentElement.classList.toggle('reduceMotion', reducedMotion);
+    try {
+      localStorage.setItem('kronox-reduced-motion', String(reducedMotion));
+    } catch {
+      /* Preference stays in memory. */
+    }
+  }, [reducedMotion]);
+  useEffect(() => {
+    document.documentElement.classList.toggle('highContrast', highContrast);
+    try {
+      localStorage.setItem('kronox-high-contrast', String(highContrast));
+    } catch {
+      /* Preference stays in memory. */
+    }
+  }, [highContrast]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('kronox-quality', quality);
+    } catch {
+      /* Preference stays in memory. */
+    }
+    api.current?.quality?.(quality);
+  }, [quality]);
+  const playCue = (kind) => gameAudioRef.current?.cue(kind);
+  const toggleAmbient = () => {
+    if (!gameAudioRef.current) {
+      gameAudioRef.current = createGameAudio();
+      if (!gameAudioRef.current) return;
+      gameAudioRef.current?.setVolume(soundVolume);
+    }
+    const next = !ambientEnabled;
+    gameAudioRef.current?.setEnabled(next);
+    setAmbientEnabled(next);
+    if (!next) gameAudioRef.current?.cue('tap');
+  };
   const chooseLanguage = (nextLanguage) => {
     languageManuallyChosen.current = true;
     setLanguageState(nextLanguage);
@@ -325,6 +390,23 @@ export default function App() {
     };
   useEffect(() => {
     api.current = setupScene(el.current, {
+      quality,
+      reducedMotion: () => reducedMotion,
+      onNavigation: (status) => {
+        setNavigation((current) => {
+          if (!status) {
+            if (current && current.phase !== 'countdown') travelRef.current = false;
+            return current?.phase === 'countdown' ? current : null;
+          }
+          const progress = Math.round(status.progress * 100);
+          if (
+            current?.phase === status.phase &&
+            Math.round((current.progress || 0) * 100) === progress
+          )
+            return current;
+          return { ...status, label: current?.label || '' };
+        });
+      },
       f: setF,
       near: (n) => {
         setNear(n);
@@ -408,6 +490,7 @@ export default function App() {
       voiceToken.current++;
       clearTimeout(kronoxCloseTimer.current);
       if (voiceAudio.current) voiceAudio.current.pause();
+      gameAudioRef.current?.dispose();
       audioContextRef.current?.close().catch(() => {});
       if (window.speechSynthesis) window.speechSynthesis.cancel();
     },
@@ -422,6 +505,8 @@ export default function App() {
       gal: 'Movimiento galáctico',
     },
     startTravel = (run, label, afterArrival, awaitSceneArrival = false) => {
+      playCue('travel');
+      setNavigation({ label: t(label, language), phase: 'countdown', progress: 0 });
       clearTimeout(missionTravelTipTimer.current);
       travelRef.current = true;
       countTimers.current.forEach(clearTimeout);
@@ -447,6 +532,8 @@ export default function App() {
             }, 8000);
             run(() => {
               travelRef.current = false;
+              playCue('arrival');
+              setNavigation(null);
               clearTimeout(missionTravelTipTimer.current);
               if (afterArrival) afterArrival();
             });
@@ -454,7 +541,11 @@ export default function App() {
             run();
             setTimeout(
               () => {
-                travelRef.current = false;
+                if (!api.current?.navigationActive?.()) {
+                  travelRef.current = false;
+                  playCue('arrival');
+                  setNavigation(null);
+                }
                 if (afterArrival) afterArrival();
               },
               afterArrival ? 1900 : 1200,
@@ -622,6 +713,104 @@ export default function App() {
                     onClick: () => setDeviceMode('desktop'),
                   },
                   'PC',
+                ),
+              ),
+              h(
+                'section',
+                {
+                  className: 'playPreferences',
+                  'aria-label': language === 'es' ? 'Preferencias de juego' : 'Game preferences',
+                },
+                h('b', null, language === 'es' ? 'Experiencia' : 'Experience'),
+                h(
+                  'label',
+                  { className: 'preferenceRow' },
+                  h('span', null, language === 'es' ? 'Calidad gráfica' : 'Graphics quality'),
+                  h(
+                    'select',
+                    {
+                      value: quality,
+                      onChange: (event) => setQuality(event.target.value),
+                      'aria-label': language === 'es' ? 'Calidad gráfica' : 'Graphics quality',
+                    },
+                    h('option', { value: 'auto' }, language === 'es' ? 'Automática' : 'Automatic'),
+                    h(
+                      'option',
+                      { value: 'performance' },
+                      language === 'es' ? 'Fluidez' : 'Performance',
+                    ),
+                    h(
+                      'option',
+                      { value: 'quality' },
+                      language === 'es' ? 'Alta calidad' : 'High quality',
+                    ),
+                  ),
+                ),
+                h(
+                  'label',
+                  { className: 'preferenceToggle' },
+                  h('input', {
+                    type: 'checkbox',
+                    checked: reducedMotion,
+                    onChange: (event) => setReducedMotion(event.target.checked),
+                  }),
+                  h(
+                    'span',
+                    null,
+                    language === 'es'
+                      ? 'Reducir animaciones y movimiento'
+                      : 'Reduce animations and motion',
+                  ),
+                ),
+                h(
+                  'label',
+                  { className: 'preferenceToggle' },
+                  h('input', {
+                    type: 'checkbox',
+                    checked: highContrast,
+                    onChange: (event) => setHighContrast(event.target.checked),
+                  }),
+                  h('span', null, language === 'es' ? 'Aumentar contraste' : 'Increase contrast'),
+                ),
+                h(
+                  'div',
+                  { className: 'soundPreference' },
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      disabled: !window.AudioContext && !window.webkitAudioContext,
+                      className: ambientEnabled ? 'on' : '',
+                      'aria-pressed': ambientEnabled,
+                      onClick: toggleAmbient,
+                    },
+                    ambientEnabled
+                      ? language === 'es'
+                        ? '♫ Ambiente activado'
+                        : '♫ Ambience on'
+                      : language === 'es'
+                        ? '♫ Activar ambiente'
+                        : '♫ Enable ambience',
+                  ),
+                  h(
+                    'label',
+                    { className: 'preferenceRow' },
+                    h('span', null, language === 'es' ? 'Volumen' : 'Volume'),
+                    h('input', {
+                      type: 'range',
+                      min: 0,
+                      max: 1,
+                      step: 0.01,
+                      value: soundVolume,
+                      disabled: !gameAudioRef.current,
+                      onChange: (event) => {
+                        const value = Number(event.target.value);
+                        setSoundVolume(value);
+                        gameAudioRef.current?.setVolume(value);
+                      },
+                      'aria-label': language === 'es' ? 'Volumen del juego' : 'Game volume',
+                    }),
+                  ),
                 ),
               ),
               h('small', null, 'Nivel de escala cósmica'),
@@ -1155,6 +1344,61 @@ export default function App() {
       },
     }),
     h(ToastNotification, { notice, onMore: setMore, language }),
+    navigation &&
+      h(
+        'div',
+        { className: 'navigationGuide', role: 'status', 'aria-live': 'polite' },
+        h(
+          'div',
+          { className: 'navigationGuideIcon', 'aria-hidden': 'true' },
+          navigation.phase === 'arrival' ? '✦' : '⌖',
+        ),
+        h(
+          'div',
+          { className: 'navigationGuideText' },
+          h('small', null, language === 'es' ? 'RUTA DE NAVEGACIÓN' : 'NAVIGATION ROUTE'),
+          h(
+            'b',
+            null,
+            navigation.label ||
+              (language === 'es' ? 'Destino seleccionado' : 'Selected destination'),
+          ),
+          h(
+            'span',
+            null,
+            language === 'es'
+              ? {
+                  countdown: 'Preparando salto',
+                  align: 'Alineando rumbo',
+                  jumpout: 'Entrando en salto',
+                  transit: 'En tránsito',
+                  jumpin: 'Saliendo del salto',
+                  arrival: 'Llegada al destino',
+                }[navigation.phase] || 'Siguiendo la ruta'
+              : {
+                  countdown: 'Preparing jump',
+                  align: 'Aligning heading',
+                  jumpout: 'Entering jump',
+                  transit: 'In transit',
+                  jumpin: 'Exiting jump',
+                  arrival: 'Arriving at destination',
+                }[navigation.phase] || 'Following route',
+          ),
+          h(
+            'div',
+            {
+              className: 'navigationProgress',
+              role: 'progressbar',
+              'aria-valuemin': 0,
+              'aria-valuemax': 100,
+              'aria-valuenow': Math.round((navigation.progress || 0) * 100),
+            },
+            h('i', {
+              style: { transform: `scaleX(${Math.max(0.035, navigation.progress || 0)})` },
+            }),
+          ),
+        ),
+      ),
     countdown !== null &&
       h('div', { className: 'countdownOverlay' }, h('b', { key: countdown }, countdown)),
     missionLaunchTarget &&
@@ -1167,7 +1411,11 @@ export default function App() {
           { className: 'missionLaunchCopy' },
           h('small', null, 'DESTINO LOCALIZADO · SPHEREx'),
           h('b', null, missionLaunchTarget.name),
-          h('span', null, 'Llegamos. Cambia a velocidad planetaria para explorar con calma. ¿Empezamos?'),
+          h(
+            'span',
+            null,
+            'Llegamos. Cambia a velocidad planetaria para explorar con calma. ¿Empezamos?',
+          ),
         ),
         h(
           'button',
@@ -1187,6 +1435,11 @@ export default function App() {
       planet: more,
       data: more && INFO[more],
       onClose: () => setMore(null),
+      onExplore: () => {
+        const selectedPlanet = more;
+        setMore(null);
+        if (selectedPlanet) A().focus(selectedPlanet);
+      },
       language,
     }),
     missionSelectorOpen &&
