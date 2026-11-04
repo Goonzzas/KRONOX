@@ -807,6 +807,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const nearbyGalaxyMarkers = new Map();
   const nearbyMarkerGeometry = new THREE.SphereGeometry(1, 12, 10);
   const galaxyDistance = (entry) => Math.sqrt(Math.max(0, entry.distanceMly || 0)) * 76;
+  // Schematic map radii scaled to relative galaxy sizes. Major spirals should
+  // read as peers of the Milky Way; dwarf galaxies and groups remain smaller.
+  const galaxyVisualRadii = {
+    'milky-way': 84,
+    m31: 120,
+    m33: 54,
+    'ngc-253': 78,
+    m81: 82,
+    m82: 38,
+    lmc: 26,
+    smc: 18,
+    'sagittarius-dwarf': 17,
+    'ngc-6822': 23,
+  };
   const galaxyDirection = (entry) => {
     if (!Number.isFinite(entry.raDeg) || !Number.isFinite(entry.decDeg)) return new THREE.Vector3();
     const ra = (entry.raDeg * Math.PI) / 180;
@@ -822,13 +836,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     group.userData.nearbyGalaxyKey = entry.key;
     const isGroup = entry.kind === 'group';
     const color = entry.key === 'milky-way' ? 0x8fdfff : isGroup ? 0xffbc72 : 0xa8c9ff;
+    const visualRadius = isGroup ? 25 : galaxyVisualRadii[entry.key] || 28;
     const marker = new THREE.Mesh(
       nearbyMarkerGeometry,
       new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
     );
     // Keep the Milky Way's pick target compact so it does not cover the
     // larger spiral-disk illustration drawn behind it.
-    const radius = entry.key === 'milky-way' ? 5 : isGroup ? 10 : 7;
+    const radius = entry.key === 'milky-way' ? 5 : isGroup ? 10 : Math.max(7, visualRadius * 0.1);
     marker.scale.setScalar(radius);
     marker.userData.nearbyGalaxyKey = entry.key;
     group.add(marker);
@@ -837,15 +852,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       group.add(
         makeGalaxyParticles({
           seed: entry.key.split('').reduce((acc, char) => acc + char.charCodeAt(0), 31),
-          count: isGroup ? 2100 : 2800,
+          count: isGroup ? 2100 : Math.round(2400 * Math.min(3, Math.pow(visualRadius / 20, 1.2))),
           arms: irregular ? 5 : entry.key.includes('andromeda') ? 2 : 3,
-          radius: isGroup ? 25 : 20,
+          radius: visualRadius,
           color: isGroup ? '#ffc27d' : '#9edcff',
           irregular,
           pointSize: 0.62,
         }),
       );
-      group.add(makeGalaxyCoreGlow(isGroup ? '#ffc27d' : '#d9edff', 9));
+      group.add(makeGalaxyCoreGlow(isGroup ? '#ffc27d' : '#d9edff', Math.min(13, radius * 0.9)));
     }
     if (isGroup) {
       const ring = new THREE.Mesh(
