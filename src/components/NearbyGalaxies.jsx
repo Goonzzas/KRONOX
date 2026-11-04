@@ -66,8 +66,8 @@ export function NearbyGalaxyControls({
       </div>
       <p className="nearbyGalaxyDisclaimer">
         {en
-          ? 'Schematic map. Marker directions are approximate and visual distances are compressed; real distance estimates are shown in object details. The Solar System marker follows the Milky Way’s visual rotation, while its miniature planets use the current simulation clock. This is not a complete physical model of the Sun’s galactic orbit.'
-          : 'Mapa esquemático. Las direcciones son aproximadas y las distancias visuales están comprimidas; las estimaciones reales aparecen en cada ficha. El indicador del Sistema Solar sigue el giro visual de la Vía Láctea y sus planetas en miniatura usan el reloj actual. No es un modelo físico completo de la órbita del Sol por la galaxia.'}
+          ? 'Schematic map. Marker directions are approximate and visual distances are compressed; real distance estimates are shown in object details. The Milky Way and Solar System marker rotate together; that map-only rotation is accelerated so it is visible. Miniature planets use the current simulation clock. This is not a complete physical model of the Sun’s galactic orbit.'
+          : 'Mapa esquemático. Las direcciones son aproximadas y las distancias visuales están comprimidas; las estimaciones reales aparecen en cada ficha. La Vía Láctea y el indicador del Sistema Solar giran juntos; este giro solo del mapa está acelerado para que se note. Los planetas en miniatura usan el reloj actual. No es un modelo físico completo de la órbita del Sol por la galaxia.'}
       </p>
       <button type="button" className="nearbyGalaxyReturn" onClick={onReturn}>
         {en ? 'Return to the Milky Way / Solar System' : 'Volver a la Vía Láctea / sistema solar'}
