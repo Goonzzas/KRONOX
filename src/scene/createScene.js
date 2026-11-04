@@ -480,6 +480,93 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   // galaxies map is active and never participates in astronomical navigation.
   const nearbyGalaxyGroup = new THREE.Group();
   nearbyGalaxyGroup.visible = false;
+  // Cartographic Milky Way frame used only by the neighborhood overview.
+  // The small solar-system marker is parented here so it shares one absolute
+  // galactic rotation transform without changing the live planetary scene.
+  const galacticMapFrame = new THREE.Group();
+  nearbyGalaxyGroup.add(galacticMapFrame);
+  const galacticMapDisk = new THREE.Group();
+  galacticMapFrame.add(galacticMapDisk);
+  const galacticMapCore = new THREE.Mesh(
+    new THREE.SphereGeometry(3.4, 18, 14),
+    new THREE.MeshBasicMaterial({ color: 0xffbd74, transparent: true, opacity: 0.85 }),
+  );
+  galacticMapDisk.add(galacticMapCore);
+  for (let armIndex = 0; armIndex < 4; armIndex++) {
+    const points = [];
+    for (let step = 0; step <= 90; step++) {
+      const progress = step / 90;
+      const radius = 4 + progress * 30;
+      const angle = armIndex * (TAU / 4) + progress * 2.8;
+      points.push(
+        new THREE.Vector3(
+          Math.cos(angle) * radius,
+          Math.sin(angle) * radius * 0.08,
+          Math.sin(angle) * radius,
+        ),
+      );
+    }
+    galacticMapDisk.add(
+      new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(points),
+        new THREE.LineBasicMaterial({
+          color: armIndex % 2 ? 0x627eca : 0x55b8dc,
+          transparent: true,
+          opacity: 0.34,
+        }),
+      ),
+    );
+  }
+  const solarSystemMapMarker = new THREE.Group();
+  solarSystemMapMarker.position.x = 19;
+  galacticMapDisk.add(solarSystemMapMarker);
+  const solarMapSun = new THREE.Mesh(
+    new THREE.SphereGeometry(1.45, 16, 12),
+    new THREE.MeshBasicMaterial({ color: 0xffd76c }),
+  );
+  solarSystemMapMarker.add(solarMapSun);
+  const solarMapPlanets = [];
+  const miniPlanetColors = {
+    Mercurio: 0xb4aa9a,
+    Venus: 0xe7c887,
+    Tierra: 0x55adff,
+    Marte: 0xe47658,
+    Júpiter: 0xd9ae83,
+    Saturno: 0xe5d09b,
+    Urano: 0x7bd5d6,
+    Neptuno: 0x5986ef,
+  };
+  P.filter((planet) => planet.au).forEach((planet) => {
+    // The overview compresses the real orbital radii while retaining each
+    // planet's orbital phase from the existing simulation clock.
+    const visualOrbitRadius = Math.log1p(planet.au) * 3.4;
+    const orbitPoints = [];
+    for (let step = 0; step < 64; step++) {
+      const angle = (step / 64) * TAU;
+      orbitPoints.push(
+        new THREE.Vector3(
+          Math.cos(angle) * visualOrbitRadius,
+          0,
+          Math.sin(angle) * visualOrbitRadius,
+        ),
+      );
+    }
+    solarSystemMapMarker.add(
+      new THREE.LineLoop(
+        new THREE.BufferGeometry().setFromPoints(orbitPoints),
+        new THREE.LineBasicMaterial({ color: 0xb4cee9, transparent: true, opacity: 0.24 }),
+      ),
+    );
+    const marker = new THREE.Mesh(
+      new THREE.SphereGeometry(planet.au > 4 ? 0.62 : 0.46, 10, 8),
+      new THREE.MeshBasicMaterial({ color: miniPlanetColors[planet.n] || 0xc6d4e4 }),
+    );
+    solarSystemMapMarker.add(marker);
+    solarMapPlanets.push({ planet, marker, visualOrbitRadius });
+  });
+  const solarSystemLabel = lab('Sistema Solar · Sol', 82, 22);
+  solarSystemLabel.position.set(0, 4, 0);
+  solarSystemMapMarker.add(solarSystemLabel);
   const overviewStarPositions = [];
   const overviewStarColors = [];
   for (let index = 0; index < 1800; index++) {
@@ -1645,11 +1732,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       child.visible = false;
     });
     nearbyGalaxyGroup.visible = true;
-    nearbyGalaxyGroup.position.copy(gal.position);
+    nearbyGalaxyGroup.position.set(0, 0, 0);
     nearbyGalaxyGroup.quaternion.copy(gal.quaternion);
     ct.minDistance = 90;
     ct.maxDistance = 2400;
-    const center = gal.position.clone();
+    const center = new THREE.Vector3();
     tw = {
       p0: cam.position.clone(),
       t0: ct.target.clone(),
@@ -1694,6 +1781,22 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       p0: cam.position.clone(),
       t0: ct.target.clone(),
       p1: target.clone().addScaledVector(direction, distance),
+      t1: target,
+      k: 0,
+    };
+  }
+  function focusSolarSystemMap() {
+    if (!nearbyMapState) nearbyMap();
+    nearbySelectedKey = 'milky-way';
+    solarSystemLabel.visible = true;
+    const target = solarSystemMapMarker.getWorldPosition(new THREE.Vector3());
+    const direction = cam.position.clone().sub(ct.target);
+    if (direction.lengthSq() < 1e-8) direction.set(0.18, 0.32, 1);
+    direction.normalize();
+    tw = {
+      p0: cam.position.clone(),
+      t0: ct.target.clone(),
+      p1: target.clone().addScaledVector(direction, 58),
       t1: target,
       k: 0,
     };
@@ -2736,8 +2839,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (foc && S.d) S.d(foc.au || 0);
     }
     if (nearbyMapState) {
-      nearbyGalaxyGroup.position.copy(gal.position);
+      nearbyGalaxyGroup.position.set(0, 0, 0);
       nearbyGalaxyGroup.quaternion.copy(gal.quaternion);
+      const solarGalacticRadius = Math.hypot(24500, 3500);
+      // The galaxy shader rotates x/z with the opposite sign convention to
+      // THREE.Euler.y, so negate its exact phase for a matching frame.
+      galacticMapDisk.rotation.y =
+        -(GU.uP.value + GU.uT.value * (RG / Math.max(solarGalacticRadius, 6000) - 1));
+      solarSystemLabel.visible =
+        nearbySelectedKey === 'milky-way' ||
+        cam.position.distanceTo(solarSystemMapMarker.getWorldPosition(nearbyMarkerWorld)) < 170;
+      solarMapPlanets.forEach(({ planet, marker, visualOrbitRadius }) => {
+        const orbitalPosition = pos(planet, sim);
+        marker.position.set(
+          (orbitalPosition.x / planet.au) * visualOrbitRadius,
+          0,
+          (orbitalPosition.z / planet.au) * visualOrbitRadius,
+        );
+      });
       nearbyGalaxyMarkers.forEach((marker, key) => {
         marker.userData.label.visible =
           key === nearbySelectedKey ||
@@ -2759,6 +2878,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     nearbyMap,
     returnFromNearbyMap,
     focusNearbyGalaxy,
+    focusSolarSystemMap,
     navigationActive: () => !!nav,
     quality: (mode) => {
       qualityMode = mode;
