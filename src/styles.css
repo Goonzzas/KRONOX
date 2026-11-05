@@ -4917,3 +4917,209 @@ small {
     min-height: 320px !important;
   }
 }
+
+
+/* ==========================================================================
+   KRONOX - DEMO CLOSING REFINEMENTS: DUAL VIEWPORT, SIDEBAR, WARNINGS & WELCOME
+   ========================================================================== */
+
+/* Welcome Voice Preference & Action Buttons */
+.welcomeVoiceSection {
+  margin: 14px 0 16px;
+  padding: 12px 14px;
+  background: rgba(14, 25, 48, 0.7);
+  border: 1px solid rgba(110, 234, 255, 0.22);
+  border-radius: 14px;
+  text-align: left;
+}
+.welcomeVoiceSection .welcomeFieldLabel {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7dd3fc;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.welcomeVoiceButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.welcomeVoiceBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 42px;
+}
+.welcomeVoiceBtn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(110, 234, 255, 0.35);
+}
+.welcomeVoiceBtn.active {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: #38bdf8;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+  font-weight: 600;
+}
+.welcomeActionButtons {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+  margin-bottom: 10px;
+}
+.welcomeLaunch.primary {
+  background: linear-gradient(135deg, #0284c7 0%, #2563eb 60%, #7c3aed 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  padding: 12px 14px !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(2, 132, 199, 0.35) !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+.welcomeLaunch.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(2, 132, 199, 0.5) !important;
+  filter: brightness(1.1);
+}
+.welcomeLaunch.secondary {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #cbd5e1 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 12px 14px !important;
+  border-radius: 12px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+.welcomeLaunch.secondary:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+.welcomeNotice {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.45;
+  margin-top: 8px;
+}
+
+/* Sidebar Width & Layout */
+.spherexBody {
+  grid-template-columns: 285px minmax(0, 1fr) !important;
+}
+.spherexBody.comparing {
+  grid-template-columns: 285px minmax(0, 1fr) !important;
+}
+.spherexBody.comparing .spherexControls {
+  display: block !important;
+}
+.spherexControls {
+  width: 285px !important;
+  box-sizing: border-box !important;
+}
+
+/* Unclipped Warning Text */
+.spherexStatusStripContent {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-width: 0 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+}
+.spherexStatusText {
+  white-space: normal !important;
+  text-overflow: unset !important;
+  overflow: visible !important;
+  line-height: 1.45 !important;
+  font-size: 11.5px !important;
+}
+
+/* Side-by-Side Dual Viewport Grid & Canvas */
+.spherexDualViewport {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 12px !important;
+  width: 100% !important;
+  margin-bottom: 12px !important;
+  min-height: 0 !important;
+}
+.spherexDualPane {
+  display: flex !important;
+  flex-direction: column !important;
+  background: rgba(10, 17, 30, 0.85) !important;
+  border: 1px solid rgba(110, 165, 198, 0.25) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+}
+.spherexDualHeader {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 8px 12px !important;
+  background: rgba(15, 23, 42, 0.95) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  font-size: 11.5px !important;
+  flex-shrink: 0 !important;
+}
+.spherexDualHeader b {
+  color: #38bdf8 !important;
+}
+.spherexDualCanvasArea {
+  position: relative !important;
+  width: 100% !important;
+  height: clamp(260px, 42vh, 460px) !important;
+  background: radial-gradient(ellipse at center, #0b1325 0%, #020409 85%) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.spherexDualCanvasArea img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+.spherexDualMeta {
+  padding: 8px 12px !important;
+  background: rgba(10, 15, 28, 0.95) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  font-family: ui-monospace, monospace !important;
+  font-size: 10.5px !important;
+  color: #94a3b8 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  flex-shrink: 0 !important;
+}
+
+@media (max-width: 860px) {
+  .spherexDualViewport {
+    grid-template-columns: 1fr !important;
+  }
+  .welcomeActionButtons {
+    grid-template-columns: 1fr !important;
+  }
+}

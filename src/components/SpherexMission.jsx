@@ -174,9 +174,22 @@ const BAND_SPECS_BY_NAME = Object.fromEntries(
   Object.values(SPHEREX_DETECTOR_SPECS).map((spec) => [spec.band, spec]),
 );
 
-function formatBandLabel(bandName) {
+const BAND_DESCRIPTIONS = {
+  'SPHEREx-D1': 'Infrarrojo cercano (0.75–1.09 μm)',
+  'SPHEREx-D2': 'Infrarrojo cercano (1.10–1.62 μm)',
+  'SPHEREx-D3': 'Infrarrojo de longitud media (1.63–2.40 μm)',
+  'SPHEREx-D4': 'Infrarrojo medio (2.41–3.56 μm)',
+  'SPHEREx-D5': 'Infrarrojo medio-largo (3.57–4.54 μm)',
+  'SPHEREx-D6': 'Infrarrojo térmico (4.55–5.00 μm)',
+};
+
+function formatBandLabel(bandName, complexity = 'essential') {
   const spec = BAND_SPECS_BY_NAME[bandName];
   if (!spec) return bandName;
+  if (complexity === 'essential') {
+    const desc = BAND_DESCRIPTIONS[bandName] || 'Infrarrojo';
+    return `${bandName.replace('SPHEREx-', 'Banda ')} · ${desc}`;
+  }
   return `${bandName} (${spec.minUm.toFixed(2)}–${spec.maxUm.toFixed(2)} μm)`;
 }
 
@@ -297,7 +310,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const [diffDataUrl, setDiffDataUrl] = useState('');
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [complexityLevel, setComplexityLevel] = useState('essential'); // 'essential' | 'technical'
+  const [complexityLevel, setComplexityLevel] = useState(() => (navParams?.get('complexity') === 'technical' ? 'technical' : 'essential')); // 'essential' | 'technical'
   const [showTechDetailsModal, setShowTechDetailsModal] = useState(navParams?.get('audit') === 'true');
   const [showHelpModal, setShowHelpModal] = useState(navParams?.get('help') === 'true');
 
@@ -329,10 +342,13 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   useEffect(() => {
     if (visibleRecords.length > 0) {
       setBlinkFrameList(visibleRecords.map((_, i) => i));
+      if (visibleRecords.length > 1 && compareIndex === frameIndex) {
+        setCompareIndex(frameIndex === 0 ? 1 : 0);
+      }
     } else {
       setBlinkFrameList([]);
     }
-  }, [visibleRecords]);
+  }, [visibleRecords, frameIndex, compareIndex]);
 
   const search = async (nextRa = ra, nextDec = dec, nextRelease = release) => {
     const searchId = ++searchRef.current;
@@ -349,7 +365,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     setFrameIndex(0);
     setBand('');
     setPlaying(false);
-    setCompareIndex(0);
+    setCompareIndex(1);
     setCompareImage('');
     setCompareDiagnostics(null);
     setCompareEnabled(false);
@@ -506,12 +522,13 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
       return undefined;
     }
     if (compareIndex === frameIndex) {
-      setCompareImage('');
-      setCompareDiagnostics(null);
-      setCompareLoading(false);
-      setCompareIndex(
-        frameIndex > 0 ? frameIndex - 1 : Math.min(frameIndex + 1, visibleRecords.length - 1),
-      );
+      if (visibleRecords.length > 1) {
+        setCompareIndex(frameIndex === 0 ? 1 : 0);
+      } else {
+        setCompareImage('');
+        setCompareDiagnostics(null);
+        setCompareLoading(false);
+      }
       return undefined;
     }
     const token = ++compareRequestRef.current;
@@ -995,54 +1012,59 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               })}
             </div>
 
-            <div className="spherexSectionTitle">{t('Búsqueda por coordenadas', language)}</div>
-            <form
-              className="spherexCoordinates"
-              onSubmit={(event) => {
-                event.preventDefault();
-                search();
-              }}
-            >
-              <label>
-                {t('Ascensión recta (RA)', language)}
-                <input
-                  type="number"
-                  min="0"
-                  max="359.999999"
-                  step="any"
-                  value={ra}
-                  onChange={(event) => setRa(event.target.value)}
-                  required
-                />
-              </label>
-              <label>
-                {t('Declinación (Dec)', language)}
-                <input
-                  type="number"
-                  min="-90"
-                  max="90"
-                  step="any"
-                  value={dec}
-                  onChange={(event) => setDec(event.target.value)}
-                  required
-                />
-              </label>
-              <label>
-                {t('Lanzamiento', language)}
-                <select value={release} onChange={(event) => setRelease(event.target.value)}>
-                  <option value="all">{t('QR2 + QR3 · archivo combinado', language)}</option>
-                  <option value="qr3">{t('QR3 · más reciente', language)}</option>
-                  <option value="qr2">{t('QR2 · archivo anterior', language)}</option>
-                </select>
-              </label>
-              <button className="spherexSearch" type="submit" disabled={loading}>
-                {loading ? t('Buscando…', language) : t('Consultar SPHEREx', language)}
-              </button>
-            </form>
+            {/* Coordinates search form - Technical Mode only */}
+            {complexityLevel === 'technical' && (
+              <>
+                <div className="spherexSectionTitle">{t('Búsqueda por coordenadas', language)}</div>
+                <form
+                  className="spherexCoordinates"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    search();
+                  }}
+                >
+                  <label>
+                    {t('Ascensión recta (RA)', language)}
+                    <input
+                      type="number"
+                      min="0"
+                      max="359.999999"
+                      step="any"
+                      value={ra}
+                      onChange={(event) => setRa(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    {t('Declinación (Dec)', language)}
+                    <input
+                      type="number"
+                      min="-90"
+                      max="90"
+                      step="any"
+                      value={dec}
+                      onChange={(event) => setDec(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    {t('Lanzamiento', language)}
+                    <select value={release} onChange={(event) => setRelease(event.target.value)}>
+                      <option value="all">{t('QR2 + QR3 · archivo combinado', language)}</option>
+                      <option value="qr3">{t('QR3 · más reciente', language)}</option>
+                      <option value="qr2">{t('QR2 · archivo anterior', language)}</option>
+                    </select>
+                  </label>
+                  <button className="spherexSearch" type="submit" disabled={loading}>
+                    {loading ? t('Buscando…', language) : t('Consultar SPHEREx', language)}
+                  </button>
+                </form>
+              </>
+            )}
 
             <p className="spherexTargetHint">
               {t(selectedTarget.note, language)}
-              {selectedTarget.astrometry && (
+              {complexityLevel === 'technical' && selectedTarget.astrometry && (
                 <small className="spherexAstrometryMeta">
                   {`J${selectedTarget.referenceEpoch} (${selectedTarget.astrometry.source}) · μ = ${Math.hypot(selectedTarget.astrometry.pmRa, selectedTarget.astrometry.pmDec).toFixed(0)} mas/yr`}
                 </small>
@@ -1481,9 +1503,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     {viewMode === 'blink' && frame && (
                       <div className="spherexBlinkHud">
                         <span className="badge">BLINK [{frameIndex + 1}/{visibleRecords.length}]</span>
-                        <span>MJD: {Number(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date).toFixed(5)}</span>
+                        {complexityLevel === 'technical' && (
+                          <span>MJD: {Number(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date).toFixed(5)}</span>
+                        )}
                         <span>{formatDate(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date, language)}</span>
-                        <span>{formatBandLabel(frame.band)} {formatSpectralBadge(frameDiagnostics)}{formatCoverageBadge(frameDiagnostics)}</span>
+                        <span>{formatBandLabel(frame.band, complexityLevel)} {complexityLevel === 'technical' ? `${formatSpectralBadge(frameDiagnostics)}${formatCoverageBadge(frameDiagnostics)}` : ''}</span>
                       </div>
                     )}
                   </div>
@@ -1510,88 +1534,128 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                 )}
                 {frame && viewMode === 'single' && (
                   <span className="spherexFrameLabel">
-                    {formatBandLabel(frame.band)} · {frame.release.replace('spherex_', '').toUpperCase()}
-                    {formatSpectralBadge(frameDiagnostics)}
-                    {formatZodiBadge(frameDiagnostics)}
-                    {formatFlagBadge(frameDiagnostics)}{formatCoverageBadge(frameDiagnostics)}
+                    {formatBandLabel(frame.band, complexityLevel)}
+                    {complexityLevel === 'technical' && (
+                      <>
+                        {' · '}
+                        {frame.release.replace('spherex_', '').toUpperCase()}
+                        {formatSpectralBadge(frameDiagnostics)}
+                        {formatZodiBadge(frameDiagnostics)}
+                        {formatFlagBadge(frameDiagnostics)}{formatCoverageBadge(frameDiagnostics)}
+                      </>
+                    )}
                   </span>
                 )}
               </div>
             )}
 
             {/* 2. SIDE-BY-SIDE DUAL VIEWPORT */}
-            {viewMode === 'sideBySide' && compareFrame && (
+            {viewMode === 'sideBySide' && (
               <div className="spherexDualViewport">
                 <article className="spherexDualPane">
                   <header className="spherexDualHeader">
-                    <span><b>Época A (I₁)</b> · {frame ? formatDate(frame.dateAvg || frame.date, language) : ''}</span>
-                    <small>{frame?.band}</small>
+                    <span><b>{t('Época A (I₁)', language)}</b> · {frame ? formatDate(frame.dateAvg || frame.date, language) : ''}</span>
+                    <small>{frame ? formatBandLabel(frame.band, complexityLevel) : ''}</small>
                   </header>
                   <div
-                    className="spherexComparisonCanvas"
-                    style={{ overflow: 'hidden', cursor: syncZoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+                    className="spherexDualCanvasArea"
+                    style={{ cursor: syncZoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
                   >
-                    <div style={{ transform: `translate(${syncPan.x}px, ${syncPan.y}px) scale(${syncZoom})`, transformOrigin: 'center center', width: '100%', height: '100%' }}>
-                      {image && (
-                        <>
-                          <img
-                            src={image}
-                            alt="Época A"
-                            onClick={(e) => markComparisonPosition(e, frame)}
-                          />
-                          <SkyReticle
-                            imageCenter={imageCenter}
-                            predictedMarker={primaryEpochMarker}
-                            language={language}
-                          />
-                        </>
-                      )}
+                    {image ? (
+                      <div style={{ transform: `translate(${syncPan.x}px, ${syncPan.y}px) scale(${syncZoom})`, transformOrigin: 'center center', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <img
+                          src={image}
+                          alt="Época A"
+                          onClick={(e) => markComparisonPosition(e, frame)}
+                        />
+                        <SkyReticle
+                          imageCenter={imageCenter}
+                          predictedMarker={primaryEpochMarker}
+                          language={language}
+                        />
+                      </div>
+                    ) : (
+                      <div className="spherexImagePlaceholder">
+                        {frameLoading ? (
+                          <>
+                            <span className="spherexSpinner" />{' '}
+                            {t('Cargando Época A…', language)}
+                          </>
+                        ) : (
+                          t('Sin imagen para Época A', language)
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {complexityLevel === 'technical' && frame && (
+                    <div className="spherexDualMeta">
+                      <div>MJD: {Number(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date).toFixed(5)}</div>
+                      <div>λ = {frameDiagnostics?.spectral?.wavelengthUm ?? '?'} μm (Δλ = {frameDiagnostics?.spectral?.bandwidthUm ?? '?'} μm)</div>
+                      <div>Centro WCS: RA {imageCenter.ra.toFixed(4)}°, Dec {imageCenter.dec.toFixed(4)}°</div>
                     </div>
-                  </div>
-                  <div className="spherexDualMeta">
-                    <div>MJD: {Number(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date).toFixed(5)}</div>
-                    <div>λ = {frameDiagnostics?.spectral?.wavelengthUm ?? '?'} μm (Δλ = {frameDiagnostics?.spectral?.bandwidthUm ?? '?'} μm)</div>
-                    <div>Centro WCS: RA {imageCenter.ra.toFixed(4)}°, Dec {imageCenter.dec.toFixed(4)}°</div>
-                  </div>
+                  )}
                 </article>
 
                 <article className="spherexDualPane">
                   <header className="spherexDualHeader">
-                    <span><b>Época B (I₂)</b> · {formatDate(compareFrame.dateAvg || compareFrame.date, language)}</span>
-                    <small>{compareFrame.band}</small>
+                    <span><b>{t('Época B (I₂)', language)}</b> · {compareFrame ? formatDate(compareFrame.dateAvg || compareFrame.date, language) : t('Segunda observación', language)}</span>
+                    <small>{compareFrame ? formatBandLabel(compareFrame.band, complexityLevel) : ''}</small>
                   </header>
                   <div
-                    className="spherexComparisonCanvas"
-                    style={{ overflow: 'hidden', cursor: syncZoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+                    className="spherexDualCanvasArea"
+                    style={{ cursor: syncZoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
                   >
-                    <div style={{ transform: `translate(${syncPan.x}px, ${syncPan.y}px) scale(${syncZoom})`, transformOrigin: 'center center', width: '100%', height: '100%' }}>
-                      {compareImage && (
-                        <>
-                          <img
-                            src={compareImage}
-                            alt="Época B"
-                            onClick={(e) => markComparisonPosition(e, compareFrame)}
-                          />
-                          <SkyReticle
-                            imageCenter={imageCenter}
-                            predictedMarker={compareEpochMarker}
-                            language={language}
-                          />
-                        </>
-                      )}
+                    {compareImage ? (
+                      <div style={{ transform: `translate(${syncPan.x}px, ${syncPan.y}px) scale(${syncZoom})`, transformOrigin: 'center center', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <img
+                          src={compareImage}
+                          alt="Época B"
+                          onClick={(e) => markComparisonPosition(e, compareFrame)}
+                        />
+                        <SkyReticle
+                          imageCenter={imageCenter}
+                          predictedMarker={compareEpochMarker}
+                          language={language}
+                        />
+                      </div>
+                    ) : (
+                      <div className="spherexImagePlaceholder" style={{ padding: '20px', textAlign: 'center' }}>
+                        {compareLoading ? (
+                          <>
+                            <span className="spherexSpinner" />{' '}
+                            {t('Cargando Época B…', language)}
+                          </>
+                        ) : visibleRecords.length <= 1 ? (
+                          <div style={{ maxWidth: '320px', margin: '0 auto', fontSize: '12px' }}>
+                            <Icons.Info style={{ width: '24px', height: '24px', opacity: 0.7, marginBottom: '6px' }} />
+                            <p style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>
+                              {t('Una sola época en este filtro', language)}
+                            </p>
+                            <p style={{ color: '#94a3b8', fontSize: '11px', lineHeight: 1.4 }}>
+                              {t('Esta banda espectral contiene 1 sola exposición en el release actual. Selecciona "Todas las bandas" en el selector para contrastar con otras épocas disponibles.', language)}
+                            </p>
+                          </div>
+                        ) : (
+                          <div style={{ maxWidth: '300px', margin: '0 auto', fontSize: '12px', color: '#94a3b8' }}>
+                            <p>{t('Selecciona una observación diferente en el selector inferior de Época B.', language)}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {complexityLevel === 'technical' && compareFrame && (
+                    <div className="spherexDualMeta">
+                      <div>MJD: {Number(compareDiagnostics?.temporal?.mjdAvg ?? compareFrame.dateAvg ?? compareFrame.date).toFixed(5)}</div>
+                      <div>λ = {compareDiagnostics?.spectral?.wavelengthUm ?? '?'} μm (Δλ = {compareDiagnostics?.spectral?.bandwidthUm ?? '?'} μm)</div>
+                      <div>Centro WCS: RA {imageCenter.ra.toFixed(4)}°, Dec {imageCenter.dec.toFixed(4)}°</div>
                     </div>
-                  </div>
-                  <div className="spherexDualMeta">
-                    <div>MJD: {Number(compareDiagnostics?.temporal?.mjdAvg ?? compareFrame.dateAvg ?? compareFrame.date).toFixed(5)}</div>
-                    <div>λ = {compareDiagnostics?.spectral?.wavelengthUm ?? '?'} μm (Δλ = {compareDiagnostics?.spectral?.bandwidthUm ?? '?'} μm)</div>
-                    <div>Centro WCS: RA {imageCenter.ra.toFixed(4)}°, Dec {imageCenter.dec.toFixed(4)}°</div>
-                  </div>
+                  )}
                 </article>
               </div>
             )}
@@ -1859,8 +1923,8 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                       language,
                     )
                   : ''}{' '}
-                · {frame ? formatBandLabel(frame.band) : ''}
-                {formatSpectralBadge(frameDiagnostics)}
+                · {frame ? formatBandLabel(frame.band, complexityLevel) : ''}
+                {complexityLevel === 'technical' && formatSpectralBadge(frameDiagnostics)}
               </span>
             </div>
             <button type="button" onClick={() => setExpanded(false)}>

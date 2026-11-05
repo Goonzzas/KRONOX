@@ -103,7 +103,7 @@ export default function App() {
       }
     }),
     [welcomeStep, setWelcomeStep] = useState('voice'),
-    [voice, setVoice] = useState(false),
+    [voice, setVoice] = useState(() => { try { return new URLSearchParams(window.location.search).get('voice') === 'true'; } catch { return false; } }),
     [voiceError, setVoiceError] = useState(''),
     [voiceAccent, setVoiceAccent] = useState(() => voiceLanguage(detectLanguage(), 'es-US')),
     [notice, setNotice] = useState(null),
@@ -1318,7 +1318,7 @@ export default function App() {
                       setMissionOpen(true);
                     },
                   },
-                  '🔭 Abrir Observatorio SPHEREx',
+                  'Abrir Observatorio SPHEREx',
                 ),
                 h(
                   'button',
@@ -1604,26 +1604,25 @@ export default function App() {
             'aria-modal': 'true',
             'aria-labelledby': 'welcome-title',
           },
-          h('div', { className: 'welcomeStar', 'aria-hidden': 'true' }, '✦'),
-          h('p', { className: 'welcomeEyebrow' }, 'SEÑAL DE KRONOX · GUÍA ASTRAL'),
-          h('h2', { id: 'welcome-title' }, 'Hola, aventurero.'),
+          h('p', { className: 'welcomeEyebrow' }, 'KRONOX · OBSERVATORIO DIGITAL SPHEREx'),
+          h('h2', { id: 'welcome-title' }, language === 'es' ? 'Bienvenido a KRONOX' : 'Welcome to KRONOX'),
           h(
             'p',
             { className: 'welcomeMessage' },
-            welcomeStep === 'voice'
-              ? language === 'es'
-                ? 'Elige el idioma de KRONOX y activa mi voz si quieres que te acompañe durante el viaje.'
-                : 'Choose KRONOX’s language and enable my voice if you would like me to guide your journey.'
-              : '¿En qué dispositivo estás? Adaptaré los controles y los menús para tu forma de explorar.',
+            language === 'es'
+              ? 'Explora el cielo infrarrojo y analiza cambios astronómicos a través de observaciones del telescopio espacial SPHEREx de la NASA.'
+              : 'Explore the infrared sky and analyze astronomical changes through observations from NASA SPHEREx space telescope.',
           ),
-          welcomeStep === 'voice' &&
+          h(
+            'div',
+            { className: 'welcomeSettingsRow' },
             h(
               'label',
               { className: 'welcomeLanguage' },
               h(
                 'span',
                 null,
-                language === 'es' ? 'Idioma de la experiencia' : 'Experience language',
+                language === 'es' ? 'Idioma' : 'Language',
               ),
               h(
                 'select',
@@ -1637,99 +1636,130 @@ export default function App() {
                 ),
               ),
             ),
-          welcomeStep === 'device' &&
             h(
               'div',
-              { className: 'deviceChoices' },
+              { className: 'welcomeDeviceChoice' },
               h(
-                'button',
-                {
-                  className: deviceMode === 'mobile' ? 'selected' : '',
-                  onClick: () => setDeviceMode('mobile'),
-                  'aria-pressed': deviceMode === 'mobile',
-                },
-                '▯  Móvil',
+                'span',
+                { className: 'welcomeFieldLabel' },
+                language === 'es' ? 'Modo de pantalla' : 'Display mode',
               ),
               h(
-                'button',
-                {
-                  className: deviceMode === 'desktop' ? 'selected' : '',
-                  onClick: () => setDeviceMode('desktop'),
-                  'aria-pressed': deviceMode === 'desktop',
-                },
-                '▭  PC',
+                'div',
+                { className: 'deviceChoices' },
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    className: deviceMode === 'desktop' ? 'selected' : '',
+                    onClick: () => setDeviceMode('desktop'),
+                    'aria-pressed': deviceMode === 'desktop',
+                  },
+                  'PC / Laptop',
+                ),
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    className: deviceMode === 'mobile' ? 'selected' : '',
+                    onClick: () => setDeviceMode('mobile'),
+                    'aria-pressed': deviceMode === 'mobile',
+                  },
+                  'Móvil',
+                ),
               ),
             ),
-          h(
-            'button',
-            {
-              className: 'welcomeLaunch',
-              onClick: () => {
-                if (welcomeStep === 'voice') {
-                  voiceRef.current = true;
-                  setVoice(true);
-                  setWelcomeStep('device');
-                  const question =
-                    language === 'es'
-                      ? 'Hola, aventurero. ¿Estás explorando desde un móvil o desde una computadora?'
-                      : 'Hello, adventurer. Are you exploring on a mobile device or a computer?';
-                  say(question);
-                  speak(question);
-                  return;
-                }
-                voiceRef.current = true;
-                setVoice(true);
-                setWelcomeOpen(false);
-                const greeting =
-                  language === 'es'
-                    ? deviceMode === 'mobile'
-                      ? 'Hola, aventurero. Preparé los controles táctiles. Detecté una señal de SPHEREx: ¿me acompañas a explorar el cielo?'
-                      : 'Hola, aventurero. La cabina está lista. Detecté una señal de SPHEREx: ¿me acompañas a explorar el cielo?'
-                    : deviceMode === 'mobile'
-                      ? 'Hello, adventurer. Touch controls are ready. I have detected a SPHEREx signal. Shall we explore the sky?'
-                      : 'Hello, adventurer. The cockpit is ready. I have detected a SPHEREx signal. Shall we explore the sky?';
-                say(greeting);
-                speak(greeting);
-              },
-            },
-            welcomeStep === 'voice'
-              ? language === 'es'
-                ? 'Activar voz y continuar'
-                : 'Enable voice and continue'
-              : language === 'es'
-                ? 'Entrar en la exploración'
-                : 'Start exploring',
           ),
-          welcomeStep === 'device' &&
+          /* VOICE PREFERENCE SECTION: STAYS VISIBLE, DOES NOT NAVIGATE AWAY */
+          h(
+            'div',
+            { className: 'welcomeVoiceSection' },
+            h(
+              'span',
+              { className: 'welcomeFieldLabel' },
+              language === 'es' ? 'Guía por voz (narración explicativa):' : 'Voice guide (explanatory narration):',
+            ),
+            h(
+              'div',
+              { className: 'welcomeVoiceButtons' },
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: `welcomeVoiceBtn ${voice ? 'active' : ''}`,
+                  onClick: () => {
+                    voiceRef.current = true;
+                    setVoice(true);
+                    const msg = language === 'es'
+                      ? 'Voz activada. Puedes entrar al observatorio cuando desees.'
+                      : 'Voice enabled. You can enter the observatory whenever you are ready.';
+                    say(msg);
+                    speak(msg);
+                  },
+                  title: language === 'es' ? 'Activa la narración hablada' : 'Enable voice narration',
+                },
+                voice
+                  ? language === 'es' ? 'Voz activada (narración lista)' : 'Voice enabled (ready)'
+                  : language === 'es' ? 'Activar voz del asistente' : 'Enable voice guide',
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: `welcomeVoiceBtn ${!voice ? 'active' : ''}`,
+                  onClick: () => {
+                    voiceRef.current = false;
+                    setVoice(false);
+                    if (voiceAudio.current) {
+                      voiceAudio.current.pause();
+                      voiceAudio.current = null;
+                    }
+                  },
+                  title: language === 'es' ? 'Explorar en silencio sin audio' : 'Explore silently without audio',
+                },
+                language === 'es' ? 'Continuar sin voz' : 'Continue without voice',
+              ),
+            ),
+          ),
+          /* EXPLICIT ENTRY ACTION BUTTONS: USER DECIDES WHEN AND WHERE TO ENTER */
+          h(
+            'div',
+            { className: 'welcomeActionButtons' },
             h(
               'button',
               {
-                className: 'welcomeLaunch',
-                style: {
-                  marginTop: '8px',
-                  background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)',
-                  borderColor: '#60a5fa',
-                },
+                type: 'button',
+                className: 'welcomeLaunch primary',
                 onClick: () => {
                   setWelcomeOpen(false);
-                  setMissionTargetKey('wise-0855');
+                  setMissionTargetKey('barnard');
                   setMissionOpen(true);
                 },
               },
               language === 'es'
-                ? '🔭 Ir directo al Observatorio SPHEREx'
-                : '🔭 Go directly to SPHEREx Observatory',
+                ? 'Entrar al Observatorio SPHEREx'
+                : 'Enter SPHEREx Observatory',
             ),
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'welcomeLaunch secondary',
+                onClick: () => {
+                  setWelcomeOpen(false);
+                },
+              },
+              language === 'es'
+                ? 'Explorar Sistema Solar 3D'
+                : 'Explore 3D Solar System',
+            ),
+          ),
           h(
             'small',
-            null,
-            welcomeStep === 'voice'
-              ? language === 'es'
-                ? 'La voz usa audio de Google TTS. No se solicita acceso al micrófono.'
-                : 'Voice uses Google TTS audio. Microphone access is not requested.'
-              : language === 'es'
-                ? 'Podrás cambiar el modo de dispositivo desde el panel. No se activa el micrófono.'
-                : 'You can change the device mode in the menu. Microphone access is not requested.',
+            { className: 'welcomeNotice' },
+            language === 'es'
+              ? 'La voz utiliza síntesis de audio Google TTS. No se solicita acceso al micrófono para explorar.'
+              : 'Voice uses Google TTS audio synthesis. Microphone access is not requested to explore.',
           ),
         ),
       ),
