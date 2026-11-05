@@ -350,7 +350,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     }
   }, [visibleRecords, frameIndex, compareIndex]);
 
-  const search = async (nextRa = ra, nextDec = dec, nextRelease = release) => {
+  const search = async (nextRa = ra, nextDec = dec, nextRelease = release, targetObj = TARGETS[selected]) => {
     const searchId = ++searchRef.current;
     // Lock the common WCS sky-grid center once for the whole observation sequence
     setImageCenter({ ra: Number(nextRa), dec: Number(nextDec) });
@@ -394,8 +394,12 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
       for (const record of sorted)
         bandCounts.set(record.band, (bandCounts.get(record.band) || 0) + 1);
       const mostObservedBand = [...bandCounts].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+      const targetPreferred = targetObj?.preferredBand;
+      const selectedBand = targetPreferred && sorted.some((r) => r.band === targetPreferred)
+        ? targetPreferred
+        : mostObservedBand;
       setRecords(sorted);
-      setBand(mostObservedBand);
+      setBand(selectedBand);
       setTruncated(body.truncated);
       setStatus(
         sorted.length
@@ -413,7 +417,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   };
 
   useEffect(() => {
-    search();
+    search(ra, dec, release, initialTarget);
     // Load the first target as soon as Kronox arrives at the observatory.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -432,7 +436,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     setDiffDataUrl('');
     setSelectedCandidate(null);
     setStatus(`Buscando observaciones de ${TARGETS[index].name}…`);
-    search(String(TARGETS[index].ra), String(TARGETS[index].dec), release);
+    search(String(TARGETS[index].ra), String(TARGETS[index].dec), release, TARGETS[index]);
   };
 
   // Helper to retrieve or fetch a parsed FITS frame from cache
@@ -880,8 +884,22 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               <span className="spherexTargetDot" />
               <b>{t(selectedTarget.name, language)}</b>
               <span className={`spherexStatusPill pill-${selectedTarget.scientificStatus.toLowerCase()}`}>
-                {selectedTarget.statusBadge}
+                {selectedTarget.scienceTypeLabel || selectedTarget.statusBadge}
               </span>
+              {frame && frameDiagnostics && (
+                <span
+                  className={`spherexObservationPill ${
+                    (frameDiagnostics?.extensions?.reprojected?.coverageFraction ?? 1) >= 0.98
+                      ? 'pill-cov-full'
+                      : 'pill-cov-partial'
+                  }`}
+                  title={t('Cobertura espacial de la exposición seleccionada en el detector físico', language)}
+                >
+                  {(frameDiagnostics?.extensions?.reprojected?.coverageFraction ?? 1) >= 0.98
+                    ? t('Toma: Cobertura 100%', language)
+                    : t(`Toma: Cobertura parcial (${Math.round((frameDiagnostics?.extensions?.reprojected?.coverageFraction ?? 1) * 100)}% · Borde detector)`, language)}
+                </span>
+              )}
             </div>
           </div>
 
@@ -985,28 +1003,31 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                 const badgeBg = isWarning ? '#f59e0b' : isSensible ? '#0284c7' : isPhot ? '#8b5cf6' : '#10b981';
                 return (
                   <button
-                    key={t(target.name, language)}
+                    key={target.key}
+                    type="button"
                     className={`${selected === index ? 'selected' : ''}${isWarning ? ' targetWarning' : ''}`}
                     onClick={() => chooseTarget(index)}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '4px' }}>
                       <b>{t(target.name, language)}</b>
                       <span
                         style={{
-                          fontSize: '9px',
-                          padding: '1px 5px',
-                          borderRadius: '3px',
-                          textTransform: 'uppercase',
-                          fontWeight: 'bold',
-                          letterSpacing: '0.04em',
+                          fontSize: '9.5px',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontWeight: '600',
+                          letterSpacing: '0.02em',
                           background: badgeBg,
                           color: '#fff',
                         }}
                       >
-                        {target.statusBadge}
+                        {target.scienceTypeLabel || target.statusBadge}
                       </span>
                     </div>
-                    <small>{t(target.note, language)}</small>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', fontSize: '11px', color: '#94a3b8' }}>
+                      <small>{t(target.note, language)}</small>
+                      <small style={{ color: '#64748b', marginLeft: '6px' }}>{target.distanceLabel}</small>
+                    </div>
                   </button>
                 );
               })}
@@ -1230,7 +1251,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                         )
                       : t('SECUENCIA DE OBSERVACIONES', language)}
                   </span>
-                  {frameDiagnostics?.temporal?.mjdAvg && (
+                  {complexityLevel === 'technical' && frameDiagnostics?.temporal?.mjdAvg && (
                     <span className="spherexMjdPill">
                       MJD {Number(frameDiagnostics.temporal.mjdAvg).toFixed(3)}
                     </span>

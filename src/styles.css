@@ -5123,3 +5123,76 @@ small {
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* ==========================================================================
+   KRONOX - SCIENTIFIC TRANSPARENCY & OBSERVATION COVERAGE REFINEMENTS
+   ========================================================================== */
+
+.spherexActiveTargetChip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+.spherexObservationPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 5px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.spherexObservationPill.pill-cov-full {
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #6ee7b7;
+}
+
+.spherexObservationPill.pill-cov-partial {
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #fde68a;
+}
+
+.spherexStatusPill.pill-astrométrico {
+  background: rgba(2, 132, 199, 0.18) !important;
+  border: 1px solid rgba(2, 132, 199, 0.5) !important;
+  color: #38bdf8 !important;
+}
+
+.spherexStatusStrip {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  padding: 9px 18px !important;
+}
+
+.spherexStatusStripContent {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.spherexDetailsToggleBtn {
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
+  padding: 5px 12px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+}
+
+.spherexDualHeader small {
+  background: rgba(255, 255, 255, 0.08) !important;
+  padding: 3px 8px !important;
+  border-radius: 4px !important;
+  font-size: 11px !important;
+  color: #cbd5e1 !important;
+  font-weight: 500 !important;
+}
