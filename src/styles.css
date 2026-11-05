@@ -6023,3 +6023,21 @@ small {
   background: rgba(239, 68, 68, 0.1);
   border-color: rgba(239, 68, 68, 0.2);
 }
+
+/* Keep astronomical comparison canvases at their intended size. The mission
+   viewer scrolls vertically, so these panels do not need to shrink to fit it. */
+.spherexDualViewport {
+  flex: 0 0 auto !important;
+}
+
+.spherexDualPane {
+  min-height: 0 !important;
+}
+
+.spherexDualCanvasArea {
+  flex: 0 0 auto !important;
+}
+
+.spherexImageFrame.hasImage {
+  flex-shrink: 0 !important;
+}
