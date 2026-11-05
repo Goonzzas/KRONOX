@@ -4795,3 +4795,125 @@ small {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ==========================================================================
+   MOBILE & TABLET ADVANCED RESPONSIVENESS (390px to 860px)
+   ========================================================================== */
+
+@media (max-width: 640px) {
+  .spherexShade {
+    padding: 0 !important;
+  }
+  .spherexMission {
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+  .spherexHeader {
+    padding: 6px 10px !important;
+    min-height: 46px !important;
+    gap: 6px !important;
+  }
+  .spherexObservatoryTitle {
+    display: none !important;
+  }
+  .spherexHeaderDivider {
+    display: none !important;
+  }
+  .spherexActiveTargetChip {
+    padding: 2px 8px !important;
+    font-size: 11px !important;
+  }
+  .spherexHelpBtn span {
+    display: none !important;
+  }
+  .spherexHelpBtn {
+    padding: 4px 7px !important;
+  }
+  .spherexControls {
+    max-height: 130px !important;
+    padding: 8px 10px !important;
+  }
+  .spherexTargets {
+    display: flex !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    gap: 6px !important;
+    margin-bottom: 8px !important;
+    padding-bottom: 4px !important;
+  }
+  .spherexTargets button {
+    flex: 0 0 160px !important;
+    margin-bottom: 0 !important;
+    white-space: nowrap !important;
+  }
+  .spherexCoordinates {
+    display: none !important; /* Hide direct coordinate form on tiny mobile view to protect image hero space */
+  }
+  .spherexViewer {
+    padding: 6px 8px !important;
+  }
+  .spherexViewModeTabs {
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
+    padding: 2px !important;
+  }
+  .spherexViewModeTab {
+    padding: 5px 9px !important;
+    font-size: 10.5px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+  .spherexImageFrame {
+    min-height: 220px !important;
+    max-height: 45vh !important;
+  }
+  .spherexViewMeta {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+  .spherexViewTools {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+  .spherexStatusStrip {
+    padding: 5px 10px !important;
+    font-size: 10.5px !important;
+  }
+  .spherexDetailsToggleBtn {
+    padding: 2px 6px !important;
+    font-size: 10px !important;
+  }
+  .spherexPlaybackToolbar {
+    padding: 5px 8px !important;
+    gap: 6px !important;
+  }
+  .spherexAuditModal,
+  .spherexHelpModal {
+    width: 96vw !important;
+    max-height: 92vh !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 860px) {
+  .spherexMission {
+    width: 98vw !important;
+    max-height: 96dvh !important;
+  }
+  .spherexControls {
+    max-height: 160px !important;
+  }
+  .spherexTargets {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+  }
+  .spherexImageFrame {
+    min-height: 320px !important;
+  }
+}

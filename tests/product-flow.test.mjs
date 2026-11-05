@@ -39,6 +39,7 @@ test('Product Flow - 5 Official SPHEREx Targets Completeness & Differentiated Sc
   assert.ok(wise0855.scientificLimitations.includes('72.8%'), 'Prior shrinkage factor gamma');
   assert.ok(wise0855.scientificLimitations.includes('NO constituye una detección estadística independiente'));
   assert.ok(wise0855.scientificLimitations.includes('61.0%'), 'Epoch 2 simulated completeness at 5% FPR');
+  assert.ok(wise0855.scientificLimitations.includes('57.9%–64.0%'), 'Epoch 2 Wilson 95% confidence interval');
   assert.ok(wise0855.scientificLimitations.includes('59.1%'), 'Epoch 2 joint detection & recovery');
 
   // 4. RW Aurigae - Validated Variable Star
