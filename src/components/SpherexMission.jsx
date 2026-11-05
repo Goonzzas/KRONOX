@@ -17,6 +17,159 @@ import {
 } from '../utils/differentialImaging.js';
 import { t } from '../i18n.js';
 
+const Icons = {
+  Telescope: (props) => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <circle cx="12" cy="12" r="7" />
+      <path d="M12 9v6" />
+      <path d="M9 12h6" />
+      <path d="m20 20-3-3" />
+    </svg>
+  ),
+  Timeline: (props) => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+  Blink: (props) => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+  SideBySide: (props) => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="12" y1="3" x2="12" y2="21" />
+    </svg>
+  ),
+  Differential: (props) => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <circle cx="9" cy="12" r="6" />
+      <circle cx="15" cy="12" r="6" />
+    </svg>
+  ),
+  Candidates: (props) => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="22" y1="12" x2="18" y2="12" />
+      <line x1="6" y1="12" x2="2" y2="12" />
+      <line x1="12" y1="6" x2="12" y2="2" />
+      <line x1="12" y1="22" x2="12" y2="18" />
+    </svg>
+  ),
+  Warning: (props) => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  ),
+  Check: (props) => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  ),
+  Info: (props) => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  ),
+  Help: (props) => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  ),
+  Play: (props) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true" {...props}>
+      <polygon points="5 3 19 12 5 21 5 3" />
+    </svg>
+  ),
+  Pause: (props) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true" {...props}>
+      <rect x="6" y="4" width="4" height="16" rx="1" />
+      <rect x="14" y="4" width="4" height="16" rx="1" />
+    </svg>
+  ),
+  StepBack: (props) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <polygon points="19 20 9 12 19 4 19 20" />
+      <line x1="5" y1="19" x2="5" y2="5" />
+    </svg>
+  ),
+  StepForward: (props) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <polygon points="5 4 15 12 5 20 5 4" />
+      <line x1="19" y1="5" x2="19" y2="19" />
+    </svg>
+  ),
+  ZoomIn: (props) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      <line x1="11" y1="8" x2="11" y2="14" />
+      <line x1="8" y1="11" x2="14" y2="11" />
+    </svg>
+  ),
+  ZoomOut: (props) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      <line x1="8" y1="11" x2="14" y2="11" />
+    </svg>
+  ),
+  ZoomReset: (props) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+    </svg>
+  ),
+  Expand: (props) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <path d="M15 3h6v6" />
+      <path d="M9 21H3v-6" />
+      <path d="M21 3l-7 7" />
+      <path d="M3 21l7-7" />
+    </svg>
+  ),
+  Close: (props) => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  ),
+  Tune: (props) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <line x1="4" y1="21" x2="4" y2="14" />
+      <line x1="4" y1="10" x2="4" y2="3" />
+      <line x1="12" y1="21" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12" y2="3" />
+      <line x1="20" y1="21" x2="20" y2="16" />
+      <line x1="20" y1="12" x2="20" y2="3" />
+      <line x1="1" y1="14" x2="7" y2="14" />
+      <line x1="9" y1="8" x2="15" y2="8" />
+      <line x1="17" y1="16" x2="23" y2="16" />
+    </svg>
+  ),
+  ChevronDown: (props) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  ),
+  Compass: (props) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+    </svg>
+  ),
+};
+
+
 const BAND_SPECS_BY_NAME = Object.fromEntries(
   Object.values(SPHEREX_DETECTOR_SPECS).map((spec) => [spec.band, spec]),
 );
@@ -144,6 +297,9 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const [diffDataUrl, setDiffDataUrl] = useState('');
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [complexityLevel, setComplexityLevel] = useState('essential'); // 'essential' | 'technical'
+  const [showTechDetailsModal, setShowTechDetailsModal] = useState(navParams?.get('audit') === 'true');
+  const [showHelpModal, setShowHelpModal] = useState(navParams?.get('help') === 'true');
 
   const requestRef = useRef(0);
   const compareRequestRef = useRef(0);
@@ -599,7 +755,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     if (!rep || typeof rep.coverageFraction !== 'number') return '';
     const covPct = Math.round(rep.coverageFraction * 100);
     if (covPct >= 99) return '';
-    return ` · ⚠️ Cobertura: ${covPct}% (Borde detector)`;
+    return ` · Cobertura: ${covPct}% (Borde detector)`;
   };
 
   const markImagePosition = (event) => {
@@ -687,45 +843,129 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
       role="presentation"
     >
       <section
-        className={`spherexMission${image && viewMode === 'single' ? ' imageExpanded' : ''}`}
+        className="spherexMission"
         role="dialog"
         aria-modal="true"
         aria-labelledby="spherex-title"
       >
+        {/* COMPACT REFINED OBSERVATORY HEADER */}
         <header className="spherexHeader">
-          <div>
-            <span className="spherexKicker">
-              {t('MISIÓN 01 · OBSERVATORIO INFRARROJO', language)}
-            </span>
-            <h2 id="spherex-title">{t('Ecos en infrarrojo', language)}</h2>
-            <p>
-              {t(
-                'Compara observaciones reales de SPHEREx y busca objetos que cambian de posición o brillo.',
-                language,
-              )}
-            </p>
-            <div className="spherexObjective">
-              <small>{t('KRONOX · OBJETIVO DE MISIÓN', language)}</small>
+          <div className="spherexHeaderBrand">
+            <div className="spherexLogo">
+              <Icons.Telescope className="spherexLogoIcon" />
+              <span>KRONOX</span>
+            </div>
+            <span className="spherexHeaderDivider" />
+            <h2 id="spherex-title" className="spherexObservatoryTitle">
+              {t('Observatorio Digital SPHEREx', language)}
+            </h2>
+            <div className="spherexActiveTargetChip">
+              <span className="spherexTargetDot" />
               <b>{t(selectedTarget.name, language)}</b>
-              <span>{missionObjective}</span>
+              <span className={`spherexStatusPill pill-${selectedTarget.scientificStatus.toLowerCase()}`}>
+                {selectedTarget.statusBadge}
+              </span>
             </div>
           </div>
-          <button onClick={onClose} aria-label={t('Cerrar misión', language)}>
-            Cerrar ✕
-          </button>
+
+          <div className="spherexHeaderActions">
+            {/* Complexity Level Segmented Control */}
+            <div className="spherexComplexityToggle" role="group" aria-label={t('Nivel de complejidad', language)}>
+              <button
+                type="button"
+                className={`spherexToggleBtn ${complexityLevel === 'essential' ? 'active' : ''}`}
+                onClick={() => setComplexityLevel('essential')}
+                title={t('Visualización clara y accesible', language)}
+              >
+                {t('Esencial', language)}
+              </button>
+              <button
+                type="button"
+                className={`spherexToggleBtn ${complexityLevel === 'technical' ? 'active' : ''}`}
+                onClick={() => setComplexityLevel('technical')}
+                title={t('Parámetros de calibración, WCS y fotometría', language)}
+              >
+                <Icons.Tune style={{ marginRight: '4px' }} />
+                {t('Técnico', language)}
+              </button>
+            </div>
+
+            {/* Quick Interactive Help */}
+            <button
+              type="button"
+              className="spherexHelpBtn"
+              onClick={() => setShowHelpModal(true)}
+              title={t('Guía de uso del observatorio', language)}
+            >
+              <Icons.Help style={{ marginRight: '5px' }} />
+              <span>{t('¿Cómo explorar?', language)}</span>
+            </button>
+
+            {/* Discreet Close Button */}
+            <button
+              type="button"
+              className="spherexCloseBtn"
+              onClick={onClose}
+              aria-label={t('Cerrar misión', language)}
+              title={t('Cerrar observatorio', language)}
+            >
+              <Icons.Close />
+            </button>
+          </div>
         </header>
 
-        <div
-          className={`spherexBody${viewMode !== 'single' ? ' comparing' : ''}${image && viewMode === 'single' ? ' imageExpanded' : ''}`}
-        >
+        {/* COMPACT SCIENTIFIC WARNING STRIP WITH COLLAPSIBLE AUDIT DRAWER */}
+        {(selectedTarget.scientificStatus === 'WARNING' || selectedTarget.scientificStatus === 'SENSIBLE' || selectedTarget.scientificStatus === 'FOTOMÉTRICO') && (
+          <div className={`spherexStatusStrip status-${selectedTarget.scientificStatus.toLowerCase()}`}>
+            <div className="spherexStatusStripContent">
+              <span className="spherexStatusIcon">
+                {selectedTarget.scientificStatus === 'WARNING' ? (
+                  <Icons.Warning />
+                ) : selectedTarget.scientificStatus === 'SENSIBLE' ? (
+                  <Icons.Info />
+                ) : (
+                  <Icons.Check />
+                )}
+              </span>
+              <span className="spherexStatusText">
+                <strong>
+                  {t(selectedTarget.name, language)} · {
+                    selectedTarget.scientificStatus === 'WARNING'
+                      ? t('ADVERTENCIA CIENTÍFICA', language)
+                      : selectedTarget.scientificStatus === 'SENSIBLE'
+                        ? t('EVALUACIÓN SENSIBLE', language)
+                        : t('VALIDACIÓN FOTOMÉTRICA', language)
+                  }:
+                </strong>{' '}
+                {selectedTarget.scientificStatus === 'WARNING'
+                  ? t('Época 1 sin detección independiente confirmada; Época 2 con evidencia y limitaciones fotométricas.', language)
+                  : selectedTarget.scientificStatus === 'SENSIBLE'
+                    ? t('Doble no resuelto; consistencia astrométrica condicionada al jitter instrumental.', language)
+                    : t('Validación fotométrica confirmada; astrometría no aplicable en Época 1.', language)}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="spherexDetailsToggleBtn"
+              onClick={() => setShowTechDetailsModal(true)}
+            >
+              <Icons.Tune style={{ marginRight: '4px' }} />
+              <span>{t('Ver detalles técnicos', language)}</span>
+              <Icons.ChevronDown style={{ marginLeft: '4px' }} />
+            </button>
+          </div>
+        )}
+
+        <div className={`spherexBody${viewMode !== 'single' ? ' comparing' : ''}`}>
+          {/* SIDEBAR: TARGETS & DATA SOURCES */}
           <aside className="spherexControls">
-            <div className="spherexSectionTitle">{t('Objetivos de la misión', language)}</div>
+            <div className="spherexSectionTitle">{t('Objetivos disponibles', language)}</div>
             <div className="spherexTargets">
               {TARGETS.map((target, index) => {
                 const isWarning = target.scientificStatus === 'WARNING';
                 const isSensible = target.scientificStatus === 'SENSIBLE';
                 const isPhot = target.scientificStatus === 'FOTOMÉTRICO';
-                const badgeBg = isWarning ? '#ff9800' : isSensible ? '#0284c7' : isPhot ? '#8b5cf6' : '#2e7d32';
+                const badgeBg = isWarning ? '#f59e0b' : isSensible ? '#0284c7' : isPhot ? '#8b5cf6' : '#10b981';
                 return (
                   <button
                     key={t(target.name, language)}
@@ -755,7 +995,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               })}
             </div>
 
-            <div className="spherexSectionTitle">{t('Coordenadas ICRS · grados', language)}</div>
+            <div className="spherexSectionTitle">{t('Búsqueda por coordenadas', language)}</div>
             <form
               className="spherexCoordinates"
               onSubmit={(event) => {
@@ -809,51 +1049,56 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               )}
             </p>
 
-            {/* Scientific Accordion for Calibration & Quality Options */}
-            <div className="spherexAccordion">
-              <div
-                className="spherexAccordionSummary"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-              >
-                <span>⚙ {t(showAdvanced ? 'Ocultar controles avanzados' : 'Controles científicos avanzados', language)}</span>
-                <span>{showAdvanced ? '▲' : '▼'}</span>
-              </div>
-              {showAdvanced && (
-                <div className="spherexAccordionBody">
-                  <label title={t('Procesamiento del fondo zodiacal (HDU 4: ZODI)', language)}>
-                    {t('Fondo', language)}{' '}
-                    <select
-                      value={zodiMode}
-                      onChange={(event) => {
-                        stretchRef.current = null;
-                        frameCacheRef.current.clear();
-                        setZodiMode(event.target.value);
-                      }}
-                      disabled={!visibleRecords.length}
-                    >
-                      <option value="subtracted">{t('IMAGE − ZODI', language)}</option>
-                      <option value="raw">{t('IMAGE original', language)}</option>
-                      <option value="model">{t('Modelo ZODI', language)}</option>
-                    </select>
-                  </label>
-                  <label title={t('Política de máscaras de calidad (HDU 2: FLAGS)', language)}>
-                    {t('Modo', language)}{' '}
-                    <select
-                      value={flagPolicy}
-                      onChange={(event) => {
-                        stretchRef.current = null;
-                        frameCacheRef.current.clear();
-                        setFlagPolicy(event.target.value);
-                      }}
-                      disabled={!visibleRecords.length}
-                    >
-                      <option value="measurement">{t('Medición (Cat. A+C)', language)}</option>
-                      <option value="discovery">{t('Descubrimiento (Cat. A)', language)}</option>
-                    </select>
-                  </label>
+            {/* Scientific calibration controls in technical mode */}
+            {complexityLevel === 'technical' && (
+              <div className="spherexAccordion">
+                <div
+                  className="spherexAccordionSummary"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Icons.Tune />
+                    {t(showAdvanced ? 'Ocultar calibración' : 'Calibración instrumental', language)}
+                  </span>
+                  <Icons.ChevronDown style={{ transform: showAdvanced ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                 </div>
-              )}
-            </div>
+                {showAdvanced && (
+                  <div className="spherexAccordionBody">
+                    <label title={t('Procesamiento del fondo zodiacal (HDU 4: ZODI)', language)}>
+                      {t('Fondo', language)}{' '}
+                      <select
+                        value={zodiMode}
+                        onChange={(event) => {
+                          stretchRef.current = null;
+                          frameCacheRef.current.clear();
+                          setZodiMode(event.target.value);
+                        }}
+                        disabled={!visibleRecords.length}
+                      >
+                        <option value="subtracted">{t('IMAGE − ZODI', language)}</option>
+                        <option value="raw">{t('IMAGE original', language)}</option>
+                        <option value="model">{t('Modelo ZODI', language)}</option>
+                      </select>
+                    </label>
+                    <label title={t('Política de máscaras de calidad (HDU 2: FLAGS)', language)}>
+                      {t('Modo', language)}{' '}
+                      <select
+                        value={flagPolicy}
+                        onChange={(event) => {
+                          stretchRef.current = null;
+                          frameCacheRef.current.clear();
+                          setFlagPolicy(event.target.value);
+                        }}
+                        disabled={!visibleRecords.length}
+                      >
+                        <option value="measurement">{t('Medición (Cat. A+C)', language)}</option>
+                        <option value="discovery">{t('Descubrimiento (Cat. A)', language)}</option>
+                      </select>
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="spherexStatus" aria-live="polite">
               {t(status, language)}
@@ -861,248 +1106,197 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
             </div>
           </aside>
 
+          {/* MAIN VIEWER: 3-REGION LAYOUT */}
           <main className="spherexViewer">
-            {/* Scientific Status & Limitations Banner */}
-            <div
-              className={`spherexScientificStatusBanner status-${selectedTarget.scientificStatus.toLowerCase()}`}
-              style={{
-                background:
-                  selectedTarget.scientificStatus === 'WARNING'
-                    ? 'rgba(255, 152, 0, 0.12)'
-                    : selectedTarget.scientificStatus === 'SENSIBLE'
-                      ? 'rgba(2, 132, 199, 0.12)'
-                      : selectedTarget.scientificStatus === 'FOTOMÉTRICO'
-                        ? 'rgba(139, 92, 246, 0.12)'
-                        : 'rgba(46, 125, 50, 0.10)',
-                border:
-                  selectedTarget.scientificStatus === 'WARNING'
-                    ? '1px solid #ff9800'
-                    : selectedTarget.scientificStatus === 'SENSIBLE'
-                      ? '1px solid #0284c7'
-                      : selectedTarget.scientificStatus === 'FOTOMÉTRICO'
-                        ? '1px solid #8b5cf6'
-                        : '1px solid rgba(76, 175, 80, 0.4)',
-                borderRadius: '6px',
-                padding: '10px 14px',
-                marginBottom: '10px',
-                fontSize: '12px',
-                lineHeight: '1.45',
-                color:
-                  selectedTarget.scientificStatus === 'WARNING'
-                    ? '#ffb74d'
-                    : selectedTarget.scientificStatus === 'SENSIBLE'
-                      ? '#7dd3fc'
-                      : selectedTarget.scientificStatus === 'FOTOMÉTRICO'
-                        ? '#c4b5fd'
-                        : '#a5d6a7',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
-                  <span style={{ fontSize: '15px' }}>
-                    {selectedTarget.scientificStatus === 'WARNING'
-                      ? '⚠'
-                      : selectedTarget.scientificStatus === 'SENSIBLE'
-                        ? 'ℹ'
-                        : selectedTarget.scientificStatus === 'FOTOMÉTRICO'
-                          ? '⚡'
-                          : '✓'}
+            {/* REGION 1: TOP NAVIGATION & CONTEXT BAR */}
+            <div className="spherexViewerHeaderBar">
+              {/* Plain-Language View Mode Tabs */}
+              <nav className="spherexViewModeTabs" aria-label={t('Modo de visualización', language)}>
+                <button
+                  type="button"
+                  className={`spherexViewModeTab${viewMode === 'single' ? ' active' : ''}`}
+                  onClick={() => {
+                    setViewMode('single');
+                    setCompareEnabled(false);
+                  }}
+                  title={t('Visualiza capturas en orden cronológico', language)}
+                >
+                  <Icons.Timeline />
+                  <span>{t('Línea de tiempo', language)}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`spherexViewModeTab${viewMode === 'blink' ? ' active' : ''}`}
+                  onClick={() => {
+                    setViewMode('blink');
+                    setCompareEnabled(false);
+                    setPlaying(true);
+                  }}
+                  disabled={visibleRecords.length < 2}
+                  title={t('Parpadeo rápido entre dos observaciones', language)}
+                >
+                  <Icons.Blink />
+                  <span>{t('Comparar épocas', language)}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`spherexViewModeTab${viewMode === 'sideBySide' ? ' active' : ''}`}
+                  onClick={() => {
+                    setViewMode('sideBySide');
+                    setCompareEnabled(true);
+                    setPlaying(false);
+                    if (compareIndex === frameIndex) {
+                      setCompareIndex(
+                        frameIndex > 0 ? frameIndex - 1 : Math.min(1, visibleRecords.length - 1),
+                      );
+                    }
+                  }}
+                  disabled={visibleRecords.length < 2}
+                  title={t('Inspecciona dos observaciones lado a lado', language)}
+                >
+                  <Icons.SideBySide />
+                  <span>{t('Vista comparada', language)}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`spherexViewModeTab${viewMode === 'differential' ? ' active' : ''}`}
+                  onClick={() => {
+                    setViewMode('differential');
+                    setCompareEnabled(true);
+                    setPlaying(false);
+                    if (compareIndex === frameIndex) {
+                      setCompareIndex(
+                        frameIndex > 0 ? frameIndex - 1 : Math.min(1, visibleRecords.length - 1),
+                      );
+                    }
+                  }}
+                  disabled={visibleRecords.length < 2}
+                  title={t('Resta matemática de dos épocas para detectar cambios', language)}
+                >
+                  <Icons.Differential />
+                  <span>{t('Mapa de diferencias', language)}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`spherexViewModeTab${viewMode === 'candidates' ? ' active' : ''}`}
+                  onClick={() => {
+                    setViewMode('candidates');
+                    setCompareEnabled(true);
+                    setPlaying(false);
+                    if (compareIndex === frameIndex) {
+                      setCompareIndex(
+                        frameIndex > 0 ? frameIndex - 1 : Math.min(1, visibleRecords.length - 1),
+                      );
+                    }
+                  }}
+                  disabled={visibleRecords.length < 2}
+                  title={t('Objetos que superan el umbral estadístico de cambio', language)}
+                >
+                  <Icons.Candidates />
+                  <span>{t('Objetos detectados', language)} ({candidates.length})</span>
+                </button>
+              </nav>
+
+              {/* Observation Metadata & Zoom dock */}
+              <div className="spherexViewMeta">
+                <div className="spherexObservationBadge">
+                  <span className="spherexDateLabel">
+                    {frame
+                      ? formatDate(
+                          frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date,
+                          language,
+                        )
+                      : t('SECUENCIA DE OBSERVACIONES', language)}
                   </span>
-                  <span>
-                    {selectedTarget.scientificStatus === 'WARNING'
-                      ? t('ESTATUS CIENTÍFICO: ADVERTENCIA (WARNING)', language)
-                      : selectedTarget.scientificStatus === 'SENSIBLE'
-                        ? t('ESTATUS CIENTÍFICO: EVALUACIÓN SENSIBLE / CONDICIONAL', language)
-                        : selectedTarget.scientificStatus === 'FOTOMÉTRICO'
-                          ? t('ESTATUS CIENTÍFICO: VALIDACIÓN FOTOMÉTRICA (ASTROMETRÍA NO APLICABLE EN ÉPOCA 1)', language)
-                          : t('ESTATUS CIENTÍFICO: OBJETIVO VALIDADO', language)}
-                  </span>
+                  {frameDiagnostics?.temporal?.mjdAvg && (
+                    <span className="spherexMjdPill">
+                      MJD {Number(frameDiagnostics.temporal.mjdAvg).toFixed(3)}
+                    </span>
+                  )}
+                  {frame && (
+                    <span className="spherexCoveragePill">
+                      {formatBandLabel(frame.band)}
+                      {formatSpectralBadge(frameDiagnostics)}
+                    </span>
+                  )}
                 </div>
-                <div style={{ display: 'flex', gap: '6px', fontSize: '10px' }}>
-                  {selectedTarget.coverageStatus && (
-                    <span style={{ background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '4px' }}>
-                      {selectedTarget.coverageStatus}
-                    </span>
-                  )}
-                  {selectedTarget.dataQuality && (
-                    <span style={{ background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '4px' }}>
-                      {selectedTarget.dataQuality}
-                    </span>
-                  )}
+
+                <div className="spherexViewTools">
+                  <label className="spherexBandSelector">
+                    <span>{t('Banda', language)}</span>
+                    <select
+                      value={band}
+                      onChange={(event) => {
+                        stretchRef.current = null;
+                        frameCacheRef.current.clear();
+                        setBand(event.target.value);
+                        setFrameIndex(0);
+                        setCompareIndex(visibleRecords.length > 1 ? 1 : 0);
+                        setPlaying(false);
+                      }}
+                      disabled={!bands.length}
+                    >
+                      <option value="">{t('Todas', language)}</option>
+                      {bands.map((name) => (
+                        <option key={name} value={name}>
+                          {formatBandLabel(name)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {/* Synchronized Zoom Controls */}
+                  <div className="spherexZoomDock">
+                    <button
+                      type="button"
+                      onClick={() => handleZoom(0.25)}
+                      title={t('Acercar encuadre', language)}
+                    >
+                      <Icons.ZoomIn />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleZoom(-0.25)}
+                      title={t('Alejar encuadre', language)}
+                    >
+                      <Icons.ZoomOut />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetZoom}
+                      title={t('Restablecer encuadre', language)}
+                    >
+                      <Icons.ZoomReset />
+                    </button>
+                    <button
+                      type="button"
+                      className="spherexExpandButton"
+                      onClick={() => setExpanded(true)}
+                      disabled={!image}
+                      title={t('Pantalla completa', language)}
+                    >
+                      <Icons.Expand />
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div style={{ whiteSpace: 'pre-line' }}>{t(selectedTarget.scientificLimitations, language)}</div>
             </div>
 
-            {/* View Mode Selector Tabs */}
-            <nav className="spherexViewModeTabs" aria-label={t('Modo de visualización', language)}>
-              <button
-                type="button"
-                className={`spherexViewModeTab${viewMode === 'single' ? ' active' : ''}`}
-                onClick={() => {
-                  setViewMode('single');
-                  setCompareEnabled(false);
-                }}
-              >
-                🎞 {t('Secuencia', language)}
-              </button>
-              <button
-                type="button"
-                className={`spherexViewModeTab${viewMode === 'blink' ? ' active' : ''}`}
-                onClick={() => {
-                  setViewMode('blink');
-                  setCompareEnabled(false);
-                  setPlaying(true);
-                }}
-                disabled={visibleRecords.length < 2}
-              >
-                ⚡ {t('Blink Comparator', language)}
-              </button>
-              <button
-                type="button"
-                className={`spherexViewModeTab${viewMode === 'sideBySide' ? ' active' : ''}`}
-                onClick={() => {
-                  setViewMode('sideBySide');
-                  setCompareEnabled(true);
-                  setPlaying(false);
-                  if (compareIndex === frameIndex) {
-                    setCompareIndex(
-                      frameIndex > 0 ? frameIndex - 1 : Math.min(1, visibleRecords.length - 1),
-                    );
-                  }
-                }}
-                disabled={visibleRecords.length < 2}
-              >
-                ◫ {t('Lado a lado', language)}
-              </button>
-              <button
-                type="button"
-                className={`spherexViewModeTab${viewMode === 'differential' ? ' active' : ''}`}
-                onClick={() => {
-                  setViewMode('differential');
-                  setCompareEnabled(true);
-                  setPlaying(false);
-                  if (compareIndex === frameIndex) {
-                    setCompareIndex(
-                      frameIndex > 0 ? frameIndex - 1 : Math.min(1, visibleRecords.length - 1),
-                    );
-                  }
-                }}
-                disabled={visibleRecords.length < 2}
-              >
-                ⊖ {t('Resta diferencial', language)}
-              </button>
-              <button
-                type="button"
-                className={`spherexViewModeTab${viewMode === 'candidates' ? ' active' : ''}`}
-                onClick={() => {
-                  setViewMode('candidates');
-                  setCompareEnabled(true);
-                  setPlaying(false);
-                  if (compareIndex === frameIndex) {
-                    setCompareIndex(
-                      frameIndex > 0 ? frameIndex - 1 : Math.min(1, visibleRecords.length - 1),
-                    );
-                  }
-                }}
-                disabled={visibleRecords.length < 2}
-              >
-                ★ {t('Candidatos', language)} ({candidates.length})
-              </button>
-            </nav>
-
-            {/* Top Toolbar: Band selector, Epoch Hint & Zoom Reset */}
-            <div className="spherexViewMeta">
-              <span>
-                {frame
-                  ? formatDate(
-                      frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date,
-                      language,
-                    )
-                  : t('SECUENCIA DE OBSERVACIONES', language)}
-              </span>
-              <label>
-                {t('Banda', language)}{' '}
-                <select
-                  value={band}
-                  onChange={(event) => {
-                    stretchRef.current = null;
-                    frameCacheRef.current.clear();
-                    setBand(event.target.value);
-                    setFrameIndex(0);
-                    setCompareIndex(visibleRecords.length > 1 ? 1 : 0);
-                    setPlaying(false);
-                  }}
-                  disabled={!bands.length}
-                >
-                  <option value="">{t('Todas', language)}</option>
-                  {bands.map((name) => (
-                    <option key={name} value={name}>
-                      {formatBandLabel(name)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {/* Synchronized Zoom Controls */}
-              {(viewMode === 'sideBySide' || viewMode === 'differential' || viewMode === 'candidates') && (
-                <div style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    style={{ padding: '3px 8px', fontSize: '11px' }}
-                    onClick={() => handleZoom(0.25)}
-                    title={t('Acercar encuadre', language)}
-                  >
-                    ＋
-                  </button>
-                  <button
-                    type="button"
-                    style={{ padding: '3px 8px', fontSize: '11px' }}
-                    onClick={() => handleZoom(-0.25)}
-                    title={t('Alejar encuadre', language)}
-                  >
-                    －
-                  </button>
-                  <button
-                    type="button"
-                    style={{ padding: '3px 8px', fontSize: '11px' }}
-                    onClick={resetZoom}
-                    title={t('Restablecer encuadre', language)}
-                  >
-                    1:1
-                  </button>
-                </div>
-              )}
-
-              <button
-                type="button"
-                className="spherexExpandButton"
-                onClick={() => setExpanded(true)}
-                disabled={!image}
-              >
-                {t('⤢ Ampliar', language)}
-              </button>
-            </div>
-
-            {/* Comparability Warning Banner */}
-            {frame && (viewMode !== 'single') && (
-              <div className="spherexCompareHint">
-                <b>{t('Comparando:', language)}</b>{' '}
-                {compareFrame
-                  ? `${formatDate(frame.dateAvg || frame.date, language)} ↔ ${formatDate(compareFrame.dateAvg || compareFrame.date, language)}`
-                  : formatDate(frame.dateAvg || frame.date, language)}
+            {/* PLAIN LANGUAGE ASSISTANCE CARD (Essential Mode) */}
+            {complexityLevel === 'essential' && (
+              <div className="spherexPlainHelpCard">
+                <Icons.Info className="spherexPlainHelpIcon" />
                 <span>
-                  {comparability
-                    ? ` · ${language === 'en' ? comparability.reasonEn : comparability.reasonEs}`
-                    : t(
-                        ' · alineado por WCS (N ↑ E ←) · la escala de brillo se mantiene fija en la secuencia',
-                        language,
-                      )}
+                  {viewMode === 'single' && t('Explora la secuencia cronológica de observaciones. Usa la barra inferior para reproducir o avanzar entre fechas.', language)}
+                  {viewMode === 'blink' && t('Comparación por parpadeo: alterna velozmente entre dos fechas para advertir cualquier salto de posición o variación de brillo.', language)}
+                  {viewMode === 'sideBySide' && t('Vista dual lado a lado: compara las dos observaciones simultáneamente con zoom y paneo sincronizados.', language)}
+                  {viewMode === 'differential' && t('Resta matemática calibrada: los objetos fijos se anulan, mientras que las fuentes variables o con movimiento propio resaltan en color.', language)}
+                  {viewMode === 'candidates' && t('Catálogo de objetos detectados: fuentes identificadas que superan el umbral de significancia estadística. Haz clic en cualquiera para enfocarlo.', language)}
                 </span>
               </div>
             )}
 
-            {/* Mode-specific Controls */}
+            {/* Mode-specific Controls Toolbar */}
             {viewMode === 'blink' && (
               <div className="spherexBlinkToolbar">
                 <button
@@ -1110,16 +1304,20 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   className={playing ? 'active' : ''}
                   onClick={() => setPlaying(!playing)}
                 >
-                  {playing ? `⏸ ${t('Pausar parpadeo', language)}` : `▶ ${t('Iniciar parpadeo', language)}`}
+                  {playing ? (
+                    <><Icons.Pause style={{ marginRight: '6px' }} />{t('Pausar parpadeo', language)}</>
+                  ) : (
+                    <><Icons.Play style={{ marginRight: '6px' }} />{t('Iniciar parpadeo', language)}</>
+                  )}
                 </button>
                 <button type="button" onClick={() => step(-1)} title={t('Fotograma anterior', language)}>
-                  ◀
+                  <Icons.StepBack />
                 </button>
                 <button type="button" onClick={() => step(1)} title={t('Fotograma siguiente', language)}>
-                  ▶
+                  <Icons.StepForward />
                 </button>
                 <label>
-                  {t('Velocidad de parpadeo', language)}:{' '}
+                  {t('Velocidad', language)}:{' '}
                   <select
                     value={blinkSpeed}
                     onChange={(e) => setBlinkSpeed(Number(e.target.value))}
@@ -1131,7 +1329,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     <option value={1500}>1500 ms ({t('Lento', language)})</option>
                   </select>
                 </label>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                   <input
                     type="checkbox"
                     checked={blinkLoop}
@@ -1180,8 +1378,8 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   disabled={!image || compareLoading}
                 >
                   {marking
-                    ? t('Haz clic en cualquiera de las imágenes', language)
-                    : t('＋ Marcar cambio', language)}
+                    ? t('Haz clic en la imagen', language)
+                    : t('Marcar cambio', language)}
                 </button>
               </div>
             )}
@@ -1189,7 +1387,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
             {/* Differential Controls toolbar */}
             {(viewMode === 'differential' || viewMode === 'candidates') && diffResult && (
               <div className="spherexDiffControls">
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                   <label>
                     <input
                       type="radio"
@@ -1198,7 +1396,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                       checked={diffMode === 'diff'}
                       onChange={() => setDiffMode('diff')}
                     />{' '}
-                    {t('Diferencia de intensidad', language)} (D = I₂ − αI₁ − B)
+                    {t('Diferencia neta', language)} (D = I₂ − αI₁ − B)
                   </label>
                   <label>
                     <input
@@ -1208,16 +1406,16 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                       checked={diffMode === 'snr'}
                       onChange={() => setDiffMode('snr')}
                     />{' '}
-                    {t('Mapa de significancia', language)} (SNR = D / σ_D)
+                    {t('Significancia estadística', language)} (SNR = D / σ_D)
                   </label>
                 </div>
                 <div className="spherexColormapLegend">
-                  <span>− {t('Disminución', language)}</span>
+                  <span>− {t('Atenuación', language)}</span>
                   <div className="spherexColormapGradient" />
-                  <span>+ {t('Aumento', language)}</span>
+                  <span>+ {t('Exceso', language)}</span>
                 </div>
                 <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  {t('Umbral', language)}:
+                  {t('Umbral de detección', language)}:
                   <select
                     value={diffThreshold}
                     onChange={(e) => setDiffThreshold(Number(e.target.value))}
@@ -1231,16 +1429,16 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               </div>
             )}
 
-            {/* Normalization & PSF Summary Card */}
-            {(viewMode === 'differential' || viewMode === 'candidates') && diffResult && (
+            {/* Normalization & PSF Summary Card (Technical Mode) */}
+            {complexityLevel === 'technical' && (viewMode === 'differential' || viewMode === 'candidates') && diffResult && (
               <div className="spherexNormCard">
                 <span>α = <b>{diffResult.scaleNorm.alpha}</b> ± {Math.sqrt(diffResult.scaleNorm.alphaVariance).toFixed(4)} ({diffResult.scaleNorm.method === 'stellar_sources' ? `Fuentes N=${diffResult.scaleNorm.validReferencePixelCount}` : 'Sin reescalar'})</span>
                 <span>B = <b>{diffResult.scaleNorm.backgroundOffset}</b> MJy/sr</span>
                 <span>{t('Correlación r', language)} = <b>{diffResult.scaleNorm.correlation}</b></span>
                 {diffResult.empiricalCalibration && (
-                  <span>η_cielo = <b>{diffResult.empiricalCalibration.etaSky}×</b> (σ_emp={diffResult.empiricalCalibration.sigmaEmp} MJy/sr, residuo cielo={diffResult.empiricalCalibration.robustSigmaSkyCal}σ)</span>
+                  <span>η_cielo = <b>{diffResult.empiricalCalibration.etaSky}×</b> (σ_emp={diffResult.empiricalCalibration.sigmaEmp} MJy/sr)</span>
                 )}
-                <span>ΔFWHM = <b>{diffResult.psfAssessment.deltaFwhm}"</b> ({diffResult.psfAssessment.quantitativeInterpretationAllowed ? '✓ PSF compatible' : '⚠ No cuantitativo'})</span>
+                <span>ΔFWHM = <b>{diffResult.psfAssessment.deltaFwhm}"</b> ({diffResult.psfAssessment.quantitativeInterpretationAllowed ? 'PSF compatible' : 'No cuantitativo'})</span>
                 <label style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                   <input
                     type="checkbox"
@@ -1252,7 +1450,8 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               </div>
             )}
 
-            {/* 1. SINGLE / BLINK VIEWPORT */}
+            {/* REGION 2: HERO OBSERVATION STAGE */}
+            {/* 1. SINGLE / BLINK HERO VIEWPORT */}
             {(viewMode === 'single' || viewMode === 'blink') && (
               <div
                 className={`spherexImageFrame${image ? ' hasImage' : ''}`}
@@ -1274,10 +1473,15 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                       predictedMarker={primaryEpochMarker}
                       language={language}
                     />
+                    {/* Celestial orientation badge */}
+                    <div className="spherexOrientationHud" title={t('Orientación astronómica estándar', language)}>
+                      <Icons.Compass style={{ marginRight: '4px' }} />
+                      <span>N ↑ · E ←</span>
+                    </div>
                     {viewMode === 'blink' && frame && (
                       <div className="spherexBlinkHud">
-                        <span className="badge">⚡ BLINK [{frameIndex + 1}/{visibleRecords.length}]</span>
-                        <span>MJD-AVG: {Number(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date).toFixed(5)}</span>
+                        <span className="badge">BLINK [{frameIndex + 1}/{visibleRecords.length}]</span>
+                        <span>MJD: {Number(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date).toFixed(5)}</span>
                         <span>{formatDate(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date, language)}</span>
                         <span>{formatBandLabel(frame.band)} {formatSpectralBadge(frameDiagnostics)}{formatCoverageBadge(frameDiagnostics)}</span>
                       </div>
@@ -1292,8 +1496,8 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                         {t('Procesando recorte de la imagen…', language)}
                       </>
                     ) : records.length === 0 ? (
-                      <div className="spherexEmptyNotice" style={{ padding: '20px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>🌌</div>
+                      <div className="spherexEmptyNotice" style={{ padding: '24px', textAlign: 'center' }}>
+                        <Icons.Telescope style={{ width: '32px', height: '32px', opacity: 0.6, marginBottom: '8px' }} />
                         <b>{t('Sin observaciones SPHEREx en esta región', language)}</b>
                         <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginTop: '6px', maxWidth: '340px' }}>
                           {t('No se registraron imágenes públicas para estas coordenadas en el release seleccionado. Selecciona uno de los 5 objetivos oficiales para explorar datos verificados.', language)}
@@ -1309,13 +1513,13 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     {formatBandLabel(frame.band)} · {frame.release.replace('spherex_', '').toUpperCase()}
                     {formatSpectralBadge(frameDiagnostics)}
                     {formatZodiBadge(frameDiagnostics)}
-                    {formatFlagBadge(frameDiagnostics)}{formatCoverageBadge(frameDiagnostics)} · N ↑ E ←
+                    {formatFlagBadge(frameDiagnostics)}{formatCoverageBadge(frameDiagnostics)}
                   </span>
                 )}
               </div>
             )}
 
-            {/* 2. SIDE-BY-SIDE DUAL VIEWPORT (SYNCHRONIZED ZOOM & PAN) */}
+            {/* 2. SIDE-BY-SIDE DUAL VIEWPORT */}
             {viewMode === 'sideBySide' && compareFrame && (
               <div className="spherexDualViewport">
                 <article className="spherexDualPane">
@@ -1348,9 +1552,8 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     </div>
                   </div>
                   <div className="spherexDualMeta">
-                    <div>MJD-AVG: {Number(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date).toFixed(5)}</div>
+                    <div>MJD: {Number(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date).toFixed(5)}</div>
                     <div>λ = {frameDiagnostics?.spectral?.wavelengthUm ?? '?'} μm (Δλ = {frameDiagnostics?.spectral?.bandwidthUm ?? '?'} μm)</div>
-                    <div>Versión: {frame?.pipelineVersion || frame?.release}{formatCoverageBadge(frameDiagnostics)}</div>
                     <div>Centro WCS: RA {imageCenter.ra.toFixed(4)}°, Dec {imageCenter.dec.toFixed(4)}°</div>
                   </div>
                 </article>
@@ -1385,9 +1588,8 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     </div>
                   </div>
                   <div className="spherexDualMeta">
-                    <div>MJD-AVG: {Number(compareDiagnostics?.temporal?.mjdAvg ?? compareFrame.dateAvg ?? compareFrame.date).toFixed(5)}</div>
+                    <div>MJD: {Number(compareDiagnostics?.temporal?.mjdAvg ?? compareFrame.dateAvg ?? compareFrame.date).toFixed(5)}</div>
                     <div>λ = {compareDiagnostics?.spectral?.wavelengthUm ?? '?'} μm (Δλ = {compareDiagnostics?.spectral?.bandwidthUm ?? '?'} μm)</div>
-                    <div>Versión: {compareFrame.pipelineVersion || compareFrame.release}{formatCoverageBadge(compareDiagnostics)}</div>
                     <div>Centro WCS: RA {imageCenter.ra.toFixed(4)}°, Dec {imageCenter.dec.toFixed(4)}°</div>
                   </div>
                 </article>
@@ -1426,6 +1628,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     predictedMarker={compareEpochMarker}
                     language={language}
                   />
+                  {/* Celestial orientation badge */}
+                  <div className="spherexOrientationHud">
+                    <Icons.Compass style={{ marginRight: '4px' }} />
+                    <span>N ↑ · E ←</span>
+                  </div>
                   {selectedCandidate && (
                     <span
                       style={{
@@ -1433,11 +1640,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                         left: `${((selectedCandidate.col + 0.5) / 300) * 100}%`,
                         top: `${((selectedCandidate.row + 0.5) / 300) * 100}%`,
                         transform: 'translate(-50%, -50%)',
-                        width: '22px',
-                        height: '22px',
+                        width: '24px',
+                        height: '24px',
                         border: '2px solid #38bdf8',
                         borderRadius: '50%',
-                        boxShadow: '0 0 10px #38bdf8',
+                        boxShadow: '0 0 12px #38bdf8',
                         pointerEvents: 'none',
                         zIndex: 4,
                       }}
@@ -1447,17 +1654,20 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               </div>
             )}
 
-            {/* 4. CANDIDATE DISCOVERY PANEL */}
+            {/* 4. CANDIDATES PANEL (When in candidates mode) */}
             {viewMode === 'candidates' && (
               <section className="spherexCandidatePanel">
                 <div className="spherexCandidateHeader">
-                  <h4>★ {t('Lista de candidatos identificados', language)} ({candidates.length})</h4>
+                  <h4>
+                    <Icons.Candidates style={{ marginRight: '6px' }} />
+                    {t('Lista de objetos detectados', language)} ({candidates.length})
+                  </h4>
                   <small style={{ color: '#94a3b8' }}>
                     {t('Filtrado por significancia', language)} ≥ {diffThreshold}σ
                   </small>
                 </div>
                 {candidates.length === 0 ? (
-                  <p style={{ color: '#94a3b8', fontSize: '11px' }}>
+                  <p style={{ color: '#94a3b8', fontSize: '11px', margin: '8px 0' }}>
                     {t('No se detectaron candidatos que superen el umbral', language)} ({diffThreshold}σ).
                   </p>
                 ) : (
@@ -1483,16 +1693,16 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                             }`}
                           >
                             {cand.taxonomyType === 'KNOWN_OBJECT_MATCH'
-                              ? t('★ Correspondencia con objeto conocido', language)
+                              ? t('Correspondencia con objetivo', language)
                               : cand.taxonomyType === 'MOVING_OBJECT_CANDIDATE'
-                                ? t('⤢ Candidato a objeto móvil', language)
+                                ? t('Dipolo de movimiento propio', language)
                                 : cand.taxonomyType === 'TRANSIENT_ANOMALY'
-                                  ? t('⚠ Anomalía transitoria', language)
+                                  ? t('Anomalía transitoria', language)
                                   : cand.taxonomyType === 'INSTRUMENTAL_ARTIFACT'
-                                    ? t('✕ Artefacto instrumental', language)
+                                    ? t('Artefacto instrumental', language)
                                     : cand.snr > 0
-                                      ? t('⚡ Variable (aumento)', language)
-                                      : t('⚡ Variable (atenuación)', language)}
+                                      ? t('Variable (exceso)', language)
+                                      : t('Variable (atenuación)', language)}
                           </span>
                           {cand.dataQuality && cand.dataQuality !== 'NOMINAL' && (
                             <span className="spherexCandidateBadge caution">
@@ -1548,82 +1758,87 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               </p>
             )}
 
-            {/* Single sequence playback toolbar */}
+            {/* REGION 3: BOTTOM TIMELINE & PLAYBACK CONTROL BAR */}
             {viewMode === 'single' && (
-              <>
-                <div className="spherexPlayback">
+              <div className="spherexBottomTimelineBar">
+                <div className="spherexPlaybackToolbar">
                   <button
                     disabled={!visibleRecords.length}
                     onClick={() => step(-1)}
                     aria-label={t('Imagen anterior', language)}
+                    title={t('Fecha anterior', language)}
                   >
-                    ◀
+                    <Icons.StepBack />
                   </button>
                   <button
                     className="spherexPlay"
                     disabled={visibleRecords.length < 2}
                     onClick={() => setPlaying(!playing)}
+                    title={playing ? t('Pausar', language) : t('Reproducir', language)}
                   >
-                    {playing ? 'Pausar' : '▶ Reproducir'}
+                    {playing ? (
+                      <><Icons.Pause style={{ marginRight: '6px' }} />{t('Pausar', language)}</>
+                    ) : (
+                      <><Icons.Play style={{ marginRight: '6px' }} />{t('Reproducir', language)}</>
+                    )}
                   </button>
                   <button
                     disabled={!visibleRecords.length}
                     onClick={() => step(1)}
                     aria-label={t('Imagen siguiente', language)}
+                    title={t('Fecha siguiente', language)}
                   >
-                    ▶
+                    <Icons.StepForward />
                   </button>
-                  <span>
+
+                  <div className="spherexTimelineScrubber">
+                    <input
+                      className="spherexTimeline"
+                      type="range"
+                      min="0"
+                      max={Math.max(0, visibleRecords.length - 1)}
+                      value={Math.min(frameIndex, Math.max(0, visibleRecords.length - 1))}
+                      onChange={(event) => {
+                        setFrameIndex(Number(event.target.value));
+                        setPlaying(false);
+                      }}
+                      disabled={!visibleRecords.length}
+                      aria-label={t('Fecha de observación', language)}
+                    />
+                  </div>
+
+                  <span className="spherexEpochCounter">
                     {visibleRecords.length ? `${frameIndex + 1} / ${visibleRecords.length}` : '0 / 0'}
                   </span>
                 </div>
-                <input
-                  className="spherexTimeline"
-                  type="range"
-                  min="0"
-                  max={Math.max(0, visibleRecords.length - 1)}
-                  value={Math.min(frameIndex, Math.max(0, visibleRecords.length - 1))}
-                  onChange={(event) => {
-                    setFrameIndex(Number(event.target.value));
-                    setPlaying(false);
-                  }}
-                  disabled={!visibleRecords.length}
-                  aria-label={t('Fecha de observación', language)}
-                />
-              </>
-            )}
 
-            {viewMode === 'single' && (
-              <div className="spherexFilmstrip">
-                {visibleRecords.map((record, index) => (
-                  <button
-                    key={`${record.id}-${record.band}-${record.date}`}
-                    className={index === frameIndex ? 'active' : ''}
-                    onClick={() => {
-                      setFrameIndex(index);
-                      setPlaying(false);
-                    }}
-                  >
-                    <b>
-                      {formatDate(record.dateAvg || record.date, language).replace(' UTC', '')}
-                    </b>
-                    <small>
-                      {record.band} · {record.release.replace('spherex_', '').toUpperCase()}
-                    </small>
-                  </button>
-                ))}
+                {/* Filmstrip selector */}
+                <div className="spherexFilmstrip">
+                  {visibleRecords.map((record, index) => (
+                    <button
+                      key={`${record.id}-${record.band}-${record.date}`}
+                      className={index === frameIndex ? 'active' : ''}
+                      onClick={() => {
+                        setFrameIndex(index);
+                        setPlaying(false);
+                      }}
+                    >
+                      <b>
+                        {formatDate(record.dateAvg || record.date, language).replace(' UTC', '')}
+                      </b>
+                      <small>
+                        {record.band} · {record.release.replace('spherex_', '').toUpperCase()}
+                      </small>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
-
-            <p className="spherexFootnote">
-              {language === 'es'
-                ? 'KRONOX Fase 2: Blink Comparator sincronizado, vista dual lado a lado, resta diferencial D(x,y) = I₂(x,y) − αI₁(x,y) − B con propagación de varianza Var(D) y mapa de significancia SNR = D / σ_D. Detección automática de candidatos a movimiento propio, variabilidad y transitorios sobre la cuadrícula común WCS TAN-SIP.'
-                : 'KRONOX Phase 2: Synchronized Blink Comparator, side-by-side dual view, differential imaging D(x,y) = I₂(x,y) − αI₁(x,y) − B with variance propagation Var(D) and significance SNR = D / σ_D. Automated discovery of proper motion dipoles, variable sources, and transients on a common WCS TAN-SIP grid.'}
-            </p>
           </main>
         </div>
       </section>
 
+      {/* EXPANDED IMAGE LIGHTBOX */}
       {expanded && image && (
         <div
           className="spherexLightbox"
@@ -1649,10 +1864,131 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               </span>
             </div>
             <button type="button" onClick={() => setExpanded(false)}>
-              {t('Cerrar ✕', language)}
+              <Icons.Close style={{ marginRight: '6px' }} />
+              {t('Cerrar', language)}
             </button>
           </header>
           <img src={image} alt={`Imagen SPHEREx ampliada de ${t(selectedTarget.name, language)}`} />
+        </div>
+      )}
+
+      {/* TECHNICAL AUDIT & LIMITATIONS MODAL */}
+      {showTechDetailsModal && (
+        <div
+          className="spherexModalOverlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="audit-modal-title"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowTechDetailsModal(false);
+          }}
+        >
+          <div className="spherexAuditModal">
+            <div className="spherexAuditModalHeader">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icons.Warning className="spherexWarningColor" />
+                <h3 id="audit-modal-title">
+                  {t('Auditoría Científica & Limitaciones de Datos', language)} · {t(selectedTarget.name, language)}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="spherexCloseIconBtn"
+                onClick={() => setShowTechDetailsModal(false)}
+                aria-label={t('Cerrar', language)}
+              >
+                <Icons.Close />
+              </button>
+            </div>
+            <div className="spherexAuditModalBody">
+              <div className="spherexAuditBadgeRow">
+                <span className={`spherexAuditBadge ${selectedTarget.scientificStatus.toLowerCase()}`}>
+                  {selectedTarget.statusBadge}
+                </span>
+                {selectedTarget.coverageStatus && (
+                  <span className="spherexAuditBadge">{selectedTarget.coverageStatus}</span>
+                )}
+                {selectedTarget.dataQuality && (
+                  <span className="spherexAuditBadge">{selectedTarget.dataQuality}</span>
+                )}
+              </div>
+              <div className="spherexAuditText">
+                {t(selectedTarget.scientificLimitations, language)}
+              </div>
+            </div>
+            <div className="spherexAuditModalFooter">
+              <button
+                type="button"
+                className="spherexPrimaryActionBtn"
+                onClick={() => setShowTechDetailsModal(false)}
+              >
+                {t('Cerrar auditoría', language)}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* INTERACTIVE HELP / ONBOARDING MODAL */}
+      {showHelpModal && (
+        <div
+          className="spherexModalOverlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="help-modal-title"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowHelpModal(false);
+          }}
+        >
+          <div className="spherexHelpModal">
+            <div className="spherexHelpModalHeader">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icons.Telescope className="spherexPrimaryColor" />
+                <h3 id="help-modal-title">{t('¿Cómo explorar el Observatorio Digital KRONOX?', language)}</h3>
+              </div>
+              <button
+                type="button"
+                className="spherexCloseIconBtn"
+                onClick={() => setShowHelpModal(false)}
+                aria-label={t('Cerrar', language)}
+              >
+                <Icons.Close />
+              </button>
+            </div>
+            <div className="spherexHelpModalBody">
+              <div className="spherexHelpGrid">
+                <div className="spherexHelpCard">
+                  <div className="spherexHelpCardIcon"><Icons.Telescope /></div>
+                  <h4>1. {t('Selecciona un objetivo', language)}</h4>
+                  <p>{t('Elige entre enanas marrones ultrafrías, sistemas binarios o estrellas variables de referencia en el panel lateral.', language)}</p>
+                </div>
+                <div className="spherexHelpCard">
+                  <div className="spherexHelpCardIcon"><Icons.Timeline /></div>
+                  <h4>2. {t('Línea de tiempo', language)}</h4>
+                  <p>{t('Observa las visitas sucesivas de SPHEREx. Usa los controles inferiores para avanzar paso a paso o reproducir una animación de la evolución temporal.', language)}</p>
+                </div>
+                <div className="spherexHelpCard">
+                  <div className="spherexHelpCardIcon"><Icons.Blink /></div>
+                  <h4>3. {t('Comparar épocas & Vista dual', language)}</h4>
+                  <p>{t('Alterna rápidamente entre dos fechas (Blink) o colócalas lado a lado con zoom y paneo sincronizados para apreciar desplazamientos astrométricos.', language)}</p>
+                </div>
+                <div className="spherexHelpCard">
+                  <div className="spherexHelpCardIcon"><Icons.Differential /></div>
+                  <h4>4. {t('Mapa de diferencias y detección', language)}</h4>
+                  <p>{t('Resta matemáticamente dos observaciones para cancelar el fondo estático e identificar fuentes variables o dipolos de movimiento propio con significancia estadística.', language)}</p>
+                </div>
+              </div>
+            </div>
+            <div className="spherexHelpModalFooter">
+              <button
+                type="button"
+                className="spherexPrimaryActionBtn"
+                onClick={() => setShowHelpModal(false)}
+              >
+                {t('Entendido, comenzar a explorar', language)}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

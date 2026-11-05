@@ -45,7 +45,7 @@ export default function SpherexMissionSelector({ onSelect, onDirectOpen, onClose
                 }}
                 onClick={() => onDirectOpen(SPHEREX_TARGETS.find((target) => target.key === 'wise-0855') || SPHEREX_TARGETS[0])}
               >
-                <span>🔭</span>
+                <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: 'middle' }}><circle cx="12" cy="12" r="7"/><path d="M12 9v6"/><path d="M9 12h6"/><path d="m20 20-3-3"/></svg></span>
                 <span>{t('Abrir Observatorio SPHEREx directamente (acceso rápido)', language)}</span>
               </button>
             )}
@@ -58,7 +58,7 @@ export default function SpherexMissionSelector({ onSelect, onDirectOpen, onClose
           {SPHEREX_MISSION_TYPES.map((mission, index) => (
             <article className="spherexMissionChoice" key={mission.key}>
               <div className="spherexMissionChoiceIcon" aria-hidden="true">
-                {index === 0 ? '✧' : '◉'}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
               </div>
               <small>
                 {t('MISIÓN', language)} 0{index + 1}
@@ -105,7 +105,7 @@ export default function SpherexMissionSelector({ onSelect, onDirectOpen, onClose
                         <small>{t(target.note, language)}</small>
                       </span>
                       <em>{t(target.distanceLabel, language)}</em>
-                      <strong aria-hidden="true">↗</strong>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
                     </button>
                   );
                 })}

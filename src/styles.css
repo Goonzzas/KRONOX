@@ -4006,3 +4006,792 @@ small {
     transition: none !important;
   }
 }
+
+
+/* ==========================================================================
+   KRONOX PHASE 3: MODERN DIGITAL OBSERVATORY UX/UI REDESIGN
+   ========================================================================== */
+
+/* Observatory Modal Container */
+.spherexMission {
+  width: min(1520px, 98vw) !important;
+  max-height: min(94dvh, 980px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border: 1px solid rgba(56, 189, 248, 0.28) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(165deg, #070c18, #03060f) !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.85), 0 0 1px rgba(255, 255, 255, 0.15) inset !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  color: #e2e8f0 !important;
+  overflow: hidden !important;
+}
+
+/* Compact Observatory Header */
+.spherexHeader {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 10px 18px !important;
+  min-height: 52px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(11, 19, 35, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.spherexHeaderBrand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.spherexLogo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #38bdf8;
+}
+
+.spherexLogoIcon {
+  color: #38bdf8;
+}
+
+.spherexHeaderDivider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.spherexObservatoryTitle {
+  margin: 0 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
+  letter-spacing: 0.02em !important;
+  color: #cbd5e1 !important;
+}
+
+.spherexActiveTargetChip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 12px;
+}
+
+.spherexTargetDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
+}
+
+.spherexStatusPill {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.spherexStatusPill.pill-validado {
+  background: #059669;
+  color: #ecfdf5;
+}
+
+.spherexStatusPill.pill-warning {
+  background: #d97706;
+  color: #fffbeb;
+  box-shadow: 0 0 8px rgba(217, 119, 6, 0.4);
+}
+
+.spherexStatusPill.pill-sensible {
+  background: #0284c7;
+  color: #f0f9ff;
+}
+
+.spherexStatusPill.pill-fotométrico {
+  background: #7c3aed;
+  color: #f5f3ff;
+}
+
+.spherexHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Complexity Toggle */
+.spherexComplexityToggle {
+  display: flex;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  padding: 2px;
+}
+
+.spherexToggleBtn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.spherexToggleBtn:hover {
+  color: #e2e8f0;
+}
+
+.spherexToggleBtn.active {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.16);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
+}
+
+/* Header Help and Close Buttons */
+.spherexHelpBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 11px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.spherexHelpBtn:hover {
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.spherexCloseBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.spherexCloseBtn:hover {
+  color: #fff;
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Compact Scientific Warning Strip */
+.spherexStatusStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 18px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  border-bottom: 1px solid transparent;
+  gap: 12px;
+}
+
+.spherexStatusStrip.status-warning {
+  background: rgba(217, 119, 6, 0.12);
+  border-bottom-color: rgba(217, 119, 6, 0.35);
+  color: #fde68a;
+}
+
+.spherexStatusStrip.status-sensible {
+  background: rgba(2, 132, 199, 0.1);
+  border-bottom-color: rgba(2, 132, 199, 0.3);
+  color: #bae6fd;
+}
+
+.spherexStatusStrip.status-fotométrico {
+  background: rgba(124, 58, 237, 0.1);
+  border-bottom-color: rgba(124, 58, 237, 0.3);
+  color: #ddd6fe;
+}
+
+.spherexStatusStripContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spherexStatusIcon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.spherexStatusStrip.status-warning .spherexStatusIcon {
+  color: #f59e0b;
+}
+
+.spherexStatusStrip.status-sensible .spherexStatusIcon {
+  color: #38bdf8;
+}
+
+.spherexStatusStrip.status-fotométrico .spherexStatusIcon {
+  color: #a78bfa;
+}
+
+.spherexStatusText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spherexDetailsToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: inherit;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.spherexDetailsToggleBtn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* Body & Grid Layout */
+.spherexBody {
+  display: grid !important;
+  grid-template-columns: 260px minmax(0, 1fr) !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Sidebar Styling */
+.spherexControls {
+  padding: 14px 16px !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(8, 14, 27, 0.6) !important;
+  overflow-y: auto !important;
+  max-height: calc(94dvh - 90px) !important;
+}
+
+.spherexSectionTitle {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  color: #64748b !important;
+  text-transform: uppercase !important;
+  margin-bottom: 8px !important;
+}
+
+.spherexTargets button {
+  padding: 7px 9px !important;
+  margin-bottom: 5px !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 7px !important;
+  transition: all 0.15s ease !important;
+}
+
+.spherexTargets button:hover {
+  background: rgba(56, 189, 248, 0.06) !important;
+  border-color: rgba(56, 189, 248, 0.25) !important;
+}
+
+.spherexTargets button.selected {
+  background: rgba(56, 189, 248, 0.14) !important;
+  border-color: rgba(56, 189, 248, 0.5) !important;
+}
+
+/* Viewer Main Container */
+.spherexViewer {
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 12px 18px !important;
+  min-width: 0 !important;
+  overflow-y: auto !important;
+  max-height: calc(94dvh - 90px) !important;
+}
+
+/* Viewer Top Bar (Tabs + Context) */
+.spherexViewerHeaderBar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.spherexViewModeTabs {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  margin: 0 !important;
+  padding: 3px !important;
+  background: rgba(13, 21, 38, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+}
+
+.spherexViewModeTab {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 7px 12px !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  color: #94a3b8 !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.16s ease !important;
+}
+
+.spherexViewModeTab:hover {
+  color: #e2e8f0 !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.spherexViewModeTab.active {
+  color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.15) !important;
+  border-color: rgba(56, 189, 248, 0.35) !important;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.12) !important;
+}
+
+.spherexViewMeta {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  padding: 5px 0 !important;
+}
+
+.spherexObservationBadge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.spherexDateLabel {
+  font-weight: 700;
+  color: #f1f5f9;
+  font-size: 12px;
+}
+
+.spherexMjdPill,
+.spherexCoveragePill {
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+}
+
+.spherexViewTools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.spherexBandSelector {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.spherexBandSelector select {
+  padding: 4px 8px;
+  font-size: 11px;
+  background: #090e1a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+  color: #e2e8f0;
+}
+
+/* Zoom Dock */
+.spherexZoomDock {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.spherexZoomDock button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 7px;
+  color: #94a3b8;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.spherexZoomDock button:hover {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+}
+
+/* Plain Language Assistance Card */
+.spherexPlainHelpCard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: 7px;
+  background: rgba(56, 189, 248, 0.06);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  font-size: 11px;
+  color: #bae6fd;
+}
+
+.spherexPlainHelpIcon {
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+/* Hero Canvas & Stage */
+.spherexImageFrame {
+  position: relative !important;
+  width: 100% !important;
+  min-height: 380px !important;
+  max-height: 520px !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #040711 !important;
+  border: 1px solid rgba(56, 189, 248, 0.2) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+}
+
+.spherexSkyStage {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.spherexSkyStage img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+}
+
+/* Celestial Orientation HUD */
+.spherexOrientationHud {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgba(10, 16, 28, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  font-size: 10.5px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
+/* Bottom Timeline & Playback Bar */
+.spherexBottomTimelineBar {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.spherexPlaybackToolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(13, 21, 38, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.spherexPlaybackToolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.spherexPlaybackToolbar button:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #fff;
+}
+
+.spherexPlaybackToolbar button.spherexPlay {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+.spherexTimelineScrubber {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+}
+
+.spherexTimelineScrubber input[type='range'] {
+  width: 100%;
+  accent-color: #38bdf8;
+  cursor: pointer;
+}
+
+.spherexEpochCounter {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  color: #94a3b8;
+  padding-left: 6px;
+}
+
+/* Modals Overlay (Audit & Help) */
+.spherexModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(3, 6, 14, 0.85);
+  backdrop-filter: blur(10px);
+}
+
+.spherexAuditModal,
+.spherexHelpModal {
+  width: min(640px, 94vw);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  background: #0b1426;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
+  overflow: hidden;
+}
+
+.spherexAuditModalHeader,
+.spherexHelpModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.spherexAuditModalHeader h3,
+.spherexHelpModalHeader h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.spherexWarningColor {
+  color: #f59e0b;
+}
+
+.spherexPrimaryColor {
+  color: #38bdf8;
+}
+
+.spherexCloseIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.spherexCloseIconBtn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.spherexAuditModalBody,
+.spherexHelpModalBody {
+  padding: 16px 18px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #cbd5e1;
+}
+
+.spherexAuditBadgeRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.spherexAuditBadge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}
+
+.spherexAuditBadge.warning {
+  background: rgba(217, 119, 6, 0.2);
+  border: 1px solid #d97706;
+  color: #fde68a;
+}
+
+.spherexAuditText {
+  white-space: pre-line;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.spherexAuditModalFooter,
+.spherexHelpModalFooter {
+  padding: 12px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(10, 16, 28, 0.85);
+}
+
+.spherexPrimaryActionBtn {
+  padding: 7px 16px;
+  border-radius: 6px;
+  background: #0284c7;
+  border: 1px solid #38bdf8;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.spherexPrimaryActionBtn:hover {
+  background: #0369a1;
+}
+
+/* Help Onboarding Cards */
+.spherexHelpGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.spherexHelpCard {
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.spherexHelpCardIcon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  margin-bottom: 8px;
+}
+
+.spherexHelpCard h4 {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: #f1f5f9;
+}
+
+.spherexHelpCard p {
+  margin: 0;
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+/* Responsive Media Queries */
+@media (max-width: 1100px) {
+  .spherexBody {
+    grid-template-columns: 220px minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 860px) {
+  .spherexBody {
+    grid-template-columns: 1fr !important;
+  }
+  .spherexControls {
+    border-right: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    max-height: 180px !important;
+  }
+  .spherexHelpGrid {
+    grid-template-columns: 1fr;
+  }
+}
