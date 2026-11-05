@@ -224,11 +224,29 @@ function formatDate(mjd, language = 'es') {
 function imagePoint(event) {
   const el = event.currentTarget;
   const rect = el.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return null;
-  const x = (event.clientX - rect.left) / rect.width;
-  const y = (event.clientY - rect.top) / rect.height;
-  if (x < 0 || x > 1 || y < 0 || y > 1) return null;
-  return { x: x * 100, y: y * 100 };
+  const stage = el.parentElement;
+  const stageRect = stage?.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0 || !stageRect?.width || !stageRect?.height) return null;
+
+  // <img> can fill a landscape viewport while object-fit: contain draws a
+  // square FITS image in its center. Ignore the letterboxed area when mapping
+  // clicks to detector pixels, but keep marker coordinates relative to stage.
+  const naturalRatio = el.naturalWidth / el.naturalHeight || rect.width / rect.height;
+  const boxRatio = rect.width / rect.height;
+  const contentWidth = naturalRatio > boxRatio ? rect.width : rect.height * naturalRatio;
+  const contentHeight = naturalRatio > boxRatio ? rect.width / naturalRatio : rect.height;
+  const contentLeft = rect.left + (rect.width - contentWidth) / 2;
+  const contentTop = rect.top + (rect.height - contentHeight) / 2;
+  const imageX = (event.clientX - contentLeft) / contentWidth;
+  const imageY = (event.clientY - contentTop) / contentHeight;
+  if (imageX < 0 || imageX > 1 || imageY < 0 || imageY > 1) return null;
+
+  return {
+    imageX,
+    imageY,
+    x: ((event.clientX - stageRect.left) / stageRect.width) * 100,
+    y: ((event.clientY - stageRect.top) / stageRect.height) * 100,
+  };
 }
 
 function SkyReticle({ imageCenter, predictedMarker, language }) {
@@ -901,11 +919,13 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     const point = imagePoint(event);
     if (!point) return;
 
-    const pixelX = Math.round((point.x / 100) * 300);
-    const pixelY = Math.round((point.y / 100) * 300);
+    const diag = pane === 'B' ? compareDiagnostics : frameDiagnostics;
+    const width = diag?.width || 300;
+    const height = diag?.height || 300;
+    const pixelX = Math.min(width - 1, Math.round(point.imageX * (width - 1)));
+    const pixelY = Math.min(height - 1, Math.round(point.imageY * (height - 1)));
     let ra = null;
     let dec = null;
-    const diag = pane === 'B' ? compareDiagnostics : frameDiagnostics;
     if (diag?.reprojected?.gridToWorld) {
       try {
         const sky = diag.reprojected.gridToWorld(pixelX, pixelY);
