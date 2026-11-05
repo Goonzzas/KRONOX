@@ -298,6 +298,9 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const [blinkSpeed, setBlinkSpeed] = useState(600); // ms per frame in blink mode
   const [blinkLoop, setBlinkLoop] = useState(true);
   const [blinkFrameList, setBlinkFrameList] = useState([]); // indices included in blink rotation
+  const [blinkType, setBlinkType] = useState('twoEpochs'); // 'twoEpochs' | 'all'
+  const [blinkEpochToggle, setBlinkEpochToggle] = useState(false);
+  const [candidateCategoryFilter, setCandidateCategoryFilter] = useState('all');
   const [syncZoom, setSyncZoom] = useState(1.0);
   const [syncPan, setSyncPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -585,6 +588,15 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   useEffect(() => {
     if (!playing || frameLoading) return undefined;
     const isBlinkMode = viewMode === 'blink';
+
+    // Two-epoch instant alternation (astrometric blink comparator)
+    if (isBlinkMode && blinkType === 'twoEpochs') {
+      if (visibleRecords.length < 2) return undefined;
+      const timer = setTimeout(() => {
+        setBlinkEpochToggle((prev) => !prev);
+      }, blinkSpeed);
+      return () => clearTimeout(timer);
+    }
     const activePlaylist =
       isBlinkMode && blinkFrameList.length >= 2
         ? blinkFrameList
@@ -609,10 +621,16 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [playing, frameLoading, viewMode, blinkSpeed, blinkLoop, blinkFrameList, visibleRecords, frameIndex]);
+  }, [playing, frameLoading, viewMode, blinkSpeed, blinkLoop, blinkFrameList, visibleRecords, frameIndex, blinkType, blinkEpochToggle]);
 
   const step = (amount) => {
     const isBlinkMode = viewMode === 'blink';
+
+    // Two-epoch instant alternation (astrometric blink comparator)
+    if (isBlinkMode && blinkType === 'twoEpochs') {
+      setBlinkEpochToggle((prev) => !prev);
+      return;
+    }
     const activePlaylist =
       isBlinkMode && blinkFrameList.length >= 2
         ? blinkFrameList
@@ -729,6 +747,75 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
       },
     );
   }, [diffResult, viewMode, frameDiagnostics, compareDiagnostics, selectedTarget, diffThreshold]);
+
+  // Computed Temporal Delta & Baseline Helpers
+  const timeDeltaDays = useMemo(() => {
+    if (!frame || !compareFrame) return null;
+    const d1 = Number(frame.dateAvg || frame.date);
+    const d2 = Number(compareFrame.dateAvg || compareFrame.date);
+    if (!Number.isFinite(d1) || !Number.isFinite(d2)) return null;
+    return Math.abs(d2 - d1);
+  }, [frame, compareFrame]);
+
+  const selectMaxSeparation = () => {
+    if (visibleRecords.length < 2) return;
+    setFrameIndex(0);
+    setCompareIndex(visibleRecords.length - 1);
+  };
+
+  const swapCompareFrames = () => {
+    if (visibleRecords.length < 2) return;
+    const prev = frameIndex;
+    setFrameIndex(compareIndex);
+    setCompareIndex(prev);
+  };
+
+  const handleFitImage = () => {
+    setSyncZoom(1.0);
+    setSyncPan({ x: 0, y: 0 });
+  };
+
+  // Rigorous 4-Category Candidate Grouping
+  const candidateCategories = useMemo(() => {
+    const groups = {
+      all: candidates,
+      candidates: [],
+      variables: [],
+      moving: [],
+      artifacts: [],
+    };
+    for (const c of candidates) {
+      if (c.taxonomyType === 'KNOWN_OBJECT_MATCH') {
+        groups.candidates.push(c);
+      } else if (
+        c.taxonomyType === 'INSTRUMENTAL_ARTIFACT' ||
+        c.confidence === 'ARTIFACT' ||
+        c.dataQuality === 'POOR' ||
+        c.taxonomyType === 'TRANSIENT_ANOMALY' ||
+        c.confidence === 'SUSPECT_ANOMALY'
+      ) {
+        groups.artifacts.push(c);
+      } else if (
+        c.taxonomyType === 'MOVING_OBJECT_CANDIDATE' ||
+        c.subType === 'PROPER_MOTION_DIPOLE'
+      ) {
+        groups.moving.push(c);
+      } else if (
+        c.taxonomyType === 'VARIABLE_SOURCE_CANDIDATE' ||
+        c.subType === 'VARIABLE_BRIGHTENED' ||
+        c.subType === 'VARIABLE_DIMMED'
+      ) {
+        groups.variables.push(c);
+      } else {
+        groups.candidates.push(c);
+      }
+    }
+    return groups;
+  }, [candidates]);
+
+  const activeCandidates = useMemo(() => {
+    return candidateCategories[candidateCategoryFilter] || candidates;
+  }, [candidateCategories, candidateCategoryFilter, candidates]);
 
   // Synchronized Pan and Zoom handlers
   const handleZoom = (delta) => {
@@ -886,20 +973,26 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               <span className={`spherexStatusPill pill-${selectedTarget.scientificStatus.toLowerCase()}`}>
                 {selectedTarget.scienceTypeLabel || selectedTarget.statusBadge}
               </span>
-              {frame && frameDiagnostics && (
-                <span
-                  className={`spherexObservationPill ${
-                    (frameDiagnostics?.extensions?.reprojected?.coverageFraction ?? 1) >= 0.98
-                      ? 'pill-cov-full'
-                      : 'pill-cov-partial'
-                  }`}
-                  title={t('Cobertura espacial de la exposición seleccionada en el detector físico', language)}
-                >
-                  {(frameDiagnostics?.extensions?.reprojected?.coverageFraction ?? 1) >= 0.98
-                    ? t('Toma: Cobertura 100%', language)
-                    : t(`Toma: Cobertura parcial (${Math.round((frameDiagnostics?.extensions?.reprojected?.coverageFraction ?? 1) * 100)}% · Borde detector)`, language)}
-                </span>
-              )}
+              {frame && frameDiagnostics && (() => {
+                const rep = frameDiagnostics?.extensions?.reprojected || frameDiagnostics?.reprojected;
+                const covFraction = rep?.coverageFraction ?? 1;
+                const covPct = Math.round(covFraction * 100);
+                const isFull = covPct >= 98;
+                return (
+                  <span
+                    className={`spherexObservationPill ${isFull ? 'pill-cov-full' : 'pill-cov-partial'}`}
+                    title={
+                      isFull
+                        ? t('Cobertura del recorte: 100% de píxeles válidos · Objetivo centrado en detector activo · Campo completo SPHEREx: 3.5° × 7°', language)
+                        : t(`Cobertura del recorte: ${covPct}% (borde físico del detector) · Objetivo en zona marginal · Campo completo SPHEREx: 3.5° × 7°`, language)
+                    }
+                  >
+                    {isFull
+                      ? t('Toma: 100% píxeles válidos', language)
+                      : t(`Toma: Cobertura parcial (${covPct}% · Borde detector)`, language)}
+                  </span>
+                );
+              })()}
             </div>
           </div>
 
@@ -1188,10 +1281,9 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     setViewMode('sideBySide');
                     setCompareEnabled(true);
                     setPlaying(false);
-                    if (compareIndex === frameIndex) {
-                      setCompareIndex(
-                        frameIndex > 0 ? frameIndex - 1 : Math.min(1, visibleRecords.length - 1),
-                      );
+                    if (visibleRecords.length >= 2) {
+                      setFrameIndex(0);
+                      setCompareIndex(visibleRecords.length - 1);
                     }
                   }}
                   disabled={visibleRecords.length < 2}
@@ -1207,10 +1299,9 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     setViewMode('differential');
                     setCompareEnabled(true);
                     setPlaying(false);
-                    if (compareIndex === frameIndex) {
-                      setCompareIndex(
-                        frameIndex > 0 ? frameIndex - 1 : Math.min(1, visibleRecords.length - 1),
-                      );
+                    if (visibleRecords.length >= 2) {
+                      setFrameIndex(0);
+                      setCompareIndex(visibleRecords.length - 1);
                     }
                   }}
                   disabled={visibleRecords.length < 2}
@@ -1226,17 +1317,16 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     setViewMode('candidates');
                     setCompareEnabled(true);
                     setPlaying(false);
-                    if (compareIndex === frameIndex) {
-                      setCompareIndex(
-                        frameIndex > 0 ? frameIndex - 1 : Math.min(1, visibleRecords.length - 1),
-                      );
+                    if (visibleRecords.length >= 2) {
+                      setFrameIndex(0);
+                      setCompareIndex(visibleRecords.length - 1);
                     }
                   }}
                   disabled={visibleRecords.length < 2}
-                  title={t('Objetos que superan el umbral estadístico de cambio', language)}
+                  title={t('Candidatos que superan el umbral estadístico de cambio', language)}
                 >
                   <Icons.Candidates />
-                  <span>{t('Objetos detectados', language)} ({candidates.length})</span>
+                  <span>{t('Candidatos detectados', language)} ({candidates.length})</span>
                 </button>
               </nav>
 
@@ -1292,6 +1382,15 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   <div className="spherexZoomDock">
                     <button
                       type="button"
+                      className="spherexFitButton"
+                      onClick={handleFitImage}
+                      title={t('Ajustar imagen: encuadre óptimo automático (1:1 geometría celeste sin deformar)', language)}
+                    >
+                      <Icons.Expand style={{ width: 13, height: 13, marginRight: '4px' }} />
+                      <span>{t('Ajustar imagen', language)}</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleZoom(0.25)}
                       title={t('Acercar encuadre', language)}
                     >
@@ -1342,88 +1441,150 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
             {/* Mode-specific Controls Toolbar */}
             {viewMode === 'blink' && (
               <div className="spherexBlinkToolbar">
-                <button
-                  type="button"
-                  className={playing ? 'active' : ''}
-                  onClick={() => setPlaying(!playing)}
-                >
-                  {playing ? (
-                    <><Icons.Pause style={{ marginRight: '6px' }} />{t('Pausar parpadeo', language)}</>
-                  ) : (
-                    <><Icons.Play style={{ marginRight: '6px' }} />{t('Iniciar parpadeo', language)}</>
-                  )}
-                </button>
-                <button type="button" onClick={() => step(-1)} title={t('Fotograma anterior', language)}>
-                  <Icons.StepBack />
-                </button>
-                <button type="button" onClick={() => step(1)} title={t('Fotograma siguiente', language)}>
-                  <Icons.StepForward />
-                </button>
-                <label>
-                  {t('Velocidad', language)}:{' '}
-                  <select
-                    value={blinkSpeed}
-                    onChange={(e) => setBlinkSpeed(Number(e.target.value))}
+                <div className="spherexBlinkControls">
+                  <button
+                    type="button"
+                    className={`spherexPlayBtn ${playing ? 'active' : ''}`}
+                    onClick={() => setPlaying(!playing)}
                   >
-                    <option value={200}>200 ms ({t('Rápido', language)})</option>
-                    <option value={400}>400 ms</option>
-                    <option value={600}>600 ms ({t('Normal', language)})</option>
-                    <option value={1000}>1000 ms</option>
-                    <option value={1500}>1500 ms ({t('Lento', language)})</option>
-                  </select>
-                </label>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <input
-                    type="checkbox"
-                    checked={blinkLoop}
-                    onChange={(e) => setBlinkLoop(e.target.checked)}
-                  />
-                  {t('Bucle continuo', language)}
-                </label>
+                    {playing ? (
+                      <><Icons.Pause style={{ marginRight: '6px' }} />{t('Pausar parpadeo', language)}</>
+                    ) : (
+                      <><Icons.Play style={{ marginRight: '6px' }} />{t('Iniciar parpadeo', language)}</>
+                    )}
+                  </button>
+                  <button type="button" onClick={() => step(-1)} title={t('Fotograma o época anterior', language)}>
+                    <Icons.StepBack />
+                  </button>
+                  <button type="button" onClick={() => step(1)} title={t('Fotograma o época siguiente', language)}>
+                    <Icons.StepForward />
+                  </button>
+                </div>
+
+                <div className="spherexBlinkConfig">
+                  <label className="spherexBlinkModeToggle">
+                    <span>{t('Modo', language)}:</span>
+                    <select
+                      value={blinkType}
+                      onChange={(e) => setBlinkType(e.target.value)}
+                    >
+                      <option value="twoEpochs">{t('2 épocas clave (I₁ ⇄ I₂)', language)}</option>
+                      <option value="all">{t('Secuencia completa (todas)', language)}</option>
+                    </select>
+                  </label>
+
+                  <label className="spherexBlinkSpeedSelect">
+                    <span>{t('Velocidad', language)}:</span>
+                    <select
+                      value={blinkSpeed}
+                      onChange={(e) => setBlinkSpeed(Number(e.target.value))}
+                    >
+                      <option value={200}>200 ms ({t('Rápido', language)})</option>
+                      <option value={400}>400 ms</option>
+                      <option value={600}>600 ms ({t('Normal', language)})</option>
+                      <option value={1000}>1000 ms ({t('Lento', language)})</option>
+                    </select>
+                  </label>
+
+                  {blinkType === 'twoEpochs' && visibleRecords.length >= 2 && (
+                    <button
+                      type="button"
+                      className="spherexPresetBtn"
+                      onClick={selectMaxSeparation}
+                      title={t('Alinear I₁ e I₂ con la mayor separación temporal', language)}
+                    >
+                      {t('Δt máximo', language)}
+                    </button>
+                  )}
+
+                  {blinkType === 'all' && (
+                    <label className="spherexBlinkLoopCheckbox">
+                      <input
+                        type="checkbox"
+                        checked={blinkLoop}
+                        onChange={(e) => setBlinkLoop(e.target.checked)}
+                      />
+                      <span>{t('Bucle continuo', language)}</span>
+                    </label>
+                  )}
+                </div>
               </div>
             )}
 
             {(viewMode === 'sideBySide' || viewMode === 'differential' || viewMode === 'candidates') && (
               <div className="spherexCompareControls">
-                <label>
-                  {t('Primera fecha', language)} (I₁):{' '}
-                  <select
-                    value={frameIndex}
-                    onChange={(e) => setFrameIndex(Number(e.target.value))}
+                <div className="spherexCompareSelectors">
+                  <label>
+                    <span className="spherexCompareLabelText">{t('Primera fecha', language)} (I₁):</span>
+                    <select
+                      value={frameIndex}
+                      onChange={(e) => setFrameIndex(Number(e.target.value))}
+                    >
+                      {visibleRecords.map((rec, i) => (
+                        <option key={`${rec.id}-${i}`} value={i} disabled={i === compareIndex}>
+                          {formatDate(rec.dateAvg || rec.date, language)} · {rec.band}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <button
+                    type="button"
+                    className="spherexCompareSwapBtn"
+                    onClick={swapCompareFrames}
+                    disabled={visibleRecords.length < 2}
+                    title={t('Intercambiar orden entre I₁ e I₂', language)}
                   >
-                    {visibleRecords.map((rec, i) => (
-                      <option key={`${rec.id}-${i}`} value={i} disabled={i === compareIndex}>
-                        {formatDate(rec.dateAvg || rec.date, language)} · {rec.band}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  {t('Segunda fecha', language)} (I₂):{' '}
-                  <select
-                    value={compareIndex}
-                    onChange={(e) => setCompareIndex(Number(e.target.value))}
+                    ⇄
+                  </button>
+
+                  <label>
+                    <span className="spherexCompareLabelText">{t('Segunda fecha', language)} (I₂):</span>
+                    <select
+                      value={compareIndex}
+                      onChange={(e) => setCompareIndex(Number(e.target.value))}
+                    >
+                      {visibleRecords.map((rec, i) => {
+                        const dtDays = frame ? Math.abs(Number(rec.dateAvg || rec.date) - Number(frame.dateAvg || frame.date)) : 0;
+                        return (
+                          <option key={`${rec.id}-${i}`} value={i} disabled={i === frameIndex}>
+                            {formatDate(rec.dateAvg || rec.date, language)} {dtDays > 0 ? `(Δt = ${dtDays >= 365 ? (dtDays / 365.25).toFixed(1) + ' a' : dtDays.toFixed(0) + ' d'})` : ''} · {rec.band}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="spherexCompareBaselineGroup">
+                  {timeDeltaDays !== null && (
+                    <span className="spherexTimeDeltaBadge" title={t('Separación temporal entre las dos observaciones seleccionadas', language)}>
+                      Δt = {timeDeltaDays >= 365 ? `${(timeDeltaDays / 365.25).toFixed(2)} años (${timeDeltaDays.toFixed(0)} días)` : `${timeDeltaDays.toFixed(0)} días`}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="spherexPresetBtn"
+                    onClick={selectMaxSeparation}
+                    disabled={visibleRecords.length < 2}
+                    title={t('Seleccionar la primera y última observación para maximizar la detección de movimiento o variación', language)}
                   >
-                    {visibleRecords.map((rec, i) => (
-                      <option key={`${rec.id}-${i}`} value={i} disabled={i === frameIndex}>
-                        {formatDate(rec.dateAvg || rec.date, language)} · {rec.band}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  className={marking ? 'active' : ''}
-                  onClick={() => {
-                    setMarker(null);
-                    setMarking((val) => !val);
-                  }}
-                  disabled={!image || compareLoading}
-                >
-                  {marking
-                    ? t('Haz clic en la imagen', language)
-                    : t('Marcar cambio', language)}
-                </button>
+                    {t('Máxima separación (Δt máx)', language)}
+                  </button>
+                  <button
+                    type="button"
+                    className={`spherexMarkChangeBtn ${marking ? 'active' : ''}`}
+                    onClick={() => {
+                      setMarker(null);
+                      setMarking((val) => !val);
+                    }}
+                    disabled={!image || compareLoading}
+                  >
+                    {marking
+                      ? t('Haz clic en la imagen', language)
+                      : t('Marcar cambio', language)}
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1503,10 +1664,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                 {image && (
                   <div className="spherexSkyStage">
                     <img
-                      src={image}
+                      src={viewMode === 'blink' && blinkType === 'twoEpochs' && blinkEpochToggle ? (compareImage || image) : image}
                       alt={`Recorte infrarrojo SPHEREx ${frame?.band}`}
                       className={marking ? 'markable' : ''}
                       onClick={markImagePosition}
+                      onDoubleClick={handleFitImage}
                       onLoad={(e) =>
                         setPrimaryImageRatio(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)
                       }
@@ -1521,14 +1683,33 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                       <Icons.Compass style={{ marginRight: '4px' }} />
                       <span>N ↑ · E ←</span>
                     </div>
-                    {viewMode === 'blink' && frame && (
+                    {viewMode === 'blink' && (
                       <div className="spherexBlinkHud">
-                        <span className="badge">BLINK [{frameIndex + 1}/{visibleRecords.length}]</span>
-                        {complexityLevel === 'technical' && (
-                          <span>MJD: {Number(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date).toFixed(5)}</span>
+                        {blinkType === 'twoEpochs' ? (
+                          <>
+                            <span className="badge">
+                              BLINK [{blinkEpochToggle ? '2/2 · Época B' : '1/2 · Época A'}]
+                            </span>
+                            <span>
+                              {blinkEpochToggle
+                                ? (compareFrame ? formatDate(compareFrame.dateAvg || compareFrame.date, language) : '')
+                                : (frame ? formatDate(frame.dateAvg || frame.date, language) : '')}
+                            </span>
+                            <span>
+                              {blinkEpochToggle
+                                ? (compareFrame ? formatBandLabel(compareFrame.band, complexityLevel) : '')
+                                : (frame ? formatBandLabel(frame.band, complexityLevel) : '')}
+                            </span>
+                          </>
+                        ) : (
+                          frame && (
+                            <>
+                              <span className="badge">BLINK [{frameIndex + 1}/{visibleRecords.length}]</span>
+                              <span>{formatDate(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date, language)}</span>
+                              <span>{formatBandLabel(frame.band, complexityLevel)}</span>
+                            </>
+                          )
                         )}
-                        <span>{formatDate(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date, language)}</span>
-                        <span>{formatBandLabel(frame.band, complexityLevel)} {complexityLevel === 'technical' ? `${formatSpectralBadge(frameDiagnostics)}${formatCoverageBadge(frameDiagnostics)}` : ''}</span>
                       </div>
                     )}
                   </div>
@@ -1745,77 +1926,118 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                 <div className="spherexCandidateHeader">
                   <h4>
                     <Icons.Candidates style={{ marginRight: '6px' }} />
-                    {t('Lista de objetos detectados', language)} ({candidates.length})
+                    {t('Catálogo de fuentes candidatas', language)} ({candidates.length})
                   </h4>
                   <small style={{ color: '#94a3b8' }}>
                     {t('Filtrado por significancia', language)} ≥ {diffThreshold}σ
                   </small>
                 </div>
-                {candidates.length === 0 ? (
-                  <p style={{ color: '#94a3b8', fontSize: '11px', margin: '8px 0' }}>
-                    {t('No se detectaron candidatos que superen el umbral', language)} ({diffThreshold}σ).
+
+                <div className="spherexCandidateDisclaimer">
+                  <Icons.Info style={{ flexShrink: 0, width: 14, height: 14, marginTop: 2 }} />
+                  <span>
+                    {t('Detecciones preliminares por encima del umbral estadístico (≥ ' + diffThreshold + 'σ). No constituyen 50 objetos confirmados; la mayoría corresponden a fluctuaciones del fondo, ruido correlacionado o artefactos pendientes de confirmación independiente.', language)}
+                  </span>
+                </div>
+
+                {/* 4 Category Filter Tabs */}
+                <div className="spherexCandidateFilterTabs">
+                  <button
+                    type="button"
+                    className={candidateCategoryFilter === 'all' ? 'active' : ''}
+                    onClick={() => setCandidateCategoryFilter('all')}
+                  >
+                    {t('Todos', language)} ({candidates.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={candidateCategoryFilter === 'candidates' ? 'active' : ''}
+                    onClick={() => setCandidateCategoryFilter('candidates')}
+                  >
+                    {t('Fuentes candidatas', language)} ({candidateCategories.candidates.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={candidateCategoryFilter === 'variables' ? 'active' : ''}
+                    onClick={() => setCandidateCategoryFilter('variables')}
+                  >
+                    {t('Fuentes variables', language)} ({candidateCategories.variables.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={candidateCategoryFilter === 'moving' ? 'active' : ''}
+                    onClick={() => setCandidateCategoryFilter('moving')}
+                  >
+                    {t('Posibles en movimiento', language)} ({candidateCategories.moving.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={candidateCategoryFilter === 'artifacts' ? 'active' : ''}
+                    onClick={() => setCandidateCategoryFilter('artifacts')}
+                  >
+                    {t('Artefactos / Dudosos', language)} ({candidateCategories.artifacts.length})
+                  </button>
+                </div>
+
+                {activeCandidates.length === 0 ? (
+                  <p style={{ color: '#94a3b8', fontSize: '11px', margin: '8px 0', textAlign: 'center', padding: '12px' }}>
+                    {t('No se detectaron candidatos en esta categoría para el umbral actual', language)} ({diffThreshold}σ).
                   </p>
                 ) : (
                   <div className="spherexCandidateList">
-                    {candidates.map((cand) => (
-                      <div
-                        key={cand.id}
-                        className={`spherexCandidateCard${cand.matchesTarget ? ' matched' : ''}`}
-                        onClick={() => setSelectedCandidate(cand)}
-                      >
-                        <div>
-                          <span
-                            className={`spherexCandidateBadge ${
-                              cand.taxonomyType === 'KNOWN_OBJECT_MATCH'
-                                ? 'targetMatch'
-                                : cand.taxonomyType === 'MOVING_OBJECT_CANDIDATE'
-                                  ? 'dipole'
-                                  : cand.taxonomyType === 'TRANSIENT_ANOMALY'
-                                    ? 'transient'
-                                    : cand.taxonomyType === 'INSTRUMENTAL_ARTIFACT'
-                                      ? 'artifact'
-                                      : 'variable'
-                            }`}
-                          >
-                            {cand.taxonomyType === 'KNOWN_OBJECT_MATCH'
-                              ? t('Correspondencia con objetivo', language)
-                              : cand.taxonomyType === 'MOVING_OBJECT_CANDIDATE'
-                                ? t('Dipolo de movimiento propio', language)
-                                : cand.taxonomyType === 'TRANSIENT_ANOMALY'
-                                  ? t('Anomalía transitoria', language)
-                                  : cand.taxonomyType === 'INSTRUMENTAL_ARTIFACT'
-                                    ? t('Artefacto instrumental', language)
-                                    : cand.snr > 0
-                                      ? t('Variable (exceso)', language)
-                                      : t('Variable (atenuación)', language)}
-                          </span>
-                          {cand.dataQuality && cand.dataQuality !== 'NOMINAL' && (
-                            <span className="spherexCandidateBadge caution">
-                              {cand.dataQuality}
+                    {activeCandidates.map((cand) => {
+                      const isTarget = cand.taxonomyType === 'KNOWN_OBJECT_MATCH';
+                      const isMoving = cand.taxonomyType === 'MOVING_OBJECT_CANDIDATE' || cand.subType === 'PROPER_MOTION_DIPOLE';
+                      const isVar = cand.taxonomyType === 'VARIABLE_SOURCE_CANDIDATE' || cand.subType === 'VARIABLE_BRIGHTENED' || cand.subType === 'VARIABLE_DIMMED';
+                      const isArtifact = cand.taxonomyType === 'INSTRUMENTAL_ARTIFACT' || cand.confidence === 'ARTIFACT' || cand.dataQuality === 'POOR' || cand.taxonomyType === 'TRANSIENT_ANOMALY';
+
+                      const badgeClass = isTarget ? 'targetMatch' : isMoving ? 'dipole' : isVar ? 'variable' : 'artifact';
+                      const badgeLabel = isTarget
+                        ? t('Objetivo de catálogo: ' + selectedTarget.name, language)
+                        : isMoving
+                          ? t('Posible objeto en movimiento (dipolo)', language)
+                          : isVar
+                            ? cand.snr > 0 ? t('Fuente variable (exceso)', language) : t('Fuente variable (atenuación)', language)
+                            : t('Artefacto instrumental / Detección dudosa', language);
+
+                      return (
+                        <div
+                          key={cand.id}
+                          className={`spherexCandidateCard${cand.matchesTarget ? ' matched' : ''}`}
+                          onClick={() => setSelectedCandidate(cand)}
+                        >
+                          <div>
+                            <span className={`spherexCandidateBadge ${badgeClass}`}>
+                              {badgeLabel}
                             </span>
-                          )}
-                          <div style={{ marginTop: '4px', color: '#e2e8f0' }}>{cand.notesEs}</div>
-                          {cand.evidence && (
-                            <div style={{ marginTop: '2px', color: '#94a3b8', fontSize: '11px' }}>
-                              {cand.evidence}
+                            {cand.dataQuality && cand.dataQuality !== 'NOMINAL' && (
+                              <span className="spherexCandidateBadge caution">
+                                {cand.dataQuality}
+                              </span>
+                            )}
+                            <div style={{ marginTop: '4px', color: '#e2e8f0' }}>{cand.notesEs}</div>
+                            {cand.evidence && (
+                              <div style={{ marginTop: '2px', color: '#94a3b8', fontSize: '11px' }}>
+                                {cand.evidence}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ textAlign: 'right', fontFamily: 'ui-monospace, monospace' }}>
+                            <b style={{ color: cand.snr > 0 ? '#fb923c' : '#38bdf8' }}>
+                              SNR = {cand.snr > 0 ? `+${cand.snr}` : cand.snr}σ
+                            </b>
+                            {complexityLevel === 'technical' && cand.snrTheoretical !== undefined && (
+                              <div style={{ color: '#64748b', fontSize: '10px' }}>
+                                teo: {cand.snrTheoretical > 0 ? `+${cand.snrTheoretical}` : cand.snrTheoretical}σ
+                              </div>
+                            )}
+                            <div style={{ color: '#94a3b8', fontSize: '10px' }}>
+                              RA {cand.ra.toFixed(4)}°, Dec {cand.dec.toFixed(4)}°
                             </div>
-                          )}
-                        </div>
-                        <div style={{ textAlign: 'right', fontFamily: 'ui-monospace, monospace' }}>
-                          <b style={{ color: cand.snr > 0 ? '#fb923c' : '#38bdf8' }}>
-                            SNR = {cand.snr > 0 ? `+${cand.snr}` : cand.snr}σ
-                          </b>
-                          {cand.snrTheoretical !== undefined && (
-                            <div style={{ color: '#64748b', fontSize: '10px' }}>
-                              teo: {cand.snrTheoretical > 0 ? `+${cand.snrTheoretical}` : cand.snrTheoretical}σ
-                            </div>
-                          )}
-                          <div style={{ color: '#94a3b8', fontSize: '10px' }}>
-                            RA {cand.ra.toFixed(4)}°, Dec {cand.dec.toFixed(4)}°
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </section>
