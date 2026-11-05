@@ -64,14 +64,44 @@ export default function App() {
     [ambientEnabled, setAmbientEnabled] = useState(false),
     [soundVolume, setSoundVolume] = useState(0.35),
     [navigation, setNavigation] = useState(null),
-    [welcomeOpen, setWelcomeOpen] = useState(true),
-    [missionOpen, setMissionOpen] = useState(false),
+    [urlNavParams] = useState(() => {
+      try {
+        return typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      } catch {
+        return null;
+      }
+    }),
+    [welcomeOpen, setWelcomeOpen] = useState(() => {
+      try {
+        const p = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        if (!p) return true;
+        if (p.get('observatory') === 'true' || p.has('target')) return false;
+        return p.get('welcome') !== 'false';
+      } catch {
+        return true;
+      }
+    }),
+    [missionOpen, setMissionOpen] = useState(() => {
+      try {
+        const p = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        return p ? (p.get('observatory') === 'true' || p.has('target')) : false;
+      } catch {
+        return false;
+      }
+    }),
     [missionSelectorOpen, setMissionSelectorOpen] = useState(false),
     [missionArrival, setMissionArrival] = useState(false),
     [missionTraveling, setMissionTraveling] = useState(false),
     [missionLaunchTarget, setMissionLaunchTarget] = useState(null),
     [missionArrivalName, setMissionArrivalName] = useState(''),
-    [missionTargetKey, setMissionTargetKey] = useState('barnard'),
+    [missionTargetKey, setMissionTargetKey] = useState(() => {
+      try {
+        const p = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        return p?.get('target') || 'barnard';
+      } catch {
+        return 'barnard';
+      }
+    }),
     [welcomeStep, setWelcomeStep] = useState('voice'),
     [voice, setVoice] = useState(false),
     [voiceError, setVoiceError] = useState(''),
@@ -1276,15 +1306,31 @@ export default function App() {
                 'Viaja al mapa de la Vía Láctea y explora las imágenes del cielo captadas por SPHEREx a través del tiempo.',
               ),
               h(
-                'button',
-                {
-                  className: 'missionLaunchButton',
-                  disabled: countdown !== null || missionArrival || missionTraveling,
-                  onClick: () => setMissionSelectorOpen(true),
-                },
-                countdown !== null || missionArrival || missionTraveling
-                  ? 'Preparando viaje…'
-                  : 'Elegir misión ↗',
+                'div',
+                { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
+                h(
+                  'button',
+                  {
+                    className: 'missionLaunchButton',
+                    style: { background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)', borderColor: '#60a5fa' },
+                    onClick: () => {
+                      setMissionTargetKey('wise-0855');
+                      setMissionOpen(true);
+                    },
+                  },
+                  '🔭 Abrir Observatorio SPHEREx',
+                ),
+                h(
+                  'button',
+                  {
+                    className: 'missionLaunchButton',
+                    disabled: countdown !== null || missionArrival || missionTraveling,
+                    onClick: () => setMissionSelectorOpen(true),
+                  },
+                  countdown !== null || missionArrival || missionTraveling
+                    ? 'Preparando viaje…'
+                    : 'Elegir misión ↗',
+                ),
               ),
             ),
         ),
@@ -1497,6 +1543,11 @@ export default function App() {
         language,
         onClose: () => setMissionSelectorOpen(false),
         onSelect: chooseSpherexTarget,
+        onDirectOpen: (target) => {
+          setMissionSelectorOpen(false);
+          setMissionTargetKey(target?.key || 'wise-0855');
+          setMissionOpen(true);
+        },
       }),
     missionOpen &&
       h(SpherexMission, {
@@ -1649,6 +1700,26 @@ export default function App() {
                 ? 'Entrar en la exploración'
                 : 'Start exploring',
           ),
+          welcomeStep === 'device' &&
+            h(
+              'button',
+              {
+                className: 'welcomeLaunch',
+                style: {
+                  marginTop: '8px',
+                  background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)',
+                  borderColor: '#60a5fa',
+                },
+                onClick: () => {
+                  setWelcomeOpen(false);
+                  setMissionTargetKey('wise-0855');
+                  setMissionOpen(true);
+                },
+              },
+              language === 'es'
+                ? '🔭 Ir directo al Observatorio SPHEREx'
+                : '🔭 Go directly to SPHEREx Observatory',
+            ),
           h(
             'small',
             null,

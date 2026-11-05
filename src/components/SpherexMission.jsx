@@ -76,9 +76,17 @@ function SkyReticle({ imageCenter, predictedMarker, language }) {
 }
 
 export default function SpherexMission({ onClose, initialTargetKey = 'barnard', language = 'es' }) {
+  const [navParams] = useState(() => {
+    try {
+      return typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    } catch {
+      return null;
+    }
+  });
+  const effectiveTargetKey = navParams?.get('target') || initialTargetKey;
   const initialTargetIndex = Math.max(
     0,
-    TARGETS.findIndex((target) => target.key === initialTargetKey),
+    TARGETS.findIndex((target) => target.key === effectiveTargetKey),
   );
   const initialTarget = TARGETS[initialTargetIndex];
   const [selected, setSelected] = useState(initialTargetIndex);
@@ -90,7 +98,10 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const [frameIndex, setFrameIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [frameLoading, setFrameLoading] = useState(false);
-  const [playing, setPlaying] = useState(false);
+  const urlViewMode = navParams?.get('view');
+  const validModes = ['single', 'blink', 'sideBySide', 'differential', 'candidates'];
+  const initialViewMode = validModes.includes(urlViewMode) ? urlViewMode : 'single';
+  const [playing, setPlaying] = useState(initialViewMode === 'blink');
   const [error, setError] = useState('');
   const [status, setStatus] = useState(
     'Elige un objetivo o introduce coordenadas y consulta el archivo.',
@@ -102,8 +113,8 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const [flagPolicy, setFlagPolicy] = useState('measurement');
   const [image, setImage] = useState('');
   const [frameDiagnostics, setFrameDiagnostics] = useState(null);
-  const [compareEnabled, setCompareEnabled] = useState(false);
-  const [compareIndex, setCompareIndex] = useState(0);
+  const [compareEnabled, setCompareEnabled] = useState(['sideBySide', 'differential', 'candidates'].includes(initialViewMode));
+  const [compareIndex, setCompareIndex] = useState(1);
   const [compareImage, setCompareImage] = useState('');
   const [compareDiagnostics, setCompareDiagnostics] = useState(null);
   const [compareLoading, setCompareLoading] = useState(false);
@@ -117,7 +128,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const [truncated, setTruncated] = useState(false);
 
   // Phase 2: View Modes, Blink Comparator, Side-by-Side & Differential Imaging
-  const [viewMode, setViewMode] = useState('single'); // 'single' | 'blink' | 'sideBySide' | 'differential' | 'candidates'
+  const [viewMode, setViewMode] = useState(initialViewMode); // 'single' | 'blink' | 'sideBySide' | 'differential' | 'candidates'
   const [blinkSpeed, setBlinkSpeed] = useState(600); // ms per frame in blink mode
   const [blinkLoop, setBlinkLoop] = useState(true);
   const [blinkFrameList, setBlinkFrameList] = useState([]); // indices included in blink rotation
@@ -583,6 +594,14 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
       : ` · MEDICIÓN (Warn:${ext.categoryBWarningCount})`;
   };
 
+  const formatCoverageBadge = (diagnostics) => {
+    const rep = diagnostics?.extensions?.reprojected || diagnostics?.reprojected;
+    if (!rep || typeof rep.coverageFraction !== 'number') return '';
+    const covPct = Math.round(rep.coverageFraction * 100);
+    if (covPct >= 99) return '';
+    return ` · ⚠️ Cobertura: ${covPct}% (Borde detector)`;
+  };
+
   const markImagePosition = (event) => {
     if (!marking || !image) return;
     const point = imagePoint(event);
@@ -702,16 +721,38 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
           <aside className="spherexControls">
             <div className="spherexSectionTitle">{t('Objetivos de la misión', language)}</div>
             <div className="spherexTargets">
-              {TARGETS.map((target, index) => (
-                <button
-                  key={t(target.name, language)}
-                  className={selected === index ? 'selected' : ''}
-                  onClick={() => chooseTarget(index)}
-                >
-                  <b>{t(target.name, language)}</b>
-                  <small>{t(target.note, language)}</small>
-                </button>
-              ))}
+              {TARGETS.map((target, index) => {
+                const isWarning = target.scientificStatus === 'WARNING';
+                const isSensible = target.scientificStatus === 'SENSIBLE';
+                const isPhot = target.scientificStatus === 'FOTOMÉTRICO';
+                const badgeBg = isWarning ? '#ff9800' : isSensible ? '#0284c7' : isPhot ? '#8b5cf6' : '#2e7d32';
+                return (
+                  <button
+                    key={t(target.name, language)}
+                    className={`${selected === index ? 'selected' : ''}${isWarning ? ' targetWarning' : ''}`}
+                    onClick={() => chooseTarget(index)}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                      <b>{t(target.name, language)}</b>
+                      <span
+                        style={{
+                          fontSize: '9px',
+                          padding: '1px 5px',
+                          borderRadius: '3px',
+                          textTransform: 'uppercase',
+                          fontWeight: 'bold',
+                          letterSpacing: '0.04em',
+                          background: badgeBg,
+                          color: '#fff',
+                        }}
+                      >
+                        {target.statusBadge}
+                      </span>
+                    </div>
+                    <small>{t(target.note, language)}</small>
+                  </button>
+                );
+              })}
             </div>
 
             <div className="spherexSectionTitle">{t('Coordenadas ICRS · grados', language)}</div>
@@ -821,6 +862,78 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
           </aside>
 
           <main className="spherexViewer">
+            {/* Scientific Status & Limitations Banner */}
+            <div
+              className={`spherexScientificStatusBanner status-${selectedTarget.scientificStatus.toLowerCase()}`}
+              style={{
+                background:
+                  selectedTarget.scientificStatus === 'WARNING'
+                    ? 'rgba(255, 152, 0, 0.12)'
+                    : selectedTarget.scientificStatus === 'SENSIBLE'
+                      ? 'rgba(2, 132, 199, 0.12)'
+                      : selectedTarget.scientificStatus === 'FOTOMÉTRICO'
+                        ? 'rgba(139, 92, 246, 0.12)'
+                        : 'rgba(46, 125, 50, 0.10)',
+                border:
+                  selectedTarget.scientificStatus === 'WARNING'
+                    ? '1px solid #ff9800'
+                    : selectedTarget.scientificStatus === 'SENSIBLE'
+                      ? '1px solid #0284c7'
+                      : selectedTarget.scientificStatus === 'FOTOMÉTRICO'
+                        ? '1px solid #8b5cf6'
+                        : '1px solid rgba(76, 175, 80, 0.4)',
+                borderRadius: '6px',
+                padding: '10px 14px',
+                marginBottom: '10px',
+                fontSize: '12px',
+                lineHeight: '1.45',
+                color:
+                  selectedTarget.scientificStatus === 'WARNING'
+                    ? '#ffb74d'
+                    : selectedTarget.scientificStatus === 'SENSIBLE'
+                      ? '#7dd3fc'
+                      : selectedTarget.scientificStatus === 'FOTOMÉTRICO'
+                        ? '#c4b5fd'
+                        : '#a5d6a7',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
+                  <span style={{ fontSize: '15px' }}>
+                    {selectedTarget.scientificStatus === 'WARNING'
+                      ? '⚠'
+                      : selectedTarget.scientificStatus === 'SENSIBLE'
+                        ? 'ℹ'
+                        : selectedTarget.scientificStatus === 'FOTOMÉTRICO'
+                          ? '⚡'
+                          : '✓'}
+                  </span>
+                  <span>
+                    {selectedTarget.scientificStatus === 'WARNING'
+                      ? t('ESTATUS CIENTÍFICO: ADVERTENCIA (WARNING)', language)
+                      : selectedTarget.scientificStatus === 'SENSIBLE'
+                        ? t('ESTATUS CIENTÍFICO: EVALUACIÓN SENSIBLE / CONDICIONAL', language)
+                        : selectedTarget.scientificStatus === 'FOTOMÉTRICO'
+                          ? t('ESTATUS CIENTÍFICO: VALIDACIÓN FOTOMÉTRICA (ASTROMETRÍA NO APLICABLE EN ÉPOCA 1)', language)
+                          : t('ESTATUS CIENTÍFICO: OBJETIVO VALIDADO', language)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', fontSize: '10px' }}>
+                  {selectedTarget.coverageStatus && (
+                    <span style={{ background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '4px' }}>
+                      {selectedTarget.coverageStatus}
+                    </span>
+                  )}
+                  {selectedTarget.dataQuality && (
+                    <span style={{ background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '4px' }}>
+                      {selectedTarget.dataQuality}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div style={{ whiteSpace: 'pre-line' }}>{t(selectedTarget.scientificLimitations, language)}</div>
+            </div>
+
             {/* View Mode Selector Tabs */}
             <nav className="spherexViewModeTabs" aria-label={t('Modo de visualización', language)}>
               <button
@@ -1166,7 +1279,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                         <span className="badge">⚡ BLINK [{frameIndex + 1}/{visibleRecords.length}]</span>
                         <span>MJD-AVG: {Number(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date).toFixed(5)}</span>
                         <span>{formatDate(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date, language)}</span>
-                        <span>{formatBandLabel(frame.band)} {formatSpectralBadge(frameDiagnostics)}</span>
+                        <span>{formatBandLabel(frame.band)} {formatSpectralBadge(frameDiagnostics)}{formatCoverageBadge(frameDiagnostics)}</span>
                       </div>
                     )}
                   </div>
@@ -1178,6 +1291,14 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                         <span className="spherexSpinner" />{' '}
                         {t('Procesando recorte de la imagen…', language)}
                       </>
+                    ) : records.length === 0 ? (
+                      <div className="spherexEmptyNotice" style={{ padding: '20px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>🌌</div>
+                        <b>{t('Sin observaciones SPHEREx en esta región', language)}</b>
+                        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginTop: '6px', maxWidth: '340px' }}>
+                          {t('No se registraron imágenes públicas para estas coordenadas en el release seleccionado. Selecciona uno de los 5 objetivos oficiales para explorar datos verificados.', language)}
+                        </p>
+                      </div>
                     ) : (
                       t('Aquí aparecerán los recortes del cielo', language)
                     )}
@@ -1188,7 +1309,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     {formatBandLabel(frame.band)} · {frame.release.replace('spherex_', '').toUpperCase()}
                     {formatSpectralBadge(frameDiagnostics)}
                     {formatZodiBadge(frameDiagnostics)}
-                    {formatFlagBadge(frameDiagnostics)} · N ↑ E ←
+                    {formatFlagBadge(frameDiagnostics)}{formatCoverageBadge(frameDiagnostics)} · N ↑ E ←
                   </span>
                 )}
               </div>
@@ -1229,7 +1350,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   <div className="spherexDualMeta">
                     <div>MJD-AVG: {Number(frameDiagnostics?.temporal?.mjdAvg ?? frame.dateAvg ?? frame.date).toFixed(5)}</div>
                     <div>λ = {frameDiagnostics?.spectral?.wavelengthUm ?? '?'} μm (Δλ = {frameDiagnostics?.spectral?.bandwidthUm ?? '?'} μm)</div>
-                    <div>Versión: {frame?.pipelineVersion || frame?.release}</div>
+                    <div>Versión: {frame?.pipelineVersion || frame?.release}{formatCoverageBadge(frameDiagnostics)}</div>
                     <div>Centro WCS: RA {imageCenter.ra.toFixed(4)}°, Dec {imageCenter.dec.toFixed(4)}°</div>
                   </div>
                 </article>
@@ -1266,7 +1387,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   <div className="spherexDualMeta">
                     <div>MJD-AVG: {Number(compareDiagnostics?.temporal?.mjdAvg ?? compareFrame.dateAvg ?? compareFrame.date).toFixed(5)}</div>
                     <div>λ = {compareDiagnostics?.spectral?.wavelengthUm ?? '?'} μm (Δλ = {compareDiagnostics?.spectral?.bandwidthUm ?? '?'} μm)</div>
-                    <div>Versión: {compareFrame.pipelineVersion || compareFrame.release}</div>
+                    <div>Versión: {compareFrame.pipelineVersion || compareFrame.release}{formatCoverageBadge(compareDiagnostics)}</div>
                     <div>Centro WCS: RA {imageCenter.ra.toFixed(4)}°, Dec {imageCenter.dec.toFixed(4)}°</div>
                   </div>
                 </article>

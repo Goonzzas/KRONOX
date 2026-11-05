@@ -246,6 +246,8 @@ export function computePhotometricScaleAndBackground(frame1, frame2, options = {
     backgroundOffset: Number(bgOffset.toFixed(4)),
     backgroundVariance: Number(Math.max(1e-7, bgVar).toFixed(6)),
     baseVariance: Number(Math.max(1e-7, baseVar).toFixed(6)),
+    bg1: Number(bg1.toFixed(4)),
+    bg2: Number(bg2.toFixed(4)),
     meanX: Number(meanX.toFixed(4)),
     validReferencePixelCount: nStars,
     correlation: Number(rPearson.toFixed(3)),
@@ -332,6 +334,9 @@ export function computeDifferentialImage(frame1, frame2, options = {}) {
           alphaVariance: 0.0,
           backgroundOffset: Number(options.manualBackground) || 0.0,
           backgroundVariance: 0.0,
+          baseVariance: 0.0,
+          bg1: 0.0,
+          bg2: 0.0,
           validReferencePixelCount: length,
           correlation: 1.0,
           isReliable: true,
@@ -387,13 +392,17 @@ export function computeDifferentialImage(frame1, frame2, options = {}) {
     diffPixels[i] = d;
     validDiffValues.push(d);
 
-    // Exact variance propagation including Var(B) and Cov(alpha, B):
-    // Var(D) = Var(I2) + alpha^2 * Var(I1) + (I1 - meanX)^2 * Var(alpha) + Var(B_cen)
+    // Rigorous non-duplicated variance propagation:
+    // D = I2 - alpha * I1 - B = (I2 - bg2) - alpha * (I1 - bg1)
+    // Var(D) = Var(I2) + alpha^2 * Var(I1) + (I1 - bg1)^2 * Var(alpha) + Var_indep(B)
+    // where Var_indep(B) is strictly the independent background uncertainty,
+    // ensuring Var(alpha) is not duplicated through Var(B).
     const ev1 = var1 && Number.isFinite(var1[i]) && var1[i] > 0 ? var1[i] : 0.02;
     const ev2 = var2 && Number.isFinite(var2[i]) && var2[i] > 0 ? var2[i] : 0.02;
-    const meanRefX = scaleNorm.meanX || 0.0;
-    const baseBgVar = scaleNorm.baseVariance || scaleNorm.backgroundVariance || 0.0;
-    const varModel = (v1 - meanRefX) * (v1 - meanRefX) * alphaVariance + baseBgVar;
+    const bg1 = scaleNorm.bg1 ?? scaleNorm.meanX ?? 0.0;
+    const varAlphaContrib = (v1 - bg1) * (v1 - bg1) * alphaVariance;
+    const varIndepBg = scaleNorm.baseVariance ?? Math.max(0, (scaleNorm.backgroundVariance || 0) - bg1 * bg1 * alphaVariance);
+    const varModel = varAlphaContrib + Math.max(0, varIndepBg);
     const varD = ev2 + alphaSq * ev1 + varModel;
     const sigD = Math.sqrt(Math.max(1e-7, varD));
 

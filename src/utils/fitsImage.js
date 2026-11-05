@@ -1311,10 +1311,13 @@ export function parseFits(buffer, fixedRange = null, targetCenter = null, option
     const val = renderPixels[i];
     const at = i * 4;
     if (!Number.isFinite(val)) {
-      frame.data[at] = 3;
-      frame.data[at + 1] = 6;
-      frame.data[at + 2] = 14;
-      frame.data[at + 3] = 0;
+      const px = i % width;
+      const py = Math.floor(i / width);
+      const isHatch = (px + py) % 12 < 2;
+      frame.data[at] = isHatch ? 14 : 6;
+      frame.data[at + 1] = isHatch ? 20 : 9;
+      frame.data[at + 2] = isHatch ? 32 : 16;
+      frame.data[at + 3] = 255;
       continue;
     }
     const normalized = Math.max(0, Math.min(1, (val - low) / stretch));
@@ -1325,6 +1328,25 @@ export function parseFits(buffer, fixedRange = null, targetCenter = null, option
     frame.data[at + 3] = 255;
   }
   ctx.putImageData(frame, 0, 0);
+
+  if (reprojected && reprojected.noCoverageCount > 0) {
+    ctx.fillStyle = 'rgba(70, 130, 200, 0.65)';
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = y * width + x;
+        if (!Number.isFinite(renderPixels[idx])) {
+          const hasFiniteNeighbor =
+            (x > 0 && Number.isFinite(renderPixels[idx - 1])) ||
+            (x < width - 1 && Number.isFinite(renderPixels[idx + 1])) ||
+            (y > 0 && Number.isFinite(renderPixels[idx - width])) ||
+            (y < height - 1 && Number.isFinite(renderPixels[idx + width]));
+          if (hasFiniteNeighbor) {
+            ctx.fillRect(x, y, 1, 1);
+          }
+        }
+      }
+    }
+  }
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const val = renderPixels[y * width + x];

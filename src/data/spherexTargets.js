@@ -133,6 +133,15 @@ const RAW_TARGETS = [
     distanceLy: 5.96,
     distanceLabel: '≈ 6 años luz',
     note: 'Enana roja cercana con gran movimiento propio.',
+    scientificStatus: 'VALIDADO',
+    statusBadge: 'VALIDADO',
+    coverageStatus: 'Cobertura parcial de detector (134×293 px en D2)',
+    dataQuality: 'Alta (campo estelar denso, fondo homogéneo)',
+    validationType: 'Astrometría confirmada',
+    scientificLimitations:
+      'Astrometría validada: desplazamiento predicho 5.60″, medido 4.98″, residuo 0.64″ (χ² = 0.58, p = 75%). Movimiento propio ultrarrápido (10.36″/año) visible nítidamente en Blink Comparator. Cobertura parcial en bordes del detector físico.',
+    observationSummary:
+      'Observaciones multi-época disponibles en SPHEREx D2 (QR2/QR3). Movimiento propio observable y consistente con Gaia DR3.',
     astrometry: {
       raRef: 269.448503,
       decRef: 4.73942,
@@ -153,6 +162,15 @@ const RAW_TARGETS = [
     distanceLy: 11.87,
     distanceLabel: '≈ 12 años luz',
     note: 'Sistema de dos enanas marrones: Ba y Bb.',
+    scientificStatus: 'SENSIBLE',
+    statusBadge: 'PARCIAL',
+    coverageStatus: 'Cobertura completa (D5/D6)',
+    dataQuality: 'Moderada (binaria Ba/Bb no resuelta espacialmente)',
+    validationType: 'Astrometría condicionada a jitter instrumental',
+    scientificLimitations:
+      'Validación astrométrica condicional: sistema binario Ba/Bb (separación ≈ 0.7″) no resuelto por la PSF (~6.6″). Bajo incertidumbres nominales puras (σ = 0.69″), χ² = 6.48 (p = 0.039 [3.9% < 5% para 2 DOF], compatibilidad estricta rechazada al 95% CL). Solo alcanza consistencia (p ≥ 5%) admitiendo jitter instrumental sistemático ≥ 0.20″ o modelado conjunto del baricentro.',
+    observationSummary:
+      'Detección en el infrarrojo cercano disponible en SPHEREx D5/D6. Centroide representa el baricentro del par no resuelto.',
     astrometry: {
       raRef: 331.043833,
       decRef: -56.782694,
@@ -173,6 +191,15 @@ const RAW_TARGETS = [
     distanceLy: 7.43,
     distanceLabel: '≈ 7,4 años luz',
     note: 'Enana marrón de rápido movimiento; coordenadas del reto.',
+    scientificStatus: 'WARNING',
+    statusBadge: 'WARNING',
+    coverageStatus: 'Cobertura completa contigua (D6)',
+    dataQuality: 'Crítica (ruido correlacionado, Época 1 sub-umbral)',
+    validationType: 'Advertencia: no independiente en Época 1',
+    scientificLimitations:
+      'ADVERTENCIA CIENTÍFICA ESTRICTA:\n• Época 1 (2025W19): Régimen sub-umbral con SNR de apertura = 1.07 y SNR de pico = 1.40. La tasa de detección ciega global al 5% FPR en simulación es de apenas 4.4% (IC 95%: 3.3%–5.9%), indistinguible de ruido puro. El centroide medido experimenta un arrastre del 72.8% hacia el prior de CatWISE2020 (solo 27.2% de información de la fuente), por lo que NO constituye una detección estadística independiente.\n• Época 2 (2026W20): SNR de apertura = 4.04 y SNR de pico = 5.28. En simulaciones Monte Carlo presenta una completitud de detección del 61.0% (IC 95%: 57.9%–64.0%) y una recuperación astrométrica conjunta del 59.1% (no debe asumirse completitud ni fiabilidad superior).\n• Cierre astrométrico: El residuo medido de 3.07″ (1.05σ) requiere corrección diferencial de sesgo por truncamiento y prior forzado.',
+    observationSummary:
+      '2 épocas SPHEREx D6 disponibles (2025W19 y 2026W20). Época 1 es una posición forzada asistida por catálogo; Época 2 presenta detección a 61% de completitud.',
     challengeCoords: {
       raSexagesimal: '08h 55m 10.831s',
       decSexagesimal: '-07° 14\' 42.53"',
@@ -200,6 +227,15 @@ const RAW_TARGETS = [
     distanceLy: 509,
     distanceLabel: '≈ 510 años luz',
     note: 'Sistema estelar joven y variable.',
+    scientificStatus: 'VALIDADO',
+    statusBadge: 'VALIDADO',
+    coverageStatus: 'Cobertura completa (D1/D2)',
+    dataQuality: 'Nominal (señal estelar nítida, acreción)',
+    validationType: 'Fotometría variable validada',
+    scientificLimitations:
+      'Validación fotométrica confirmada: estrella binaria joven tipo T Tauri con eclipses ópticos y modulación infrarroja por discos circunestelares. Astrométricamente presenta residuo de 0.76″ (χ² = 2.26, p = 32%), consistente con variaciones del centro de brillo por acreción.',
+    observationSummary:
+      'Observaciones multi-época disponibles en SPHEREx D1/D2. Variabilidad infrarroja y consistencia fotométrica verificadas.',
     astrometry: {
       raRef: 76.956081,
       decRef: 30.401205,
@@ -220,6 +256,15 @@ const RAW_TARGETS = [
     distanceLy: 2600,
     distanceLabel: 'distancia aproximada',
     note: 'Estrella variable Mira de largo período.',
+    scientificStatus: 'FOTOMÉTRICO',
+    statusBadge: 'FOTOMÉTRICO',
+    coverageStatus: 'Cobertura completa (D4)',
+    dataQuality: 'Asimétrica (Época 1 desvanecida < 3σ, Época 2 > 1600 MJy/sr)',
+    validationType: 'Fotometría validada / Astrometría no aplicable',
+    scientificLimitations:
+      'Validación fotométrica confirmada como variable gigante Mira (~245 días). Sin embargo, la validación astrométrica bi-época NO ES APLICABLE: en Época 1 (mínimo profundo), el flujo cayó a 0.45 MJy/sr (< 3σ de cielo ≈ 1.50 MJy/sr), quedando completamente desvanecida / no detectada, imposibilitando medir centroide o desplazamiento.',
+    observationSummary:
+      'Observaciones temporales SPHEREx D4. Dipolo extremo en sustracción diferencial D = I₂ − αI₁ − B debido al desvanecimiento en Época 1 y brillo máximo en Época 2.',
     astrometry: {
       raRef: 248.167378,
       decRef: 66.755007,
