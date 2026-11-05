@@ -15,6 +15,12 @@ import {
   detectDifferentialCandidates,
   renderDivergingColormap,
 } from '../utils/differentialImaging.js';
+import {
+  loadFindingsFromStorage,
+  saveFindingsToStorage,
+  deleteFindingFromStorage,
+  createFindingRecord,
+} from '../utils/findingsStorage.js';
 import { t } from '../i18n.js';
 
 const Icons = {
@@ -57,6 +63,17 @@ const Icons = {
       <line x1="6" y1="12" x2="2" y2="12" />
       <line x1="12" y1="6" x2="12" y2="2" />
       <line x1="12" y1="22" x2="12" y2="18" />
+    </svg>
+  ),
+  Bookmark: (props) => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+  Trash: (props) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     </svg>
   ),
   Warning: (props) => (
@@ -205,15 +222,13 @@ function formatDate(mjd, language = 'es') {
 }
 
 function imagePoint(event) {
-  const img = event.currentTarget;
-  const rect = img.getBoundingClientRect();
-  const ratio = img.naturalWidth / img.naturalHeight || rect.width / rect.height;
-  const boxRatio = rect.width / rect.height;
-  const width = ratio > boxRatio ? rect.width : rect.height * ratio;
-  const height = ratio > boxRatio ? rect.width / ratio : rect.height;
-  const x = (event.clientX - (rect.left + (rect.width - width) / 2)) / width;
-  const y = (event.clientY - (rect.top + (rect.height - height) / 2)) / height;
-  return x < 0 || x > 1 || y < 0 || y > 1 ? null : { x: x * 100, y: y * 100 };
+  const el = event.currentTarget;
+  const rect = el.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  const x = (event.clientX - rect.left) / rect.width;
+  const y = (event.clientY - rect.top) / rect.height;
+  if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+  return { x: x * 100, y: y * 100 };
 }
 
 function SkyReticle({ imageCenter, predictedMarker, language }) {
@@ -289,7 +304,14 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const [marking, setMarking] = useState(false);
   const [marker, setMarker] = useState(null);
   const [findingNote, setFindingNote] = useState('');
-  const [findings, setFindings] = useState([]);
+  const [findings, setFindings] = useState(() => loadFindingsFromStorage());
+  const [findingToast, setFindingToast] = useState('');
+  const [findingError, setFindingError] = useState('');
+  const [showFindingForm, setShowFindingForm] = useState(false);
+
+  useEffect(() => {
+    saveFindingsToStorage(findings);
+  }, [findings]);
   const [expanded, setExpanded] = useState(false);
   const [truncated, setTruncated] = useState(false);
 
@@ -874,82 +896,180 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     return ` · Cobertura: ${covPct}% (Borde detector)`;
   };
 
-  const markImagePosition = (event) => {
-    if (!marking || !image) return;
+  const handleImageClick = (event, pane = 'single') => {
+    if (!marking && !marker) return;
     const point = imagePoint(event);
     if (!point) return;
+
+    const pixelX = Math.round((point.x / 100) * 300);
+    const pixelY = Math.round((point.y / 100) * 300);
+    let ra = null;
+    let dec = null;
+    const diag = pane === 'B' ? compareDiagnostics : frameDiagnostics;
+    if (diag?.reprojected?.gridToWorld) {
+      try {
+        const sky = diag.reprojected.gridToWorld(pixelX, pixelY);
+        if (sky && Number.isFinite(sky.ra) && Number.isFinite(sky.dec)) {
+          ra = sky.ra;
+          dec = sky.dec;
+        }
+      } catch (err) {
+        console.warn('[KRONOX] WCS gridToWorld error:', err);
+      }
+    }
+
     setMarker({
-      ...point,
-      frameId: frame?.id,
+      xPercent: point.x,
+      yPercent: point.y,
+      pixelX,
+      pixelY,
+      ra,
+      dec,
+      pane,
+      frameId: pane === 'B' ? (compareFrame?.id || frame?.id) : frame?.id,
     });
     setMarking(false);
+    setShowFindingForm(true);
+    setFindingError('');
   };
 
-  const markComparisonPosition = (event, record) => {
-    if (!marking) return;
-    const point = imagePoint(event);
-    if (!point) return;
-    setMarker({ ...point, frameId: record.id });
-    setMarking(false);
+  const toggleMarking = () => {
+    if (marking) {
+      setMarking(false);
+    } else {
+      setMarking(true);
+      setShowFindingForm(true);
+      setFindingError('');
+    }
   };
 
-  const saveFinding = () => {
-    if (!marker || !findingNote.trim() || !frame) return;
-    setFindings((items) => [
-      {
-        id: `${Date.now()}-${Math.random()}`,
-        note: findingNote.trim(),
-        target: t(selectedTarget.name, language),
-        band: frame.band,
-        previousDate:
-          compareFrame
-            ? formatDate(frame.dateAvg || frame.date, language)
-            : previousFrame
-              ? formatDate(previousFrame.dateAvg || previousFrame.date, language)
-              : t('Sin observación anterior', language),
-        currentDate:
-          compareFrame
-            ? formatDate(compareFrame.dateAvg || compareFrame.date, language)
-            : formatDate(frame.dateAvg || frame.date, language),
-        frameId: marker.frameId || frame.id,
-        markerNumber: findings.length + 1,
-        x: marker.x,
-        y: marker.y,
-      },
-      ...items,
-    ]);
-    setFindingNote('');
-    setMarker(null);
+  const handleSaveFinding = () => {
+    if (!findingNote.trim()) {
+      setFindingError(t('Por favor escribe una descripción para el hallazgo antes de guardar.', language));
+      return;
+    }
+    if (!frame) {
+      setFindingError(t('No hay ninguna observación activa para guardar.', language));
+      return;
+    }
+    try {
+      const newRecord = createFindingRecord({
+        target: selectedTarget,
+        frame,
+        compareFrame,
+        marker,
+        description: findingNote,
+        viewMode,
+        diagnostics: marker?.pane === 'B' ? compareDiagnostics : frameDiagnostics,
+        timeDeltaDays,
+      });
+
+      setFindings((prev) => [newRecord, ...prev]);
+      setFindingNote('');
+      setMarker(null);
+      setShowFindingForm(false);
+      setFindingError('');
+      setFindingToast(t('¡Hallazgo guardado con éxito! Se ha añadido a tu registro.', language));
+      setTimeout(() => setFindingToast(''), 4000);
+    } catch (err) {
+      setFindingError(err.message || t('No se pudo guardar el hallazgo.', language));
+    }
   };
 
-  const exportFindings = () => {
-    const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
-    const rows = [
-      [
-        'Objetivo',
-        'Banda',
-        'Fecha anterior',
-        'Fecha actual',
-        'X del visor (%)',
-        'Y del visor (%)',
-        'Hallazgo',
-      ].map((label) => t(label, language)),
-      ...findings.map((finding) => [
-        finding.target,
-        finding.band,
-        finding.previousDate,
-        finding.currentDate,
-        finding.x.toFixed(2),
-        finding.y.toFixed(2),
-        finding.note,
-      ]),
+  const handleDeleteFinding = (id) => {
+    const targetItem = findings.find((f) => f.id === id);
+    const confirmMsg = t(
+      `¿Deseas eliminar este hallazgo? "${targetItem?.description || ''}"`,
+      language,
+    );
+    if (typeof window !== 'undefined' && window.confirm && !window.confirm(confirmMsg)) {
+      return;
+    }
+    setFindings((prev) => {
+      const updated = prev.filter((f) => f.id !== id);
+      saveFindingsToStorage(updated);
+      return updated;
+    });
+    setFindingToast(t('Hallazgo eliminado correctamente.', language));
+    setTimeout(() => setFindingToast(''), 3000);
+  };
+
+  const restoreFinding = (finding) => {
+    const targetIndex = TARGETS.findIndex((tgt) => tgt.key === finding.targetKey);
+    if (targetIndex !== -1 && targetIndex !== selected) {
+      setSelected(targetIndex);
+      search(String(TARGETS[targetIndex].ra), String(TARGETS[targetIndex].dec), release, TARGETS[targetIndex]);
+    }
+    if (finding.band) {
+      setBand(finding.band);
+    }
+    setViewMode(finding.viewMode || 'sideBySide');
+    setCompareEnabled(true);
+    if (finding.frameId1) {
+      const idx1 = visibleRecords.findIndex((r) => r.id === finding.frameId1);
+      if (idx1 !== -1) setFrameIndex(idx1);
+    }
+    if (finding.frameId2) {
+      const idx2 = visibleRecords.findIndex((r) => r.id === finding.frameId2);
+      if (idx2 !== -1) setCompareIndex(idx2);
+    }
+    if (finding.marker) {
+      setMarker({ ...finding.marker });
+      setShowFindingForm(true);
+      setFindingNote(finding.description);
+    } else {
+      setMarker(null);
+    }
+    setFindingToast(t(`Hallazgo cargado en el visor: ${finding.targetName}`, language));
+    setTimeout(() => setFindingToast(''), 4000);
+  };
+
+  const handleExportCSV = () => {
+    if (!findings.length) return;
+    const quote = (val) => `"${String(val ?? '').replaceAll('"', '""')}"`;
+    const headers = [
+      'ID',
+      'Objetivo',
+      'Fecha creación',
+      'Descripción',
+      'Modo visor',
+      'Banda',
+      'Obs 1 (I1)',
+      'Fecha Obs 1',
+      'Obs 2 (I2)',
+      'Fecha Obs 2',
+      'Delta t (días)',
+      'Pixel X',
+      'Pixel Y',
+      'RA (deg)',
+      'Dec (deg)',
     ];
-    const csv = `\uFEFF${rows.map((row) => row.map(quote).join(',')).join('\r\n')}`;
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const rows = findings.map((f) => [
+      quote(f.id),
+      quote(f.targetName),
+      quote(f.createdAt),
+      quote(f.description),
+      quote(f.viewMode),
+      quote(f.band),
+      quote(f.frameId1),
+      quote(f.frameDate1),
+      quote(f.frameId2 || ''),
+      quote(f.frameDate2 || ''),
+      quote(f.timeDeltaDays || ''),
+      quote(f.marker?.pixelX ?? ''),
+      quote(f.marker?.pixelY ?? ''),
+      quote(f.marker?.ra ?? ''),
+      quote(f.marker?.dec ?? ''),
+    ]);
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `hallazgos-spherex-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.setAttribute('download', `KRONOX_Hallazgos_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
@@ -1337,7 +1457,19 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   title={t('Candidatos que superan el umbral estadístico de cambio', language)}
                 >
                   <Icons.Candidates />
-                  <span>{t('Candidatos detectados', language)} ({candidates.length})</span>
+                  <span>{t('Candidatos automáticos', language)} ({candidates.length})</span>
+                </button>
+                <button
+                  type="button"
+                  className={`spherexViewModeTab${viewMode === 'findings' ? ' active' : ''}`}
+                  onClick={() => {
+                    setViewMode('findings');
+                    setPlaying(false);
+                  }}
+                  title={t('Registros y hallazgos manuales guardados por el investigador', language)}
+                >
+                  <Icons.Bookmark />
+                  <span>{t('Hallazgos guardados', language)} ({findings.length})</span>
                 </button>
               </nav>
 
@@ -1601,15 +1733,16 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   <button
                     type="button"
                     className={`spherexMarkChangeBtn ${marking ? 'active' : ''}`}
-                    onClick={() => {
-                      setMarker(null);
-                      setMarking((val) => !val);
-                    }}
+                    onClick={toggleMarking}
                     disabled={!image || compareLoading}
+                    title={t('Activar modo de marcación para registrar un punto de interés en la imagen', language)}
                   >
+                    <Icons.Bookmark style={{ marginRight: '6px' }} />
                     {marking
-                      ? t('Haz clic en la imagen', language)
-                      : t('Marcar cambio', language)}
+                      ? t('Cancelar marcación', language)
+                      : marker
+                        ? t('Editar hallazgo', language)
+                        : t('Marcar cambio', language)}
                   </button>
                 </div>
               </div>
@@ -1694,7 +1827,14 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                       src={viewMode === 'blink' && blinkType === 'twoEpochs' && blinkEpochToggle ? (compareImage || image) : image}
                       alt={`Recorte infrarrojo SPHEREx ${frame?.band}`}
                       className={marking ? 'markable' : ''}
-                      onClick={markImagePosition}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                        display: 'block',
+                        cursor: marking ? 'crosshair' : 'default',
+                      }}
+                      onClick={(e) => handleImageClick(e, 'single')}
                       onDoubleClick={handleFitImage}
                       onLoad={(e) =>
                         setPrimaryImageRatio(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)
@@ -1709,6 +1849,19 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                       }
                       language={language}
                     />
+                    {marker && (
+                      <div
+                        className="spherexUserMarker"
+                        style={{ left: `${marker.xPercent}%`, top: `${marker.yPercent}%` }}
+                      >
+                        <span className="spherexMarkerPulse" />
+                        <span className="spherexMarkerTarget" />
+                        <span className="spherexMarkerDot" />
+                        <span className="spherexMarkerCoordsBadge">
+                          {marker.ra !== null ? `RA ${marker.ra.toFixed(4)}° Dec ${marker.dec.toFixed(4)}°` : `Px (${marker.pixelX}, ${marker.pixelY})`}
+                        </span>
+                      </div>
+                    )}
                     {/* Celestial orientation badge */}
                     <div className="spherexOrientationHud" title={t('Orientación astronómica estándar', language)}>
                       <Icons.Compass style={{ marginRight: '4px' }} />
@@ -1802,16 +1955,50 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   >
                     {image ? (
                       <div style={{ transform: `translate(${syncPan.x}px, ${syncPan.y}px) scale(${syncZoom})`, transformOrigin: 'center center', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <img
-                          src={image}
-                          alt="Época A"
-                          onClick={(e) => markComparisonPosition(e, frame)}
-                        />
-                        <SkyReticle
-                          imageCenter={imageCenter}
-                          predictedMarker={primaryEpochMarker}
-                          language={language}
-                        />
+                        <div
+                          className="spherexImageStageWrapper"
+                          style={{
+                            position: 'relative',
+                            display: 'inline-block',
+                            aspectRatio: '1 / 1',
+                            maxHeight: '100%',
+                            maxWidth: '100%',
+                            height: '100%',
+                          }}
+                        >
+                          <img
+                            src={image}
+                            alt="Época A"
+                            className={marking ? 'markable' : ''}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'contain',
+                              display: 'block',
+                              cursor: marking ? 'crosshair' : (syncZoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'),
+                            }}
+                            onClick={(e) => handleImageClick(e, 'A')}
+                          />
+                          <SkyReticle
+                            imageCenter={imageCenter}
+                            predictedMarker={primaryEpochMarker}
+                            language={language}
+                          />
+                          {marker && (
+                            <div
+                              className="spherexUserMarker"
+                              style={{ left: `${marker.xPercent}%`, top: `${marker.yPercent}%` }}
+                              title={marker.ra !== null ? `RA ${marker.ra.toFixed(4)}°, Dec ${marker.dec.toFixed(4)}°` : `Píxel (${marker.pixelX}, ${marker.pixelY})`}
+                            >
+                              <span className="spherexMarkerPulse" />
+                              <span className="spherexMarkerTarget" />
+                              <span className="spherexMarkerDot" />
+                              <span className="spherexMarkerCoordsBadge">
+                                {marker.ra !== null ? `RA ${marker.ra.toFixed(4)}° Dec ${marker.dec.toFixed(4)}°` : `Px (${marker.pixelX}, ${marker.pixelY})`}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="spherexImagePlaceholder">
@@ -1852,16 +2039,50 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   >
                     {compareImage ? (
                       <div style={{ transform: `translate(${syncPan.x}px, ${syncPan.y}px) scale(${syncZoom})`, transformOrigin: 'center center', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <img
-                          src={compareImage}
-                          alt="Época B"
-                          onClick={(e) => markComparisonPosition(e, compareFrame)}
-                        />
-                        <SkyReticle
-                          imageCenter={imageCenter}
-                          predictedMarker={compareEpochMarker}
-                          language={language}
-                        />
+                        <div
+                          className="spherexImageStageWrapper"
+                          style={{
+                            position: 'relative',
+                            display: 'inline-block',
+                            aspectRatio: '1 / 1',
+                            maxHeight: '100%',
+                            maxWidth: '100%',
+                            height: '100%',
+                          }}
+                        >
+                          <img
+                            src={compareImage}
+                            alt="Época B"
+                            className={marking ? 'markable' : ''}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'contain',
+                              display: 'block',
+                              cursor: marking ? 'crosshair' : (syncZoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'),
+                            }}
+                            onClick={(e) => handleImageClick(e, 'B')}
+                          />
+                          <SkyReticle
+                            imageCenter={imageCenter}
+                            predictedMarker={compareEpochMarker}
+                            language={language}
+                          />
+                          {marker && (
+                            <div
+                              className="spherexUserMarker"
+                              style={{ left: `${marker.xPercent}%`, top: `${marker.yPercent}%` }}
+                              title={marker.ra !== null ? `RA ${marker.ra.toFixed(4)}°, Dec ${marker.dec.toFixed(4)}°` : `Píxel (${marker.pixelX}, ${marker.pixelY})`}
+                            >
+                              <span className="spherexMarkerPulse" />
+                              <span className="spherexMarkerTarget" />
+                              <span className="spherexMarkerDot" />
+                              <span className="spherexMarkerCoordsBadge">
+                                {marker.ra !== null ? `RA ${marker.ra.toFixed(4)}° Dec ${marker.dec.toFixed(4)}°` : `Px (${marker.pixelX}, ${marker.pixelY})`}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="spherexImagePlaceholder" style={{ padding: '20px', textAlign: 'center' }}>
@@ -1920,7 +2141,13 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   }}
                 >
                   {diffDataUrl ? (
-                    <img src={diffDataUrl} alt="Mapa diferencial de intensidad / SNR" />
+                    <img
+                      src={diffDataUrl}
+                      alt="Mapa diferencial de intensidad / SNR"
+                      className={marking ? 'markable' : ''}
+                      style={{ cursor: marking ? 'crosshair' : 'default' }}
+                      onClick={(e) => handleImageClick(e, 'diff')}
+                    />
                   ) : (
                     <div className="spherexImagePlaceholder">
                       <span className="spherexSpinner" /> {t('Calculando resta diferencial...', language)}
@@ -1931,6 +2158,19 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     predictedMarker={compareEpochMarker}
                     language={language}
                   />
+                  {marker && (
+                    <div
+                      className="spherexUserMarker"
+                      style={{ left: `${marker.xPercent}%`, top: `${marker.yPercent}%` }}
+                    >
+                      <span className="spherexMarkerPulse" />
+                      <span className="spherexMarkerTarget" />
+                      <span className="spherexMarkerDot" />
+                      <span className="spherexMarkerCoordsBadge">
+                        {marker.ra !== null ? `RA ${marker.ra.toFixed(4)}° Dec ${marker.dec.toFixed(4)}°` : `Px (${marker.pixelX}, ${marker.pixelY})`}
+                      </span>
+                    </div>
+                  )}
                   {/* Celestial orientation badge */}
                   <div className="spherexOrientationHud">
                     <Icons.Compass style={{ marginRight: '4px' }} />
@@ -2080,19 +2320,261 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               </section>
             )}
 
-            {/* Note form for recorded findings */}
-            {marker && (
-              <div className="spherexCompareNoteForm">
-                <input
-                  value={findingNote}
-                  onChange={(event) => setFindingNote(event.target.value)}
-                  placeholder={t('Describe el cambio entre las dos fechas…', language)}
-                  maxLength={240}
-                  aria-label={t('Descripción del cambio observado', language)}
-                />
-                <button type="button" onClick={saveFinding} disabled={!findingNote.trim()}>
-                  {t('Guardar hallazgo', language)}
+            {/* Floating banner for active marking mode */}
+            {marking && (
+              <div className="spherexMarkingHudBanner">
+                <Icons.Bookmark style={{ width: 14, height: 14, color: '#38bdf8' }} />
+                <span>{t('Modo de marcación activo: Haz clic sobre cualquier punto de la imagen para señalar el cambio o región de interés.', language)}</span>
+                <button type="button" onClick={() => setMarking(false)} className="spherexMiniBtn">
+                  {t('Cancelar', language)}
                 </button>
+              </div>
+            )}
+
+            {/* Note Drawer for recorded findings */}
+            {(showFindingForm || marker) && (
+              <div className="spherexFindingDrawer">
+                <div className="spherexFindingDrawerHeader">
+                  <div className="spherexFindingDrawerTitle">
+                    <Icons.Bookmark style={{ marginRight: '6px', color: '#38bdf8' }} />
+                    <b>{t('Registrar Hallazgo Astronómico', language)}</b>
+                  </div>
+                  <div className="spherexFindingDrawerTargetInfo">
+                    <span>{t(selectedTarget.name, language)}</span>
+                    {frame && compareFrame && (
+                      <span className="spherexFindingDrawerObs">
+                        {frame.id} ⇄ {compareFrame.id} {timeDeltaDays !== null ? `(\u0394t = ${timeDeltaDays >= 365 ? (timeDeltaDays / 365.25).toFixed(1) + ' a' : timeDeltaDays.toFixed(0) + ' d'})` : ''}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="spherexCloseBtn"
+                    onClick={() => {
+                      setMarker(null);
+                      setMarking(false);
+                      setShowFindingForm(false);
+                      setFindingError('');
+                    }}
+                    title={t('Cerrar', language)}
+                  >
+                    <Icons.Close />
+                  </button>
+                </div>
+
+                {marker ? (
+                  <div className="spherexFindingCoordsInfo">
+                    <span className="badge">
+                      {marker.ra !== null ? 'WCS Calibrado' : 'Coordenadas de Imagen'}
+                    </span>
+                    <span className="coords">
+                      {marker.ra !== null
+                        ? `RA ${marker.ra.toFixed(5)}°, Dec ${marker.dec.toFixed(5)}° · Píxel (${marker.pixelX}, ${marker.pixelY})`
+                        : `Píxel (${marker.pixelX}, ${marker.pixelY}) · Coordenadas celestes no disponibles en este producto`}
+                    </span>
+                    <button
+                      type="button"
+                      className="spherexMiniBtn"
+                      onClick={() => setMarker(null)}
+                      title={t('Quitar el punto marcado', language)}
+                    >
+                      {t('Quitar marcador', language)}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="spherexFindingCoordsNotice">
+                    <Icons.Info style={{ width: 14, height: 14, marginRight: 6 }} />
+                    <span>{t('Puedes hacer clic sobre la imagen para señalar una coordenada exacta o guardar un hallazgo general.', language)}</span>
+                  </div>
+                )}
+
+                <div className="spherexFindingInputRow">
+                  <input
+                    type="text"
+                    value={findingNote}
+                    onChange={(e) => {
+                      setFindingNote(e.target.value);
+                      if (findingError) setFindingError('');
+                    }}
+                    placeholder={t('Describe el cambio, movimiento propio o variación observada…', language)}
+                    maxLength={300}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveFinding();
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="spherexSaveFindingBtn"
+                    onClick={handleSaveFinding}
+                  >
+                    <Icons.Bookmark style={{ marginRight: '6px' }} />
+                    {t('Guardar hallazgo', language)}
+                  </button>
+                </div>
+
+                {findingError && (
+                  <div className="spherexFindingErrorNotice" role="alert">
+                    <Icons.Warning style={{ width: 14, height: 14, marginRight: 6 }} />
+                    <span>{findingError}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Dedicated View for Saved Findings */}
+            {viewMode === 'findings' && (
+              <section className="spherexSavedFindingsPanel">
+                <header className="spherexSavedFindingsHeader">
+                  <div>
+                    <h3>
+                      <Icons.Bookmark style={{ marginRight: '8px', color: '#38bdf8' }} />
+                      {t('Hallazgos guardados del investigador', language)} ({findings.length})
+                    </h3>
+                    <p>
+                      {t('Registro permanente de puntos de interés, anotaciones y comparaciones astronómicas guardadas en este navegador.', language)}
+                    </p>
+                  </div>
+                  <div className="spherexSavedFindingsGlobalActions">
+                    {findings.length > 0 && (
+                      <>
+                        <button
+                          type="button"
+                          className="spherexPresetBtn"
+                          onClick={handleExportCSV}
+                          title={t('Descargar todos los hallazgos en formato CSV', language)}
+                        >
+                          {t('Exportar CSV', language)}
+                        </button>
+                        <button
+                          type="button"
+                          className="spherexDangerBtn"
+                          onClick={() => {
+                            if (window.confirm(t('¿Seguro que deseas eliminar todos los hallazgos guardados?', language))) {
+                              setFindings([]);
+                              saveFindingsToStorage([]);
+                            }
+                          }}
+                          title={t('Eliminar todos los hallazgos', language)}
+                        >
+                          <Icons.Trash style={{ marginRight: '4px' }} />
+                          {t('Limpiar todos', language)}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </header>
+
+                {findings.length === 0 ? (
+                  <div className="spherexEmptyNotice" style={{ padding: '48px 20px', textAlign: 'center' }}>
+                    <Icons.Bookmark style={{ width: 42, height: 42, opacity: 0.4, marginBottom: 12, color: '#38bdf8' }} />
+                    <h4 style={{ color: '#e2e8f0', fontSize: 16, marginBottom: 6 }}>
+                      {t('Aún no tienes hallazgos guardados', language)}
+                    </h4>
+                    <p style={{ color: '#94a3b8', fontSize: 13, maxWidth: 440, margin: '0 auto 16px' }}>
+                      {t('Entra a la «Vista comparada» o al «Mapa de diferencias», haz clic en «Marcar cambio», señala un punto sobre la imagen y añade tu descripción.', language)}
+                    </p>
+                    <button
+                      type="button"
+                      className="spherexActionPrimary"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      onClick={() => {
+                        setViewMode('sideBySide');
+                        setCompareEnabled(true);
+                      }}
+                    >
+                      <Icons.SideBySide />
+                      {t('Ir a Vista comparada', language)}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="spherexFindingsGrid">
+                    {findings.map((f) => (
+                      <article key={f.id} className="spherexFindingCard">
+                        <header className="spherexFindingCardHeader">
+                          <div className="spherexFindingCardHeaderMain">
+                            <span className="spherexFindingTargetBadge">{f.targetName}</span>
+                            <span className="spherexCoveragePill">{f.band}</span>
+                            <span className="spherexMjdPill">{f.viewMode}</span>
+                          </div>
+                          <time className="spherexFindingTime">
+                            {new Date(f.createdAt).toLocaleString(language === 'en' ? 'en-US' : 'es', {
+                              dateStyle: 'short',
+                              timeStyle: 'short',
+                            })}
+                          </time>
+                        </header>
+
+                        <p className="spherexFindingDescription">{f.description}</p>
+
+                        <div className="spherexFindingContextBox">
+                          <div className="spherexFindingContextRow">
+                            <span className="label">{t('Comparación', language)}:</span>
+                            <span className="val">
+                              {f.frameId1} ({f.frameDate1})
+                              {f.frameId2 ? ` ⇄ ${f.frameId2} (${f.frameDate2})` : ''}
+                            </span>
+                          </div>
+                          {f.timeDeltaDays !== null && (
+                            <div className="spherexFindingContextRow">
+                              <span className="label">{t('Separación', language)}:</span>
+                              <span className="val">
+                                Δt = {f.timeDeltaDays >= 365 ? `${(f.timeDeltaDays / 365.25).toFixed(1)} años (${f.timeDeltaDays.toFixed(0)} días)` : `${f.timeDeltaDays.toFixed(0)} días`}
+                              </span>
+                            </div>
+                          )}
+                          <div className="spherexFindingContextRow">
+                            <span className="label">{t('Coordenadas', language)}:</span>
+                            <span className="val coordinates">
+                              {f.marker?.ra !== null && f.marker?.ra !== undefined
+                                ? `RA ${f.marker.ra.toFixed(5)}°, Dec ${f.marker.dec.toFixed(5)}° (píxel ${f.marker.pixelX}, ${f.marker.pixelY})`
+                                : f.marker
+                                  ? `Píxel (${f.marker.pixelX}, ${f.marker.pixelY}) · Coordenadas celestes no disponibles`
+                                  : t('Sin marcador espacial específico', language)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <footer className="spherexFindingCardFooter">
+                          <button
+                            type="button"
+                            className="spherexFindingLoadBtn"
+                            onClick={() => restoreFinding(f)}
+                            title={t('Cargar esta observación en el visor interactivo', language)}
+                          >
+                            <Icons.SideBySide style={{ marginRight: '6px' }} />
+                            {t('Cargar en visor', language)}
+                          </button>
+                          <button
+                            type="button"
+                            className="spherexFindingDeleteBtn"
+                            onClick={() => handleDeleteFinding(f.id)}
+                            title={t('Eliminar este hallazgo', language)}
+                          >
+                            <Icons.Trash style={{ marginRight: '4px' }} />
+                            {t('Eliminar', language)}
+                          </button>
+                        </footer>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Toast feedback */}
+            {findingToast && (
+              <div className="spherexToastNotification" role="status">
+                <Icons.Check style={{ width: 16, height: 16, color: '#4ade80' }} />
+                <span>{findingToast}</span>
+                {viewMode !== 'findings' && (
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('findings')}
+                    className="spherexToastAction"
+                  >
+                    {t('Ver en Hallazgos', language)}
+                  </button>
+                )}
               </div>
             )}
 
