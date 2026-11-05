@@ -1,5 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
+import { pathToFileURL } from 'url';
 
 function apiDevServerPlugin() {
   const handleApi = async (req, res, next) => {
@@ -9,8 +11,8 @@ function apiDevServerPlugin() {
 
     const endpoint = match[1];
     try {
-      const modulePath = `./api/${endpoint}.js`;
-      const { default: handler } = await import(modulePath);
+      const fullPath = path.resolve(process.cwd(), 'api', `${endpoint}.js`);
+      const { default: handler } = await import(pathToFileURL(fullPath).href);
       if (typeof handler !== 'function') return next();
 
       const parsedUrl = new URL(rawUrl, 'http://localhost');
