@@ -345,8 +345,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   useEffect(() => {
     if (visibleRecords.length > 0) {
       setBlinkFrameList(visibleRecords.map((_, i) => i));
-      if (visibleRecords.length > 1 && compareIndex === frameIndex) {
-        setCompareIndex(frameIndex === 0 ? 1 : 0);
+      if (
+        visibleRecords.length > 1 &&
+        (compareIndex === frameIndex || compareIndex >= visibleRecords.length)
+      ) {
+        setCompareIndex(frameIndex === visibleRecords.length - 1 ? 0 : visibleRecords.length - 1);
       }
     } else {
       setBlinkFrameList([]);
@@ -403,6 +406,9 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
         : mostObservedBand;
       setRecords(sorted);
       setBand(selectedBand);
+      if (sorted.length > 1) {
+        setCompareIndex(sorted.length - 1);
+      }
       setTruncated(body.truncated);
       setStatus(
         sorted.length
@@ -521,7 +527,8 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
       compareEnabled ||
       viewMode === 'sideBySide' ||
       viewMode === 'differential' ||
-      viewMode === 'candidates';
+      viewMode === 'candidates' ||
+      (viewMode === 'blink' && blinkType === 'twoEpochs');
     if (!isCompareActive || !image || !compareFrame) {
       setCompareImage('');
       setCompareDiagnostics(null);
@@ -530,7 +537,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     }
     if (compareIndex === frameIndex) {
       if (visibleRecords.length > 1) {
-        setCompareIndex(frameIndex === 0 ? 1 : 0);
+        setCompareIndex(frameIndex === visibleRecords.length - 1 ? 0 : visibleRecords.length - 1);
       } else {
         setCompareImage('');
         setCompareDiagnostics(null);
@@ -574,6 +581,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   }, [
     compareEnabled,
     viewMode,
+    blinkType,
     compareFrame,
     compareIndex,
     frameIndex,
@@ -1265,8 +1273,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                   className={`spherexViewModeTab${viewMode === 'blink' ? ' active' : ''}`}
                   onClick={() => {
                     setViewMode('blink');
-                    setCompareEnabled(false);
+                    setCompareEnabled(true);
                     setPlaying(true);
+                    if (visibleRecords.length >= 2 && compareIndex === frameIndex) {
+                      setCompareIndex(visibleRecords.length - 1);
+                    }
                   }}
                   disabled={visibleRecords.length < 2}
                   title={t('Parpadeo rápido entre dos observaciones', language)}
@@ -1364,7 +1375,10 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                         frameCacheRef.current.clear();
                         setBand(event.target.value);
                         setFrameIndex(0);
-                        setCompareIndex(visibleRecords.length > 1 ? 1 : 0);
+                        const nextLen = event.target.value
+                          ? records.filter((r) => r.band === event.target.value).length
+                          : records.length;
+                        setCompareIndex(nextLen > 1 ? nextLen - 1 : 0);
                         setPlaying(false);
                       }}
                       disabled={!bands.length}
@@ -1511,7 +1525,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               </div>
             )}
 
-            {(viewMode === 'sideBySide' || viewMode === 'differential' || viewMode === 'candidates') && (
+            {(viewMode === 'sideBySide' || viewMode === 'differential' || viewMode === 'candidates' || (viewMode === 'blink' && blinkType === 'twoEpochs')) && (
               <div className="spherexCompareControls">
                 <div className="spherexCompareSelectors">
                   <label>
@@ -1546,9 +1560,18 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     >
                       {visibleRecords.map((rec, i) => {
                         const dtDays = frame ? Math.abs(Number(rec.dateAvg || rec.date) - Number(frame.dateAvg || frame.date)) : 0;
+                        const dtMinutes = dtDays * 1440;
+                        let timeLabel = '';
+                        if (dtDays >= 365) {
+                          timeLabel = `(Δt = ${(dtDays / 365.25).toFixed(1)} a · Época distinta)`;
+                        } else if (dtDays >= 1) {
+                          timeLabel = `(Δt = ${dtDays.toFixed(0)} d · Época distinta)`;
+                        } else if (dtMinutes >= 0.5) {
+                          timeLabel = `(Δt = ${dtMinutes.toFixed(0)} min · Misma visita)`;
+                        }
                         return (
                           <option key={`${rec.id}-${i}`} value={i} disabled={i === frameIndex}>
-                            {formatDate(rec.dateAvg || rec.date, language)} {dtDays > 0 ? `(Δt = ${dtDays >= 365 ? (dtDays / 365.25).toFixed(1) + ' a' : dtDays.toFixed(0) + ' d'})` : ''} · {rec.band}
+                            {formatDate(rec.dateAvg || rec.date, language)} {timeLabel} · {rec.band}
                           </option>
                         );
                       })}
@@ -1559,7 +1582,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                 <div className="spherexCompareBaselineGroup">
                   {timeDeltaDays !== null && (
                     <span className="spherexTimeDeltaBadge" title={t('Separación temporal entre las dos observaciones seleccionadas', language)}>
-                      Δt = {timeDeltaDays >= 365 ? `${(timeDeltaDays / 365.25).toFixed(2)} años (${timeDeltaDays.toFixed(0)} días)` : `${timeDeltaDays.toFixed(0)} días`}
+                      {timeDeltaDays >= 365
+                        ? `Δt = ${(timeDeltaDays / 365.25).toFixed(2)} años (${timeDeltaDays.toFixed(0)} días · Épocas distintas)`
+                        : timeDeltaDays >= 1
+                          ? `Δt = ${timeDeltaDays.toFixed(0)} días (Épocas distintas)`
+                          : `Δt = ${(timeDeltaDays * 1440).toFixed(1)} min (Misma visita / Pasada consecutiva)`}
                     </span>
                   )}
                   <button
@@ -1675,7 +1702,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     />
                     <SkyReticle
                       imageCenter={imageCenter}
-                      predictedMarker={primaryEpochMarker}
+                      predictedMarker={
+                        viewMode === 'blink' && blinkType === 'twoEpochs' && blinkEpochToggle
+                          ? compareEpochMarker
+                          : primaryEpochMarker
+                      }
                       language={language}
                     />
                     {/* Celestial orientation badge */}
@@ -1756,7 +1787,10 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
               <div className="spherexDualViewport">
                 <article className="spherexDualPane">
                   <header className="spherexDualHeader">
-                    <span><b>{t('Época A (I₁)', language)}</b> · {frame ? formatDate(frame.dateAvg || frame.date, language) : ''}</span>
+                    <span>
+                      <b>{t('Época A (I₁)', language)}</b> · {frame ? formatDate(frame.dateAvg || frame.date, language) : ''}
+                      {frame?.id && <span style={{ opacity: 0.65, fontSize: '11px', marginLeft: '6px' }}>({frame.id})</span>}
+                    </span>
                     <small>{frame ? formatBandLabel(frame.band, complexityLevel) : ''}</small>
                   </header>
                   <div
@@ -1803,7 +1837,10 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
 
                 <article className="spherexDualPane">
                   <header className="spherexDualHeader">
-                    <span><b>{t('Época B (I₂)', language)}</b> · {compareFrame ? formatDate(compareFrame.dateAvg || compareFrame.date, language) : t('Segunda observación', language)}</span>
+                    <span>
+                      <b>{t('Época B (I₂)', language)}</b> · {compareFrame ? formatDate(compareFrame.dateAvg || compareFrame.date, language) : t('Segunda observación', language)}
+                      {compareFrame?.id && <span style={{ opacity: 0.65, fontSize: '11px', marginLeft: '6px' }}>({compareFrame.id})</span>}
+                    </span>
                     <small>{compareFrame ? formatBandLabel(compareFrame.band, complexityLevel) : ''}</small>
                   </header>
                   <div
