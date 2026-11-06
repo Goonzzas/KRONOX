@@ -2317,6 +2317,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     // A route must always use the controllable chase camera, even if the user
     // started it while inspecting the ship from the outside.
     if (exteriorCameraMode) leaveExteriorCamera(true);
+    // Navigation owns its camera for the duration of the route. Clear any
+    // unrelated director cinematic that could switch into the cabin mid-flight.
+    sceneDirector.skipActiveSequence();
     const motionFactor = S.reducedMotion?.() ? 0.45 : 1;
     const from = sp.clone(),
       away = from.clone().sub(target);
@@ -2812,11 +2815,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     launchCameraBlend = null;
     guidedTourState = null;
 
-    // Ensure ship is in free flight in the 3D cosmos
-    if (!free) {
-      setFree(true, false);
-      S.fr?.(true);
-    }
+    // Start with the Earth launch, then continue into the exterior-to-cabin
+    // cinematic sequence.
+    setFree(true, true);
+    S.fr?.(true);
     pv = 3;
     ship.visible = true;
     localCabinWorld.visible = false;
@@ -2828,17 +2830,21 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     targetPitch = 0;
 
     realTimeIntro = {
+      phase: 'launch',
       elapsed: 0,
       duration: 11.5,
       stageNotified: -1,
+      cameraHandoff: null,
       onComplete: onCompleteCallback,
     };
-    S.onIntroStageChange?.('apertura', 'Apertura cósmica: la nave KRONOX de 120 m avanza por el brazo de Orión.');
+    S.onIntroStageChange?.('despegue', 'Despegue desde la Tierra: los propulsores ponen en marcha la nave KRONOX.');
   }
 
   function skipRealTimeIntroSequence() {
     const cb = realTimeIntro?.onComplete;
     realTimeIntro = null;
+    launchSequence = null;
+    launchCameraBlend = null;
     sceneDirector.skipActiveSequence();
     if (!free) {
       setFree(true, false);
@@ -3377,7 +3383,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         r = new V(1, 0, 0).applyQuaternion(q),
         bs = fs * (keys.shift ? 5 : 1);
       pvl.copy(vel);
-      if (realTimeIntro) {
+      if (realTimeIntro && realTimeIntro.phase !== 'launch') {
         // Avance suave de la nave de 120 m durante la secuencia cinematográfica 3D en tiempo real
         vel.copy(f).multiplyScalar(shipSz * 1.4);
         sp.addScaledVector(vel, dt);
@@ -3401,6 +3407,22 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           vel.set(0, 0, 0);
           ti = 4.1;
           S.intro(false);
+          if (realTimeIntro?.phase === 'launch') {
+            realTimeIntro.phase = 'cinematic';
+            realTimeIntro.elapsed = 0;
+            realTimeIntro.stageNotified = -1;
+            realTimeIntro.cameraHandoff = {
+              elapsed: 0,
+              duration: 0.9,
+              fromPosition: cam.position.clone(),
+              fromTarget: sp.clone(),
+            };
+            launchCameraBlend = null;
+            S.onIntroStageChange?.(
+              'apertura',
+              'Apertura cósmica: la nave KRONOX de 120 m avanza hacia el espacio profundo.',
+            );
+          }
         }
       } else if (!inHabitableCabin && !exteriorCameraMode) {
         vel.lerp(
@@ -3418,12 +3440,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
       ac += (vel.distanceTo(pvl) / Math.max(dt, 1e-4) - ac) * Math.min(1, dt * 8);
       if (nav) {
-        if (!nav.directorEngagedNotified) {
-          nav.directorEngagedNotified = true;
-          sceneDirector.dispatchEvent('PROPULSION_ENGAGED', {
-            duration: Math.min(7.2, Math.max(4.5, (nav.align || 0.8) + (nav.duration || 3.5))),
-          });
-        }
         nav.elapsed += dt;
         if (nav.phase === 'arrival') {
           sp.copy(nav.to);
@@ -3483,7 +3499,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         e = 1 - Math.pow(1 - kk, 3);
       bk += (-(ti >= 5 && !inHabitableCabin ? mv.z : 0) * 0.5 - bk) * Math.min(1, dt * 5);
 
-      if (realTimeIntro) {
+      if (realTimeIntro && realTimeIntro.phase !== 'launch') {
         // =========================================================================
         // SECCIÓN 2: SECUENCIA CINEMATOGRÁFICA CONTINUA EN TIEMPO REAL EN EL MOTOR 3D
         // =========================================================================
@@ -3510,8 +3526,22 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             THREE.MathUtils.lerp(sz * 2.4, sz * 0.9, ease),
             THREE.MathUtils.lerp(-sz * 5.2, sz * 2.2, ease),
           ).applyQuaternion(q);
-          cam.position.copy(sp).add(camOff);
-          cam.lookAt(sp.clone().add(new V(0, sz * 0.12, -sz * 0.4).applyQuaternion(q)));
+          const targetPosition = sp.clone().add(camOff);
+          const targetLook = sp
+            .clone()
+            .add(new V(0, sz * 0.12, -sz * 0.4).applyQuaternion(q));
+          if (realTimeIntro.cameraHandoff) {
+            const handoff = realTimeIntro.cameraHandoff;
+            handoff.elapsed = Math.min(handoff.duration, handoff.elapsed + dt);
+            const amount = handoff.elapsed / handoff.duration;
+            const eased = amount * amount * (3 - 2 * amount);
+            cam.position.lerpVectors(handoff.fromPosition, targetPosition, eased);
+            cam.lookAt(handoff.fromTarget.clone().lerp(targetLook, eased));
+            if (amount >= 1) realTimeIntro.cameraHandoff = null;
+          } else {
+            cam.position.copy(targetPosition);
+            cam.lookAt(targetLook);
+          }
         } else if (u < 0.68) {
           // 2. Movimiento de cámara: Aproximación continua al casco y propulsores
           if (realTimeIntro.stageNotified !== 1) {
