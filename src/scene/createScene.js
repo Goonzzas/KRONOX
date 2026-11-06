@@ -2494,7 +2494,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     shipZoom = 1,
     fy = 0,
     fp = 0,
-    fs = 1,
+    fs = 60,
     shipSz = 0.5,
     fovBase = 55,
     drag = 0,
@@ -3768,11 +3768,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         if (cabinFirstPerson) {
           localCamPos = new V(
             astronautPos.x,
-            SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + headBob,
-            astronautPos.z - freeHelmBlend * 0.42,
+            SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + headBob + freeHelmBlend * 0.42,
+            astronautPos.z + (-10.55 - astronautPos.z) * freeHelmBlend,
           );
           astronaut3D.firstPersonHands.position.copy(localCamPos);
           astronaut3D.firstPersonHands.quaternion.copy(localLookQuat);
+          if (freeHelmMode) astronaut3D.firstPersonHands.visible = false;
         } else {
           // 3rd Person Camera Tracking:
           // Positioned slightly above and behind the astronaut (+1.85 m back, +0.32 m up)

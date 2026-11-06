@@ -1044,6 +1044,7 @@ export function buildHabitableCabin3D() {
 
   function updateStations(elapsedTime = 0, nearStationId = null, activeStationId = null, guidedTargetId = null, freeHelmMode = false) {
     stationMeshes.forEach((entry, idx) => {
+      entry.group.visible = !(freeHelmMode && entry.id === 'windows');
       if (entry.id === 'nav' && entry.screenMesh) entry.screenMesh.visible = !freeHelmMode;
       const isNear = entry.id === nearStationId;
       const isActive = entry.id === activeStationId;

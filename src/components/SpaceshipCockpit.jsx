@@ -64,6 +64,17 @@ export default function SpaceshipCockpit({
         : 'Control Libre Astronauta';
   const flightGear =
     flightSpeed < 5 ? 'ÓRBITA PLANETARIA' : flightSpeed < 300 ? 'SISTEMA SOLAR' : flightSpeed < 8000 ? 'GALÁCTICA' : 'HIPERGALÁCTICA';
+  const gearSteps = [1, 60, 3000, 40000];
+  const currentGearIndex = gearSteps.reduce(
+    (best, value, index) => Math.abs(value - flightSpeed) < Math.abs(gearSteps[best] - flightSpeed) ? index : best,
+    0,
+  );
+  const holdFlightKey = (event, key) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    onFlightKey?.(key, true);
+  };
+  const releaseFlightKey = (key) => onFlightKey?.(key, false);
   // Contextual 3D Astronomical Object Inspector
   let objectCard = null;
   if (selectedObject?.kind === 'spherex') {
@@ -222,12 +233,25 @@ export default function SpaceshipCockpit({
             <small>VELOCIDAD DE VUELO</small>
             <strong>{consoleProjection?.speed?.toFixed?.(1) ?? '0.0'} <i>u/s</i></strong>
             <span>MARCHA · {flightGear}</span>
+            <div className="kronoxFreeHelmGearControls">
+              <button type="button" aria-label="Reducir marcha" disabled={currentGearIndex === 0} onClick={() => onSpeedPreset?.(gearSteps[Math.max(0, currentGearIndex - 1)])}>−</button>
+              <button type="button" aria-label="Aumentar marcha" disabled={currentGearIndex === gearSteps.length - 1} onClick={() => onSpeedPreset?.(gearSteps[Math.min(gearSteps.length - 1, currentGearIndex + 1)])}>+</button>
+            </div>
+            <div className="kronoxFreeHelmThrusters">
+              <button type="button" onPointerDown={(event) => holdFlightKey(event, 'w')} onPointerUp={() => releaseFlightKey('w')} onPointerCancel={() => releaseFlightKey('w')} onLostPointerCapture={() => releaseFlightKey('w')}>▲ PROPULSIÓN</button>
+              <button type="button" onPointerDown={(event) => holdFlightKey(event, 's')} onPointerUp={() => releaseFlightKey('s')} onPointerCancel={() => releaseFlightKey('s')} onLostPointerCapture={() => releaseFlightKey('s')}>▼ REVERSA</button>
+            </div>
           </aside>
           <aside className="kronoxFreeHelmSidePanel right">
             <small>ACELERACIÓN / INERCIA</small>
             <strong>{consoleProjection?.inertia?.toFixed?.(2) ?? '0.00'} <i>u/s²</i></strong>
             <span>RUMBO · {consoleProjection?.heading ?? 0}°</span>
             <span>INCLINACIÓN · {consoleProjection?.pitch ?? 0}°</span>
+            <div className="kronoxFreeHelmThrusters kronoxFreeHelmSteering">
+              <button type="button" aria-label="Girar a la izquierda" onPointerDown={(event) => holdFlightKey(event, 'a')} onPointerUp={() => releaseFlightKey('a')} onPointerCancel={() => releaseFlightKey('a')} onLostPointerCapture={() => releaseFlightKey('a')}>← RUMBO</button>
+              <button type="button" aria-label="Girar a la derecha" onPointerDown={(event) => holdFlightKey(event, 'd')} onPointerUp={() => releaseFlightKey('d')} onPointerCancel={() => releaseFlightKey('d')} onLostPointerCapture={() => releaseFlightKey('d')}>RUMBO →</button>
+              <button type="button" className="boost" onPointerDown={(event) => holdFlightKey(event, 'shift')} onPointerUp={() => releaseFlightKey('shift')} onPointerCancel={() => releaseFlightKey('shift')} onLostPointerCapture={() => releaseFlightKey('shift')}>IMPULSO ×5</button>
+            </div>
           </aside>
         </div>
       )}
