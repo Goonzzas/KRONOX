@@ -160,7 +160,7 @@ export default function SpaceshipCockpit({
         </nav>
         {viewMode === 'exterior' && (
           <button type="button" className="kronoxResetExteriorView" onClick={onResetExteriorView}>
-            Restablecer vista
+            Inspeccionar nave
           </button>
         )}
 
@@ -197,9 +197,10 @@ export default function SpaceshipCockpit({
               type="button"
               className="kronoxBridgeSettingsBtn"
               onClick={onOpenSettingsModal}
-              aria-label="Abrir ajustes del simulador"
+              aria-label="Abrir controles de navegación"
             >
-              ⚙
+              <span aria-hidden="true">☷</span>
+              <span>Controles de navegación</span>
             </button>
           )}
         </div>

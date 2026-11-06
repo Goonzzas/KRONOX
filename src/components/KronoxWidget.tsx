@@ -6,11 +6,8 @@ import type { NarrativeMessage } from '../state/kronoxMessages.js';
 
 /**
  * In-World 3D Luminous AI Dialogue & Subtitle HUD (Section 5).
- * Kronox IA is a real 3D luminous energy sphere inside the Three.js cabin scene (no humanoid figure,
- * no separate floating corner chat box). This component renders:
- * 1. A discreet 3D-projected floating state badge near the 3D light entity in the cabin.
- * 2. A contextual cinematic subtitle bar at the bottom of the screen when Kronox IA speaks or guides the astronaut.
- * 3. A secondary collapsible command input bar when the astronaut wants to type a command or question.
+ * Kronox IA remains a luminous sphere in the Three.js scene. This component
+ * provides a compact corner orb, contextual subtitles and a command input.
  */
 type KronoxWidgetProps = {
   narrative: NarrativeMessage | null;
@@ -23,6 +20,7 @@ type KronoxWidgetProps = {
   audioLevels?: number[];
   panelOpen?: boolean;
   dialogueHidden?: boolean;
+  showCornerOrb?: boolean;
   onClose?: () => void;
   onToggleVoice?: () => void;
   onOrbClick?: () => void;
@@ -82,6 +80,7 @@ export default function KronoxWidget({
   history = [],
   aiProjection = null,
   dialogueHidden = false,
+  showCornerOrb = false,
   onMessageComplete,
   onEndGuide,
 }: KronoxWidgetProps) {
@@ -170,28 +169,32 @@ export default function KronoxWidget({
 
   return (
     <>
-      {/* 1. 3D-PROJECTED TAG ATTACHED TO THE REAL 3D LUMINOUS ENTITY INSIDE THE CABIN */}
-      {aiProjection?.visible && (
+      {showCornerOrb && (
         <button
           type="button"
-          className={`kronoxInWorldTag ${speaking ? 'speaking' : ''}`}
-          style={{
-            left: `${Math.max(90, Math.min((typeof window !== 'undefined' ? window.innerWidth : 1280) - 90, aiProjection.x || 0))}px`,
-            top: `${Math.max(70, Math.min((typeof window !== 'undefined' ? window.innerHeight : 720) - 140, (aiProjection.y || 0) - 54))}px`,
-          }}
+          className={`kronoxOrb kronoxCornerOrb ${speaking ? 'is-transmitting' : ''}`}
           onClick={onOrbClick}
-          title="Entidad de luz 3D Kronox IA · Haz clic para abrir canal de órdenes"
+          title={panelOpen ? 'Cerrar canal de Kronox IA' : 'Abrir canal de Kronox IA'}
+          aria-label={panelOpen ? 'Cerrar canal de Kronox IA' : 'Abrir canal de Kronox IA'}
+          aria-expanded={Boolean(panelOpen)}
         >
-          <span className="kronoxInWorldPulse" />
-          <strong>KRONOX IA 3D</strong>
-          <small>{resolvedState}</small>
+          <span className="kronoxCore" />
+          <svg className="kronoxGyro" viewBox="0 0 58 58" aria-hidden="true">
+            <ellipse className="gyroRing ringOne" cx="29" cy="29" rx="25" ry="10" />
+            <ellipse className="gyroRing ringTwo" cx="29" cy="29" rx="25" ry="10" />
+            <ellipse className="gyroRing ringThree" cx="29" cy="29" rx="25" ry="10" />
+            <path className="kronoxFourStar" d="M47 9l1.7 4.3L53 15l-4.3 1.7L47 21l-1.7-4.3L41 15l4.3-1.7z" />
+          </svg>
+          <span className="kronoxSpark sparkOne" />
+          <span className="kronoxSpark sparkTwo" />
+          <span className="kronoxSpark sparkThree" />
         </button>
       )}
 
       {/* 2. DISCRETE CINEMATIC SUBTITLE BAR LINKED TO KRONOX IA */}
       {narrative && !dialogueHidden && subtitlesEnabled && Boolean(typed && typed.trim().length > 0) && (
       <div
-        className={`kronoxDialogueCard ${aiProjection?.visible && (aiProjection.x || 0) > window.innerWidth / 2 ? 'left' : 'right'} ${speaking ? 'is-speaking' : ''} ${panelOpen ? 'expanded' : 'compact'}`}
+        className={`kronoxDialogueCard right ${speaking ? 'is-speaking' : ''} ${panelOpen ? 'expanded' : 'compact'}`}
         role="region"
         aria-label={t('Diálogo contextual de la entidad luminosa Kronox IA', language)}
       >

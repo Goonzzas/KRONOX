@@ -680,6 +680,18 @@ export default function App() {
       gal: 'Movimiento galáctico',
     },
     startTravel = (run, label, afterArrival, awaitSceneArrival = false) => {
+      // Travel was previously triggered while the astronaut remained in the
+      // cabin or the ship was in spectator mode, so the route ran off-screen.
+      // Every fast-travel path now begins from the visible, controllable chase view.
+      if (spec) {
+        A().board();
+        setSpec(false);
+      } else if (!fr) {
+        A().free(true, false);
+      }
+      setFr(true);
+      setPv(3);
+      A().view(3);
       playCue('travel');
       setNavigation({ label: t(label, language), phase: 'countdown', progress: 0 });
       clearTimeout(missionTravelTipTimer.current);
@@ -969,11 +981,11 @@ export default function App() {
     open &&
       h(
         'div',
-        { className: 'pn panelOpen kronoxSecondarySettingsModal', role: 'dialog', 'aria-label': 'Ajustes del simulador' },
+        { className: 'pn panelOpen kronoxSecondarySettingsModal', role: 'dialog', 'aria-label': 'Interfaz de navegación' },
         h(
           'div',
           { className: 'panelHeading' },
-          h('h1', null, 'Ajustes y Simulación 3D'),
+          h('h1', null, 'Interfaz de navegación'),
           h('button', { onClick: () => setOpen(false) }, 'Cerrar ×'),
         ),
         h(
@@ -1631,6 +1643,7 @@ export default function App() {
     h(KronoxWidget, {
       narrative: guide,
       dialogueHidden: kronoxDialogHidden,
+      showCornerOrb: fr && !welcomeOpen && !realTimeIntroActive,
       speaking,
       audioLevels,
       panelOpen: kronoxOpen,
@@ -1728,7 +1741,7 @@ export default function App() {
     }),
     h(MobileFlightControls, {
       language,
-      active: deviceMode === 'mobile' && fr && pv !== 3,
+      active: deviceMode === 'mobile' && fr && pv === 3,
       api: A,
       speed: fv,
       onSpeedChange: (value) => {
@@ -1950,7 +1963,7 @@ export default function App() {
           A().walkAstronautToStation?.(stId);
         },
         viewMode: !fr ? 'navigation' : pv == 1 ? 'cockpit' : 'exterior',
-        onResetExteriorView: () => A().resetExteriorView?.(),
+        onResetExteriorView: () => A().inspectExterior?.(),
         onChangeViewMode: (nextMode) => {
           if (nextMode === 'cockpit') {
             if (spec) {
@@ -2040,7 +2053,10 @@ export default function App() {
             setPv(1);
           });
         },
-        onOpenSettingsModal: () => setOpen((prev) => !prev),
+        onOpenSettingsModal: () => {
+          setMenuSection('spaceship');
+          setOpen((prev) => !prev);
+        },
         onDispatchSceneEvent: (ev, payload) => {
           const next = A().dispatchSceneEvent?.(ev, payload);
           if (next) setDirectorState({ ...next });

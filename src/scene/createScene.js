@@ -2314,6 +2314,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     };
   }
   function tripTo(target, clearance, name, b, onArrive, respectSpeed = false) {
+    // A route must always use the controllable chase camera, even if the user
+    // started it while inspecting the ship from the outside.
+    if (exteriorCameraMode) leaveExteriorCamera(true);
     const motionFactor = S.reducedMotion?.() ? 0.45 : 1;
     const from = sp.clone(),
       away = from.clone().sub(target);
@@ -3019,6 +3022,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     S.f(null);
   }
   function jump(k) {
+    if (exteriorCameraMode) leaveExteriorCamera(true);
     if (!free) {
       setFree(true);
       S.fr(true);
@@ -3042,6 +3046,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     shipSz = shipScale();
     fs = [3000, 300, 30][k];
     S.fv(fs);
+  }
+  function inspectExterior() {
+    if (!free) {
+      setFree(true, false);
+      S.fr(true);
+    }
+    pv = 3;
+    enterExteriorCamera();
+    resetExteriorCamera();
   }
   let speedNoticeTimer;
   let pointerClickStart = null;
@@ -4353,19 +4366,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (R.domElement.parentNode === el) el.removeChild(R.domElement);
     },
     view: (v) => {
-      if (v == 3) {
-        pv = 3;
-        enterExteriorCamera();
-        cam.fov = fovBase;
-        cam.updateProjectionMatrix();
-        GU.uH.value = (innerHeight * R.getPixelRatio()) / (2 * Math.tan((cam.fov * Math.PI) / 360));
-        resetExteriorCamera();
-        return;
-      }
-      const wasExteriorInspection = exteriorCameraMode;
-      if (wasExteriorInspection) leaveExteriorCamera(true);
-      pv = v;
-      cam.fov = v == 1 ? Math.min(fovBase, 42) : fovBase;
+    const wasExteriorInspection = exteriorCameraMode;
+    if (wasExteriorInspection) leaveExteriorCamera(true);
+    pv = v;
+    // In the compressed astronomical map the physical 120 m vessel is far
+    // smaller than the cabin's default near plane (0.05 units). Keep the
+    // chase view close enough to render the ship, then restore cabin clipping.
+    cam.near = v == 3 ? Math.max(1e-8, shipScale() * 0.03) : 0.05;
+    cam.fov = v == 1 ? Math.min(fovBase, 42) : fovBase;
       cam.updateProjectionMatrix();
       GU.uH.value = (innerHeight * R.getPixelRatio()) / (2 * Math.tan((cam.fov * Math.PI) / 360));
       if (free && !wasExteriorInspection) {
@@ -4378,6 +4386,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
     },
     resetExteriorView: resetExteriorCamera,
+    inspectExterior,
     isExteriorInspection: () => exteriorCameraMode,
     speed: (v) => {
       fs = Math.max(0.01, Math.min(5e4, v));
