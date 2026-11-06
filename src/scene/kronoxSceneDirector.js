@@ -331,7 +331,7 @@ export function createKronoxSceneDirector({
         luminousAI.setTargetPosition(new THREE.Vector3(0.95, 1.72, -4.2), 'Acompañamiento');
         luminousAI.pointAtWorldPosition(null, false);
         narrateSynced(
-          'Sistemas ambientales del puente en línea (escala 1 unidad = 1 metro). Camina con WASD hacia cualquier consola física para operar la nave.',
+          'El puente está listo. Camina con WASD hacia cualquier consola para operar la nave.',
           'Acompañamiento',
           null,
         );
@@ -397,7 +397,7 @@ export function createKronoxSceneDirector({
             ?.updateScreen(`DESTINO FIJADO: ${tgt.name.toUpperCase()}`);
         }
         narrateSynced(
-          `Coordenadas de ${tgt.name} (RA ${tgt.ra.toFixed(3)}°, Dec ${tgt.dec.toFixed(3)}°) bloqueadas en el computador de vuelo. Iniciando secuencia de propulsión.`,
+          `He fijado el destino ${tgt.name} en el computador de vuelo. Iniciando la secuencia de propulsión.`,
           'Señalización',
           'nav',
         );
@@ -423,7 +423,7 @@ export function createKronoxSceneDirector({
         };
         luminousAI.setTargetPosition(new THREE.Vector3(1.2, 1.75, -5.2), 'Desplazamiento');
         narrateSynced(
-          `Propulsores iónicos encendidos. Observa cómo la nave KRONOX de 120 metros alinea su vector y se desplaza hacia ${tgtName} (interpolación espacial suavizada sp.lerpVectors en unidades de mapa galáctico).`,
+          `Propulsores iónicos encendidos. Observa cómo la nave KRONOX alinea su rumbo y se desplaza hacia ${tgtName}.`,
           'Desplazamiento',
           'nav',
         );
@@ -433,7 +433,7 @@ export function createKronoxSceneDirector({
       case 'EXTERIOR_CAMERA_REQUESTED': {
         setControlMode(KRONOX_CONTROL_MODES.EXTERIOR_FLIGHT);
         narrateSynced(
-          `Cámara exterior del casco activa (${SHIP_WORLD_UNITS.SHIP_LENGTH_METERS} metros de eslora). Los motores responden al régimen de velocidad de crucero del simulador.`,
+          'Vista exterior activada. Puedes orbitar alrededor de la nave y contemplar sus propulsores.',
           'Acompañamiento',
           null,
         );
@@ -448,7 +448,7 @@ export function createKronoxSceneDirector({
           shipState.confirmedDestination?.name ||
           'el sistema estelar';
         narrateSynced(
-          `Tránsito interestelar en curso hacia ${tgtName}. Desplazamiento visual simulado en el mapa galáctico 3D hacia sus coordenadas ICRS J2025.8.`,
+          `Tránsito interestelar en curso hacia ${tgtName}. Te avisaré cuando lleguemos.`,
           'Desplazamiento',
           'windows',
         );

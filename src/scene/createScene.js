@@ -2075,12 +2075,151 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     nearKey = null,
     activeMissionKey = null,
     nearbyMapState = null,
+    exteriorCameraMode = false,
+    exteriorCameraSavedState = null,
+    exteriorCameraTransition = null,
+    exteriorLastShipPosition = new THREE.Vector3(),
     nearbySelectedKey = 'milky-way',
     nearbyMapRotation = 0;
   const nearbyRaycaster = new THREE.Raycaster();
   const nearbyPointer = new THREE.Vector2();
   const nearbyMarkerWorld = new THREE.Vector3();
   let nearbyPointerStart = null;
+
+  function collectExteriorShipBounds() {
+    ship.updateWorldMatrix(true, true);
+    const ignored = new Set((FL || []).flatMap(({ c, k, g }) => [c, k, g]));
+    const boundsRoot = new THREE.Group();
+    ship.traverse((object) => {
+      if (!object.isMesh || !object.geometry || ignored.has(object) || !object.visible) return;
+      const proxy = object.clone(false);
+      proxy.matrixAutoUpdate = false;
+      proxy.matrix.copy(object.matrixWorld);
+      boundsRoot.add(proxy);
+    });
+    boundsRoot.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(boundsRoot);
+    if (box.isEmpty()) box.setFromObject(ship);
+    const sphere = box.getBoundingSphere(new THREE.Sphere());
+    return { box, sphere, size: box.getSize(new THREE.Vector3()), center: box.getCenter(new THREE.Vector3()) };
+  }
+
+  function exteriorCameraPose() {
+    const { box, sphere, size, center } = collectExteriorShipBounds();
+    const aspect = Math.max(0.1, cam.aspect || innerWidth / innerHeight);
+    const fovV = THREE.MathUtils.degToRad(cam.fov);
+    const fovH = 2 * Math.atan(Math.tan(fovV / 2) * aspect);
+    const azimuths = [40, 25, 55, 70, 10, 85, ...Array.from({ length: 24 }, (_, i) => i * 15)];
+    const elevations = [18, 18, 18, 18, 18, 18, ...Array(24).fill(18)];
+    azimuths.push(...Array.from({ length: 24 }, (_, i) => i * 15));
+    elevations.push(...Array(24).fill(33));
+    const raycaster = new THREE.Raycaster();
+    raycaster.camera = cam;
+    const planetRoots = B.map((body) => body.pivot).filter((root) => root?.visible);
+    for (let index = 0; index < azimuths.length; index++) {
+      const az = THREE.MathUtils.degToRad(azimuths[index]);
+      const el = THREE.MathUtils.degToRad(elevations[index]);
+      const outward = new THREE.Vector3(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az))
+        .applyQuaternion(ship.quaternion)
+        .normalize();
+      const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), outward).normalize();
+      const up = new THREE.Vector3().crossVectors(outward, right).normalize();
+      const projectedWidth = (Math.abs(right.x) * size.x + Math.abs(right.y) * size.y + Math.abs(right.z) * size.z) / 2;
+      const projectedHeight = (Math.abs(up.x) * size.x + Math.abs(up.y) * size.y + Math.abs(up.z) * size.z) / 2;
+      const projectedDepth = (Math.abs(outward.x) * size.x + Math.abs(outward.y) * size.y + Math.abs(outward.z) * size.z) / 2;
+      const distance = Math.max(
+        (projectedHeight / Math.tan(fovV / 2)) + projectedDepth,
+        (projectedWidth / Math.tan(fovH / 2)) + projectedDepth,
+        sphere.radius / Math.sin(Math.min(fovV, fovH) / 2),
+      ) * 1.32;
+      const position = center.clone().addScaledVector(outward, distance);
+      const cameraInsidePlanet = B.some((body) => {
+        const planetCenter = body.pivot.getWorldPosition(new THREE.Vector3());
+        return position.distanceTo(planetCenter) < (body.r || 0);
+      });
+      if (cameraInsidePlanet) continue;
+      const samplePoints = [center];
+      for (let corner = 0; corner < 8; corner++) {
+        samplePoints.push(new THREE.Vector3(
+          corner & 1 ? box.max.x : box.min.x,
+          corner & 2 ? box.max.y : box.min.y,
+          corner & 4 ? box.max.z : box.min.z,
+        ));
+      }
+      const planetOccludes = samplePoints.some((point) => {
+        const towardPoint = point.clone().sub(position);
+        const targetDistance = towardPoint.length();
+        raycaster.set(position, towardPoint.normalize());
+        raycaster.near = 0;
+        raycaster.far = Math.max(0, targetDistance - 1e-5);
+        return raycaster.intersectObjects(planetRoots, true).some((hit) => hit.distance < raycaster.far);
+      });
+      if (!planetOccludes) return { position, target: center, distance, sphere, box };
+    }
+    const fallbackDirection = new THREE.Vector3(0.64, 0.31, 0.7).normalize().applyQuaternion(ship.quaternion);
+    const distance = Math.max(sphere.radius * 3.2, 0.01);
+    return { position: center.clone().addScaledVector(fallbackDirection, distance), target: center, distance, sphere, box };
+  }
+
+  function resetExteriorCamera() {
+    if (!exteriorCameraMode) return;
+    const pose = exteriorCameraPose();
+    exteriorCameraTransition = {
+      fromPosition: cam.position.clone(),
+      fromTarget: ct.target.clone(),
+      toPosition: pose.position,
+      toTarget: pose.target,
+      elapsed: 0,
+      duration: 1.4,
+    };
+    const originalFar = exteriorCameraSavedState?.far || cam.far;
+    cam.near = Math.max(0.00001, pose.distance * 0.0001);
+    cam.far = Math.max(originalFar, pose.distance * 12);
+    cam.updateProjectionMatrix();
+    ct.minDistance = Math.max(0.00001, pose.sphere.radius * 0.6);
+    ct.maxDistance = Math.max(ct.minDistance * 2, pose.sphere.radius * 4);
+    ct.minPolarAngle = 0.12;
+    ct.maxPolarAngle = Math.PI - 0.12;
+    ct.enabled = false;
+  }
+
+  function leaveExteriorCamera(restorePose = true) {
+    if (!exteriorCameraMode) return;
+    exteriorCameraMode = false;
+    exteriorCameraTransition = null;
+    const saved = exteriorCameraSavedState;
+    exteriorCameraSavedState = null;
+    if (!saved) return;
+    cam.near = saved.near;
+    cam.far = saved.far;
+    cam.fov = saved.fov;
+    cam.updateProjectionMatrix();
+    ct.minDistance = saved.minDistance;
+    ct.maxDistance = saved.maxDistance;
+    ct.minPolarAngle = saved.minPolarAngle;
+    ct.maxPolarAngle = saved.maxPolarAngle;
+    if (restorePose) {
+      cam.position.copy(saved.position);
+      cam.quaternion.copy(saved.quaternion);
+      ct.target.copy(saved.target);
+    }
+    ct.enabled = saved.controlsEnabled;
+  }
+
+  function enterExteriorCamera() {
+    if (!exteriorCameraMode) {
+      exteriorCameraMode = true;
+      exteriorCameraSavedState = {
+        position: cam.position.clone(), quaternion: cam.quaternion.clone(), target: ct.target.clone(),
+        near: cam.near, far: cam.far, fov: cam.fov, minDistance: ct.minDistance, maxDistance: ct.maxDistance,
+        minPolarAngle: ct.minPolarAngle, maxPolarAngle: ct.maxPolarAngle, controlsEnabled: ct.enabled,
+      };
+      exteriorLastShipPosition.copy(sp);
+    }
+    ship.visible = true;
+    ship.position.copy(sp);
+    ship.scale.setScalar(shipSz);
+  }
   function nearbyMap() {
     if (nearbyMapState) return;
     nearbyMapState = {
@@ -2593,6 +2732,74 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let realTimeIntro = null;
   // Guided In-World Tour State (Section 6)
   let guidedTourState = null;
+  const tourNarratives = {
+    nav: 'Esta es la consola de navegación. Desde aquí podemos seleccionar los destinos de nuestra exploración.',
+    science: 'Aquí comienza la investigación SPHEREx. Explora una observación real y compara sus épocas infrarrojas.',
+    missions: 'En la consola de misiones puedes revisar y elegir objetivos para la expedición.',
+    comms: 'Esta consola abre el canal de comunicaciones de la nave.',
+    windows: 'El mirador panorámico permite observar el sistema desde la nave.',
+  };
+
+  function setTourStep(step, stationId = null) {
+    if (!guidedTourState || guidedTourState.step === 'free') return;
+    guidedTourState.step = step;
+    guidedTourState.focus = stationId;
+    guidedTourState.proximityAnnounced = false;
+    S.onGuideStateChange?.({ step, stationId, active: true });
+    const objectives = {
+      bridge: 'OBJETIVO: Explora el puente de mando. Muévete libremente con WASD.',
+      nav: 'OBJETIVO: Acércate a la consola de navegación y úsala con E.',
+      science: 'OBJETIVO: En SPHEREx, abre una observación y cambia de etapa o registra un hallazgo.',
+      missions: 'OBJETIVO: Interactúa con la consola de misiones.',
+      comms: 'OBJETIVO: Interactúa con la consola de comunicaciones.',
+      windows: 'OBJETIVO: Acércate al mirador o interactúa con él.',
+    };
+    if (objectives[step]) S.onGuideObjective?.(objectives[step]);
+    if (stationId) {
+      const station = PHYSICAL_CABIN_STATIONS.find((item) => item.id === stationId);
+      if (station) {
+        luminousAI.setTargetPosition(station.aiHoverPos, 'Señalización');
+        luminousAI.pointAtWorldPosition(station.consolePos, true);
+      }
+    }
+  }
+
+  function onGuidedStationInteraction(stationId) {
+    if (!guidedTourState || guidedTourState.step === 'free' || !stationId) return;
+    const expected = guidedTourState.focus;
+    if (stationId !== expected) return;
+    if (stationId === 'nav') {
+      S.onAiTourNarrative?.('Perfecto. Ahora seleccionemos nuestro primer destino.', 'Confirmación', 'nav');
+      setTourStep('science', 'science');
+    } else if (stationId === 'science') {
+      // The scientific step completes only after the mission UI reports a real user action.
+      guidedTourState.scienceInteracted = true;
+    } else if (stationId === 'missions') {
+      setTourStep('comms', 'comms');
+    } else if (stationId === 'comms') {
+      setTourStep('windows', 'windows');
+    } else if (stationId === 'windows') {
+      S.onAiTourNarrative?.('Recorrido completado. La cabina queda en modo de exploración libre.', 'Acompañamiento', 'windows');
+      guidedTourState.step = 'free';
+      guidedTourState.focus = null;
+      aiFollowAstronaut = true;
+      luminousAI.pointAtWorldPosition(null, false);
+      S.onGuideStateChange?.({ step: 'free', stationId: null, active: false });
+    }
+  }
+
+  function onGuidedScienceAction() {
+    if (guidedTourState?.step !== 'science' || !guidedTourState.scienceInteracted) return;
+    setTourStep('missions', 'missions');
+  }
+
+  function endGuidedCabinTour() {
+    if (!guidedTourState) return;
+    guidedTourState = null;
+    aiFollowAstronaut = true;
+    luminousAI.pointAtWorldPosition(null, false);
+    S.onGuideStateChange?.({ step: 'free', stationId: null, active: false });
+  }
 
   function startRealTimeIntroSequence(onCompleteCallback) {
     // Cancel any incompatible active sequences so two sequences never run simultaneously (Section 4)
@@ -2651,23 +2858,31 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
   function startGuidedCabinTour() {
     guidedTourState = {
-      step: 0,
-      timer: 0,
+      step: 'welcome',
+      focus: null,
+      proximityAnnounced: false,
+      scienceInteracted: false,
     };
     aiFollowAstronaut = false;
-    const navSt = PHYSICAL_CABIN_STATIONS[0];
-    luminousAI.setTargetPosition(navSt.aiHoverPos, 'Desplazamiento');
-    luminousAI.pointAtWorldPosition(navSt.consolePos, true);
-    S.onAiTourNarrative?.(
-      'Bienvenido a bordo, astronauta. Soy Kronox, la inteligencia luminosa de esta expedición. Camina con WASD o sígueme hacia la Consola de Navegación en proa.',
-      'Explicación',
-      'nav',
+    S.onGuideStateChange?.({ step: 'welcome', stationId: null, active: true });
+    guidedTourState.welcomeMessageId = S.onAiTourNarrative?.(
+      'Bienvenido a bordo de la nave KRONOX. Soy tu asistente de exploración. Te acompañaré durante esta misión y te ayudaré a descubrir los instrumentos de la nave.',
+      'Bienvenida',
+      null,
     );
   }
+
+  function onGuidedNarrativeComplete(messageId) {
+    if (guidedTourState?.step === 'welcome' && messageId === guidedTourState.welcomeMessageId) {
+      setTourStep('bridge', null);
+      S.onGuideObjective?.('OBJETIVO: Explora el puente de mando. Muévete libremente con WASD.');
+    }
+  }
   function setFree(on, launchFromEarth = false) {
+    if (!on && exteriorCameraMode) leaveExteriorCamera(true);
     spectator = false;
     free = on;
-    ct.enabled = !on;
+    ct.enabled = !on && !exteriorCameraMode;
     if (on) {
       foc = null;
       S.f(null);
@@ -2738,6 +2953,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
   }
   function spectate() {
+    leaveExteriorCamera(false);
     let q;
     if (free) q = ship.quaternion.clone();
     else {
@@ -2832,7 +3048,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const onPointerDown = (e) => {
     pointerClickStart = { x: e.clientX, y: e.clientY };
     if (nearbyMapState) nearbyPointerStart = { x: e.clientX, y: e.clientY };
-    if (free) {
+    if (free && !exteriorCameraMode) {
       drag = 1;
       dom.setPointerCapture(e.pointerId);
     }
@@ -2934,7 +3150,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
   };
   const onPointerMove = (e) => {
-    if (free && drag && !launchSequence && !launchCameraBlend && !realTimeIntro) {
+    if (free && !exteriorCameraMode && drag && !launchSequence && !launchCameraBlend && !realTimeIntro) {
       if (pv == 1) {
         // Suavizado cinemático de rotación de cabeza/casco de astronauta
         targetYaw -= e.movementX * 0.0024;
@@ -2948,7 +3164,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
   };
   const onWheel = (e) => {
-    if (free) {
+    if (free && !exteriorCameraMode) {
       e.preventDefault();
       if (pv == 3) {
         shipZoom = Math.max(0.1, Math.min(100, shipZoom * (e.deltaY < 0 ? 0.8 : 1.25)));
@@ -2989,6 +3205,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     cam.aspect = innerWidth / innerHeight;
     cam.updateProjectionMatrix();
     GU.uH.value = (innerHeight * R.getPixelRatio()) / (2 * Math.tan((cam.fov * Math.PI) / 360));
+    if (exteriorCameraMode) resetExteriorCamera();
   };
   dom.addEventListener('pointerdown', onPointerDown);
   dom.addEventListener('pointerup', onPointerUp);
@@ -3142,7 +3359,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
       const inHabitableCabin = pv == 1 && !realTimeIntro && !launchSequence && !launchCameraBlend;
       const ok = ti >= 5 && !inHabitableCabin,
-        mx = ok ? mv.x || (O.au ? 1 : 0) : 0,
+        mx = ok && !exteriorCameraMode ? mv.x || (O.au ? 1 : 0) : 0,
         f = new V(0, 0, -1).applyQuaternion(q),
         r = new V(1, 0, 0).applyQuaternion(q),
         bs = fs * (keys.shift ? 5 : 1);
@@ -3172,7 +3389,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           ti = 4.1;
           S.intro(false);
         }
-      } else if (!inHabitableCabin) {
+      } else if (!inHabitableCabin && !exteriorCameraMode) {
         vel.lerp(
           f
             .multiplyScalar(mx * bs)
@@ -3181,6 +3398,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           1 - Math.exp(-dt * (O.in ? 1.2 : 14)),
         );
         sp.addScaledVector(vel, dt);
+      } else if (exteriorCameraMode && !nav) {
+        vel.multiplyScalar(Math.exp(-dt * 8));
       } else if (!nav) {
         vel.multiplyScalar(Math.exp(-dt * 8));
       }
@@ -3329,7 +3548,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             luminousAI.setTargetPosition(new V(0.85, 1.68, -3.8), 'Comunicación');
             S.onIntroStageChange?.(
               'activacion',
-              'Perspectiva del astronauta (1.75 m) activa. La entidad luminosa Kronox IA se aproxima para iniciar la expedición.',
+              'Ya estás en la cabina. Kronox IA se acerca para comenzar la expedición contigo.',
             );
           }
           const eyeLocal = new V(
@@ -3529,39 +3748,25 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               : null,
           );
         }
-        cabinSystem.updateStations(clk.elapsedTime, nearId, activeCabinStation);
+        if (guidedTourState && guidedTourState.step === 'bridge' && nearId === 'nav') {
+          setTourStep('nav', 'nav');
+          S.onGuideObjective?.('OBJETIVO: Acércate a la consola de navegación y úsala con E.');
+        }
+        if (guidedTourState?.focus && nearId === guidedTourState.focus && !guidedTourState.proximityAnnounced) {
+          guidedTourState.proximityAnnounced = true;
+          S.onAiTourNarrative?.(tourNarratives[guidedTourState.focus], 'Explicación', guidedTourState.focus);
+        }
+        cabinSystem.updateStations(
+          clk.elapsedTime,
+          guidedTourState?.focus ? (nearId === guidedTourState.focus ? nearId : null) : nearId,
+          guidedTourState?.focus ? (activeCabinStation === guidedTourState.focus ? activeCabinStation : null) : activeCabinStation,
+          guidedTourState?.focus || null,
+        );
 
-        // Recorrido guiado inicial de Kronox IA por la cabina (Sección 6)
-        if (guidedTourState) {
-          guidedTourState.timer += dt;
-          if (guidedTourState.step === 0 && (nearId === 'nav' || guidedTourState.timer > 7.5)) {
-            guidedTourState.step = 1;
-            guidedTourState.timer = 0;
-            const sciSt = PHYSICAL_CABIN_STATIONS.find((s) => s.id === 'science');
-            luminousAI.setTargetPosition(sciSt.aiHoverPos, 'Desplazamiento');
-            luminousAI.pointAtWorldPosition(sciSt.consolePos, true);
-            S.onAiTourNarrative?.(
-              'A babor se encuentra la Consola Científica SPHEREx. Acércate y pulsa [E] o haz clic sobre sus instrumentos para comparar épocas infrarrojas reales.',
-              'Señalización',
-              'science',
-            );
-          } else if (guidedTourState.step === 1 && (nearId === 'science' || guidedTourState.timer > 8.0)) {
-            guidedTourState.step = 2;
-            guidedTourState.timer = 0;
-            const winSt = PHYSICAL_CABIN_STATIONS.find((s) => s.id === 'windows');
-            luminousAI.setTargetPosition(winSt.aiHoverPos, 'Acompañamiento');
-            luminousAI.pointAtWorldPosition(winSt.consolePos, true);
-            S.onAiTourNarrative?.(
-              'Frente a nosotros tienes el Mirador Panorámico de Proa y a estribor la Consola de Misiones. Explora libremente la cabina con WASD o pídeme que te guíe.',
-              'Acompañamiento',
-              'windows',
-            );
-          } else if (guidedTourState.step === 2 && guidedTourState.timer > 7.0) {
-            guidedTourState = null;
-            aiFollowAstronaut = true;
-            luminousAI.pointAtWorldPosition(null, false);
-          }
-        } else if (aiFollowAstronaut) {
+    if (guidedTourState?.step === 'free') {
+          guidedTourState = null;
+        }
+        if (!guidedTourState && aiFollowAstronaut) {
           // Acompañamiento espacial inteligente: la entidad luminosa flota suavemente a estribor o babor adelantada
           // Se desplaza de forma fluida con flotación orgánica y respeta la distancia de conversación (~1.6 m)
           const companionSide = Math.sin(clk.elapsedTime * 0.15) > 0 ? 1.05 : 0.95;
@@ -3631,28 +3836,56 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         }
       } else {
         localCabinWorld.visible = false;
-        cam.quaternion.copy(q);
-        const pilotQuaternion = cam.quaternion.clone(),
-          pilotPosition = sp
-            .clone()
-            .add(
-              new V(0, 0.3, 1)
-                .multiplyScalar(shipOffset() * e * (pv == 3 ? 1 : 0))
-                .applyQuaternion(q),
-            );
-        if (launchSequence) {
-          cam.position.copy(sp).add(launchSequence.cameraOffset);
-          cam.lookAt(sp);
-        } else if (launchCameraBlend) {
-          const blend = launchCameraBlend;
-          blend.elapsed = Math.min(blend.duration, blend.elapsed + dt);
-          const amount = blend.elapsed / blend.duration,
-            eased = amount * amount * (3 - 2 * amount);
-          cam.position.lerpVectors(blend.fromPosition, pilotPosition, eased);
-          cam.quaternion.copy(blend.fromQuaternion).slerp(pilotQuaternion, eased);
-          if (amount >= 1) launchCameraBlend = null;
+        if (exteriorCameraMode) {
+          const shipDelta = sp.clone().sub(exteriorLastShipPosition);
+          if (shipDelta.lengthSq() > 0) {
+            cam.position.add(shipDelta);
+            ct.target.add(shipDelta);
+            if (exteriorCameraTransition) {
+              exteriorCameraTransition.fromPosition.add(shipDelta);
+              exteriorCameraTransition.fromTarget.add(shipDelta);
+              exteriorCameraTransition.toPosition.add(shipDelta);
+              exteriorCameraTransition.toTarget.add(shipDelta);
+            }
+            exteriorLastShipPosition.copy(sp);
+          }
+          if (exteriorCameraTransition) {
+            const transition = exteriorCameraTransition;
+            transition.elapsed = Math.min(transition.duration, transition.elapsed + dt);
+            const amount = transition.elapsed / transition.duration;
+            const eased = amount * amount * (3 - 2 * amount);
+            cam.position.lerpVectors(transition.fromPosition, transition.toPosition, eased);
+            ct.target.lerpVectors(transition.fromTarget, transition.toTarget, eased);
+            cam.lookAt(ct.target);
+            if (amount >= 1) {
+              exteriorCameraTransition = null;
+              ct.enabled = true;
+            }
+          }
         } else {
-          cam.position.copy(pilotPosition);
+          cam.quaternion.copy(q);
+          const pilotQuaternion = cam.quaternion.clone(),
+            pilotPosition = sp
+              .clone()
+              .add(
+                new V(0, 0.3, 1)
+                  .multiplyScalar(shipOffset() * e * (pv == 3 ? 1 : 0))
+                  .applyQuaternion(q),
+              );
+          if (launchSequence) {
+            cam.position.copy(sp).add(launchSequence.cameraOffset);
+            cam.lookAt(sp);
+          } else if (launchCameraBlend) {
+            const blend = launchCameraBlend;
+            blend.elapsed = Math.min(blend.duration, blend.elapsed + dt);
+            const amount = blend.elapsed / blend.duration,
+              eased = amount * amount * (3 - 2 * amount);
+            cam.position.lerpVectors(blend.fromPosition, pilotPosition, eased);
+            cam.quaternion.copy(blend.fromQuaternion).slerp(pilotQuaternion, eased);
+            if (amount >= 1) launchCameraBlend = null;
+          } else {
+            cam.position.copy(pilotPosition);
+          }
         }
         }
       }
@@ -3665,7 +3898,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         ship.visible =
           !!launchSequence ||
           (!!launchCameraBlend && pv == 1) ||
-          (pv == 3 && kk > 0.02 && !(nav && nav.long && nav.phase === 'transit'));
+          (pv == 3 && (exteriorCameraMode || (kk > 0.02 && !(nav && nav.long && nav.phase === 'transit'))));
       }
       ship.position.copy(sp);
       ship.scale.setScalar(sz);
@@ -3887,7 +4120,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       ct.target.lerpVectors(tw.t0, tw.t1, e);
       if (tw.k >= 1) tw = null;
     }
-    if (!free) ct.update();
+    if (!free || exteriorCameraMode) ct.update();
     R.render(sc, cam);
   }
   tick();
@@ -3924,6 +4157,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     startRealTimeIntro: startRealTimeIntroSequence,
     skipRealTimeIntro: skipRealTimeIntroSequence,
     startGuidedTour: startGuidedCabinTour,
+    onGuidedNarrativeComplete,
+    onGuidedStationInteraction,
+    onGuidedScienceAction,
+    endGuidedCabinTour,
     setCabinFirstPerson: (firstPerson) => {
       cabinFirstPerson = Boolean(firstPerson);
       if (!free) {
@@ -4116,11 +4353,22 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (R.domElement.parentNode === el) el.removeChild(R.domElement);
     },
     view: (v) => {
+      if (v == 3) {
+        pv = 3;
+        enterExteriorCamera();
+        cam.fov = fovBase;
+        cam.updateProjectionMatrix();
+        GU.uH.value = (innerHeight * R.getPixelRatio()) / (2 * Math.tan((cam.fov * Math.PI) / 360));
+        resetExteriorCamera();
+        return;
+      }
+      const wasExteriorInspection = exteriorCameraMode;
+      if (wasExteriorInspection) leaveExteriorCamera(true);
       pv = v;
       cam.fov = v == 1 ? Math.min(fovBase, 42) : fovBase;
       cam.updateProjectionMatrix();
       GU.uH.value = (innerHeight * R.getPixelRatio()) / (2 * Math.tan((cam.fov * Math.PI) / 360));
-      if (free) {
+      if (free && !wasExteriorInspection) {
         ship.visible = v == 3;
         const q = ship.quaternion.clone();
         cam.quaternion.copy(q);
@@ -4129,6 +4377,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           .add(new V(0, 0.3, 1).multiplyScalar(shipOffset() * (v == 3 ? 1 : 0)).applyQuaternion(q));
       }
     },
+    resetExteriorView: resetExteriorCamera,
+    isExteriorInspection: () => exteriorCameraMode,
     speed: (v) => {
       fs = Math.max(0.01, Math.min(5e4, v));
       if (nav?.respectSpeed && nav.phase !== 'arrival') {

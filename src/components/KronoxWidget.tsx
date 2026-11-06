@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t } from '../i18n.js';
 import { KRONOX_QUICK_PROMPTS } from '../utils/kronoxAI.js';
 import { KRONOX_LUMINOUS_STATES } from '../scene/habitableShipWorld.js';
+import type { NarrativeMessage } from '../state/kronoxMessages.js';
 
 /**
  * In-World 3D Luminous AI Dialogue & Subtitle HUD (Section 5).
@@ -11,8 +12,52 @@ import { KRONOX_LUMINOUS_STATES } from '../scene/habitableShipWorld.js';
  * 2. A contextual cinematic subtitle bar at the bottom of the screen when Kronox IA speaks or guides the astronaut.
  * 3. A secondary collapsible command input bar when the astronaut wants to type a command or question.
  */
+type KronoxWidgetProps = {
+  narrative: NarrativeMessage | null;
+  language?: string;
+  voice?: boolean;
+  accent?: string;
+  near?: string | null;
+  voiceError?: string;
+  speaking?: boolean;
+  audioLevels?: number[];
+  panelOpen?: boolean;
+  dialogueHidden?: boolean;
+  onClose?: () => void;
+  onToggleVoice?: () => void;
+  onOrbClick?: () => void;
+  onStartMission?: () => void;
+  missionStarting?: boolean;
+  onCommand?: (query: string) => void;
+  onRepeatSpeech?: () => void;
+  onPauseSpeech?: () => void;
+  speechPaused?: boolean;
+  onReplayCinematic?: () => void;
+  aiRole?: string;
+  avatarState?: string;
+  epistemicCategory?: string;
+  history?: Array<{ query: string; actionLabel?: string }>;
+  aiProjection?: { visible?: boolean; x?: number; y?: number; state?: string } | null;
+  onMessageComplete?: (id: string) => void;
+  onEndGuide?: () => void;
+};
+
+const splitIntervention = (text: string, maxLength = 140) => {
+  const pieces: string[] = [];
+  let remaining = text.trim();
+  while (remaining.length > maxLength) {
+    let cut = Math.max(remaining.lastIndexOf('. ', maxLength), remaining.lastIndexOf('! ', maxLength), remaining.lastIndexOf('? ', maxLength));
+    if (cut < 45) cut = remaining.lastIndexOf(' ', maxLength);
+    if (cut < 1) cut = maxLength;
+    pieces.push(remaining.slice(0, cut + (remaining[cut] === '.' || remaining[cut] === '!' || remaining[cut] === '?' ? 1 : 0)).trim());
+    remaining = remaining.slice(cut + 1).trim();
+  }
+  if (remaining) pieces.push(remaining);
+  return pieces;
+};
+
 export default function KronoxWidget({
-  guide,
+  narrative,
   language = 'es',
   voice,
   accent,
@@ -22,9 +67,7 @@ export default function KronoxWidget({
   audioLevels,
   panelOpen,
   onClose,
-  onAccentChange,
   onToggleVoice,
-  onMore,
   onOrbClick,
   onStartMission,
   missionStarting = false,
@@ -38,15 +81,23 @@ export default function KronoxWidget({
   epistemicCategory = 'Comunicación espacial en puente 3D',
   history = [],
   aiProjection = null,
-}) {
+  dialogueHidden = false,
+  onMessageComplete,
+  onEndGuide,
+}: KronoxWidgetProps) {
   const [typed, setTyped] = useState('');
   const [inputQuery, setInputQuery] = useState('');
   const [inputFocused, setInputFocused] = useState(false);
   const [textPaused, setTextPaused] = useState(false);
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
+  const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
+  const [partIndex, setPartIndex] = useState(0);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const interventions = useMemo(() => splitIntervention(narrative?.text || ''), [narrative?.id, narrative?.text]);
+  const intervention = interventions[partIndex] || '';
 
   // Map legacy state strings to the 8 required Spanish states of the 3D luminous entity
-  const stateMap = {
+  const stateMap: Record<string, string> = {
     IDLE: 'Reposo',
     LISTENING: 'Escucha',
     TALKING: 'Comunicación',
@@ -57,20 +108,27 @@ export default function KronoxWidget({
   };
   // Single Unified Source of Truth for Kronox IA's behavior state
   const rawState = aiProjection?.state || avatarState;
-  const resolvedState = inputFocused
-    ? 'Escucha'
-    : speaking && (rawState === 'IDLE' || rawState === 'Reposo')
-      ? 'Comunicación'
-      : stateMap[rawState] || (KRONOX_LUMINOUS_STATES.includes(rawState) ? rawState : 'Acompañamiento');
+  // This label reports behavior only; voice and narrative playback have separate indicators.
+  const resolvedState: string = stateMap[rawState] || (KRONOX_LUMINOUS_STATES.includes(rawState) ? rawState : 'Acompañamiento');
 
   useEffect(() => {
     setTyped('');
     setTextPaused(false);
-  }, [guide]);
+    setPartIndex(0);
+  }, [narrative?.id]);
+
+  useEffect(() => {
+    if (!showVoiceMenu) return undefined;
+    const closeOutside = (event: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setShowVoiceMenu(false);
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    return () => document.removeEventListener('pointerdown', closeOutside);
+  }, [showVoiceMenu]);
 
   useEffect(() => {
     if (textPaused || speechPaused) return undefined;
-    const text = guide || '';
+    const text = intervention;
     if (typed.length >= text.length) return undefined;
     const timer = setInterval(() => {
       setTyped((prev) => {
@@ -79,9 +137,25 @@ export default function KronoxWidget({
       });
     }, 14);
     return () => clearInterval(timer);
-  }, [guide, textPaused, speechPaused, typed.length]);
+  }, [intervention, textPaused, speechPaused, typed.length]);
 
-  const handleSubmit = (event) => {
+  useEffect(() => {
+    if (!narrative || !intervention || typed.length < intervention.length || textPaused || speechPaused) return undefined;
+    if (partIndex < interventions.length - 1) {
+      const timer = window.setTimeout(() => {
+        setPartIndex((index) => index + 1);
+        setTyped('');
+      }, 900);
+      return () => window.clearTimeout(timer);
+    }
+    if (!speaking) {
+      const timer = window.setTimeout(() => onMessageComplete?.(narrative.id), 1500);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [narrative, intervention, interventions.length, partIndex, typed.length, textPaused, speechPaused, speaking, onMessageComplete]);
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const q = inputQuery.trim();
     if (!q || !onCommand) return;
@@ -89,7 +163,7 @@ export default function KronoxWidget({
     onCommand(q);
   };
 
-  const handleQuickPrompt = (query) => {
+  const handleQuickPrompt = (query: string) => {
     if (!onCommand) return;
     onCommand(query);
   };
@@ -102,8 +176,8 @@ export default function KronoxWidget({
           type="button"
           className={`kronoxInWorldTag ${speaking ? 'speaking' : ''}`}
           style={{
-            left: `${Math.max(90, Math.min((typeof window !== 'undefined' ? window.innerWidth : 1280) - 90, aiProjection.x))}px`,
-            top: `${Math.max(70, Math.min((typeof window !== 'undefined' ? window.innerHeight : 720) - 140, aiProjection.y - 54))}px`,
+            left: `${Math.max(90, Math.min((typeof window !== 'undefined' ? window.innerWidth : 1280) - 90, aiProjection.x || 0))}px`,
+            top: `${Math.max(70, Math.min((typeof window !== 'undefined' ? window.innerHeight : 720) - 140, (aiProjection.y || 0) - 54))}px`,
           }}
           onClick={onOrbClick}
           title="Entidad de luz 3D Kronox IA · Haz clic para abrir canal de órdenes"
@@ -115,9 +189,9 @@ export default function KronoxWidget({
       )}
 
       {/* 2. DISCRETE CINEMATIC SUBTITLE BAR LINKED TO KRONOX IA */}
-      {Boolean(typed && typed.trim().length > 0) && (
+      {narrative && !dialogueHidden && subtitlesEnabled && Boolean(typed && typed.trim().length > 0) && (
       <div
-        className={`kronoxSubtitleDock ${speaking ? 'is-speaking' : ''} ${panelOpen ? 'expanded' : 'compact'}`}
+        className={`kronoxDialogueCard ${aiProjection?.visible && (aiProjection.x || 0) > window.innerWidth / 2 ? 'left' : 'right'} ${speaking ? 'is-speaking' : ''} ${panelOpen ? 'expanded' : 'compact'}`}
         role="region"
         aria-label={t('Diálogo contextual de la entidad luminosa Kronox IA', language)}
       >
@@ -130,14 +204,11 @@ export default function KronoxWidget({
           <div className="kronoxSubtitleContent">
             <div className="kronoxSubtitleMeta">
               <span className="kronoxEntityName">KRONOX IA</span>
-              <span className="kronoxStatePill" data-state={resolvedState}>
-                ● {resolvedState}
-              </span>
-              <span className="kronoxEpistemicInline">{epistemicCategory}</span>
+              <span className="kronoxStatePill" data-state={resolvedState}>{resolvedState}</span>
               {speaking && (
                 <div className="kronoxMiniVoiceWave" aria-hidden="true">
                   {Array.from({ length: 8 }, (_, idx) => (
-                    <i key={idx} style={{ '--bar-level': audioLevels?.[idx * 4] ?? 0.1 }} />
+                    <i key={idx} style={{ '--bar-level': audioLevels?.[idx * 4] ?? 0.1 } as React.CSSProperties} />
                   ))}
                 </div>
               )}
@@ -162,7 +233,7 @@ export default function KronoxWidget({
             </button>
 
             {showVoiceMenu && (
-              <div className="kronoxVoiceContextMenu">
+              <div className="kronoxVoiceContextMenu" ref={menuRef}>
                 <button
                   type="button"
                   className="kronoxMenuActionBtn"
@@ -193,6 +264,14 @@ export default function KronoxWidget({
                     Repetir
                   </button>
                 )}
+                <button type="button" className="kronoxMenuActionBtn" onClick={() => setSubtitlesEnabled((value) => !value)}>
+                  {subtitlesEnabled ? 'Desactivar subtítulos' : 'Activar subtítulos'}
+                </button>
+                {onEndGuide && (
+                  <button type="button" className="kronoxMenuActionBtn" onClick={onEndGuide}>
+                    Finalizar recorrido guiado
+                  </button>
+                )}
               </div>
             )}
 
@@ -217,7 +296,7 @@ export default function KronoxWidget({
                 value={inputQuery}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                onChange={(e) => setInputQuery(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInputQuery(e.target.value)}
                 placeholder={
                   language === 'en'
                     ? 'Ask or command Kronox IA (e.g. "Take me to Barnard", "Compare epochs")...'

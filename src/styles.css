@@ -3822,6 +3822,30 @@ small {
 .soundPreference input[type='range'] {
   width: 48%;
 }
+.guideObjectiveHud {
+  position: absolute;
+  z-index: 10;
+  top: calc(18px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: min(330px, calc(100vw - 32px));
+  padding: 11px 14px;
+  border: 1px solid rgba(112, 228, 255, 0.28);
+  border-radius: 14px;
+  color: #eaf8ff;
+  background: rgba(5, 18, 32, 0.88);
+  box-shadow: 0 10px 30px #0007;
+  backdrop-filter: blur(12px);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.guideObjectiveHud > span { color: #8ef1ff; font-size: 20px; }
+.guideObjectiveHud small,
+.guideObjectiveHud b { display: block; }
+.guideObjectiveHud small { color: #8ef1ff; font-size: 9px; letter-spacing: .12em; }
+.guideObjectiveHud b { margin-top: 3px; font-size: 12px; line-height: 1.4; }
 .navigationGuide {
   position: absolute;
   z-index: 11;
@@ -6615,4 +6639,69 @@ small {
   border-color: rgba(110, 234, 255, 0.85) !important;
   background: rgba(14, 116, 144, 0.45) !important;
   color: #fff !important;
+}
+
+/* Narrative appears only while Kronox has something to say; objectives stay in their own HUD. */
+.kronoxDialogueCard {
+  position: fixed;
+  top: max(64px, calc(env(safe-area-inset-top, 0px) + 58px));
+  z-index: 70;
+  width: min(360px, 85vw);
+  max-height: min(42dvh, 260px);
+  overflow: auto;
+  padding: 12px 14px;
+  border: 1px solid rgba(110, 234, 255, 0.3);
+  border-radius: 14px;
+  background: rgba(5, 12, 24, 0.94);
+  color: #eaf7ff;
+  backdrop-filter: blur(12px);
+  animation: kronoxDialogueIn 320ms ease-out both;
+}
+.kronoxDialogueCard.left { left: max(16px, env(safe-area-inset-left, 0px)); }
+.kronoxDialogueCard.right { right: max(16px, env(safe-area-inset-right, 0px)); }
+.kronoxDialogueCard.is-speaking { border-color: rgba(110, 234, 255, 0.66); }
+.kronoxDialogueCard .kronoxSubtitleText {
+  margin: 7px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.kronoxDialogueCard .kronoxSubtitleMainRow { align-items: flex-start; }
+.kronoxDialogueCard .kronoxSubtitleMeta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kronoxDialogueCard .kronoxEpistemicInline { display: none; }
+.kronoxDialogueCard .kronoxSubtitleQuickActions { position: relative; flex: 0 0 auto; }
+.kronoxDialogueCard .kronoxVoiceContextMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 80;
+  width: min(220px, 70vw);
+  padding: 7px;
+  border: 1px solid rgba(110, 234, 255, 0.28);
+  border-radius: 10px;
+  background: #071426;
+}
+.kronoxDialogueCard.left .kronoxVoiceContextMenu { right: auto; left: 0; }
+.kronoxDialogueCard .kronoxSecondaryCommandDrawer { max-height: 35dvh; overflow: auto; }
+.kronoxResetExteriorView {
+  margin: 6px 4px 0;
+  padding: 6px 10px;
+  border: 1px solid rgba(110, 234, 255, 0.38);
+  border-radius: 8px;
+  background: rgba(5, 14, 30, 0.8);
+  color: #dff8ff;
+  cursor: pointer;
+  font-size: 12px;
+}
+@keyframes kronoxDialogueIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 600px) {
+  .kronoxDialogueCard {
+    width: min(85vw, 340px);
+    max-height: 34dvh;
+    padding: 10px 12px;
+  }
+  .kronoxDialogueCard .kronoxSubtitleText { font-size: 13px; }
 }

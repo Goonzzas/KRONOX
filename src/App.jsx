@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { P, INFO } from './data/planetData.js';
 import { setupScene } from './scene/createScene.js';
-import KronoxWidget from './components/KronoxWidget.jsx';
+import KronoxWidget from './components/KronoxWidget.tsx';
 import ToastNotification from './components/ToastNotification.jsx';
 import PlanetInfoModal from './components/PlanetInfoModal.jsx';
 import QuickTravelMenu from './components/QuickTravelMenu.jsx';
@@ -17,7 +17,10 @@ import { loadFindingsFromStorage } from './utils/findingsStorage.js';
 import { detectLanguage, hasSavedLanguage, LANGUAGES, t, voiceLanguage } from './i18n.js';
 import { createGameAudio } from './utils/gameAudio.js';
 import { installFloatingOverlayLayout } from './utils/floatingOverlayLayout.js';
+import { createNarrativeMessage, narrativeQueue } from './state/kronoxMessages.ts';
 import './styles.css';
+
+const completeKronoxNarrative = (id) => narrativeQueue.complete(id);
 
 export default function App() {
   const deviceGuess = () =>
@@ -34,7 +37,6 @@ export default function App() {
     [f, setF] = useState(null),
     [near, setNear] = useState(null),
     [more, setMore] = useState(null),
-    [guide, setGuideState] = useState('A tu lado, explorador. Soy Kronox, tu guía astral.'),
     [language, setLanguageState] = useState(detectLanguage),
     [speaking, setSpeaking] = useState(false),
     [audioLevels, setAudioLevels] = useState(() => Array(48).fill(0)),
@@ -121,6 +123,7 @@ export default function App() {
     [aiProjection, setAiProjection] = useState(null),
     [consoleProjection, setConsoleProjection] = useState(null),
     [directorState, setDirectorState] = useState(null),
+    [guideObjective, setGuideObjective] = useState(''),
     [speechPaused, setSpeechPaused] = useState(false),
     [realTimeIntroActive, setRealTimeIntroActive] = useState(false),
     [realTimeIntroCaption, setRealTimeIntroCaption] = useState(''),
@@ -173,7 +176,18 @@ export default function App() {
     gameAudioRef = useRef(null);
   const languageManuallyChosen = useRef(false);
   const languagePreferenceExists = useRef(hasSavedLanguage());
-  const setGuide = (message) => setGuideState(t(message, language));
+  const missionGuideSyncRef = useRef(null);
+  const guide = useSyncExternalStore(narrativeQueue.subscribe, narrativeQueue.getSnapshot, narrativeQueue.getServerSnapshot);
+  useEffect(() => {
+    if (speechPaused) narrativeQueue.pause();
+    else narrativeQueue.resume();
+  }, [speechPaused]);
+  const setGuide = (message, options = {}) => {
+    if (typeof message !== 'string') throw new TypeError('Narrative channel only accepts text through createNarrativeMessage.');
+    const narrative = createNarrativeMessage(t(message, language), options);
+    narrativeQueue.enqueue(narrative);
+    return narrative;
+  };
   const localizeChildren = (child) =>
     Array.isArray(child)
       ? child.map(localizeChildren)
@@ -185,7 +199,7 @@ export default function App() {
     for (const key of ['aria-label', 'title', 'placeholder', 'alt']) {
       if (typeof nextProps[key] === 'string') nextProps[key] = t(nextProps[key], language);
     }
-    if (nextProps.guide) nextProps.guide = t(nextProps.guide, language);
+    if (nextProps.narrative?.text) nextProps.narrative = { ...nextProps.narrative, text: t(nextProps.narrative.text, language) };
     if (nextProps.voiceError) nextProps.voiceError = t(nextProps.voiceError, language);
     if (typeof type !== 'string') nextProps.language = language;
     return React.createElement(type, nextProps, ...children.map(localizeChildren));
@@ -426,14 +440,6 @@ export default function App() {
     },
     say = (msg) => {
       setGuide(msg);
-      openKronox();
-      if (!voiceRef.current) {
-        clearTimeout(kronoxCloseTimer.current);
-        kronoxCloseTimer.current = setTimeout(
-          () => setKronoxOpen(false),
-          Math.max(3000, msg.length * 22 + 3000),
-        );
-      }
     },
     showNextNotice = () => {
       const item = noticeQueue.current.shift();
@@ -443,8 +449,6 @@ export default function App() {
       }
       noticeRef.current = item;
       setNotice(item);
-      say(item.text);
-      speak(item.text);
       const duration = Math.min(14000, Math.max(6500, item.text.split(/\s+/).length * 380));
       noticeTimer.current = setTimeout(() => {
         setNotice(null);
@@ -477,22 +481,33 @@ export default function App() {
       },
       onStationInteract: (stationId) => {
         setActiveCockpitStation(stationId);
+        A().onGuidedStationInteraction?.(stationId);
         if (stationId === 'comms') {
           kronoxDialogHiddenRef.current = false;
           setKronoxDialogHidden(false);
           setKronoxOpen(true);
+        } else if (stationId === 'science') {
+          setMissionOpen(true);
+        } else if (stationId === 'missions') {
+          setMissionSelectorOpen(true);
         }
       },
       onIntroStageChange: (stageKey, captionText) => {
         setRealTimeIntroActive(true);
         setRealTimeIntroCaption(captionText);
-        setGuide(captionText);
+        say(captionText);
         if (voiceRef.current) speak(captionText);
       },
       onAiTourNarrative: (text, stateName, stationId) => {
         setAiAvatarState(stateName);
-        setGuide(text);
+        const intent = /bienvenida/i.test(stateName) ? 'welcome' : /confirm/i.test(stateName) ? 'confirmation' : /orient/i.test(stateName) ? 'orientation' : 'explanation';
+        const message = setGuide(text, { intent, once: true });
         if (voiceRef.current) speak(text);
+        return message.id;
+      },
+      onGuideObjective: (objective) => setGuideObjective(objective),
+      onGuideStateChange: ({ active, step }) => {
+        if (!active || step === 'free') setGuideObjective('');
       },
       onAiScreenProjection: (proj) => {
         setAiProjection(proj);
@@ -574,11 +589,11 @@ export default function App() {
     try {
       setFr(true);
       setPv(3);
+      if (typeof window !== 'undefined') window.__kronoxSceneApi = api.current;
       api.current.free(true, false);
       api.current.view(3);
-      if (typeof window !== 'undefined') window.__kronoxSceneApi = api.current;
-    } catch {
-      /* ignore */
+    } catch (error) {
+      if (import.meta.env.DEV) console.error('KRONOX scene initialization failed:', error);
     }
     return () => {
       api.current?.dispose?.();
@@ -643,7 +658,7 @@ export default function App() {
       noticeRef.current = null;
       setNotice(null);
       setCountdown(3);
-      setGuide('Preparando viaje rápido hacia ' + t(label, language) + '. Cuenta atrás: 3, 2, 1.');
+      say('Preparando viaje rápido hacia ' + t(label, language) + '. Cuenta atrás: 3, 2, 1.');
       speak('Tres.');
       let n = 3;
       const tick = () => {
@@ -694,7 +709,7 @@ export default function App() {
       setMissionTraveling(true);
       setMissionLaunchTarget(null);
       setMissionArrivalName(target.name);
-      setGuide(
+      say(
         'Destino fijado: ' +
           t(target.name, language) +
           '. Prepararé el salto hasta su posición en el vecindario galáctico.',
@@ -737,7 +752,7 @@ export default function App() {
       setMissionLaunchTarget(null);
       setMissionOpen(true);
       setMissionTargetKey(target.key);
-      setGuide(instruction);
+      say(instruction);
       openKronox();
       speak(instruction);
     },
@@ -865,7 +880,7 @@ export default function App() {
       setAiHistory((prev) => [...prev.slice(-4), { query, actionLabel }]);
       kronoxDialogHiddenRef.current = false;
       setKronoxDialogHidden(false);
-      setGuide(result.reply);
+      say(result.reply);
       setKronoxOpen(true);
       clearTimeout(kronoxCloseTimer.current);
       if (voiceRef.current) speak(result.reply);
@@ -1582,7 +1597,8 @@ export default function App() {
           h('button', { style: { marginTop: 8 }, onClick: () => setMore(pi.n) }, 'Saber más'),
       ),
     h(KronoxWidget, {
-      guide,
+      narrative: guide,
+      dialogueHidden: kronoxDialogHidden,
       speaking,
       audioLevels,
       panelOpen: kronoxOpen,
@@ -1601,6 +1617,14 @@ export default function App() {
       onStartMission: () => setMissionSelectorOpen(true),
       missionStarting: countdown !== null || missionArrival || missionTraveling,
       onCommand: handleKronoxCommand,
+      onMessageComplete: (messageId) => {
+        completeKronoxNarrative(messageId);
+        A().onGuidedNarrativeComplete?.(messageId);
+      },
+      onEndGuide: () => {
+        A().endGuidedCabinTour?.();
+        setGuideObjective('');
+      },
       speechPaused,
       onPauseSpeech: () => {
         setSpeechPaused((prev) => {
@@ -1614,9 +1638,9 @@ export default function App() {
       },
       onRepeatSpeech: () => {
         setSpeechPaused(false);
-        if (guide) {
-          say(guide);
-          if (voiceRef.current) speak(guide);
+        const lastMessage = narrativeQueue.repeat();
+        if (lastMessage) {
+          if (voiceRef.current) speak(lastMessage.text);
         }
       },
       onReplayCinematic: () => {
@@ -1672,7 +1696,7 @@ export default function App() {
     }),
     h(MobileFlightControls, {
       language,
-      active: deviceMode === 'mobile' && fr,
+      active: deviceMode === 'mobile' && fr && pv !== 3,
       api: A,
       speed: fv,
       onSpeedChange: (value) => {
@@ -1734,6 +1758,14 @@ export default function App() {
               style: { transform: `scaleX(${Math.max(0.035, navigation.progress || 0)})` },
             }),
           ),
+        ),
+      ),
+    guideObjective &&
+      h('div', { className: 'guideObjectiveHud', role: 'status', 'aria-live': 'polite' },
+        h('span', { 'aria-hidden': 'true' }, '✦'),
+        h('div', null,
+          h('small', null, language === 'es' ? 'RECORRIDO GUIADO' : 'GUIDED TOUR'),
+          h('b', null, guideObjective),
         ),
       ),
     countdown !== null &&
@@ -1813,6 +1845,12 @@ export default function App() {
           if (stage) setMissionStageSync(stage);
           if (records) setMissionRecordsSync(records);
           if (findings) setMissionFindingsSync(findings);
+          const nextGuideSync = { stage: stage || 'arrival', findingCount: Array.isArray(findings) ? findings.length : 0 };
+          const previousGuideSync = missionGuideSyncRef.current;
+          missionGuideSyncRef.current = nextGuideSync;
+          if (previousGuideSync && (previousGuideSync.stage !== nextGuideSync.stage || previousGuideSync.findingCount < nextGuideSync.findingCount)) {
+            A().onGuidedScienceAction?.();
+          }
           try {
             const prog = {
               targetKey: targetKey || missionTargetKey,
@@ -1880,6 +1918,7 @@ export default function App() {
           A().walkAstronautToStation?.(stId);
         },
         viewMode: !fr ? 'navigation' : pv == 1 ? 'cockpit' : 'exterior',
+        onResetExteriorView: () => A().resetExteriorView?.(),
         onChangeViewMode: (nextMode) => {
           if (nextMode === 'cockpit') {
             if (spec) {

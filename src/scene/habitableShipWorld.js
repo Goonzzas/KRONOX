@@ -981,16 +981,19 @@ export function buildHabitableCabin3D() {
     return best;
   }
 
-  function updateStations(elapsedTime = 0, nearStationId = null, activeStationId = null) {
+  function updateStations(elapsedTime = 0, nearStationId = null, activeStationId = null, guidedTargetId = null) {
     stationMeshes.forEach((entry, idx) => {
       const isNear = entry.id === nearStationId;
       const isActive = entry.id === activeStationId;
+      const isGuidedTarget = entry.id === guidedTargetId;
       const pulse = 0.55 + Math.sin(elapsedTime * 3.2 + idx) * 0.18;
       if (entry.floorRing?.material) {
-        entry.floorRing.material.opacity = isActive ? 0.95 : isNear ? 0.85 : pulse * 0.65;
+        entry.floorRing.material.opacity = guidedTargetId
+          ? isGuidedTarget ? (isActive ? 0.95 : isNear ? 0.85 : pulse * 0.65) : 0.12
+          : isActive ? 0.95 : isNear ? 0.85 : pulse * 0.65;
       }
       if (entry.floorRing) {
-        entry.floorRing.scale.setScalar(isActive || isNear ? 1.08 : 1.0);
+        entry.floorRing.scale.setScalar(isGuidedTarget || (!guidedTargetId && (isActive || isNear)) ? 1.08 : 1.0);
       }
     });
   }

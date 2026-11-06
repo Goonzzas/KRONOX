@@ -24,6 +24,7 @@ export default function SpaceshipCockpit({
   onWalkToStation,
   viewMode = 'cockpit', // 'cockpit' | 'exterior' | 'navigation'
   onChangeViewMode,
+  onResetExteriorView,
   flightSpeed = 1,
   onSpeedPreset,
   selectedObject = null,
@@ -157,6 +158,11 @@ export default function SpaceshipCockpit({
             <span>Cosmos</span>
           </button>
         </nav>
+        {viewMode === 'exterior' && (
+          <button type="button" className="kronoxResetExteriorView" onClick={onResetExteriorView}>
+            Restablecer vista
+          </button>
+        )}
 
         <div className="kronoxCruiseReadout">
           <span
