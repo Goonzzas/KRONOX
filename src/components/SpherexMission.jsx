@@ -531,6 +531,10 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     const token = ++requestRef.current;
     setFrameLoading(true);
     setError('');
+    // Do not leave the previous epoch on screen while this FITS frame loads;
+    // otherwise the selected date changes while the image still looks stale.
+    setImage('');
+    setFrameDiagnostics(null);
 
     loadParsedFrame(record, requestRef, token)
       .then((rendered) => {
