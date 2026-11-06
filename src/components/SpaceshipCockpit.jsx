@@ -49,6 +49,7 @@ export default function SpaceshipCockpit({
 }) {
   // Plotted target in the 3D Navigation Console hologram before confirming propulsion
   const [plottedNavTarget, setPlottedNavTarget] = useState(null);
+  const pilotActive = viewMode === 'exterior' || activeStation === 'nav';
 
   const controlModeLabel =
     directorState?.controlMode === KRONOX_CONTROL_MODES.CINEMATIC_SEQUENCE
@@ -230,20 +231,25 @@ export default function SpaceshipCockpit({
       )}
 
       {/* One pilot interface shared by the physical navigation console and exterior view. */}
-      {(viewMode === 'exterior' || (viewMode === 'cockpit' && activeStation === 'nav')) && (
+      {(viewMode === 'exterior' || viewMode === 'cockpit') && (
         <section className="kronoxPilotConsole" aria-label="Panel central de pilotaje">
           <div className="kronoxPilotConsoleHeader">
-            <span className="kronoxPilotStatusDot" />
+            <span className={`kronoxPilotStatusDot ${pilotActive ? 'active' : 'standby'}`} />
             <div>
               <strong>{language === 'es' ? 'PUESTO DE PILOTAJE' : 'PILOT STATION'}</strong>
-              <small>{viewMode === 'cockpit' ? (language === 'es' ? 'Consola física · control de nave activo' : 'Physical console · ship control active') : (language === 'es' ? 'Control manual · cámara exterior' : 'Manual control · exterior camera')}</small>
+              <small>{viewMode === 'cockpit' ? (pilotActive ? (language === 'es' ? 'Cabina · pilotaje activo' : 'Cabin · piloting active') : (language === 'es' ? 'Cabina · pilotaje en espera' : 'Cabin · piloting on standby')) : (language === 'es' ? 'Control manual · cámara exterior' : 'Manual control · exterior camera')}</small>
             </div>
-            {viewMode === 'cockpit' && (
+            {viewMode === 'cockpit' && pilotActive ? (
               <button type="button" className="kronoxPilotRelease" onClick={onExitPilotStation}>
                 {language === 'es' ? 'Soltar' : 'Release'}
               </button>
-            )}
+            ) : viewMode === 'cockpit' ? (
+              <button type="button" className="kronoxPilotEngage" onClick={() => onSelectStation?.('nav')}>
+                {language === 'es' ? 'Activar pilotaje' : 'Engage pilot'}
+              </button>
+            ) : null}
           </div>
+          {!pilotActive && <p className="kronoxPilotStandbyHint">{language === 'es' ? 'Activa el puesto para controlar la nave desde la cabina.' : 'Engage the station to pilot the ship from the cabin.'}</p>}
           <div className="kronoxPilotConsoleBody">
             <div className="kronoxPilotTelemetry">
               <span>{language === 'es' ? 'VELOCIDAD DE CRUCERO' : 'CRUISE SPEED'}</span>
@@ -260,7 +266,7 @@ export default function SpaceshipCockpit({
                 {[
                   ['w', '↑', 'Avanzar'], ['a', '←', 'Izquierda'], ['s', '↓', 'Retroceder'], ['d', '→', 'Derecha'],
                 ].map(([key, symbol, label]) => (
-                  <button key={key} type="button" aria-label={label}
+                  <button key={key} type="button" aria-label={label} disabled={!pilotActive}
                     onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.(key, true); }}
                     onPointerUp={() => onFlightKey?.(key, false)}
                     onPointerCancel={() => onFlightKey?.(key, false)}
@@ -268,8 +274,8 @@ export default function SpaceshipCockpit({
                 ))}
               </div>
               <div className="kronoxPilotVertical">
-                <button type="button" aria-label="Subir nave" onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.('e', true); }} onPointerUp={() => onFlightKey?.('e', false)} onPointerCancel={() => onFlightKey?.('e', false)} onLostPointerCapture={() => onFlightKey?.('e', false)}>↑ SUBIR</button>
-                <button type="button" aria-label="Bajar nave" onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.('q', true); }} onPointerUp={() => onFlightKey?.('q', false)} onPointerCancel={() => onFlightKey?.('q', false)} onLostPointerCapture={() => onFlightKey?.('q', false)}>↓ BAJAR</button>
+                <button type="button" aria-label="Subir nave" disabled={!pilotActive} onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.('e', true); }} onPointerUp={() => onFlightKey?.('e', false)} onPointerCancel={() => onFlightKey?.('e', false)} onLostPointerCapture={() => onFlightKey?.('e', false)}>↑ SUBIR</button>
+                <button type="button" aria-label="Bajar nave" disabled={!pilotActive} onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.('q', true); }} onPointerUp={() => onFlightKey?.('q', false)} onPointerCancel={() => onFlightKey?.('q', false)} onLostPointerCapture={() => onFlightKey?.('q', false)}>↓ BAJAR</button>
               </div>
             </div>
           </div>

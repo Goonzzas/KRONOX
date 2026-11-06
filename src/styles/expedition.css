@@ -1370,10 +1370,14 @@
 }
 .kronoxPilotConsoleHeader { display: flex; align-items: center; gap: 10px; }
 .kronoxPilotStatusDot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: #48f0ba; box-shadow: 0 0 12px #48f0ba; }
+.kronoxPilotStatusDot.standby { background: #f5b942; box-shadow: 0 0 12px rgba(245,185,66,.72); }
 .kronoxPilotConsoleHeader > div { display: grid; gap: 3px; }
 .kronoxPilotConsoleHeader strong { font-size: 11px; letter-spacing: .16em; color: #bdefff; }
 .kronoxPilotConsoleHeader small { font: 10px system-ui, sans-serif; color: #8daec2; }
 .kronoxPilotRelease { margin-left: auto; padding: 6px 10px; border: 1px solid rgba(148, 163, 184, .28); border-radius: 8px; color: #bed1df; background: rgba(15, 23, 42, .68); cursor: pointer; }
+.kronoxPilotEngage { margin-left: auto; padding: 7px 11px; border: 1px solid rgba(72, 240, 186, .48); border-radius: 8px; color: #c8ffec; background: rgba(12, 94, 76, .42); font-size: 10px; font-weight: 700; cursor: pointer; }
+.kronoxPilotEngage:hover { background: rgba(15, 135, 105, .58); }
+.kronoxPilotStandbyHint { margin: 9px 0 -4px 18px; color: #b2c7d5; font: 11px/1.4 system-ui, sans-serif; }
 .kronoxPilotConsoleBody { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(260px, 1.25fr); gap: 18px; align-items: center; margin-top: 13px; }
 .kronoxPilotTelemetry { min-width: 0; display: grid; gap: 5px; }
 .kronoxPilotTelemetry > span, .kronoxPilotControls > span { color: #86a9c0; font-size: 9px; letter-spacing: .12em; }
@@ -1382,6 +1386,7 @@
 .kronoxPilotSpeedActions { display: flex; gap: 6px; }
 .kronoxPilotSpeedActions button, .kronoxPilotPad button, .kronoxPilotVertical button { min-width: 34px; min-height: 30px; border: 1px solid rgba(92, 194, 229, .27); border-radius: 8px; color: #d9f5ff; background: rgba(16, 43, 64, .74); cursor: pointer; touch-action: none; }
 .kronoxPilotSpeedActions button:hover, .kronoxPilotPad button:hover, .kronoxPilotVertical button:hover { border-color: #67dcff; background: rgba(18, 92, 126, .7); }
+.kronoxPilotPad button:disabled, .kronoxPilotVertical button:disabled { opacity: .42; cursor: not-allowed; }
 .kronoxPilotCoordinates { margin-top: 2px; color: #7399af; font-size: 9px; }
 .kronoxPilotControls { display: grid; grid-template-columns: 112px 1fr; align-items: center; gap: 6px 12px; }
 .kronoxPilotControls > span { grid-column: 1 / -1; }
