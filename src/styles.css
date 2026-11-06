@@ -6515,9 +6515,8 @@ small {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85) !important;
 }
 
-/* Los HUD textuales comparten un control de arrastre y límites de viewport.
-   La posición guardada se normaliza para seguir siendo válida al rotar o
-   cambiar de tamaño de pantalla. */
+/* Los paneles HUD se arrastran directamente desde su superficie. La posición
+   guardada se normaliza para seguir siendo válida al rotar o redimensionar. */
 .kronoxSubtitleDock,
 .kronoxDiegeticConsole,
 .kronoxProximityPrompt,
@@ -6530,29 +6529,10 @@ small {
   max-height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   overflow: auto;
 }
-.kronoxMoveHandle {
-  position: absolute;
-  top: 5px;
-  right: 6px;
-  z-index: 4;
-  min-width: 42px;
-  min-height: 24px;
-  padding: 3px 7px;
-  border: 1px solid rgba(125, 211, 252, 0.42);
-  border-radius: 7px;
-  background: rgba(2, 12, 25, 0.84);
-  color: #c9f1ff;
-  font-size: 10px;
-  line-height: 1;
-  cursor: grab;
-  touch-action: none;
-}
-.kronoxMoveHandle:active,
-.is-moving .kronoxMoveHandle {
-  cursor: grabbing;
-}
+[data-draggable-panel='true'] { cursor: grab; touch-action: none; }
 .is-moving {
   z-index: 110 !important;
+  cursor: grabbing !important;
   user-select: none;
   transition: none !important;
 }
@@ -6574,10 +6554,6 @@ small {
     max-height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     overflow: auto;
     overflow-wrap: anywhere;
-  }
-  .kronoxMoveHandle {
-    min-height: 30px;
-    min-width: 50px;
   }
 }
 
