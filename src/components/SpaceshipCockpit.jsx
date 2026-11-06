@@ -62,6 +62,8 @@ export default function SpaceshipCockpit({
       : activeStation || directorState?.controlMode === KRONOX_CONTROL_MODES.MACHINE_INTERACTION
         ? 'Operando Máquina 3D'
         : 'Control Libre Astronauta';
+  const flightGear =
+    flightSpeed < 5 ? 'ÓRBITA PLANETARIA' : flightSpeed < 300 ? 'SISTEMA SOLAR' : flightSpeed < 8000 ? 'GALÁCTICA' : 'HIPERGALÁCTICA';
   // Contextual 3D Astronomical Object Inspector
   let objectCard = null;
   if (selectedObject?.kind === 'spherex') {
@@ -115,7 +117,7 @@ export default function SpaceshipCockpit({
   return (
     <>
       {/* TOP BRIDGE VIEW MODE & PHYSICAL SCALE BAR (Clean, structured sci-fi HUD) */}
-      <header
+      {!freeHelmMode && <header
         className="kronoxBridgeTopBar"
         role="region"
         aria-label={t('Modos de vista y puente habitable 3D', language)}
@@ -212,7 +214,23 @@ export default function SpaceshipCockpit({
             </button>
           )}
         </div>
-      </header>
+      </header>}
+
+      {cockpitVisible && freeHelmMode && (
+        <div className="kronoxFreeHelmHud" role="status" aria-label="Telemetría del timón libre">
+          <aside className="kronoxFreeHelmSidePanel left">
+            <small>VELOCIDAD DE VUELO</small>
+            <strong>{consoleProjection?.speed?.toFixed?.(1) ?? '0.0'} <i>u/s</i></strong>
+            <span>MARCHA · {flightGear}</span>
+          </aside>
+          <aside className="kronoxFreeHelmSidePanel right">
+            <small>ACELERACIÓN / INERCIA</small>
+            <strong>{consoleProjection?.inertia?.toFixed?.(2) ?? '0.00'} <i>u/s²</i></strong>
+            <span>RUMBO · {consoleProjection?.heading ?? 0}°</span>
+            <span>INCLINACIÓN · {consoleProjection?.pitch ?? 0}°</span>
+          </aside>
+        </div>
+      )}
 
       {/* DISCRETE MINIMAL CONTEXTUAL PROMPT WHEN ASTRONAUT IS NEAR A PHYSICAL 3D CONSOLE */}
       {cockpitVisible && nearestStation && !activeStation && (

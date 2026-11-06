@@ -3848,6 +3848,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           guidedTourState?.focus ? (nearId === guidedTourState.focus ? nearId : null) : nearId,
           guidedTourState?.focus ? (activeCabinStation === guidedTourState.focus ? activeCabinStation : null) : activeCabinStation,
           guidedTourState?.focus || null,
+          freeHelmMode,
         );
 
     if (guidedTourState?.step === 'free') {

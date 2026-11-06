@@ -958,6 +958,7 @@ export function buildHabitableCabin3D() {
       id: st.id,
       station: st,
       group: stationGroup,
+      desk,
       screenMesh,
       floorRing,
       updateScreen: (extraLine) => {
@@ -1041,8 +1042,9 @@ export function buildHabitableCabin3D() {
     return best;
   }
 
-  function updateStations(elapsedTime = 0, nearStationId = null, activeStationId = null, guidedTargetId = null) {
+  function updateStations(elapsedTime = 0, nearStationId = null, activeStationId = null, guidedTargetId = null, freeHelmMode = false) {
     stationMeshes.forEach((entry, idx) => {
+      if (entry.id === 'nav' && entry.screenMesh) entry.screenMesh.visible = !freeHelmMode;
       const isNear = entry.id === nearStationId;
       const isActive = entry.id === activeStationId;
       const isGuidedTarget = entry.id === guidedTargetId;
