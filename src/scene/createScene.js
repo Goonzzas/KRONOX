@@ -1213,6 +1213,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     label.visible = false;
     marker.add(label);
     LB.push(label);
+    marker.userData.spherexTargetKey = target.key;
+    marker.traverse((child) => {
+      child.userData.spherexTargetKey = target.key;
+    });
     gal.add(marker);
     missionMarkers.set(target.key, { target, marker, label });
     missionMarkerEffects.push({
@@ -1903,6 +1907,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       b.ar = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 1, 0x55ff99);
       pivot.add(b.ar);
     }
+    pivot.userData.planetName = p.n;
+    pivot.traverse((child) => {
+      child.userData.planetName = p.n;
+    });
     if (p.n == 'Tierra') earth = b;
     B.push(b);
   });
@@ -2028,28 +2036,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     Dd = (au) => (real ? au * 149.6 : 14 + 20 * Math.pow(au, 0.68)),
     Dm = () => (real ? 0.3844 : 1.3),
     shipScale = () => (Rd(P[3]) * (SHIP_LENGTH_METERS / 1000)) / (P[3].km * SHIP_MODEL_LENGTH),
-    // Keep the external follow camera at a planet-relative distance; a
-    // hull-relative camera makes even a physically small ship fill the view.
-    shipCameraDistance = () => {
-      let distance = Math.max(shipSz * 16, Rd(P[3]) * 0.08, real ? 0.04 : 0.025);
-      const solarViewLimit = Dd(30.07) * 2;
-      // Frame the ship against nearby planetary bodies by angular size, not
-      // only by distance to the hull. This stops it appearing oversized when
-      // a planet is farther away in the shot.
-      B.forEach((body) => {
-        if (!body.p.au || body.r <= 0) return;
-        const bodyDistance = sp.distanceTo(body.pivot.position);
-        if (bodyDistance < solarViewLimit) {
-          distance = Math.max(distance, (shipSz * 64 * bodyDistance) / body.r);
-        }
-      });
-      // Keep the physically scaled hull large enough to recognize in the
-      // default chase view. Zoom can still pull back to inspect system scale.
-      distance = Math.min(distance, shipSz * 220);
-      return distance * shipZoom;
-    },
-    // The exterior follow camera uses the same frame distance so the craft
-    // remains visible while its angular size stays small beside the planets.
+    // ESCALA FÍSICA INVARIANTE DE LA NAVE (Bloque 2):
+    // Las dimensiones del casco en el mundo 3D son constantes (shipSz = 120 m equivalentes).
+    // La distancia de cámara al barco depende únicamente de su escala local y del zoom de cámara,
+    // sin alterar el tamaño de la malla ni reescalar según cuerpos externos.
+    shipCameraDistance = () => shipSz * 12 * shipZoom,
     shipOffset = () => shipCameraDistance();
   function layout() {
     B.forEach((b) => {
@@ -2693,7 +2684,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     S.fv(fs);
   }
   let speedNoticeTimer;
+  let pointerClickStart = null;
   const onPointerDown = (e) => {
+    pointerClickStart = { x: e.clientX, y: e.clientY };
     if (nearbyMapState) nearbyPointerStart = { x: e.clientX, y: e.clientY };
     if (free) {
       drag = 1;
@@ -2702,6 +2695,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   };
   const onPointerUp = (e) => {
     drag = 0;
+    const clickMoved = pointerClickStart
+      ? Math.hypot(e.clientX - pointerClickStart.x, e.clientY - pointerClickStart.y)
+      : 999;
+    pointerClickStart = null;
     if (nearbyMapState && nearbyPointerStart) {
       const moved = Math.hypot(e.clientX - nearbyPointerStart.x, e.clientY - nearbyPointerStart.y);
       nearbyPointerStart = null;
@@ -2726,6 +2723,37 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         if (key) {
           focusNearbyGalaxy(key);
           S.onNearbyGalaxySelect?.(key);
+        }
+      }
+      return;
+    }
+    // Bloque 3: Selección interactiva de objetos astronómicos en el universo 3D
+    if (clickMoved < 6 && !nearbyMapState) {
+      const rect = dom.getBoundingClientRect();
+      nearbyPointer.set(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1,
+      );
+      nearbyRaycaster.setFromCamera(nearbyPointer, cam);
+      const starNodes = [...missionMarkers.values()].map((m) => m.marker);
+      const planetNodes = B.map((b) => b.pivot);
+      const hits = nearbyRaycaster.intersectObjects([...starNodes, ...planetNodes], true);
+      for (const hit of hits) {
+        let node = hit.object;
+        while (node) {
+          if (node.userData?.spherexTargetKey) {
+            const key = node.userData.spherexTargetKey;
+            const found = missionMarkers.get(key);
+            if (found) found.label.visible = true;
+            S.onObjectSelect?.({ kind: 'spherex', key });
+            return;
+          }
+          if (node.userData?.planetName) {
+            const name = node.userData.planetName;
+            S.onObjectSelect?.({ kind: 'planet', key: name });
+            return;
+          }
+          node = node.parent;
         }
       }
     }
@@ -3270,6 +3298,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     focusNearbyGalaxy,
     focusSolarSystemMap,
     navigationActive: () => !!nav,
+    shipScale: () => shipSz,
+    shipDimensionsMeters: () => SHIP_LENGTH_METERS,
+    selectAstronomicalObject: (kind, key) => {
+      if (kind === 'spherex') {
+        const found = missionMarkers.get(key);
+        if (found) found.label.visible = true;
+      }
+      S.onObjectSelect?.({ kind, key });
+    },
     quality: (mode) => {
       qualityMode = mode;
       R.setPixelRatio(pixelRatioFor(qualityMode));

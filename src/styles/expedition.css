@@ -1255,3 +1255,571 @@
     display: none;
   }
 }
+
+/* =========================================================================
+   EVOLUCIÓN KRONOX: PUENTE DE MANDO, CABINA INTERACTIVA, INSPECTOR 3D E IA
+   ========================================================================= */
+
+/* Top Bridge Bar */
+.kronoxBridgeTopBar {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 14px;
+  background: rgba(8, 13, 24, 0.84);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 999px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  color: #e2e8f0;
+  font-size: 12px;
+}
+
+.kronoxBridgeIdentity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.kronoxShipDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
+}
+
+.kronoxScaleTag {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.14);
+  color: #7dd3fc;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.kronoxViewModeSwitcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.8);
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.kronoxViewBtn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 140ms ease;
+  white-space: nowrap;
+}
+
+.kronoxViewBtn:hover {
+  color: #f1f5f9;
+}
+
+.kronoxViewBtn.active {
+  background: rgba(56, 189, 248, 0.22);
+  color: #38bdf8;
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.45);
+}
+
+.kronoxCruiseReadout {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+/* Contextual 3D Astronomical Object Inspector (Bloque 3) */
+.kronoxObjectInspector {
+  position: fixed;
+  top: 66px;
+  right: 18px;
+  z-index: 42;
+  width: min(350px, calc(100vw - 36px));
+  padding: 16px;
+  background: rgba(10, 16, 29, 0.92);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.68);
+  color: #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kronoxInspectorHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kronoxInspectorType {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #38bdf8;
+}
+
+.kronoxInspectorHeader h3 {
+  margin: 2px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.kronoxInspectorClose {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.kronoxInspectorMeta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(15, 23, 42, 0.75);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.kronoxInspectorMeta small {
+  display: block;
+  font-size: 9.5px;
+  color: #64748b;
+  letter-spacing: 0.05em;
+}
+
+.kronoxInspectorMeta strong {
+  font-size: 11px;
+  color: #e2e8f0;
+}
+
+.kronoxInspectorIntro {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #cbd5e1;
+}
+
+.kronoxInspectorSpherexStatus {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.kronoxInspectorSpherexStatus.available {
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+
+.kronoxInspectorSpherexStatus.none {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
+}
+
+.kronoxInspectorActions {
+  display: flex;
+  gap: 8px;
+}
+
+.kronoxInspectorBtn {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.kronoxInspectorBtn.primary {
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  color: #fff;
+  border-color: #38bdf8;
+}
+
+.kronoxInspectorBtn.secondary {
+  background: rgba(30, 41, 59, 0.85);
+  color: #e2e8f0;
+}
+
+/* Interactive Cockpit Stations Dock (Bloque 1 & Bloque 6) */
+.kronoxCockpitStations {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 38;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 10px;
+  width: min(880px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.kronoxStationsDock {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  width: 100%;
+  pointer-events: auto;
+}
+
+.kronoxStationHotspot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 10px;
+  background: rgba(7, 14, 26, 0.84);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 10px;
+  color: #e2e8f0;
+  cursor: pointer;
+  text-align: left;
+  transition: all 150ms ease;
+}
+
+.kronoxStationHotspot:hover,
+.kronoxStationHotspot.active {
+  background: rgba(14, 34, 60, 0.92);
+  border-color: #38bdf8;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+}
+
+.kronoxStationCode {
+  font-size: 9.5px;
+  font-family: ui-monospace, monospace;
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+.kronoxStationHotspot strong {
+  font-size: 11.5px;
+  margin-top: 2px;
+}
+
+.kronoxStationHotspot small {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.kronoxStationDrawer {
+  width: 100%;
+  padding: 14px 16px;
+  background: rgba(8, 15, 28, 0.94);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: 12px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7);
+  color: #f1f5f9;
+  pointer-events: auto;
+}
+
+.kronoxStationDrawerHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.kronoxStationDrawerHead h4 {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: #38bdf8;
+}
+
+.kronoxStationDrawerHead button {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.kronoxStationDesc {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.kronoxStationGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.kronoxStationBlock small {
+  display: block;
+  font-size: 10px;
+  color: #64748b;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.kronoxStationBtnRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kronoxStationBtnRow button {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.kronoxStationBtnRow button:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: #38bdf8;
+}
+
+/* Onboard AI Console (Bloque 5) */
+.kronoxRoleBadge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 10px;
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.16);
+  color: #7dd3fc;
+}
+
+.kronoxCommandForm {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.kronoxCommandInput {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 7px;
+  color: #f1f5f9;
+}
+
+.kronoxCommandSend {
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #0284c7;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.kronoxQuickPrompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.kronoxPromptChip {
+  padding: 4px 8px;
+  font-size: 10.5px;
+  background: rgba(30, 41, 59, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.kronoxPromptChip:hover {
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.kronoxAiHistory {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.kronoxAiHistoryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.kronoxAiUserQuery {
+  color: #94a3b8;
+}
+
+.kronoxAiExecTag {
+  color: #34d399;
+  font-weight: 600;
+  font-size: 10.5px;
+}
+
+.kronoxVoiceControlsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+/* Temporal Archive & Discovery Challenge (Bloque 4) */
+.kronoxTimelineBar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.kronoxTimelineHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.kronoxArchiveFilters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kronoxArchiveFilterLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.kronoxArchiveFilterLabel select {
+  background: rgba(15, 23, 42, 0.9);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.kronoxChipBand {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 4px;
+  font-size: 9.5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}
+
+.kronoxDiscoveryChallengeBox {
+  padding: 10px 12px;
+  background: rgba(8, 15, 28, 0.78);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+
+.kronoxDiscoveryTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #38bdf8;
+}
+
+.kronoxDiscoveryStepBtns {
+  display: flex;
+  gap: 5px;
+}
+
+.kronoxDiscoveryStepBtns button {
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: 5px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.kronoxDiscoveryStepBtns button.active {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.kronoxAskAiBtn {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  color: #6ee7b7 !important;
+}
+
+.kronoxDiscoveryClue {
+  margin: 0;
+  font-size: 12px;
+  color: #e2e8f0;
+  line-height: 1.4;
+}
+
+.kronoxDiscoveryVerifyBanner {
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.kronoxDiscoveryVerifyBanner.match {
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #6ee7b7;
+}
+
+.kronoxDiscoveryVerifyBanner.reference {
+  background: rgba(56, 189, 248, 0.16);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #7dd3fc;
+}
+
+

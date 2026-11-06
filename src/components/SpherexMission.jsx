@@ -198,7 +198,14 @@ function imagePoint(event) {
   };
 }
 
-export default function SpherexMission({ onClose, initialTargetKey = 'barnard', language = 'es' }) {
+export default function SpherexMission({
+  onClose,
+  initialTargetKey = 'barnard',
+  initialStage = 'arrival',
+  language = 'es',
+  onStateSync,
+  onAskKronox,
+}) {
   const [navParams] = useState(() => {
     try {
       return typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -216,7 +223,21 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const target = TARGETS[selectedTargetIndex];
 
   // Progressive mission stage
-  const [stage, setStage] = useState('arrival');
+  const [stage, setStage] = useState(initialStage || 'arrival');
+
+  // Sync external target/stage changes triggered by AI or cockpit consoles
+  useEffect(() => {
+    const idx = TARGETS.findIndex((t) => t.key === initialTargetKey);
+    if (idx >= 0 && idx !== selectedTargetIndex) {
+      setSelectedTargetIndex(idx);
+    }
+  }, [initialTargetKey]);
+
+  useEffect(() => {
+    if (initialStage && STAGES.some((s) => s.id === initialStage)) {
+      setStage(initialStage);
+    }
+  }, [initialStage]);
 
   // Temporal comparison style inside 'compare' stage: 'blink' | 'sideBySide' | 'diff'
   const [compareStyle, setCompareStyle] = useState('blink');
@@ -229,6 +250,14 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const [recordError, setRecordError] = useState('');
   const [frameIndex, setFrameIndex] = useState(0);
   const [compareIndex, setCompareIndex] = useState(1);
+
+  // Bloque 4.2: Temporal Archive Filtering (Year & Band)
+  const [filterYear, setFilterYear] = useState('ALL');
+  const [filterBand, setFilterBand] = useState('ALL');
+
+  // Bloque 4.1: Progressive Discovery Challenge
+  const [discoveryStep, setDiscoveryStep] = useState(1);
+  const [discoveryVerification, setDiscoveryVerification] = useState(null);
 
   // Rendered FITS frames
   const [frameA, setFrameA] = useState(null);
@@ -260,6 +289,47 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   useEffect(() => {
     saveFindingsToStorage(findings);
   }, [findings]);
+
+  // Synchronize live mission state with Onboard AI & Cockpit
+  useEffect(() => {
+    onStateSync?.({
+      targetKey: target.key,
+      stage,
+      records,
+      findings,
+    });
+  }, [target.key, stage, records, findings]);
+
+  // Available years and bands in real SPHEREx records (Bloque 4.2)
+  const availableYears = useMemo(() => {
+    const yrs = new Set();
+    records.forEach((r) => {
+      const y = new Date((Number(r.dateAvg || r.date) - 40587) * 86400000).getUTCFullYear();
+      if (Number.isFinite(y)) yrs.add(String(y));
+    });
+    return [...yrs].sort();
+  }, [records]);
+
+  const availableBands = useMemo(() => {
+    const bds = new Set();
+    records.forEach((r) => {
+      if (r.band) bds.add(r.band);
+    });
+    return [...bds].sort();
+  }, [records]);
+
+  const filteredRecordEntries = useMemo(() => {
+    return records
+      .map((r, originalIndex) => {
+        const y = String(new Date((Number(r.dateAvg || r.date) - 40587) * 86400000).getUTCFullYear());
+        return { record: r, originalIndex, year: y };
+      })
+      .filter((entry) => {
+        if (filterYear !== 'ALL' && entry.year !== filterYear) return false;
+        if (filterBand !== 'ALL' && entry.record.band !== filterBand) return false;
+        return true;
+      });
+  }, [records, filterYear, filterBand]);
 
   // Load observations when target changes
   useEffect(() => {
@@ -524,6 +594,23 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     });
     setMarkingActive(false);
     setFindingError('');
+
+    // Bloque 4.1: Verificación honesta contra coordenadas propagadas del catálogo (Gaia/CatWISE)
+    if (ra !== null && dec !== null) {
+      const mjd = Number((pane === 'B' ? frameB : frameA)?.record?.dateAvg || target.referenceEpoch);
+      const prop = propagateCoordinates(target.astrometry, mjd) || { ra: target.ra, dec: target.dec };
+      const dRa = (ra - prop.ra) * Math.cos(((dec + prop.dec) * 0.5 * Math.PI) / 180) * 3600;
+      const dDec = (dec - prop.dec) * 3600;
+      const angularSepArcsec = Math.hypot(dRa, dDec);
+      const isTargetMatch = angularSepArcsec <= 24;
+      setDiscoveryVerification({
+        angularSepArcsec: Number(angularSepArcsec.toFixed(1)),
+        isTargetMatch,
+        message: isTargetMatch
+          ? `¡Verificación positiva! El punto marcado coincide a ${angularSepArcsec.toFixed(1)}″ con la posición astrométrica propagada de ${target.name} (${target.astrometry?.source || 'Catálogo'}).`
+          : `Has marcado una fuente periférica de campo a ${angularSepArcsec.toFixed(1)}″ del objetivo central. Excelente como estrella fija de referencia para contrastar el fondo.`,
+      });
+    }
   };
 
   // Save finding handler
@@ -1070,11 +1157,47 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                 </div>
               </div>
 
-              {/* TIMELINE / EPOCAS SELECTOR (Sencillo y directo) */}
+              {/* BLOQUE 4.2: ARCHIVO TEMPORAL SPHEREx CON FILTROS POR INTERVALO Y BANDA */}
               <div className="kronoxTimelineBar">
-                <span className="kronoxTimelineLabel">Observaciones registradas ({records.length}):</span>
+                <div className="kronoxTimelineHeaderRow">
+                  <span className="kronoxTimelineLabel">
+                    Archivo Temporal SPHEREx ({filteredRecordEntries.length} de {records.length} observaciones reales):
+                  </span>
+                  <div className="kronoxArchiveFilters">
+                    <label className="kronoxArchiveFilterLabel">
+                      <span>Año:</span>
+                      <select
+                        value={filterYear}
+                        onChange={(e) => setFilterYear(e.target.value)}
+                        aria-label="Filtrar observaciones por año"
+                      >
+                        <option value="ALL">Todos ({records.length})</option>
+                        {availableYears.map((yr) => (
+                          <option key={yr} value={yr}>
+                            {yr}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="kronoxArchiveFilterLabel">
+                      <span>Banda:</span>
+                      <select
+                        value={filterBand}
+                        onChange={(e) => setFilterBand(e.target.value)}
+                        aria-label="Filtrar observaciones por banda infrarroja"
+                      >
+                        <option value="ALL">Todas ({availableBands.length})</option>
+                        {availableBands.map((bd) => (
+                          <option key={bd} value={bd}>
+                            {bd}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                </div>
                 <div className="kronoxTimelineChips">
-                  {records.map((r, idx) => (
+                  {filteredRecordEntries.map(({ record: r, originalIndex: idx }) => (
                     <button
                       key={r.id || idx}
                       type="button"
@@ -1087,15 +1210,60 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                         }
                       }}
                     >
-                      {formatDate(r.dateAvg || r.date, language)}
+                      <span>{formatDate(r.dateAvg || r.date, language)}</span>
+                      <small className="kronoxChipBand">{r.band}</small>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* INVESTIGATION / ANNOTATION FORM DRAWER */}
+              {/* BLOQUE 4.1: RETO DE DESCUBRIMIENTO PROGRESIVO + REGISTRAR HALLAZGO */}
               {stage === 'investigate' && (
                 <div className="kronoxFindingDrawer">
+                  <div className="kronoxDiscoveryChallengeBox">
+                    <div className="kronoxDiscoveryTop">
+                      <strong>Reto de identificación astronómica (Paso {discoveryStep}/3)</strong>
+                      <div className="kronoxDiscoveryStepBtns">
+                        {[1, 2, 3].map((st) => (
+                          <button
+                            key={st}
+                            type="button"
+                            className={discoveryStep === st ? 'active' : ''}
+                            onClick={() => setDiscoveryStep(st)}
+                          >
+                            Pista {st}
+                          </button>
+                        ))}
+                        {onAskKronox && (
+                          <button
+                            type="button"
+                            className="kronoxAskAiBtn"
+                            onClick={() => onAskKronox('Dame una pista para encontrar el objeto')}
+                          >
+                            Consultar a Kronox IA
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <p className="kronoxDiscoveryClue">
+                      {discoveryStep === 1 &&
+                        'Paso 1 (Referencia fija): Localiza una estrella periférica brillante en el campo que permanezca inmóvil y con brillo constante entre fechas.'}
+                      {discoveryStep === 2 &&
+                        (target.mission === 'motion'
+                          ? `Paso 2 (Rastreo de movimiento): Dirige la mirada al centro del retículo (RA ${target.ra.toFixed(3)}°, Dec ${target.dec.toFixed(3)}°) y comprueba cómo ${target.name} se desplaza respecto al fondo fijo.`
+                          : `Paso 2 (Variabilidad fotométrica): Observa el flujo infrarrojo central de ${target.name} y compara su radio e intensidad entre la primera y la última fecha del archivo.`)}
+                      {discoveryStep === 3 &&
+                        `Paso 3 (Verificación científica): Activa «Marcar punto en la imagen», haz clic sobre la fuente en el lienzo para contrastar su coordenada WCS con ${target.astrometry?.source || 'Gaia DR3'} y guarda tu hallazgo.`}
+                    </p>
+                    {discoveryVerification && (
+                      <div
+                        className={`kronoxDiscoveryVerifyBanner ${discoveryVerification.isTargetMatch ? 'match' : 'reference'}`}
+                      >
+                        <span>{discoveryVerification.message}</span>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="kronoxDrawerHeader">
                     <Icons.Feather />
                     <span>Registrar hallazgo en tu cuaderno de expedición</span>

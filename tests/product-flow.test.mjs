@@ -7,6 +7,7 @@ import {
   propagateCoordinates,
   mjdToJulianYear,
 } from '../src/data/spherexTargets.js';
+import { processKronoxQuery, matchSpherexTarget, matchPlanet } from '../src/utils/kronoxAI.js';
 
 test('Product Flow - 5 Official SPHEREx Targets Completeness & Differentiated Scientific Status', () => {
   const targetKeys = SPHEREX_TARGETS.map((t) => t.key);
@@ -103,4 +104,51 @@ test('Product Flow - View Modes and Functional Controls Integrity', () => {
   assert.equal(requiresMultipleFrames('sideBySide', 2), true);
   assert.equal(requiresMultipleFrames('differential', 2), true);
   assert.equal(requiresMultipleFrames('candidates', 2), true);
+});
+
+test('Onboard AI (Kronox) - Navigation, Scientific, Pedagogical and Companion Intents', () => {
+  // 1. Navigation intent to Barnard
+  const navBarnard = processKronoxQuery('Llévame a la estrella de Barnard', {
+    activeTargetKey: 'wise-0855',
+  });
+  assert.equal(navBarnard.role, 'Navegadora');
+  assert.equal(navBarnard.action?.type, 'TRAVEL_SPHEREX');
+  assert.equal(navBarnard.action?.targetKey, 'barnard');
+
+  // 2. Navigation intent to Epsilon Indi
+  const navEps = processKronoxQuery('Quiero visitar Epsilon Indi', {});
+  assert.equal(navEps.action?.type, 'TRAVEL_SPHEREX');
+  assert.equal(navEps.action?.targetKey, 'epsilon-indi-b');
+
+  // 3. Return to cockpit intent
+  const navCockpit = processKronoxQuery('Regresemos a la nave e ir a la cabina', {});
+  assert.equal(navCockpit.action?.type, 'ENTER_COCKPIT');
+
+  // 4. Temporal archive & bands query with real records
+  const sciDates = processKronoxQuery('¿En qué fechas se observó esta estrella y qué bandas hay?', {
+    activeTargetKey: 'barnard',
+    missionOpen: true,
+    records: [
+      { id: 'obs1', dateAvg: '60800.0', band: 'SPHEREx-D2' },
+      { id: 'obs2', dateAvg: '61165.0', band: 'SPHEREx-D2' },
+    ],
+  });
+  assert.equal(sciDates.role, 'Asistente científico');
+  assert.ok(sciDates.reply.includes('SPHEREx-D2'));
+  assert.ok(sciDates.reply.includes('2 observaciones'));
+
+  // 5. Compare two epochs intent
+  const cmpEpochs = processKronoxQuery('Compara dos épocas de esta estrella', {
+    activeTargetKey: 'barnard',
+  });
+  assert.equal(cmpEpochs.action?.type, 'OPEN_MISSION_STAGE');
+  assert.equal(cmpEpochs.action?.stage, 'compare');
+
+  // 6. Instructor explanation of proper motion verification
+  const instMotion = processKronoxQuery('¿Cómo puedo comprobar si se ha desplazado?', {
+    activeTargetKey: 'barnard',
+    missionOpen: true,
+  });
+  assert.equal(instMotion.role, 'Instructora de misiones');
+  assert.ok(instMotion.reply.includes('movimiento propio'));
 });

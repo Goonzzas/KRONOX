@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { t } from '../i18n.js';
+import { KRONOX_QUICK_PROMPTS } from '../utils/kronoxAI.js';
 
 export default function KronoxWidget({
   guide,
@@ -18,8 +19,12 @@ export default function KronoxWidget({
   onOrbClick,
   onStartMission,
   missionStarting = false,
+  onCommand,
+  aiRole = 'Inteligencia de a bordo',
+  history = [],
 }) {
   const [typed, setTyped] = useState('');
+  const [inputQuery, setInputQuery] = useState('');
   const [position, setPosition] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('kronox-widget-position'));
@@ -78,16 +83,31 @@ export default function KronoxWidget({
       movedRef.current = false;
     }, 0);
   };
+
   useEffect(() => {
     setTyped('');
     let index = 0;
     const timer = setInterval(() => {
-      index += 1;
+      index += 2;
       setTyped(guide.slice(0, index));
       if (index >= guide.length) clearInterval(timer);
-    }, 22);
+    }, 16);
     return () => clearInterval(timer);
   }, [guide]);
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const q = inputQuery.trim();
+    if (!q || !onCommand) return;
+    setInputQuery('');
+    onCommand(q);
+  };
+
+  const handleQuickPrompt = (query) => {
+    if (!onCommand) return;
+    onCommand(query);
+  };
+
   return (
     <div
       className={`kronoxWidget ${position ? 'is-positioned' : ''} ${speaking ? 'is-speaking' : ''} ${isTransmitting ? 'is-transmitting' : ''} ${panelOpen ? 'panel-visible' : ''}`}
@@ -96,8 +116,8 @@ export default function KronoxWidget({
     >
       <button
         className="kronoxOrb"
-        aria-label={t('Kronox, guía astral', language)}
-        title={t('Kronox, guía astral', language)}
+        aria-label={t('Kronox, inteligencia de a bordo', language)}
+        title={t('Kronox, inteligencia de a bordo', language)}
         onClick={(event) => {
           if (movedRef.current) {
             event.preventDefault();
@@ -122,9 +142,12 @@ export default function KronoxWidget({
         <i className="kronoxSpark sparkThree" />
       </button>
       {panelOpen && (
-        <div className={`kronoxBubble ${isTransmitting ? 'transmitting' : ''}`}>
+        <div className={`kronoxBubble kronoxAiConsole ${isTransmitting ? 'transmitting' : ''}`}>
           <div className="kronoxPanelTop">
-            <div className="kronoxName">{t('Kronox · guía astral', language)}</div>
+            <div className="kronoxName">
+              {t('KRONOX · IA DE A BORDO', language)}
+              <span className="kronoxRoleBadge">{t(aiRole, language)}</span>
+            </div>
             <span className="kronoxStatus">
               <i />
               {speaking ? t('transmitiendo…', language) : t('en línea', language)}
@@ -142,51 +165,94 @@ export default function KronoxWidget({
               <i key={index} style={{ '--bar-level': audioLevels?.[index] ?? 0.08 }} />
             ))}
           </div>
-          <p aria-live="polite">
+
+          <p className="kronoxAiMessage" aria-live="polite">
             {typed}
             <span className="kronoxCursor">▍</span>
           </p>
-          <button onClick={onToggleVoice}>
-            {voice ? t('Silenciar voz', language) : t('Activar voz', language)}
-          </button>
-          {voice && (
-            <label className="r" style={{ fontSize: 12, marginBottom: 0 }}>
-              {t(language === 'es' ? 'Acento de Kronox' : 'Kronox voice', language)}{' '}
-              <select value={accent} onChange={(event) => onAccentChange(event.target.value)}>
-                {language === 'es' ? (
-                  <>
-                    <option value="es-US">Latino</option>
-                    <option value="es-ES">España</option>
-                  </>
-                ) : (
-                  <option value="en-US">United States</option>
-                )}
-              </select>
-            </label>
+
+          {history.length > 0 && (
+            <div className="kronoxAiHistory" aria-label={t('Registro de órdenes recientes', language)}>
+              {history.slice(-2).map((item, idx) => (
+                <div key={idx} className="kronoxAiHistoryRow">
+                  <span className="kronoxAiUserQuery">▸ {item.query}</span>
+                  {item.actionLabel && (
+                    <span className="kronoxAiExecTag">✓ {item.actionLabel}</span>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
-          {voice && (
-            <small>
-              {t(
-                'La voz alternativa requiere internet y envía los avisos de Kronox a Google para generar el audio.',
-                language,
-              )}
-            </small>
-          )}
-          {voiceError && <small role="status">{voiceError}</small>}
-          {near && (
-            <button onClick={() => onMore(near)}>
-              {t('¿Quieres saber más? Dale aquí', language)}
+
+          {/* Interactive Command & Question Input */}
+          <form className="kronoxCommandForm" onSubmit={handleSubmit}>
+            <input
+              type="text"
+              className="kronoxCommandInput"
+              value={inputQuery}
+              onChange={(e) => setInputQuery(e.target.value)}
+              placeholder={
+                language === 'en'
+                  ? 'Ask or command (e.g. "Take me to Barnard")...'
+                  : 'Pregunta u ordena (ej. «Llévame a Barnard»)...'
+              }
+              aria-label={t('Enviar orden o consulta a Kronox', language)}
+            />
+            <button type="submit" className="kronoxCommandSend">
+              {language === 'en' ? 'Send' : 'Enviar'}
             </button>
-          )}
+          </form>
+
+          {/* Suggested Real Actions & Queries */}
+          <div className="kronoxQuickPrompts">
+            {KRONOX_QUICK_PROMPTS.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                className="kronoxPromptChip"
+                onClick={() => handleQuickPrompt(item.query)}
+              >
+                {t(item.label, language)}
+              </button>
+            ))}
+          </div>
+
+          <div className="kronoxVoiceControlsRow">
+            <button type="button" onClick={onToggleVoice}>
+              {voice ? t('Silenciar voz', language) : t('Activar voz', language)}
+            </button>
+            {voice && (
+              <label className="r" style={{ fontSize: 12, marginBottom: 0 }}>
+                {t(language === 'es' ? 'Acento' : 'Voice', language)}{' '}
+                <select value={accent} onChange={(event) => onAccentChange(event.target.value)}>
+                  {language === 'es' ? (
+                    <>
+                      <option value="es-US">Latino</option>
+                      <option value="es-ES">España</option>
+                    </>
+                  ) : (
+                    <option value="en-US">United States</option>
+                  )}
+                </select>
+              </label>
+            )}
+            {near && (
+              <button type="button" onClick={() => onMore(near)}>
+                {t('Ficha de ' + near, language)}
+              </button>
+            )}
+          </div>
+          {voiceError && <small role="status">{voiceError}</small>}
+
           <div className="kronoxMissionOffer">
-            <span>{t('SEÑAL NUEVA · SPHEREx', language)}</span>
+            <span>{t('SISTEMA DE MISIONES · SPHEREx', language)}</span>
             <p>
               {t(
-                '¿Rastreamos estrellas en movimiento o comparamos el brillo de estrellas variables?',
+                'Selecciona un destino estelar o pídeme que trace rumbo hacia cualquier estrella del catálogo.',
                 language,
               )}
             </p>
-            <button onClick={onStartMission} disabled={missionStarting}>
+            <button type="button" onClick={onStartMission} disabled={missionStarting}>
               {missionStarting ? t('Preparando el salto…', language) : t('Elegir misión', language)}
             </button>
           </div>
