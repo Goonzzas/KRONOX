@@ -162,3 +162,4 @@ test('Findings Storage - Normalization: Migrates legacy format gracefully', () =
   assert.equal(normalized.marker.yPercent, 55.2);
   assert.equal(normalized.marker.ra, null);
 });
+
