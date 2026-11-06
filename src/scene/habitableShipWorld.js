@@ -865,6 +865,59 @@ export function buildHabitableCabin3D() {
     desk.position.set(0, 0.05, 0.05);
     stationGroup.add(desk);
 
+    // Pilot seat and physical helm at the bow navigation station. The chair
+    // faces the console (local -Z) and keeps the controls inside the bridge.
+    let helmWheel = null;
+    if (st.id === 'nav') {
+      const seatMetal = new THREE.MeshStandardMaterial({ color: 0x17283a, metalness: 0.78, roughness: 0.28 });
+      const seatCushion = new THREE.MeshStandardMaterial({ color: 0x26394c, metalness: 0.18, roughness: 0.72 });
+      const seat = new THREE.Group();
+      const seatBase = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.12, 20), seatMetal);
+      seatBase.position.set(0, -0.83, 1.35);
+      const seatStem = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.43, 14), seatMetal);
+      seatStem.position.set(0, -0.57, 1.35);
+      const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.2, 0.78), seatCushion);
+      cushion.position.set(0, -0.28, 1.35);
+      cushion.rotation.x = -0.08;
+      const back = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.86, 0.18), seatCushion);
+      back.position.set(0, 0.2, 1.72);
+      back.rotation.x = 0.12;
+      const armL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.09, 0.66), seatMetal);
+      armL.position.set(-0.52, -0.08, 1.4);
+      const armR = armL.clone();
+      armR.position.x = 0.52;
+      seat.add(seatBase, seatStem, cushion, back, armL, armR);
+      stationGroup.add(seat);
+
+      const helm = new THREE.Group();
+      helm.position.set(0, 0.26, 0.52);
+      helmWheel = new THREE.Group();
+      const wheelRing = new THREE.Mesh(
+        new THREE.TorusGeometry(0.38, 0.045, 10, 40),
+        new THREE.MeshStandardMaterial({ color: 0x7dd3fc, metalness: 0.82, roughness: 0.22, emissive: 0x075985, emissiveIntensity: 0.38 }),
+      );
+      helmWheel.add(wheelRing);
+      const wheelHub = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.13, 16), seatMetal);
+      wheelHub.rotation.x = Math.PI / 2;
+      helmWheel.add(wheelHub);
+      for (let spoke = 0; spoke < 3; spoke++) {
+        const angle = (spoke / 3) * Math.PI * 2;
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.035, 0.045), seatMetal);
+        bar.position.set(Math.cos(angle) * 0.19, Math.sin(angle) * 0.19, 0);
+        bar.rotation.z = angle;
+        helmWheel.add(bar);
+      }
+      helm.add(helmWheel);
+      const helmColumn = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.09, 0.46, 14), seatMetal);
+      helmColumn.position.set(0, -0.29, -0.01);
+      helm.add(helmColumn);
+      const helmBase = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.1, 0.3), seatMetal);
+      helmBase.position.set(0, -0.48, 0.02);
+      helm.add(helmBase);
+      stationGroup.add(helm);
+      stationGroup.userData.helmWheel = helmWheel;
+    }
+
     // Holographic / Diegetic 3D Screen Display mounted above the console
     const screenTex = createConsoleScreenTexture(st);
     const screenMat = new THREE.MeshBasicMaterial({
@@ -905,6 +958,7 @@ export function buildHabitableCabin3D() {
         screenMat.map = createConsoleScreenTexture(st, extraLine);
         screenMat.needsUpdate = true;
       },
+      helmWheel,
     });
 
     // Register physical bounding box for collision detection

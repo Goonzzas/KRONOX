@@ -3377,8 +3377,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (ti > 3.6 && ti - dt <= 3.6) S.intro(false);
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
       const inHabitableCabin = pv == 1 && !realTimeIntro && !launchSequence && !launchCameraBlend;
-      const pilotingFromCabin = inHabitableCabin && activeCabinStation === 'nav',
-        ok = ti >= 5 && (!inHabitableCabin || pilotingFromCabin),
+      const pilotingFromCabin = inHabitableCabin && activeCabinStation === 'nav';
+      if (pilotingFromCabin) {
+        fy += ((keys.d ? 1 : 0) - (keys.a ? 1 : 0)) * dt * 0.72;
+        q.setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
+      }
+      const ok = ti >= 5 && (!inHabitableCabin || pilotingFromCabin),
         mx = ok && !exteriorCameraMode ? mv.x || (O.au ? 1 : 0) : 0,
         f = new V(0, 0, -1).applyQuaternion(q),
         r = new V(1, 0, 0).applyQuaternion(q),
@@ -3430,7 +3434,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           f
             .multiplyScalar(mx * bs)
             .addScaledVector(cam.up, (ok ? mv.y : 0) * bs)
-            .addScaledVector(r, (ok ? mv.z : 0) * bs),
+            .addScaledVector(r, (ok && !pilotingFromCabin ? mv.z : 0) * bs),
           1 - Math.exp(-dt * (O.in ? 1.2 : 14)),
         );
         sp.addScaledVector(vel, dt);
@@ -3675,6 +3679,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         localCabinWorld.position.copy(sp);
         localCabinWorld.quaternion.copy(q);
 
+        const navigationHelm = cabinSystem.stationMeshes.find((entry) => entry.id === 'nav')?.helmWheel;
+        if (navigationHelm) {
+          const helmSteer = activeCabinStation === 'nav' ? (keys.a ? 0.48 : keys.d ? -0.48 : 0) : 0;
+          navigationHelm.rotation.z += (helmSteer - navigationHelm.rotation.z) * Math.min(1, dt * 7);
+        }
+
         // 1. Interpolación suave de giro de cabeza (casco de astronauta)
         astronautYaw += (targetYaw - astronautYaw) * Math.min(1, dt * 14);
         astronautPitch += (targetPitch - astronautPitch) * Math.min(1, dt * 14);
@@ -3872,6 +3882,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                 y: Math.round(scY),
                 scale: Number(scaleFactor.toFixed(3)),
                 distMeters: Number(distToCam.toFixed(2)),
+                speed: Number(vel.length().toFixed(2)),
+                inertia: Number(ac.toFixed(3)),
+                heading: Math.round((((vel.lengthSq() > 1e-8 ? Math.atan2(vel.x, -vel.z) * 57.2958 : -fy * 57.2958) % 360) + 360) % 360),
+                pitch: Math.round(vel.lengthSq() > 1e-8 ? Math.atan2(vel.y, Math.hypot(vel.x, vel.z)) * 57.2958 : -fp * 57.2958),
+                flightMode: nav ? 'AUTOPILOTO' : activeCabinStation === 'nav' ? 'MANUAL' : 'ESPERA',
               });
             }
           } else if (S.onConsoleScreenProjection) {

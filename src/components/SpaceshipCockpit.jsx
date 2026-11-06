@@ -21,7 +21,6 @@ export default function SpaceshipCockpit({
   nearestStation = null,
   activeStation = null,
   onSelectStation,
-  onExitPilotStation,
   onWalkToStation,
   viewMode = 'cockpit', // 'cockpit' | 'exterior' | 'navigation'
   onChangeViewMode,
@@ -32,6 +31,7 @@ export default function SpaceshipCockpit({
   selectedObject = null,
   onCloseObjectInspector,
   onTravelToSpherex,
+  onQuickTravel,
   onOpenSpherexObservatory,
   onTravelToPlanet,
   onOpenPlanetInfo,
@@ -47,9 +47,8 @@ export default function SpaceshipCockpit({
   findingsCount = 0,
   consoleProjection = null,
 }) {
-  // Plotted target in the 3D Navigation Console hologram before confirming propulsion
-  const [plottedNavTarget, setPlottedNavTarget] = useState(null);
-  const pilotActive = viewMode === 'exterior' || activeStation === 'nav';
+  const [navigationMode, setNavigationMode] = useState('manual');
+  const [navigationTarget, setNavigationTarget] = useState('planet:Tierra');
 
   const controlModeLabel =
     directorState?.controlMode === KRONOX_CONTROL_MODES.CINEMATIC_SEQUENCE
@@ -230,59 +229,6 @@ export default function SpaceshipCockpit({
         </div>
       )}
 
-      {/* One pilot interface shared by the physical navigation console and exterior view. */}
-      {(viewMode === 'exterior' || viewMode === 'cockpit') && (
-        <section className="kronoxPilotConsole" aria-label="Panel central de pilotaje">
-          <div className="kronoxPilotConsoleHeader">
-            <span className={`kronoxPilotStatusDot ${pilotActive ? 'active' : 'standby'}`} />
-            <div>
-              <strong>{language === 'es' ? 'PUESTO DE PILOTAJE' : 'PILOT STATION'}</strong>
-              <small>{viewMode === 'cockpit' ? (pilotActive ? (language === 'es' ? 'Cabina · pilotaje activo' : 'Cabin · piloting active') : (language === 'es' ? 'Cabina · pilotaje en espera' : 'Cabin · piloting on standby')) : (language === 'es' ? 'Control manual · cámara exterior' : 'Manual control · exterior camera')}</small>
-            </div>
-            {viewMode === 'cockpit' && pilotActive ? (
-              <button type="button" className="kronoxPilotRelease" onClick={onExitPilotStation}>
-                {language === 'es' ? 'Soltar' : 'Release'}
-              </button>
-            ) : viewMode === 'cockpit' ? (
-              <button type="button" className="kronoxPilotEngage" onClick={() => onSelectStation?.('nav')}>
-                {language === 'es' ? 'Activar pilotaje' : 'Engage pilot'}
-              </button>
-            ) : null}
-          </div>
-          {!pilotActive && <p className="kronoxPilotStandbyHint">{language === 'es' ? 'Activa el puesto para controlar la nave desde la cabina.' : 'Engage the station to pilot the ship from the cabin.'}</p>}
-          <div className="kronoxPilotConsoleBody">
-            <div className="kronoxPilotTelemetry">
-              <span>{language === 'es' ? 'VELOCIDAD DE CRUCERO' : 'CRUISE SPEED'}</span>
-              <strong>{flightSpeed >= 1000 ? `${(flightSpeed / 1000).toFixed(1)}k` : flightSpeed.toFixed(flightSpeed < 10 ? 1 : 0)} <small>u/s</small></strong>
-              <div className="kronoxPilotSpeedActions">
-                <button type="button" onClick={() => onSpeedPreset?.(Math.max(0.01, flightSpeed / 2))} aria-label="Reducir velocidad">−</button>
-                <button type="button" onClick={() => onSpeedPreset?.(Math.min(50000, flightSpeed * 2))} aria-label="Aumentar velocidad">+</button>
-              </div>
-              {viewMode === 'cockpit' && <small className="kronoxPilotCoordinates">CABINA · X {astronautCoords.x.toFixed(1)} m · Z {astronautCoords.z.toFixed(1)} m</small>}
-            </div>
-            <div className="kronoxPilotControls">
-              <span>{language === 'es' ? 'TRASLACIÓN' : 'TRANSLATION'}</span>
-              <div className="kronoxPilotPad" aria-label="Controles de traslación">
-                {[
-                  ['w', '↑', 'Avanzar'], ['a', '←', 'Izquierda'], ['s', '↓', 'Retroceder'], ['d', '→', 'Derecha'],
-                ].map(([key, symbol, label]) => (
-                  <button key={key} type="button" aria-label={label} disabled={!pilotActive}
-                    onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.(key, true); }}
-                    onPointerUp={() => onFlightKey?.(key, false)}
-                    onPointerCancel={() => onFlightKey?.(key, false)}
-                    onLostPointerCapture={() => onFlightKey?.(key, false)}>{symbol}</button>
-                ))}
-              </div>
-              <div className="kronoxPilotVertical">
-                <button type="button" aria-label="Subir nave" disabled={!pilotActive} onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.('e', true); }} onPointerUp={() => onFlightKey?.('e', false)} onPointerCancel={() => onFlightKey?.('e', false)} onLostPointerCapture={() => onFlightKey?.('e', false)}>↑ SUBIR</button>
-                <button type="button" aria-label="Bajar nave" disabled={!pilotActive} onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.('q', true); }} onPointerUp={() => onFlightKey?.('q', false)} onPointerCancel={() => onFlightKey?.('q', false)} onLostPointerCapture={() => onFlightKey?.('q', false)}>↓ BAJAR</button>
-              </div>
-            </div>
-          </div>
-          <footer>W A S D · {language === 'es' ? 'dirección' : 'direction'}　 Q / E · {language === 'es' ? 'vertical' : 'vertical'}　 SHIFT · ×5</footer>
-        </section>
-      )}
-
       {/* CONTEXTUAL 3D ASTRONOMICAL OBJECT INSPECTOR */}
       {objectCard && (
         <aside
@@ -370,7 +316,7 @@ export default function SpaceshipCockpit({
       {/* DIEGETIC CONSOLE INSTRUMENT OVERLAY WHEN INTERACTING WITH A PHYSICAL 3D CONSOLE */}
       {cockpitVisible && activeStation === 'nav' && (
         <div
-          className="kronoxDiegeticConsole"
+          className="kronoxDiegeticConsole kronoxNavConsole"
           role="dialog"
           aria-label="Consola de Navegación"
           style={
@@ -380,6 +326,7 @@ export default function SpaceshipCockpit({
                   top: `${consoleProjection.y + 40}px`,
                   bottom: 'auto',
                   transform: `translate(-50%, -50%) scale(${consoleProjection.scale})`,
+                  animation: 'none',
                 }
               : undefined
           }
@@ -393,85 +340,62 @@ export default function SpaceshipCockpit({
               ×
             </button>
           </div>
-          <p className="kronoxStationDesc">
-            1) Selecciona un destino para desplegar la ruta sobre el mapa holográfico 3D de la consola y escuchar el análisis de Kronox IA. 2) Confirma el rumbo para encender los propulsores de la nave de 120 m:
-          </p>
-          <div className="kronoxStationGrid">
-            <div className="kronoxStationBlock">
-              <small>PASO 1 · CALCULAR RUTA EN HOLOGRAMA 3D (NAVIGATION_SELECTED)</small>
-              <div className="kronoxStationBtnRow">
-                {SPHEREX_TARGETS.map((tgt) => {
-                  const isPlotted = plottedNavTarget?.key === tgt.key;
-                  return (
-                    <button
-                      key={tgt.key}
-                      type="button"
-                      className={isPlotted ? 'active' : ''}
-                      onClick={() => {
-                        setPlottedNavTarget(tgt);
-                        onDispatchSceneEvent?.(KRONOX_SCENE_EVENTS.NAVIGATION_SELECTED, {
-                          targetKey: tgt.key,
-                          targetName: tgt.name,
-                          distanceLabel: tgt.distanceLabel,
-                          coordinates: `RA ${tgt.ra.toFixed(4)}° · Dec ${tgt.dec.toFixed(4)}°`,
-                        });
-                      }}
-                    >
-                      ⌖ {tgt.name} ({tgt.distanceLabel})
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="kronoxStationBlock">
-              <small>PASO 2 · CONFIRMAR DESTINO Y ACTIVAR PROPULSIÓN 3D</small>
-              {plottedNavTarget ? (
-                <div className="kronoxNavConfirmationBox">
-                  <div className="kronoxNavRouteMeta">
-                    <strong>Ruta 3D trazada: {plottedNavTarget.name}</strong>
-                    <span>
-                      Posición astronómica: ICRS RA {plottedNavTarget.ra.toFixed(4)}° · Dec {plottedNavTarget.dec.toFixed(4)}° (J2025.8) ·{' '}
-                      Distancia física: {plottedNavTarget.distanceLabel} ({plottedNavTarget.distanceLy} ly)
-                    </span>
-                    <span>
-                      Tránsito en simulador: interpolación espacial suavizada (sp.lerpVectors) a través del mapa galáctico 3D
-                    </span>
-                  </div>
-                  <div className="kronoxStationBtnRow">
-                    <button
-                      type="button"
-                      className="kronoxConfirmPropulsionBtn"
-                      onClick={() => {
-                        const targetToFly = plottedNavTarget;
-                        onDispatchSceneEvent?.(KRONOX_SCENE_EVENTS.DESTINATION_CONFIRMED, {
-                          targetKey: targetToFly.key,
-                          targetName: targetToFly.name,
-                          distanceLabel: targetToFly.distanceLabel,
-                        });
-                        onSelectStation(null);
-                        onTravelToSpherex(targetToFly);
-                      }}
-                    >
-                      🚀 Confirmar destino y encender propulsores ({plottedNavTarget.name})
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="kronoxStationBtnRow">
-                  {[
-                    ['Órbita Planetaria (1 u/s)', 1],
-                    ['Sistema Solar (60 u/s)', 60],
-                    ['Brazo de Orión (3000 u/s)', 3000],
-                    ['Salto Interestelar (40000 u/s)', 40000],
-                  ].map(([label, val]) => (
-                    <button key={label} type="button" onClick={() => onSpeedPreset(val)}>
-                      {label}
-                    </button>
+          <div className="kronoxNavTelemetry" aria-label="Telemetría de vuelo en tiempo real">
+            <div><small>VELOCIDAD</small><strong>{consoleProjection?.speed?.toFixed?.(1) ?? '0.0'} <i>u/s</i></strong></div>
+            <div><small>ACELERACIÓN</small><strong>{consoleProjection?.inertia?.toFixed?.(2) ?? '0.00'} <i>u/s²</i></strong></div>
+            <div><small>RUMBO / INCLINACIÓN</small><strong>{consoleProjection?.heading ?? 0}° / {consoleProjection?.pitch ?? 0}°</strong></div>
+            <div><small>MASA · {consoleProjection?.flightMode ?? 'ESPERA'}</small><strong>Sin especificar <i>kg</i></strong></div>
+          </div>
+          <div className="kronoxNavModeTabs" role="tablist" aria-label="Modo de pilotaje">
+            <button type="button" role="tab" aria-selected={navigationMode === 'manual'} className={navigationMode === 'manual' ? 'active' : ''} onClick={() => setNavigationMode('manual')}>✧ Pilotaje manual</button>
+            <button type="button" role="tab" aria-selected={navigationMode === 'auto'} className={navigationMode === 'auto' ? 'active' : ''} onClick={() => setNavigationMode('auto')}>⌖ Piloto automático</button>
+          </div>
+          {navigationMode === 'manual' ? (
+            <div className="kronoxNavManualPanel">
+              <div>
+                <strong>CONTROL MANUAL</strong>
+                <small>W / S · avance · A / D · rumbo · Q / E · vertical · Shift · impulso ×5</small>
+                <div className="kronoxNavSpeedPresets">
+                  {[[1, 'Órbita'], [60, 'Sistema'], [3000, 'Galaxia'], [40000, 'Hiper']].map(([value, label]) => (
+                    <button key={value} type="button" onClick={() => onSpeedPreset(value)}>{label} · {value.toLocaleString('es-ES')} u/s</button>
                   ))}
                 </div>
-              )}
+              </div>
+              <div className="kronoxNavControlPad" aria-label="Timón manual">
+                {[
+                  ['w', '↑', 'Avanzar'], ['a', '←', 'Izquierda'], ['s', '↓', 'Retroceder'], ['d', '→', 'Derecha'],
+                ].map(([key, icon, label]) => (
+                  <button key={key} type="button" aria-label={label}
+                    onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.(key, true); }}
+                    onPointerUp={() => onFlightKey?.(key, false)} onPointerCancel={() => onFlightKey?.(key, false)} onLostPointerCapture={() => onFlightKey?.(key, false)}>{icon}</button>
+                ))}
+                <button type="button" aria-label="Ascender" onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.('e', true); }} onPointerUp={() => onFlightKey?.('e', false)} onPointerCancel={() => onFlightKey?.('e', false)} onLostPointerCapture={() => onFlightKey?.('e', false)}>↑ Z</button>
+                <button type="button" aria-label="Descender" onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.('q', true); }} onPointerUp={() => onFlightKey?.('q', false)} onPointerCancel={() => onFlightKey?.('q', false)} onLostPointerCapture={() => onFlightKey?.('q', false)}>↓ Z</button>
+                <button type="button" className="kronoxNavBoost" onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.('shift', true); }} onPointerUp={() => onFlightKey?.('shift', false)} onPointerCancel={() => onFlightKey?.('shift', false)} onLostPointerCapture={() => onFlightKey?.('shift', false)}>IMPULSO ×5</button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="kronoxNavAutopilotPanel">
+              <label htmlFor="kronoxNavDestination">OBJETIVO DE NAVEGACIÓN</label>
+              <select id="kronoxNavDestination" value={navigationTarget} onChange={(event) => setNavigationTarget(event.target.value)}>
+                <optgroup label="Destinos rápidos">
+                  {[['quick:sunOrbit', 'Órbita próxima al Sol'], ['quick:asteroids', 'Cinturón de asteroides'], ['quick:orion', 'Brazo de Orión'], ['quick:core', 'Centro galáctico']].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </optgroup>
+                <optgroup label="Sistema Solar">{P.filter((planet) => !planet.moon).map((planet) => <option key={planet.n} value={`planet:${planet.n}`}>{planet.n}</option>)}</optgroup>
+                <optgroup label="Objetivos SPHEREx">{SPHEREX_TARGETS.map((target) => <option key={target.key} value={`spherex:${target.key}`}>{target.name} · {target.distanceLabel}</option>)}</optgroup>
+              </select>
+              <button type="button" className="kronoxConfirmPropulsionBtn" onClick={() => {
+                const [kind, key] = navigationTarget.split(':');
+                onSelectStation(null);
+                if (kind === 'quick') onQuickTravel?.(key, key === 'sunOrbit' ? 'Órbita próxima al Sol' : key === 'asteroids' ? 'Cinturón de asteroides' : key === 'orion' ? 'Brazo de Orión' : 'Centro galáctico');
+                else if (kind === 'planet') onTravelToPlanet?.(key);
+                else if (kind === 'spherex') {
+                  const target = SPHEREX_TARGETS.find((item) => item.key === key);
+                  if (target) onTravelToSpherex?.(target);
+                }
+              }}>🚀 Calcular ruta y viajar automáticamente</button>
+            </div>
+          )}
         </div>
       )}
 

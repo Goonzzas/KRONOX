@@ -1951,10 +1951,6 @@ export default function App() {
         },
         nearestStation: nearestCabinStation,
         activeStation: activeCockpitStation,
-        onExitPilotStation: () => {
-          setActiveCockpitStation(null);
-          A().setActiveCabinStation?.(null);
-        },
         onSelectStation: (stId) => {
           setActiveCockpitStation(stId);
           A().setActiveCabinStation?.(stId);
@@ -2005,6 +2001,9 @@ export default function App() {
         onFlightKey: (key, pressed) => A().key(key, pressed),
         selectedObject,
         onCloseObjectInspector: () => setSelectedObject(null),
+        onQuickTravel: (key, label) => {
+          startTravel(() => A().quick(key), label);
+        },
         onTravelToSpherex: (target) => {
           setSelectedObject(null);
           chooseSpherexTarget(target);
