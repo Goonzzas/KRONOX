@@ -225,12 +225,13 @@ export default async function handler(request, response) {
     return sendError(response, 405, 'Method not allowed');
   }
 
-  const { action } = request.query;
+  const query = new URL(request.url, 'http://localhost').searchParams;
+  const action = query.get('action');
   if (action === 'search') {
-    const ra = Number(request.query.ra),
-      dec = Number(request.query.dec);
-    const radius = Math.min(0.1, Math.max(0.005, Number(request.query.radius) || 0.03));
-    const releaseParam = String(request.query.release || 'all').toLowerCase();
+    const ra = Number(query.get('ra')),
+      dec = Number(query.get('dec'));
+    const radius = Math.min(0.1, Math.max(0.005, Number(query.get('radius')) || 0.03));
+    const releaseParam = String(query.get('release') || 'all').toLowerCase();
     if (
       !Number.isFinite(ra) ||
       ra < 0 ||
@@ -285,9 +286,8 @@ export default async function handler(request, response) {
   }
 
   if (action === 'frame') {
-    const imageUrl = typeof request.query.url === 'string' ? request.query.url : '';
-    const center =
-      typeof request.query.center === 'string' ? request.query.center.split(',').map(Number) : [];
+    const imageUrl = query.get('url') || '';
+    const center = (query.get('center') || '').split(',').map(Number);
     const ra = center[0],
       dec = center[1];
     if (!imageUrl.startsWith('https://irsa.ipac.caltech.edu/ibe/data/spherex/qr'))
@@ -312,7 +312,7 @@ export default async function handler(request, response) {
         return sendError(response, 502, 'IRSA no pudo generar el recorte de esta observación.');
       response.setHeader('Content-Type', 'application/fits');
       response.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
-      const includePsf = request.query.psf === '1' || request.query.psf === 'true';
+      const includePsf = query.get('psf') === '1' || query.get('psf') === 'true';
       const product = Buffer.from(await imageResponse.arrayBuffer());
       return response.status(200).send(extractScientificFits(product, includePsf));
     } catch (error) {

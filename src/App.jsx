@@ -388,6 +388,31 @@ export default function App() {
         voiceAudio.current = null;
         closeKronoxLater();
       };
+      const useBrowserVoice = (remainingText) => {
+        if (token !== voiceToken.current || !voiceRef.current) return;
+        if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+          setVoiceError('No se pudo reproducir la voz de Kronox. Revisa el audio del navegador.');
+          finishSpeech();
+          return;
+        }
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(remainingText);
+        utterance.lang = voiceAccentRef.current || 'es-US';
+        utterance.rate = 1.08;
+        utterance.onstart = () => {
+          if (token !== voiceToken.current) return;
+          setVoiceError('');
+          setSpeaking(true);
+          speakingRef.current = true;
+        };
+        utterance.onend = finishSpeech;
+        utterance.onerror = () => {
+          if (token === voiceToken.current)
+            setVoiceError('No se pudo reproducir la voz de Kronox. Revisa el audio del navegador.');
+          finishSpeech();
+        };
+        window.speechSynthesis.speak(utterance);
+      };
       const playNext = () => {
         if (token !== voiceToken.current || !voiceRef.current) return;
         if (i >= parts.length) return finishSpeech();
@@ -408,13 +433,20 @@ export default function App() {
         audio.preload = 'auto';
         audio.playbackRate = 1.28;
         audio.preservesPitch = true;
+        audio.volume = 1;
+        audio.muted = false;
         voiceAudio.current = audio;
+        let fallbackStarted = false;
+        const fallbackToBrowserVoice = () => {
+          if (fallbackStarted || token !== voiceToken.current) return;
+          fallbackStarted = true;
+          voiceAudio.current = null;
+          stopAudioAnalysis();
+          useBrowserVoice([text, ...parts.slice(i)].join(' '));
+        };
         audio.onended = playNext;
         audio.onerror = () => {
-          if (token === voiceToken.current) {
-            setVoiceError('No se pudo cargar la voz en español. Revisa tu conexión a internet.');
-            finishSpeech();
-          }
+          fallbackToBrowserVoice();
         };
         audio
           .play()
@@ -428,12 +460,12 @@ export default function App() {
           })
           .catch((e) => {
             if (token !== voiceToken.current) return;
-            setVoiceError(
-              e && e.name === 'NotAllowedError'
-                ? 'El navegador bloqueó el audio. Pulsa «Activar voz» otra vez.'
-                : 'No se pudo reproducir la voz en español. Revisa tu conexión a internet.',
-            );
-            finishSpeech();
+            if (e && e.name === 'NotAllowedError') {
+              setVoiceError('El navegador bloqueó el audio. Pulsa «Activar voz» otra vez.');
+              finishSpeech();
+            } else {
+              fallbackToBrowserVoice();
+            }
           });
       };
       playNext();

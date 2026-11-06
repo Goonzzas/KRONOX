@@ -20,6 +20,7 @@ function apiDevServerPlugin() {
 
       const mockedReq = {
         method: req.method || 'GET',
+        url: rawUrl,
         query,
         headers: req.headers || {},
       };

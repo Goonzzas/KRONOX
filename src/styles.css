@@ -6523,7 +6523,8 @@ small {
 .kronoxCabinSpatialCompass,
 .kronoxRealTimeIntroHud,
 .missionLaunchWindow,
-.kronoxNotice {
+.kronoxNotice,
+.kronoxDialogueCard {
   box-sizing: border-box;
   max-width: calc(100vw - 16px);
   max-height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
@@ -6549,7 +6550,8 @@ small {
   .kronoxCabinSpatialCompass,
   .kronoxRealTimeIntroHud,
   .missionLaunchWindow,
-  .kronoxNotice {
+  .kronoxNotice,
+  .kronoxDialogueCard {
     max-width: calc(100vw - 16px);
     max-height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     overflow: auto;

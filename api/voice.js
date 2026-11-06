@@ -6,8 +6,9 @@ export default async function handler(request, response) {
     return response.status(405).json({ error: 'Method not allowed' });
   }
 
-  const text = typeof request.query.text === 'string' ? request.query.text.trim() : '';
-  const requestedLanguage = request.query.lang;
+  const query = new URL(request.url, 'http://localhost').searchParams;
+  const text = (query.get('text') || '').trim();
+  const requestedLanguage = query.get('lang');
   const language = SUPPORTED_LANGUAGES.has(requestedLanguage) ? requestedLanguage : 'en-US';
 
   if (!text || text.length > 200) {
