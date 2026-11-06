@@ -118,6 +118,7 @@ export default function App() {
     [cabinFirstPerson, setCabinFirstPerson] = useState(true),
     [astronautCoords, setAstronautCoords] = useState({ x: 0, z: -1.8 }),
     [aiProjection, setAiProjection] = useState(null),
+    [consoleProjection, setConsoleProjection] = useState(null),
     [directorState, setDirectorState] = useState(null),
     [speechPaused, setSpeechPaused] = useState(false),
     [realTimeIntroActive, setRealTimeIntroActive] = useState(false),
@@ -497,6 +498,9 @@ export default function App() {
           setAstronautCoords({ x: proj.astronautX, z: proj.astronautZ });
           setCabinFirstPerson(Boolean(proj.cabinFirstPerson));
         }
+      },
+      onConsoleScreenProjection: (proj) => {
+        setConsoleProjection(proj);
       },
       onSceneDirectorEvent: (eventName, payload, nextState) => {
         if (nextState) setDirectorState({ ...nextState });
@@ -1973,6 +1977,7 @@ export default function App() {
         directorState,
         astronautCoords,
         findingsCount: missionFindingsSync.length,
+        consoleProjection,
       }),
     fr && h('canvas', { id: 'warp', className: 'warp' }),
     fr &&

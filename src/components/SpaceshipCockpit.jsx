@@ -42,6 +42,7 @@ export default function SpaceshipCockpit({
   directorState = null,
   astronautCoords = { x: 0, z: -1.8 },
   findingsCount = 0,
+  consoleProjection = null,
 }) {
   // Plotted target in the 3D Navigation Console hologram before confirming propulsion
   const [plottedNavTarget, setPlottedNavTarget] = useState(null);
@@ -206,47 +207,13 @@ export default function SpaceshipCockpit({
         </div>
       </div>
 
-      {/* IN-WORLD WALKING & PHYSICAL CONSOLE TELEMETRY BAR (Subtle spatial compass inside 3D cabin) */}
-      {cockpitVisible && (
-        <div className="kronoxCabinSpatialCompass" role="navigation" aria-label="Consolas físicas en el puente 3D">
-          <span className="kronoxWalkHint">
-            <strong>WASD</strong> Caminar ({SHIP_WORLD_UNITS.WALK_SPEED_MPS} m/s) · <strong>Ratón</strong> Mirar ·{' '}
-            <strong>[E] / Clic 3D</strong> Operar consola
-          </span>
-          <div className="kronoxPhysicalStationsCompass">
-            {PHYSICAL_CABIN_STATIONS.map((st) => {
-              const isNear = nearestStation?.id === st.id;
-              const isActive = activeStation === st.id;
-              return (
-                <button
-                  key={st.id}
-                  type="button"
-                  className={`kronoxCompassMarker ${isNear ? 'near' : ''} ${isActive ? 'active' : ''}`}
-                  onClick={() => {
-                    onWalkToStation?.(st.id);
-                    onSelectStation(isActive ? null : st.id);
-                    if (st.id === 'comms') onOpenAiConsole?.();
-                  }}
-                  title={`Caminar hacia ${st.title} (${st.position.x}m, ${st.position.z}m)`}
-                >
-                  <i style={{ background: st.color }} />
-                  <span>{st.shortTitle}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* PROXIMITY INTERACTION PROMPT WHEN ASTRONAUT IS NEAR A PHYSICAL 3D CONSOLE */}
+      {/* DISCRETE MINIMAL CONTEXTUAL PROMPT WHEN ASTRONAUT IS NEAR A PHYSICAL 3D CONSOLE */}
       {cockpitVisible && nearestStation && !activeStation && (
         <div className="kronoxProximityPrompt" role="status" aria-live="polite">
           <div className="kronoxProximityKey">[E]</div>
           <div className="kronoxProximityInfo">
             <strong>{nearestStation.title}</strong>
-            <span>
-              Distancia: {nearestStation.distance} m · {nearestStation.prompt}
-            </span>
+            <span>Interactuar con consola física</span>
           </div>
           <button
             type="button"
@@ -256,7 +223,7 @@ export default function SpaceshipCockpit({
               if (nearestStation.id === 'comms') onOpenAiConsole?.();
             }}
           >
-            Operar instrumento
+            Interactuar
           </button>
         </div>
       )}
@@ -347,7 +314,21 @@ export default function SpaceshipCockpit({
 
       {/* DIEGETIC CONSOLE INSTRUMENT OVERLAY WHEN INTERACTING WITH A PHYSICAL 3D CONSOLE */}
       {cockpitVisible && activeStation === 'nav' && (
-        <div className="kronoxDiegeticConsole" role="dialog" aria-label="Consola de Navegación">
+        <div
+          className="kronoxDiegeticConsole"
+          role="dialog"
+          aria-label="Consola de Navegación"
+          style={
+            consoleProjection?.visible
+              ? {
+                  left: `${consoleProjection.x}px`,
+                  top: `${consoleProjection.y + 40}px`,
+                  bottom: 'auto',
+                  transform: `translate(-50%, -50%) scale(${consoleProjection.scale})`,
+                }
+              : undefined
+          }
+        >
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">ESTACIÓN FÍSICA DE PROA · (0.0 m, -6.2 m) · MAPA HOLOGRÁFICO 3D ACTIVO</span>
@@ -440,7 +421,21 @@ export default function SpaceshipCockpit({
       )}
 
       {cockpitVisible && activeStation === 'science' && (
-        <div className="kronoxDiegeticConsole" role="dialog" aria-label="Consola Científica">
+        <div
+          className="kronoxDiegeticConsole"
+          role="dialog"
+          aria-label="Consola Científica"
+          style={
+            consoleProjection?.visible
+              ? {
+                  left: `${consoleProjection.x}px`,
+                  top: `${consoleProjection.y + 40}px`,
+                  bottom: 'auto',
+                  transform: `translate(-50%, -50%) scale(${consoleProjection.scale})`,
+                }
+              : undefined
+          }
+        >
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">ESTACIÓN FÍSICA DE BABOR · (-4.2 m, -2.2 m) · SENSORES 3D ACTIVOS</span>
@@ -476,7 +471,21 @@ export default function SpaceshipCockpit({
       )}
 
       {cockpitVisible && activeStation === 'missions' && (
-        <div className="kronoxDiegeticConsole" role="dialog" aria-label="Consola de Misiones">
+        <div
+          className="kronoxDiegeticConsole"
+          role="dialog"
+          aria-label="Consola de Misiones"
+          style={
+            consoleProjection?.visible
+              ? {
+                  left: `${consoleProjection.x}px`,
+                  top: `${consoleProjection.y + 40}px`,
+                  bottom: 'auto',
+                  transform: `translate(-50%, -50%) scale(${consoleProjection.scale})`,
+                }
+              : undefined
+          }
+        >
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">ESTACIÓN FÍSICA DE ESTRIBOR · (+4.2 m, -2.2 m)</span>
@@ -530,7 +539,21 @@ export default function SpaceshipCockpit({
       )}
 
       {cockpitVisible && activeStation === 'comms' && (
-        <div className="kronoxDiegeticConsole" role="dialog" aria-label="Consola de Comunicaciones">
+        <div
+          className="kronoxDiegeticConsole"
+          role="dialog"
+          aria-label="Consola de Comunicaciones"
+          style={
+            consoleProjection?.visible
+              ? {
+                  left: `${consoleProjection.x}px`,
+                  top: `${consoleProjection.y + 40}px`,
+                  bottom: 'auto',
+                  transform: `translate(-50%, -50%) scale(${consoleProjection.scale})`,
+                }
+              : undefined
+          }
+        >
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">ESTACIÓN FÍSICA CUÁNTICA · (-2.8 m, +2.8 m) · NÚCLEO ACTIVO</span>

@@ -2587,6 +2587,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let aiFollowAstronaut = true;
   let aiSpeakingState = false;
   let aiAudioLevelState = 0.08;
+  let lastScreenProjectionTime = 0;
 
   // Real-time 3D Cinematic Intro Spline State (Section 2)
   let realTimeIntro = null;
@@ -3433,8 +3434,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           }
         }
 
-        // Aceleración gradual (9 m/s²) y frenado suave (12 m/s²)
-        const accelRate = hasInput ? 9.2 : 12.5;
+        // Aceleración de caminata humana suave (2.2 m/s²) y frenado progresivo (3.0 m/s²)
+        const accelRate = hasInput ? 2.2 : 3.0;
         astronautVel.lerp(desiredVel, Math.min(1, dt * accelRate));
 
         const currentSpeed = astronautVel.length();
@@ -3480,7 +3481,31 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         cam.position.copy(localCamPos.clone().applyQuaternion(q).add(sp));
         cam.quaternion.copy(q).multiply(localLookQuat);
 
-        // Detectar proximidad a las 5 consolas físicas 3D
+        // Si el astronauta se aleja de una consola activa (> 2.85 m), cerrar automáticamente la interfaz
+        if (activeCabinStation) {
+          const activeStObj = PHYSICAL_CABIN_STATIONS.find((s) => s.id === activeCabinStation);
+          if (activeStObj) {
+            const distFromActive = Math.hypot(
+              astronautPos.x - activeStObj.position.x,
+              astronautPos.z - activeStObj.position.z,
+            );
+            if (distFromActive > 2.85) {
+              activeCabinStation = null;
+              aiFollowAstronaut = true;
+              luminousAI.pointAtWorldPosition(null, false);
+              S.onStationInteract?.(null);
+            }
+          }
+        }
+
+        // Detección contextual inteligente de aproximación de Kronox IA a la consola más cercana
+        if (nearestCabinStation && !activeCabinStation && !guidedTourState) {
+          // Si el astronauta está cerca de una consola (d < 2.2 m), Kronox IA se desplaza con intención hacia la consola
+          if (nearestCabinStation.distance < 2.2 && luminousAI.getState() !== 'Señalización') {
+            luminousAI.setTargetPosition(nearestCabinStation.station.aiHoverPos, 'Explicación');
+            luminousAI.pointAtWorldPosition(nearestCabinStation.station.consolePos, true);
+          }
+        }
         nearestCabinStation = cabinSystem.findNearestInteractiveStation(astronautPos);
         const nearId = nearestCabinStation ? nearestCabinStation.station.id : null;
         if (nearId !== lastNearestStationId) {
@@ -3546,22 +3571,53 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
         luminousAI.update(dt, clk.elapsedTime, aiSpeakingState, aiAudioLevelState);
 
-        // Proyectar la posición 3D de Kronox IA a coordenadas 2D de pantalla para subtítulos contextuales
-        if (S.onAiScreenProjection && Math.floor(clk.elapsedTime * 20) !== Math.floor((clk.elapsedTime - dt) * 20)) {
+        // Proyectar la posición 3D de Kronox IA y de las pantallas de consolas 3D activas a coordenadas 2D de pantalla
+        if (clk.elapsedTime - lastScreenProjectionTime > 0.04) {
+          lastScreenProjectionTime = clk.elapsedTime;
           const aiWorldPos = luminousAI.group.position.clone().applyQuaternion(q).add(sp);
           const projected = aiWorldPos.clone().project(cam);
           const inFront = projected.z >= -1 && projected.z <= 1;
           const sx = (projected.x * 0.5 + 0.5) * innerWidth;
           const sy = (-projected.y * 0.5 + 0.5) * innerHeight;
-          S.onAiScreenProjection({
-            visible: inFront && sx >= -100 && sx <= innerWidth + 100 && sy >= -100 && sy <= innerHeight + 100,
-            x: Math.round(sx),
-            y: Math.round(sy),
-            state: luminousAI.getState(),
-            astronautX: Number(astronautPos.x.toFixed(2)),
-            astronautZ: Number(astronautPos.z.toFixed(2)),
-            cabinFirstPerson,
-          });
+          if (S.onAiScreenProjection) {
+            S.onAiScreenProjection({
+              visible: inFront && sx >= -100 && sx <= innerWidth + 100 && sy >= -100 && sy <= innerHeight + 100,
+              x: Math.round(sx),
+              y: Math.round(sy),
+              state: luminousAI.getState(),
+              astronautX: Number(astronautPos.x.toFixed(2)),
+              astronautZ: Number(astronautPos.z.toFixed(2)),
+              cabinFirstPerson,
+            });
+          }
+
+          // Anclaje 3D estricto de pantalla para consola activa:
+          // Proyectamos el centro del screenMesh del pedestal 3D a coordenadas del viewport
+          if (activeCabinStation && S.onConsoleScreenProjection) {
+            const stObj = PHYSICAL_CABIN_STATIONS.find((s) => s.id === activeCabinStation);
+            const stEntry = cabinSystem.stationMeshes.find((m) => m.id === activeCabinStation);
+            if (stObj && stEntry && stEntry.screenMesh) {
+              const screenWorldPos = stEntry.screenMesh.getWorldPosition(new V());
+              const pScreen = screenWorldPos.clone().project(cam);
+              const screenInFront = pScreen.z >= -1 && pScreen.z <= 1;
+              const scX = (pScreen.x * 0.5 + 0.5) * innerWidth;
+              const scY = (-pScreen.y * 0.5 + 0.5) * innerHeight;
+              const distToCam = cam.position.distanceTo(screenWorldPos);
+
+              // Ángulo de inclinación aparente y escala según perspectiva
+              const scaleFactor = Math.max(0.65, Math.min(1.25, 2.6 / Math.max(1.2, distToCam)));
+              S.onConsoleScreenProjection({
+                activeStationId: activeCabinStation,
+                visible: screenInFront && distToCam < 4.5,
+                x: Math.round(scX),
+                y: Math.round(scY),
+                scale: Number(scaleFactor.toFixed(3)),
+                distMeters: Number(distToCam.toFixed(2)),
+              });
+            }
+          } else if (S.onConsoleScreenProjection) {
+            S.onConsoleScreenProjection(null);
+          }
         }
       } else {
         localCabinWorld.visible = false;
