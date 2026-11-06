@@ -105,21 +105,19 @@ export default function SpaceshipCockpit({
 
   return (
     <>
-      {/* TOP BRIDGE VIEW MODE & PHYSICAL SCALE BAR */}
-      <div
+      {/* TOP BRIDGE VIEW MODE & PHYSICAL SCALE BAR (Clean, structured sci-fi HUD) */}
+      <header
         className="kronoxBridgeTopBar"
         role="region"
         aria-label={t('Modos de vista y puente habitable 3D', language)}
       >
         <div className="kronoxBridgeIdentity">
           <span className="kronoxShipDot" />
-          <strong>NAVE KRONOX · {SHIP_WORLD_UNITS.SHIP_LENGTH_METERS} m</strong>
-          <small className="kronoxScaleTag">
-            1 u = 1 m · Astronauta {SHIP_WORLD_UNITS.ASTRONAUT_HEIGHT_METERS} m
-          </small>
+          <strong>KRONOX</strong>
+          <span className="kronoxScaleTag">{SHIP_WORLD_UNITS.SHIP_LENGTH_METERS} m</span>
         </div>
 
-        <div className="kronoxViewModeSwitcher" role="group" aria-label="Selector de cámara 3D">
+        <nav className="kronoxViewModeSwitcher" aria-label="Selector de cámara 3D">
           <button
             type="button"
             className={`kronoxViewBtn ${viewMode === 'cockpit' && cabinFirstPerson ? 'active' : ''}`}
@@ -127,8 +125,9 @@ export default function SpaceshipCockpit({
               onChangeViewMode('cockpit');
               onToggleCabinPerspective?.(true);
             }}
+            title="Vista en 1ª Persona del astronauta (1.75 m)"
           >
-            <span>Cabina 1ª Persona ({SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS} m)</span>
+            <span>Cabina 1P</span>
           </button>
           <button
             type="button"
@@ -137,61 +136,54 @@ export default function SpaceshipCockpit({
               onChangeViewMode('cockpit');
               onToggleCabinPerspective?.(false);
             }}
+            title="Vista en 3ª Persona del astronauta"
           >
-            <span>Cabina 3ª Persona ({SHIP_WORLD_UNITS.ASTRONAUT_HEIGHT_METERS} m)</span>
+            <span>Cabina 3P</span>
           </button>
           <button
             type="button"
             className={`kronoxViewBtn ${viewMode === 'exterior' ? 'active' : ''}`}
             onClick={() => onChangeViewMode('exterior')}
+            title="Vista exterior de la nave de 120 metros"
           >
-            <span>Vuelo Exterior ({SHIP_WORLD_UNITS.SHIP_LENGTH_METERS} m)</span>
+            <span>Exterior</span>
           </button>
           <button
             type="button"
             className={`kronoxViewBtn ${viewMode === 'navigation' ? 'active' : ''}`}
             onClick={() => onChangeViewMode('navigation')}
+            title="Vista del mapa cósmico 3D"
           >
-            <span>Mapa Cósmico</span>
+            <span>Cosmos</span>
           </button>
-        </div>
+        </nav>
 
         <div className="kronoxCruiseReadout">
           <span
             className="kronoxDirectorModePill"
             data-mode={directorState?.controlMode || 'FREE_ASTRONAUT'}
-            title={`Orquestador de escena 3D · Último evento: ${directorState?.lastEvent || 'CABIN_ENTERED'}`}
+            title={`Estado de control: ${directorState?.controlMode || 'FREE_ASTRONAUT'}`}
           >
             ◈ {controlModeLabel}
           </span>
+          {viewMode === 'cockpit' ? (
+            <span className="kronoxCabinPosReadout" title="Posición y velocidad del astronauta">
+              X {astronautCoords.x >= 0 ? `+${astronautCoords.x}` : astronautCoords.x} · Z{' '}
+              {astronautCoords.z >= 0 ? `+${astronautCoords.z}` : astronautCoords.z} m · {SHIP_WORLD_UNITS.WALK_SPEED_MPS} m/s
+            </span>
+          ) : (
+            <span className="kronoxCabinPosReadout" title="Velocidad en mapa cósmico">
+              {flightSpeed >= 100 ? flightSpeed.toFixed(0) : flightSpeed.toFixed(1)} u/s
+            </span>
+          )}
           {directorState?.activeSequence && onSkipDirectorSequence && (
             <button
               type="button"
               className="kronoxBridgeCinemaBtn"
               onClick={onSkipDirectorSequence}
-              title="Saltar secuencia 3D de sistemas y volver al control libre en cabina"
+              title="Saltar secuencia activa"
             >
-              ⏭ Saltar secuencia 3D
-            </button>
-          )}
-          {viewMode === 'cockpit' ? (
-            <span className="kronoxCabinPosReadout" title="Posición y velocidad física del astronauta dentro del puente 3D (1 u = 1 m)">
-              PUENTE 3D: X {astronautCoords.x >= 0 ? `+${astronautCoords.x}` : astronautCoords.x} m · Z{' '}
-              {astronautCoords.z >= 0 ? `+${astronautCoords.z}` : astronautCoords.z} m · {SHIP_WORLD_UNITS.WALK_SPEED_MPS} m/s
-            </span>
-          ) : (
-            <span title="Velocidad de desplazamiento en unidades del mapa cósmico 3D">
-              MAPA CÓSMICO: {flightSpeed >= 100 ? flightSpeed.toFixed(0) : flightSpeed.toFixed(1)} u/s (mapa)
-            </span>
-          )}
-          {onReplayCinematic && (
-            <button
-              type="button"
-              className="kronoxBridgeCinemaBtn"
-              onClick={onReplayCinematic}
-              title="Reproducir secuencia 3D de aproximación e ingreso a la cabina en tiempo real"
-            >
-              🎬 Intro 3D
+              ⏭ Saltar
             </button>
           )}
           {onOpenSettingsModal && (
@@ -201,11 +193,11 @@ export default function SpaceshipCockpit({
               onClick={onOpenSettingsModal}
               aria-label="Abrir ajustes del simulador"
             >
-              ⚙ Ajustes
+              ⚙
             </button>
           )}
         </div>
-      </div>
+      </header>
 
       {/* DISCRETE MINIMAL CONTEXTUAL PROMPT WHEN ASTRONAUT IS NEAR A PHYSICAL 3D CONSOLE */}
       {cockpitVisible && nearestStation && !activeStation && (

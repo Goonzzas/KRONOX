@@ -43,6 +43,7 @@ export default function KronoxWidget({
   const [inputQuery, setInputQuery] = useState('');
   const [inputFocused, setInputFocused] = useState(false);
   const [textPaused, setTextPaused] = useState(false);
+  const [showVoiceMenu, setShowVoiceMenu] = useState(false);
 
   // Map legacy state strings to the 8 required Spanish states of the 3D luminous entity
   const stateMap = {
@@ -111,45 +112,32 @@ export default function KronoxWidget({
         </button>
       )}
 
-      {/* 2. CONTEXTUAL SUBTITLE & DIALOGUE BAR SYNCHRONIZED WITH THE 3D LUMINOUS ENTITY */}
+      {/* 2. DISCRETE CINEMATIC SUBTITLE BAR LINKED TO KRONOX IA */}
       <div
         className={`kronoxSubtitleDock ${speaking ? 'is-speaking' : ''} ${panelOpen ? 'expanded' : 'compact'}`}
         role="region"
         aria-label={t('Diálogo contextual de la entidad luminosa Kronox IA', language)}
       >
         <div className="kronoxSubtitleMainRow">
-          {/* Iconic Luminous Energy Core (No humanoid figure) */}
-          <button
-            type="button"
-            className="kronoxLuminousBadgeBtn"
-            onClick={onOrbClick}
-            aria-label={t('Alternar consola de órdenes de Kronox IA', language)}
-            title={t('Alternar entrada de comandos para Kronox IA', language)}
-          >
-            <span className="kronoxCore" />
-            <svg className="kronoxGyro" viewBox="0 0 100 100" aria-hidden="true">
-              <ellipse className="gyroRing ringOne" cx="50" cy="50" rx="39" ry="17" />
-              <ellipse className="gyroRing ringTwo" cx="50" cy="50" rx="39" ry="17" />
-              <ellipse className="gyroRing ringThree" cx="50" cy="50" rx="39" ry="17" />
-              <path
-                className="kronoxFourStar"
-                d="M50 7 57 43 93 50 57 57 50 93 43 57 7 50 43 43Z"
-              />
-            </svg>
-          </button>
+          {/* Subtle indicator icon */}
+          <div className="kronoxSubtitleSparkIndicator" aria-hidden="true">
+            <span className="kronoxSparkDot" />
+          </div>
 
           <div className="kronoxSubtitleContent">
             <div className="kronoxSubtitleMeta">
-              <span className="kronoxEntityName">KRONOX IA · ENTIDAD LUMINOSA 3D</span>
+              <span className="kronoxEntityName">KRONOX IA</span>
               <span className="kronoxStatePill" data-state={resolvedState}>
                 ● {resolvedState}
               </span>
-              <span className="kronoxEpistemicInline">◈ {epistemicCategory}</span>
-              <div className="kronoxMiniVoiceWave" aria-hidden="true">
-                {Array.from({ length: 16 }, (_, idx) => (
-                  <i key={idx} style={{ '--bar-level': audioLevels?.[idx * 2] ?? 0.1 }} />
-                ))}
-              </div>
+              <span className="kronoxEpistemicInline">{epistemicCategory}</span>
+              {speaking && (
+                <div className="kronoxMiniVoiceWave" aria-hidden="true">
+                  {Array.from({ length: 8 }, (_, idx) => (
+                    <i key={idx} style={{ '--bar-level': audioLevels?.[idx * 4] ?? 0.1 }} />
+                  ))}
+                </div>
+              )}
             </div>
 
             <p className="kronoxSubtitleText" aria-live="polite">
@@ -159,47 +147,59 @@ export default function KronoxWidget({
           </div>
 
           <div className="kronoxSubtitleQuickActions">
+            {/* Contextual discrete settings button */}
             <button
               type="button"
-              className="kronoxSubActionBtn"
-              onClick={onToggleVoice}
-              title={voice ? 'Silenciar síntesis de voz' : 'Activar síntesis de voz'}
+              className="kronoxSubMiniBtn"
+              onClick={() => setShowVoiceMenu((prev) => !prev)}
+              title="Ajustes de voz y locución"
+              aria-label="Ajustes de voz"
             >
-              {voice ? '🔊 Voz' : '🔇 Mudo'}
+              {voice ? '🔊' : '🔇'}
             </button>
-            <button
-              type="button"
-              className="kronoxSubActionBtn"
-              onClick={() => {
-                setTextPaused((prev) => !prev);
-                onPauseSpeech?.();
-              }}
-              title={textPaused || speechPaused ? 'Reanudar locución de Kronox IA' : 'Pausar locución de Kronox IA'}
-              aria-label={textPaused || speechPaused ? 'Reanudar locución' : 'Pausar locución'}
-            >
-              {textPaused || speechPaused ? '▶ Reanudar' : '⏸ Pausar'}
-            </button>
-            {onRepeatSpeech && (
-              <button
-                type="button"
-                className="kronoxSubActionBtn"
-                onClick={() => {
-                  setTextPaused(false);
-                  setTyped('');
-                  onRepeatSpeech();
-                }}
-                title="Repetir locución de Kronox IA"
-                aria-label="Repetir locución"
-              >
-                ↺ Repetir
-              </button>
+
+            {showVoiceMenu && (
+              <div className="kronoxVoiceContextMenu">
+                <button
+                  type="button"
+                  className="kronoxMenuActionBtn"
+                  onClick={onToggleVoice}
+                >
+                  {voice ? 'Silenciar voz' : 'Activar voz'}
+                </button>
+                <button
+                  type="button"
+                  className="kronoxMenuActionBtn"
+                  onClick={() => {
+                    setTextPaused((prev) => !prev);
+                    onPauseSpeech?.();
+                  }}
+                >
+                  {textPaused || speechPaused ? 'Reanudar' : 'Pausar'}
+                </button>
+                {onRepeatSpeech && (
+                  <button
+                    type="button"
+                    className="kronoxMenuActionBtn"
+                    onClick={() => {
+                      setTextPaused(false);
+                      setTyped('');
+                      onRepeatSpeech();
+                    }}
+                  >
+                    Repetir
+                  </button>
+                )}
+              </div>
             )}
+
             <button
               type="button"
-              className="kronoxSubActionBtn primary"
+              className="kronoxSubMiniBtn primary"
               onClick={onOrbClick}
+              title="Abrir canal de consulta o órdenes escritas"
             >
-              {panelOpen ? 'Ocultar comandos' : 'Hablar con Kronox'}
+              {panelOpen ? '✕' : '💬'}
             </button>
           </div>
         </div>

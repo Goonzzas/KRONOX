@@ -104,36 +104,36 @@ export function buildCabinMachineSystems3D() {
   systemsRoot.add(navHoloGroup);
 
   // =========================================================================
-  // 2. AI PROJECTOR EMITTER & VOLUMETRIC LIGHT CONE
+  // 2. AI PROJECTOR EMITTER & DIEGETIC PEDESTAL
   // =========================================================================
   const aiProjectorGroup = new THREE.Group();
   aiProjectorGroup.position.set(0.95, 0.02, -4.2);
 
   const emitterPad = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.38, 0.46, 0.08, 24),
+    new THREE.CylinderGeometry(0.24, 0.32, 0.04, 24),
     new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      metalness: 0.8,
-      roughness: 0.2,
+      color: 0x0a1220,
+      metalness: 0.85,
+      roughness: 0.25,
       emissive: 0x0284c7,
-      emissiveIntensity: 0.6,
+      emissiveIntensity: 0.35,
     }),
   );
   aiProjectorGroup.add(emitterPad);
 
+  // Discrete holographic emitter ring (replaces the giant inverted cone that spanned from ceiling to floor)
   const projectorBeamCone = new THREE.Mesh(
-    new THREE.ConeGeometry(0.42, 1.75, 24, 1, true),
+    new THREE.CylinderGeometry(0.28, 0.16, 0.35, 16, 1, true),
     new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
       transparent: true,
-      opacity: 0.18,
+      opacity: 0,
       side: THREE.DoubleSide,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     }),
   );
-  projectorBeamCone.position.y = 0.88;
-  projectorBeamCone.rotation.x = Math.PI;
+  projectorBeamCone.position.y = 0.18;
   aiProjectorGroup.add(projectorBeamCone);
   systemsRoot.add(aiProjectorGroup);
 
@@ -218,11 +218,11 @@ export function buildCabinMachineSystems3D() {
       destNode.scale.setScalar(1 + Math.sin(elapsedTime * 6) * 0.25);
     }
 
-    // Pulse AI projector cone
+    // Pulse AI projector emitter ring only when AI is explicitly projecting from pedestal
     if (projectorBeamCone) {
       projectorBeamCone.material.opacity = systemStates.aiActive
-        ? 0.14 + Math.sin(elapsedTime * 4) * 0.05
-        : 0.03;
+        ? 0.08 + Math.sin(elapsedTime * 4) * 0.03
+        : 0;
     }
 
     // Animate 3D sensor sweep rings

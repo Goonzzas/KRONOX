@@ -114,80 +114,118 @@ function createConsoleScreenTexture(station, extraLine = '') {
     return null;
   }
   const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 320;
+  canvas.width = 1024;
+  canvas.height = 640;
   const ctx = canvas.getContext('2d');
 
-  // Deep sci-fi instrument background
-  const grad = ctx.createLinearGradient(0, 0, 0, 320);
-  grad.addColorStop(0, '#040d1a');
-  grad.addColorStop(1, '#091e36');
+  // Deep sci-fi cockpit instrument background with subtle vignette
+  const grad = ctx.createLinearGradient(0, 0, 0, 640);
+  grad.addColorStop(0, '#050c18');
+  grad.addColorStop(1, '#0a1626');
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 512, 320);
+  ctx.fillRect(0, 0, 1024, 640);
 
-  // Grid lines
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
-  ctx.lineWidth = 1;
-  for (let x = 32; x < 512; x += 32) {
+  // High-contrast subtle telemetry grid
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+  ctx.lineWidth = 1.5;
+  for (let x = 64; x < 1024; x += 64) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
-    ctx.lineTo(x, 320);
+    ctx.lineTo(x, 640);
     ctx.stroke();
   }
-  for (let y = 32; y < 320; y += 32) {
+  for (let y = 64; y < 640; y += 64) {
     ctx.beginPath();
     ctx.moveTo(0, y);
-    ctx.lineTo(512, y);
+    ctx.lineTo(1024, y);
     ctx.stroke();
   }
 
   const hexColor = '#' + station.color.toString(16).padStart(6, '0');
+
+  // Screen perimeter bevel & glowing status border
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.lineWidth = 8;
+  ctx.strokeRect(10, 10, 1004, 620);
   ctx.strokeStyle = hexColor;
   ctx.lineWidth = 4;
-  ctx.strokeRect(8, 8, 496, 304);
+  ctx.strokeRect(14, 14, 996, 612);
 
-  // Header bar
+  // Top header status bar
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+  ctx.fillRect(16, 16, 992, 72);
   ctx.fillStyle = hexColor;
-  ctx.font = 'bold 18px ui-monospace, monospace';
-  ctx.fillText(`▸ ${station.code}`, 26, 44);
+  ctx.fillRect(16, 86, 992, 3);
 
+  ctx.fillStyle = hexColor;
+  ctx.font = 'bold 24px ui-monospace, SFMono-Regular, monospace';
+  ctx.fillText(`◈ ESTACIÓN: ${station.code}`, 36, 60);
+
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = 'bold 20px ui-monospace, monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText('ESTADO: ACTIVO · 1 u = 1 m', 980, 60);
+  ctx.textAlign = 'left';
+
+  // Station Title (Large, crisp, legible at normal interaction distance)
   ctx.fillStyle = '#f8fafc';
-  ctx.font = 'bold 22px system-ui, sans-serif';
-  ctx.fillText(station.title, 26, 82);
+  ctx.font = 'bold 36px system-ui, -apple-system, sans-serif';
+  ctx.fillText(station.title, 36, 148);
 
-  // Telemetry waveform / star reticle graphic
-  ctx.strokeStyle = hexColor;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(410, 175, 58, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(410, 175, 28, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(340, 175);
-  ctx.lineTo(480, 175);
-  ctx.moveTo(410, 105);
-  ctx.lineTo(410, 245);
-  ctx.stroke();
-
-  // Status lines
+  // Station primary role indicator
   ctx.fillStyle = '#94a3b8';
-  ctx.font = '15px ui-monospace, monospace';
-  ctx.fillText('SISTEMA EN LÍNEA · ESCALA 1:1 (120 m)', 26, 132);
-  ctx.fillText('INTERACCIÓN FÍSICA: ACÉRCATE Y PULSA [E]', 26, 162);
+  ctx.font = '22px ui-monospace, monospace';
+  ctx.fillText(station.description ? station.description.slice(0, 58) : 'Terminal de instrumentos de vuelo', 36, 196);
+
+  // Middle graphic block: Station-specific vector telemetry
+  ctx.strokeStyle = hexColor;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(740, 240, 240, 240);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+  ctx.fillRect(740, 240, 240, 240);
+
+  // Target reticle in the telemetry box
+  ctx.beginPath();
+  ctx.arc(860, 360, 80, 0, Math.PI * 2);
+  ctx.arc(860, 360, 42, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(760, 360);
+  ctx.lineTo(960, 360);
+  ctx.moveTo(860, 260);
+  ctx.lineTo(860, 460);
+  ctx.stroke();
+
+  // Telemetry details text in left main column
+  ctx.fillStyle = '#cbd5e1';
+  ctx.font = '22px ui-monospace, monospace';
+  ctx.fillText(`• Coordenadas Cabina: X ${station.position.x >= 0 ? '+' : ''}${station.position.x.toFixed(1)} m · Z ${station.position.z.toFixed(1)} m`, 36, 260);
+  ctx.fillText('• Enlace de Datos: Sincronizado con computador de a bordo', 36, 305);
+  ctx.fillText('• Modo de Operación: Interacción directa o tecla [E]', 36, 350);
+
   if (extraLine) {
     ctx.fillStyle = '#fef08a';
-    ctx.fillText(extraLine, 26, 198);
+    ctx.font = 'bold 24px ui-monospace, monospace';
+    ctx.fillText(`▸ ${extraLine}`, 36, 410);
+  } else {
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '20px ui-monospace, monospace';
+    ctx.fillText('▸ Sensores calibrados · Esperando asignación de parámetros', 36, 410);
   }
 
+  // Bottom action bar
   ctx.fillStyle = hexColor;
-  ctx.fillRect(26, 250, 280, 36);
+  ctx.fillRect(36, 510, 420, 68);
   ctx.fillStyle = '#020617';
-  ctx.font = 'bold 16px system-ui, sans-serif';
-  ctx.fillText('OPERAR ESTACIÓN [E / CLIC]', 44, 274);
+  ctx.font = 'bold 26px system-ui, sans-serif';
+  ctx.fillText('OPERAR CONSOLA [E]', 68, 554);
+
+  ctx.fillStyle = '#64748b';
+  ctx.font = '20px ui-monospace, monospace';
+  ctx.fillText('KRONOX VESSEL · 120 METROS · SPHEREx COMPATIBLE', 480, 552);
 
   const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 4;
   tex.needsUpdate = true;
   return tex;
 }
@@ -218,94 +256,98 @@ export function createKronoxLuminousEntity3D() {
     glowMap = new THREE.CanvasTexture(glowCanvas);
   }
 
-  // 1. Luminous Inner Core Sphere
-  const coreMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
+  // 1. Luminous Inner Core Sphere (Refined human-scale companion: 13 cm radius = 26 cm diameter)
+  const coreMat = new THREE.MeshStandardMaterial({
+    color: 0x38bdf8,
+    emissive: 0x6eeaff,
+    emissiveIntensity: 0.65,
+    roughness: 0.18,
+    metalness: 0.1,
     transparent: true,
-    opacity: 0.96,
+    opacity: 0.94,
   });
-  const coreMesh = new THREE.Mesh(new THREE.SphereGeometry(0.16, 28, 24), coreMat);
+  const coreMesh = new THREE.Mesh(new THREE.SphereGeometry(0.13, 28, 24), coreMat);
   group.add(coreMesh);
 
-  // 2. Volumetric Energy Halo Sprite
+  // 2. Volumetric Energy Halo Sprite (Controlled soft glow, never blinding or overblown)
   const haloMat = new THREE.SpriteMaterial({
     map: glowMap,
     color: 0x6ff0ff,
     transparent: true,
-    opacity: 0.9,
+    opacity: 0.52,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
   const haloSprite = new THREE.Sprite(haloMat);
-  haloSprite.scale.setScalar(1.15);
+  haloSprite.scale.setScalar(0.55);
   group.add(haloSprite);
 
-  // 3. Four-Pointed Astral Star Core (3D Octahedral Star)
+  // 3. Four-Pointed Astral Star Core (Compact octahedral star: ~24 cm span)
   const starGroup = new THREE.Group();
   const starMat = new THREE.MeshBasicMaterial({
-    color: 0xe0f2fe,
+    color: 0xbef8ff,
     transparent: true,
-    opacity: 0.92,
+    opacity: 0.82,
     blending: THREE.AdditiveBlending,
   });
-  const rayV = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), starMat);
-  rayV.scale.set(0.28, 1.25, 0.28);
-  const rayH = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), starMat);
-  rayH.scale.set(1.25, 0.28, 0.28);
-  const rayZ = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), starMat);
-  rayZ.scale.set(0.28, 0.28, 1.25);
+  const rayV = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), starMat);
+  rayV.scale.set(0.18, 1.05, 0.18);
+  const rayH = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), starMat);
+  rayH.scale.set(1.05, 0.18, 0.18);
+  const rayZ = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), starMat);
+  rayZ.scale.set(0.18, 0.18, 1.05);
   starGroup.add(rayV, rayH, rayZ);
   group.add(starGroup);
 
-  // 4. Three Gyroscopic Orbital Rings (matching original Kronox orb identity)
+  // 4. Three Gyroscopic Orbital Rings (Compact radii: 18 cm, 22 cm, 26 cm)
   const ringMat1 = new THREE.MeshBasicMaterial({
     color: 0x6ff0ff,
     transparent: true,
-    opacity: 0.78,
+    opacity: 0.65,
     blending: THREE.AdditiveBlending,
   });
   const ringMat2 = new THREE.MeshBasicMaterial({
     color: 0x38bdf8,
     transparent: true,
-    opacity: 0.64,
+    opacity: 0.52,
     blending: THREE.AdditiveBlending,
   });
   const ringMat3 = new THREE.MeshBasicMaterial({
     color: 0xfef08a,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.44,
     blending: THREE.AdditiveBlending,
   });
 
-  const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.009, 12, 64), ringMat1);
-  const ring2 = new THREE.Mesh(new THREE.TorusGeometry(0.41, 0.008, 12, 64), ringMat2);
-  const ring3 = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.007, 12, 64), ringMat3);
+  const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.005, 12, 64), ringMat1);
+  const ring2 = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.0045, 12, 64), ringMat2);
+  const ring3 = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.004, 12, 64), ringMat3);
   ring1.rotation.x = Math.PI * 0.32;
   ring2.rotation.y = Math.PI * 0.38;
   ring3.rotation.z = Math.PI * 0.25;
   group.add(ring1, ring2, ring3);
 
-  // 5. Orbiting Light Sparks / Particles
-  const sparkCount = 36;
+  // 5. Orbiting Light Sparks / Particles (Micro-particles with tight orbital radius)
+  const sparkCount = 28;
   const sparkPositions = new Float32Array(sparkCount * 3);
   const sparkPhases = [];
   for (let i = 0; i < sparkCount; i++) {
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(2 * Math.random() - 1);
-    const r = 0.28 + Math.random() * 0.36;
+    const r = 0.16 + Math.random() * 0.18;
     sparkPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
     sparkPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
     sparkPositions[i * 3 + 2] = r * Math.cos(phi);
-    sparkPhases.push({ theta, phi, r, speed: 0.8 + Math.random() * 1.6 });
+    sparkPhases.push({ theta, phi, r, speed: 0.8 + Math.random() * 1.4 });
   }
   const sparkGeo = new THREE.BufferGeometry();
   sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
   const sparkMat = new THREE.PointsMaterial({
     map: glowMap,
     color: 0xa5f3fc,
-    size: 0.11,
+    size: 0.05,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.75,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
@@ -313,20 +355,19 @@ export function createKronoxLuminousEntity3D() {
   group.add(sparks);
 
   // 6. Dynamic Light Trail (wake behind the entity when moving)
-  const trailLen = 18;
+  const trailLen = 14;
   const trailPositions = new Float32Array(trailLen * 3);
   const trailGeo = new THREE.BufferGeometry();
   trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
   const trailMat = new THREE.LineBasicMaterial({
     color: 0x38bdf8,
     transparent: true,
-    opacity: 0.45,
+    opacity: 0.32,
     blending: THREE.AdditiveBlending,
   });
   const trailLine = new THREE.Line(trailGeo, trailMat);
-  // Trail is kept in cabin space so it forms a true spatial wake
 
-  // 7. Real 3D Pointing Energy Beam (connects entity to pointed console or star direction)
+  // 7. Real 3D Pointing Energy Beam (subtle, coherent sci-fi laser guide)
   const beamPositions = new Float32Array(6);
   const beamGeo = new THREE.BufferGeometry();
   beamGeo.setAttribute('position', new THREE.BufferAttribute(beamPositions, 3));
@@ -338,8 +379,8 @@ export function createKronoxLuminousEntity3D() {
   });
   const pointingBeam = new THREE.Line(beamGeo, beamMat);
 
-  // Point light cast onto cabin walls and consoles
-  const entityLight = new THREE.PointLight(0x38bdf8, 1.6, 9.5);
+  // Point light cast onto cabin walls and consoles (Balanced illumination)
+  const entityLight = new THREE.PointLight(0x38bdf8, 0.55, 4.2);
   group.add(entityLight);
 
   // Internal state
@@ -388,12 +429,13 @@ export function createKronoxLuminousEntity3D() {
     const followAstronaut = isObj ? Boolean(elapsedOrOptions.followAstronaut) : false;
     clock += dt;
 
-    // If in Acompañamiento mode and astronaut moves, glide alongside at comfortable shoulder height
+    // If in Acompañamiento mode and astronaut moves, glide alongside slightly offset to the side/rear at comfortable shoulder height
+    // (Never obstructs central forward field of view, windows, or front consoles)
     if (followAstronaut && astronautPos && state !== 'Señalización') {
       const desired = new THREE.Vector3(
-        Math.max(-5.2, Math.min(5.2, astronautPos.x + 1.15)),
-        1.68 + Math.sin(clock * 1.8) * 0.08,
-        Math.max(-9.8, Math.min(7.2, astronautPos.z - 1.45)),
+        Math.max(-5.2, Math.min(5.2, astronautPos.x + 1.25)),
+        1.72 + Math.sin(clock * 1.8) * 0.05,
+        Math.max(-9.8, Math.min(7.2, astronautPos.z + 0.85)),
       );
       targetPos.lerp(desired, dt * 2.2);
     }
@@ -471,13 +513,13 @@ export function createKronoxLuminousEntity3D() {
     }
 
     coreMesh.scale.setScalar(pulseScale);
-    starGroup.scale.setScalar(pulseScale * 1.05);
+    starGroup.scale.setScalar(pulseScale * 1.02);
     starGroup.rotation.y = clock * 1.4 * ringSpeed;
     starGroup.rotation.z = Math.sin(clock * 0.9) * 0.4;
-    haloSprite.scale.setScalar(1.15 * pulseScale);
+    haloSprite.scale.setScalar(0.55 * pulseScale);
     haloMat.color.setHex(targetColor);
     entityLight.color.setHex(targetColor);
-    entityLight.intensity = 1.35 + (pulseScale - 1.0) * 2.2;
+    entityLight.intensity = 0.55 + (pulseScale - 1.0) * 0.8;
 
     ring1.rotation.z += dt * 1.2 * ringSpeed;
     ring1.rotation.x = Math.PI * 0.32 + Math.sin(clock * 1.1) * 0.22;
@@ -664,34 +706,36 @@ export function buildHabitableCabin3D() {
   cabinRoot.name = 'KronoxHabitableCabin1to1';
 
   const deckMat = new THREE.MeshStandardMaterial({
-    color: 0x0f172a,
-    roughness: 0.65,
-    metalness: 0.45,
+    color: 0x090f1d,
+    roughness: 0.78,
+    metalness: 0.35,
   });
   const walkwayMat = new THREE.MeshStandardMaterial({
-    color: 0x1e293b,
-    roughness: 0.45,
-    metalness: 0.55,
+    color: 0x111c30,
+    roughness: 0.58,
+    metalness: 0.45,
   });
   const bulkheadMat = new THREE.MeshStandardMaterial({
-    color: 0x1e293b,
-    roughness: 0.5,
-    metalness: 0.65,
+    color: 0x141f33,
+    roughness: 0.62,
+    metalness: 0.52,
   });
   const ribMat = new THREE.MeshStandardMaterial({
-    color: 0x334155,
-    roughness: 0.35,
-    metalness: 0.78,
+    color: 0x22324d,
+    roughness: 0.42,
+    metalness: 0.72,
   });
   const neonStripMat = new THREE.MeshBasicMaterial({
-    color: 0x38bdf8,
+    color: 0x0284c7,
   });
   const glassMat = new THREE.MeshPhysicalMaterial({
-    color: 0x7dd3fc,
+    color: 0x93c5fd,
     transparent: true,
-    opacity: 0.14,
-    roughness: 0.1,
-    metalness: 0.1,
+    opacity: 0.12,
+    roughness: 0.05,
+    metalness: 0.05,
+    transmission: 0.88,
+    ior: 1.45,
     side: THREE.DoubleSide,
     depthWrite: false,
   });
@@ -833,13 +877,13 @@ export function buildHabitableCabin3D() {
     screenMesh.userData.stationId = st.id;
     stationGroup.add(screenMesh);
 
-    // Glowing floor proximity pad where the astronaut stands
+    // Glowing floor proximity pad where the astronaut stands (subtle floor marker)
     const floorRing = new THREE.Mesh(
-      new THREE.RingGeometry(0.68, 0.78, 36),
+      new THREE.RingGeometry(0.65, 0.72, 36),
       new THREE.MeshBasicMaterial({
         color: st.color,
         transparent: true,
-        opacity: 0.55,
+        opacity: 0.28,
         side: THREE.DoubleSide,
       }),
     );
@@ -868,13 +912,23 @@ export function buildHabitableCabin3D() {
     });
   });
 
-  // Interior Bridge Lighting
-  const bridgeAmbient = new THREE.PointLight(0xbae6fd, 1.35, 28);
-  bridgeAmbient.position.set(0, 3.6, -2.5);
-  const bowLight = new THREE.PointLight(0x38bdf8, 1.1, 18);
-  bowLight.position.set(0, 2.8, -9.5);
-  const aftLight = new THREE.PointLight(0x818cf8, 0.9, 16);
+  // Balanced Sci-Fi Bridge Lighting Hierarchy
+  // 1. Ambient fill for soft shadows (prevents completely crushed blacks)
+  const cabinHemisphere = new THREE.HemisphereLight(0x0f1c32, 0x030712, 0.45);
+  cabinRoot.add(cabinHemisphere);
+
+  // 2. Main overhead cabin ambient light (clean, controlled blue-white tint)
+  const bridgeAmbient = new THREE.PointLight(0x93c5fd, 0.85, 24);
+  bridgeAmbient.position.set(0, 3.7, -2.5);
+
+  // 3. Bow observation area light (soft celestial blue)
+  const bowLight = new THREE.PointLight(0x38bdf8, 0.65, 16);
+  bowLight.position.set(0, 2.9, -9.5);
+
+  // 4. Aft corridor light (warm indigo)
+  const aftLight = new THREE.PointLight(0x6366f1, 0.55, 14);
   aftLight.position.set(0, 3.2, 6.5);
+
   cabinRoot.add(bridgeAmbient, bowLight, aftLight);
 
   /**
