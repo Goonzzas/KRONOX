@@ -494,6 +494,9 @@ export default function App() {
       },
       onAiScreenProjection: (proj) => {
         setAiProjection(proj);
+        if (proj && proj.state) {
+          setAiAvatarState(proj.state);
+        }
         if (proj && Number.isFinite(proj.astronautX)) {
           setAstronautCoords({ x: proj.astronautX, z: proj.astronautZ });
           setCabinFirstPerson(Boolean(proj.cabinFirstPerson));

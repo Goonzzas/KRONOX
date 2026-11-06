@@ -43,7 +43,7 @@ export const PHYSICAL_CABIN_STATIONS = [
     prompt: 'Pulsa [E] o haz clic para operar la Consola de Navegación',
     position: new THREE.Vector3(0, 0, -6.2),
     consolePos: new THREE.Vector3(0, 0.95, -7.35),
-    aiHoverPos: new THREE.Vector3(1.25, 1.72, -6.8),
+    aiHoverPos: new THREE.Vector3(1.15, 1.72, -6.8),
     lookTarget: new THREE.Vector3(0, 1.15, -7.5),
     color: 0x38bdf8,
     description:
@@ -642,22 +642,25 @@ export function createAstronautModel3D() {
 
   root.add(thirdPersonBody);
 
-  // First-person hands/forearms group (attached below eye level in 1st-person view)
+  // First-person hands/forearms group (attached ergonomically below peripheral eye level)
+  // Scaled realistically and tucked down so they never obstruct center view, consoles or windows
   const firstPersonHands = new THREE.Group();
-  const fpLeftForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.05, 0.34, 12), suitMat);
-  fpLeftForearm.rotation.x = Math.PI * 0.38;
-  fpLeftForearm.rotation.z = -0.18;
-  fpLeftForearm.position.set(-0.24, -0.28, -0.38);
+  const forearmGeo = new THREE.CylinderGeometry(0.026, 0.032, 0.24, 12);
+  const fpLeftForearm = new THREE.Mesh(forearmGeo, suitMat);
+  fpLeftForearm.rotation.x = Math.PI * 0.42;
+  fpLeftForearm.rotation.z = -0.22;
+  fpLeftForearm.position.set(-0.20, -0.26, -0.32);
 
-  const fpRightForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.05, 0.34, 12), suitMat);
-  fpRightForearm.rotation.x = Math.PI * 0.38;
-  fpRightForearm.rotation.z = 0.18;
-  fpRightForearm.position.set(0.24, -0.28, -0.38);
+  const fpRightForearm = new THREE.Mesh(forearmGeo, suitMat);
+  fpRightForearm.rotation.x = Math.PI * 0.42;
+  fpRightForearm.rotation.z = 0.22;
+  fpRightForearm.position.set(0.20, -0.26, -0.32);
 
-  const fpLeftGlove = new THREE.Mesh(new THREE.SphereGeometry(0.048, 14, 12), trimMat);
-  fpLeftGlove.position.set(-0.21, -0.21, -0.52);
-  const fpRightGlove = new THREE.Mesh(new THREE.SphereGeometry(0.048, 14, 12), trimMat);
-  fpRightGlove.position.set(0.21, -0.21, -0.52);
+  const gloveGeo = new THREE.SphereGeometry(0.028, 14, 12);
+  const fpLeftGlove = new THREE.Mesh(gloveGeo, trimMat);
+  fpLeftGlove.position.set(-0.16, -0.22, -0.42);
+  const fpRightGlove = new THREE.Mesh(gloveGeo, trimMat);
+  fpRightGlove.position.set(0.16, -0.22, -0.42);
 
   firstPersonHands.add(fpLeftForearm, fpRightForearm, fpLeftGlove, fpRightGlove);
 

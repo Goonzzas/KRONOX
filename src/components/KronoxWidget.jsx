@@ -55,11 +55,13 @@ export default function KronoxWidget({
     GREETING: 'Acompañamiento',
     CELEBRATING: 'Celebración',
   };
+  // Single Unified Source of Truth for Kronox IA's behavior state
+  const rawState = aiProjection?.state || avatarState;
   const resolvedState = inputFocused
     ? 'Escucha'
-    : speaking && (avatarState === 'IDLE' || avatarState === 'Reposo')
+    : speaking && (rawState === 'IDLE' || rawState === 'Reposo')
       ? 'Comunicación'
-      : stateMap[avatarState] || (KRONOX_LUMINOUS_STATES.includes(avatarState) ? avatarState : 'Acompañamiento');
+      : stateMap[rawState] || (KRONOX_LUMINOUS_STATES.includes(rawState) ? rawState : 'Acompañamiento');
 
   useEffect(() => {
     setTyped('');
@@ -108,11 +110,12 @@ export default function KronoxWidget({
         >
           <span className="kronoxInWorldPulse" />
           <strong>KRONOX IA 3D</strong>
-          <small>{aiProjection.state || resolvedState}</small>
+          <small>{resolvedState}</small>
         </button>
       )}
 
       {/* 2. DISCRETE CINEMATIC SUBTITLE BAR LINKED TO KRONOX IA */}
+      {Boolean(typed && typed.trim().length > 0) && (
       <div
         className={`kronoxSubtitleDock ${speaking ? 'is-speaking' : ''} ${panelOpen ? 'expanded' : 'compact'}`}
         role="region"
@@ -272,6 +275,7 @@ export default function KronoxWidget({
           </div>
         )}
       </div>
+      )}
     </>
   );
 }

@@ -376,7 +376,7 @@ export function setupScene(el, S) {
     return texture;
   };
   const sc = new THREE.Scene(),
-    cam = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 1e-8, 4e5),
+    cam = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.05, 4e5),
     ct = new OrbitControls(cam, R.domElement);
   let rafId = 0,
     disposed = false,
@@ -2702,12 +2702,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         fy = new THREE.Euler().setFromQuaternion(launchQ, 'YXZ').y;
         fp = new THREE.Euler().setFromQuaternion(launchQ, 'YXZ').x;
       } else if (earth && cam.position.length() > Dd(earth.p.au) * 3) {
-        // The overview camera starts several AU away. Board near Earth's
-        // orbit so the first view reads as a spacecraft-scale perspective.
-        const standOff = Math.max(earth.r * 12, Dm());
-        sp.copy(earth.pivot.position).add(new V(standOff, 0, 0));
-        cam.position.copy(sp);
-        cam.lookAt(earth.pivot.position);
+        // Position ship at a natural orbital standoff from Earth (3.5 planet radii)
+        // so both the 120m vessel and Earth's planetary limb are well-composed in exterior view
+        const standOff = Math.max(earth.r * 3.5, Dm());
+        sp.copy(earth.pivot.position).add(new V(standOff, earth.r * 0.4, standOff * 0.5));
+        cam.position.copy(sp).add(new V(0, 0.4, 1.2).multiplyScalar(shipScale() * 18));
+        cam.lookAt(sp);
       } else {
         sp.copy(cam.position);
       }
@@ -3468,14 +3468,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           astronaut3D.firstPersonHands.position.copy(localCamPos);
           astronaut3D.firstPersonHands.quaternion.copy(localLookQuat);
         } else {
-          const thirdPersonOffset = new V(0.42, 0.45, 2.35).applyQuaternion(localLookQuat);
+          // 3rd Person Camera Tracking:
+          // Positioned slightly above and behind the astronaut (+1.85 m back, +0.32 m up)
+          // with clean geometric boundary damping so it never clips through walls or inside the suit
+          const lookDir = new V(0, 0, -1).applyQuaternion(localLookQuat);
+          const rightDir = new V(1, 0, 0).applyQuaternion(localLookQuat);
+          const thirdPersonOffset = lookDir
+            .clone()
+            .multiplyScalar(-1.85)
+            .add(new V(0, 0.32, 0))
+            .add(rightDir.clone().multiplyScalar(0.24));
+
           localCamPos = new V(
             astronautPos.x,
             SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
             astronautPos.z,
           ).add(thirdPersonOffset);
           cabinSystem.clampAstronautPosition(localCamPos);
-          localCamPos.y = Math.max(1.2, Math.min(3.75, localCamPos.y));
+          localCamPos.y = Math.max(1.35, Math.min(3.85, localCamPos.y));
         }
 
         cam.position.copy(localCamPos.clone().applyQuaternion(q).add(sp));
