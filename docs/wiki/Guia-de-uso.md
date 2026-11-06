@@ -22,16 +22,24 @@ En la vista orbital, usa el ratón o el panel de navegación para girar alrededo
 | Acercar o alejar | Rueda del ratón |
 | Desplazar la vista | Arrastrar con botón derecho |
 
-### Nave planetaria
+### Nave y cabina de pilotaje
 
-| Acción | Tecla |
+| Acción | Teclado |
 |---|---|
-| Avanzar / retroceder | `W` / `S` |
-| Desplazarse a izquierda / derecha | `A` / `D` |
+| Timón libre: propulsar / frenar | Mantener `W` / `S` |
+| Timón libre: girar el rumbo | Mantener `A` / `D` |
 | Subir / bajar | `E` / `Q` |
-| Acelerar temporalmente | `Shift` |
+| Acelerar temporalmente | Mantener `Shift` |
+| Salir del timón libre y volver a las opciones | `Escape` |
 
-El panel de nave permite cambiar cámara entre primera y tercera persona, seleccionar marcha y ajustar controles de vuelo. En móvil están disponibles controles táctiles en pantalla.
+Al acercarte a **Timón y Cartografía Estelar**, pulsa `E` o interactúa con la estación. El personaje se coloca en el asiento frente al yugo de avión. Elige entre dos experiencias:
+
+1. **Planificar viaje:** elige un destino rápido, un planeta o un objetivo SPHEREx. Puedes pilotar con controles manuales o activar el piloto automático.
+2. **Timón libre:** la cámara avanza desde el asiento hasta la ventana panorámica de proa. La pantalla de cartografía y la consola del mirador se ocultan para dejar libre la vista al espacio.
+
+En timón libre, los paneles compactos laterales muestran velocidad real, marcha (órbita planetaria, sistema solar, galáctica o hipergaláctica), aceleración/inercia, rumbo e inclinación. Los botones **Propulsión** y **Reversa** funcionan al mantenerlos pulsados; también puedes girar con las flechas laterales, cambiar marcha con `−`/`+` y mantener **Impulso ×5**. Así se puede pilotar desde una pantalla táctil; en escritorio también funcionan `W`, `S`, `A`, `D`, `E`, `Q` y `Shift`.
+
+Fuera del asiento, `W`, `A`, `S` y `D` mueven al astronauta por la cabina. El selector de vista permite alternar entre primera y tercera persona.
 
 ## Viajes rápidos
 

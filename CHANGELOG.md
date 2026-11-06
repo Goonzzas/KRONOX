@@ -1,5 +1,12 @@
 # Registro de cambios
 
+## 2026-11-06 — Pilotaje libre desde la proa
+
+- Documentación de la estación de navegación con asiento y yugo de avión.
+- Descripción de las opciones para planificar un trayecto con pilotaje manual o piloto automático.
+- Incorporación de la guía de timón libre: cámara en la ventana de proa y pantallas frontales ocultas.
+- Detalle de la telemetría lateral y los controles de propulsión, reversa, rumbo, marcha e impulso para teclado y pantallas táctiles.
+
 ## Próximo — Misión SPHEREx
 
 - Incorporación de “Ecos en infrarrojo”, una consola de misión para consultar coordenadas del cielo en el archivo público NASA/IPAC IRSA.

@@ -18,7 +18,7 @@ KRONOX es una aplicación web educativa e interactiva que combina una exploraci�
 
 | 🪐 Explorar | 🚀 Pilotar | 🔭 Investigar |
 |---|---|---|
-| Recorre el Sol, los planetas, cinco planetas enanos y una Vía Láctea con mayor profundidad visual. Ajusta escalas, fecha y velocidad de simulación. | Usa cámaras orbital, libre y de nave; viaja a destinos rápidos, realiza saltos espaciales y pilota con telemetría, zoom de tercera persona e indicaciones durante el trayecto. | Busca observaciones SPHEREx, compara dos fechas con alineación WCS, registra notas sobre hallazgos y expórtalas a CSV. |
+| Recorre el Sol, los planetas, cinco planetas enanos y una Vía Láctea con mayor profundidad visual. Ajusta escalas, fecha y velocidad de simulación. | Ocupa el asiento de navegación con yugo de avión, planifica un viaje manual o automático, o toma el timón libre desde la ventana de proa con telemetría lateral y propulsores. | Busca observaciones SPHEREx, compara dos fechas con alineación WCS, registra notas sobre hallazgos y expórtalas a CSV. |
 
 También incluye texturas procedurales para planetas enanos, asteroides y lunas, satélites más visibles, entrada a la nave desde la Tierra, fichas planetarias con referencias de NASA, Kronox en español e inglés y controles táctiles para móvil. Las preferencias incluyen calidad gráfica, alto contraste, reducción de movimiento y sonidos de juego opcionales.
 
@@ -64,6 +64,27 @@ La interfaz está disponible en **español e inglés**. KRONOX puede sugerir un 
 | Pilotar en móvil | Controles táctiles en pantalla |
 
 La cámara de nave puede alternar entre primera y tercera persona; la vista en tercera persona incluye zoom y encuadre ajustable. Los viajes guiados muestran el avance y permiten acelerar el trayecto. El menú de viaje rápido incluye planetas, planetas enanos y puntos de interés galácticos. En las preferencias se puede ajustar la calidad gráfica, activar alto contraste o reducir animaciones y movimiento.
+
+### Cabina de pilotaje y timón libre
+
+En la cabina, acércate a **Timón y Cartografía Estelar** y pulsa `E` o interactúa con la consola. KRONOX te coloca en el asiento frente a un yugo inspirado en los mandos de avión. Desde allí puedes elegir:
+
+- **Planificar viaje:** selecciona un destino y decide entre pilotaje manual con controles de vuelo o piloto automático. Hay destinos rápidos, planetas y objetivos SPHEREx.
+- **Timón libre:** la cámara avanza hasta la ventana panorámica de proa. Se ocultan la pantalla de cartografía y la consola del mirador para dejar despejado el espacio al frente.
+
+En timón libre, la nave responde a estos controles:
+
+| Acción | Teclado | Controles en pantalla |
+|---|---|---|
+| Propulsar / avanzar | Mantener `W` | Mantener **Propulsión** |
+| Frenar / retroceder | Mantener `S` | Mantener **Reversa** |
+| Girar el rumbo | `A` / `D` | Mantener las flechas de rumbo |
+| Subir / bajar | `E` / `Q` | Solo teclado |
+| Impulso temporal | Mantener `Shift` | Mantener **Impulso ×5** |
+| Cambiar marcha | — | `−` / `+` en el panel de velocidad |
+| Volver a las opciones del puesto | `Escape` | — |
+
+Dos indicadores compactos a los lados muestran velocidad actual, marcha seleccionada (**órbita planetaria**, **sistema solar**, **galáctica** o **hipergaláctica**), aceleración/inercia, rumbo e inclinación. Los botones de propulsión y rumbo se pueden mantener pulsados, por lo que también sirven en pantallas táctiles.
 
 ## 🧰 Tecnologías y servicios
 

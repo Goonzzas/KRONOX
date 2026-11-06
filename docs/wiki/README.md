@@ -29,7 +29,7 @@ KRONOX combina una exploración espacial en 3D con una misión educativa basada 
 ## KRONOX en un minuto
 
 - **Explorar:** recorre el Sol, planetas y una representación esquemática de la Vía Láctea.
-- **Pilotar:** usa cámaras orbital, libre y de nave, controles de vuelo y viajes rápidos.
+- **Pilotar:** ocupa la estación de navegación con su yugo de avión, planifica un viaje manual/automático o toma el timón libre con la cámara en la proa.
 - **Investigar:** consulta recortes SPHEREx, recorre fechas y compara observaciones alineadas.
 - **Aprender:** abre fichas planetarias, consulta sus fuentes y recibe orientación de Kronox.
 
@@ -39,6 +39,10 @@ KRONOX combina una exploración espacial en 3D con una misión educativa basada 
 - [Aplicación pública](https://kronox-delta.vercel.app)
 - [Registro de cambios](../../CHANGELOG.md)
 - [Fuentes y limitaciones](../FUENTES_Y_LIMITACIONES.md)
+
+### Novedad · timón libre desde la proa
+
+La estación de navegación ahora ofrece una vista de pilotaje libre en primera persona. La cámara se desplaza hasta la ventana delantera y retira de la vista las pantallas de cartografía y del mirador. Indicadores compactos laterales muestran velocidad, marcha, aceleración/inercia, rumbo e inclinación; incluyen mandos táctiles para propulsar, frenar, girar, cambiar marcha y activar el impulso.
 
 > KRONOX es una experiencia educativa y visual. Sus escalas, órbitas y procesamientos de imagen no sustituyen efemérides, navegación espacial ni análisis astronómico calibrado.
 
