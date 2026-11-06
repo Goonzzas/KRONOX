@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { P, INFO } from './data/planetData.js';
-import { setupScene, CK, YK, SC } from './scene/createScene.js';
+import { setupScene } from './scene/createScene.js';
 import KronoxWidget from './components/KronoxWidget.jsx';
 import ToastNotification from './components/ToastNotification.jsx';
 import PlanetInfoModal from './components/PlanetInfoModal.jsx';
@@ -11,7 +11,6 @@ import MobileFlightControls from './components/MobileFlightControls.jsx';
 import SpherexMission from './components/SpherexMission.jsx';
 import SpherexMissionSelector from './components/SpherexMissionSelector.jsx';
 import SpaceshipCockpit from './components/SpaceshipCockpit.jsx';
-import CinematicSequencePlayer from './components/CinematicSequencePlayer.jsx';
 import { SPHEREX_MISSION_TYPES, SPHEREX_TARGETS } from './data/spherexTargets.js';
 import { processKronoxQuery } from './utils/kronoxAI.js';
 import { loadFindingsFromStorage } from './utils/findingsStorage.js';
@@ -115,13 +114,20 @@ export default function App() {
     [missionFindingsSync, setMissionFindingsSync] = useState(() => loadFindingsFromStorage()),
     [selectedObject, setSelectedObject] = useState(null),
     [activeCockpitStation, setActiveCockpitStation] = useState(null),
-    [aiRole, setAiRole] = useState('Inteligencia de a bordo'),
-    [aiAvatarState, setAiAvatarState] = useState('GREETING'),
+    [nearestCabinStation, setNearestCabinStation] = useState(null),
+    [cabinFirstPerson, setCabinFirstPerson] = useState(true),
+    [astronautCoords, setAstronautCoords] = useState({ x: 0, z: -1.8 }),
+    [aiProjection, setAiProjection] = useState(null),
+    [directorState, setDirectorState] = useState(null),
+    [speechPaused, setSpeechPaused] = useState(false),
+    [realTimeIntroActive, setRealTimeIntroActive] = useState(false),
+    [realTimeIntroCaption, setRealTimeIntroCaption] = useState(''),
+    [aiRole, setAiRole] = useState('Entidad Luminosa 3D'),
+    [aiAvatarState, setAiAvatarState] = useState('Acompañamiento'),
     [aiPointDirection, setAiPointDirection] = useState('right'),
-    [aiEpistemicCategory, setAiEpistemicCategory] = useState('Comunicación de puente de mando'),
+    [aiEpistemicCategory, setAiEpistemicCategory] = useState('Comunicación espacial en puente 3D'),
     [aiHighlightField, setAiHighlightField] = useState(false),
     [aiHistory, setAiHistory] = useState([]),
-    [cinematicOpen, setCinematicOpen] = useState(false),
     [welcomeSettingsOpen, setWelcomeSettingsOpen] = useState(false),
     [savedExpedition, setSavedExpedition] = useState(() => {
       try {
@@ -138,7 +144,7 @@ export default function App() {
     [notice, setNotice] = useState(null),
     [countdown, setCountdown] = useState(null),
     [fl, setFl] = useState({ orb: 1, lab: 0, ax: 0, vel: 0, gal: 0 }),
-    [open, setOpen] = useState(() => deviceGuess() !== 'mobile'),
+    [open, setOpen] = useState(false),
     [menuSection, setMenuSection] = useState('interface'),
     [quickOpen, setQuickOpen] = useState(false),
     [nearbyMapActive, setNearbyMapActive] = useState(false),
@@ -463,6 +469,38 @@ export default function App() {
       onObjectSelect: (obj) => {
         setSelectedObject(obj);
       },
+      onNearestStationChange: (st) => {
+        setNearestCabinStation(st);
+      },
+      onStationInteract: (stationId) => {
+        setActiveCockpitStation(stationId);
+        if (stationId === 'comms') {
+          kronoxDialogHiddenRef.current = false;
+          setKronoxDialogHidden(false);
+          setKronoxOpen(true);
+        }
+      },
+      onIntroStageChange: (stageKey, captionText) => {
+        setRealTimeIntroActive(true);
+        setRealTimeIntroCaption(captionText);
+        setGuide(captionText);
+        if (voiceRef.current) speak(captionText);
+      },
+      onAiTourNarrative: (text, stateName, stationId) => {
+        setAiAvatarState(stateName);
+        setGuide(text);
+        if (voiceRef.current) speak(text);
+      },
+      onAiScreenProjection: (proj) => {
+        setAiProjection(proj);
+        if (proj && Number.isFinite(proj.astronautX)) {
+          setAstronautCoords({ x: proj.astronautX, z: proj.astronautZ });
+          setCabinFirstPerson(Boolean(proj.cabinFirstPerson));
+        }
+      },
+      onSceneDirectorEvent: (eventName, payload, nextState) => {
+        if (nextState) setDirectorState({ ...nextState });
+      },
       onNavigation: (status) => {
         setNavigation((current) => {
           if (!status) {
@@ -714,13 +752,20 @@ export default function App() {
       const act = result.action;
       if (act) {
         if (act.type === 'PLAY_CINEMATIC_INTRO') {
-          actionLabel = 'Cinemática iniciada';
-          setCinematicOpen(true);
+          actionLabel = 'Intro 3D en tiempo real iniciada';
+          setWelcomeOpen(false);
+          setRealTimeIntroActive(true);
+          A().startRealTimeIntro?.(() => {
+            setRealTimeIntroActive(false);
+            setFr(true);
+            setPv(1);
+          });
         } else if (act.type === 'HIGHLIGHT_FIELD_REGION') {
           actionLabel = 'Región señalada en campo';
           setAiHighlightField(true);
+          A().moveAiToStation?.('science', 'Señalización');
         } else if (act.type === 'ENTER_COCKPIT') {
-          actionLabel = 'Cabina 1ª persona activada';
+          actionLabel = 'Puente habitable 3D activado';
           setMissionOpen(false);
           setMissionSelectorOpen(false);
           if (spec) {
@@ -733,8 +778,9 @@ export default function App() {
           }
           setPv(1);
           A().view(1);
+          A().setAiFollowAstronaut?.(true);
         } else if (act.type === 'SET_VIEW_MODE') {
-          actionLabel = act.view === 3 ? 'Cámara exterior activada' : 'Vista cabina activada';
+          actionLabel = act.view === 3 ? 'Cámara exterior activada' : 'Vista cabina 3D activada';
           setMissionOpen(false);
           if (!fr) {
             setFr(true);
@@ -743,8 +789,9 @@ export default function App() {
           setPv(act.view);
           A().view(act.view);
         } else if (act.type === 'OPEN_MISSION_SELECTOR') {
-          actionLabel = 'Selector de destinos abierto';
+          actionLabel = 'Consola de misiones activa';
           setMissionOpen(false);
+          A().moveAiToStation?.('missions', 'Explicación');
           setMissionSelectorOpen(true);
         } else if (act.type === 'TRAVEL_SPHEREX' && act.target) {
           actionLabel = `Viaje iniciado hacia ${act.target.name}`;
@@ -752,6 +799,7 @@ export default function App() {
           setMissionSelectorOpen(false);
           setSelectedObject(null);
           setMissionTargetKey(act.targetKey);
+          A().moveAiToStation?.('nav', 'Desplazamiento');
           try {
             const prog = { targetKey: act.targetKey, stage: 'arrival', updatedAt: Date.now() };
             localStorage.setItem('kronox-expedition-progress', JSON.stringify(prog));
@@ -765,6 +813,7 @@ export default function App() {
           setMissionOpen(false);
           setMissionSelectorOpen(false);
           setSelectedObject(null);
+          A().moveAiToStation?.('nav', 'Desplazamiento');
           startTravel(() => {
             if (spec) {
               A().board();
@@ -787,19 +836,21 @@ export default function App() {
           setFr(false);
           setSpec(false);
         } else if (act.type === 'OPEN_OBSERVATORY') {
-          actionLabel = `Observatorio abierto: ${act.targetKey}`;
+          actionLabel = `Consola Científica SPHEREx: ${act.targetKey}`;
           setMissionTargetKey(act.targetKey);
           setMissionInitialStage('arrival');
+          A().moveAiToStation?.('science', 'Explicación');
           setMissionOpen(true);
         } else if (act.type === 'OPEN_MISSION_STAGE') {
           actionLabel = `Etapa activa: ${act.stage}`;
           setMissionTargetKey(act.targetKey);
           setMissionInitialStage(act.stage);
+          A().moveAiToStation?.('science', 'Explicación');
           setMissionOpen(true);
         } else if (act.type === 'SELECT_OBJECT') {
-          actionLabel = `Ficha abierta: ${act.key}`;
+          actionLabel = `Señalando en cosmos 3D: ${act.key}`;
           setSelectedObject({ kind: act.kind, key: act.key });
-          A().selectAstronomicalObject?.(act.kind, act.key);
+          A().pointAiAtExternalObject?.(act.kind, act.key);
         }
       }
       setAiHistory((prev) => [...prev.slice(-4), { query, actionLabel }]);
@@ -859,16 +910,16 @@ export default function App() {
           setNearbyGalaxyInfoKey(null);
         },
       }),
-    h(
-      'div',
-      { className: `pn ${open ? 'panelOpen' : 'panelClosed'}` },
+    open &&
       h(
         'div',
-        { className: 'panelHeading' },
-        h('h1', null, 'Sistema Solar 3D'),
-        h('button', { onClick: () => setOpen(!open) }, open ? 'Ocultar' : 'Menú'),
-      ),
-      open &&
+        { className: 'pn panelOpen kronoxSecondarySettingsModal', role: 'dialog', 'aria-label': 'Ajustes del simulador' },
+        h(
+          'div',
+          { className: 'panelHeading' },
+          h('h1', null, 'Ajustes y Simulación 3D'),
+          h('button', { onClick: () => setOpen(false) }, 'Cerrar ×'),
+        ),
         h(
           'div',
           { className: 'menuContent' },
@@ -1541,18 +1592,39 @@ export default function App() {
       onStartMission: () => setMissionSelectorOpen(true),
       missionStarting: countdown !== null || missionArrival || missionTraveling,
       onCommand: handleKronoxCommand,
+      speechPaused,
+      onPauseSpeech: () => {
+        setSpeechPaused((prev) => {
+          const next = !prev;
+          if (voiceAudio.current) {
+            if (next) voiceAudio.current.pause();
+            else voiceAudio.current.play().catch(() => {});
+          }
+          return next;
+        });
+      },
       onRepeatSpeech: () => {
+        setSpeechPaused(false);
         if (guide) {
           say(guide);
           if (voiceRef.current) speak(guide);
         }
       },
-      onReplayCinematic: () => setCinematicOpen(true),
+      onReplayCinematic: () => {
+        setWelcomeOpen(false);
+        setRealTimeIntroActive(true);
+        A().startRealTimeIntro?.(() => {
+          setRealTimeIntroActive(false);
+          setFr(true);
+          setPv(1);
+        });
+      },
       aiRole,
       avatarState: aiAvatarState,
       pointDirection: aiPointDirection,
       epistemicCategory: aiEpistemicCategory,
       history: aiHistory,
+      aiProjection,
       onOrbClick: () => {
         if (!kronoxOpen || kronoxDialogHidden) {
           kronoxDialogHiddenRef.current = false;
@@ -1747,67 +1819,57 @@ export default function App() {
         },
         onAskKronox: (q) => handleKronoxCommand(q),
       }),
-    cinematicOpen &&
-      h(CinematicSequencePlayer, {
-        open: cinematicOpen,
-        voiceEnabled: voice,
-        onToggleVoice: () => {
-          const next = !voice;
-          voiceRef.current = next;
-          setVoice(next);
-          if (!next && voiceAudio.current) {
-            voiceAudio.current.pause();
-            voiceAudio.current = null;
-          }
+    realTimeIntroActive &&
+      h(
+        'div',
+        {
+          className: 'kronoxRealTimeIntroHud',
+          role: 'status',
+          'aria-live': 'polite',
         },
-        speakNarration: (text) => {
-          say(text);
-          if (voiceRef.current) speak(text);
-        },
-        onSceneChange: (idx, sc) => {
-          setGuide(sc.narration);
-          if (idx === 3) setAiAvatarState('GREETING');
-          else if (idx === 4) setAiAvatarState('EXPLAINING');
-          else setAiAvatarState('NAVIGATING');
-        },
-        onSkip: () => {
-          setCinematicOpen(false);
-          if (spec) {
-            A().board();
-            setSpec(false);
-          }
-          setFr(true);
-          setPv(1);
-          A().free(true, false);
-          A().view(1);
-          setAiAvatarState('GREETING');
-          setKronoxOpen(true);
-        },
-        onComplete: () => {
-          setCinematicOpen(false);
-          if (spec) {
-            A().board();
-            setSpec(false);
-          }
-          setFr(true);
-          setPv(1);
-          A().free(true, false);
-          A().view(1);
-          setAiAvatarState('GREETING');
-          const welcomeMsg =
-            'Secuencia de abordaje completada. Estamos en la cabina de primera persona de KRONOX. Desde aquí puedes consultar cualquiera de las 5 estaciones o pedirme rumbo hacia una estrella de SPHEREx.';
-          say(welcomeMsg);
-          if (voiceRef.current) speak(welcomeMsg);
-          setKronoxOpen(true);
-        },
-      }),
+        h(
+          'div',
+          { className: 'kronoxRealTimeIntroBadge' },
+          h('span', { className: 'kronoxShipDot' }),
+          h('strong', null, 'MOTOR 3D EN TIEMPO REAL · ABORDAJE KRONOX (120 m)'),
+        ),
+        h('p', { className: 'kronoxRealTimeIntroCaption' }, realTimeIntroCaption),
+        h(
+          'button',
+          {
+            type: 'button',
+            className: 'kronoxRealTimeSkipBtn',
+            onClick: () => {
+              setRealTimeIntroActive(false);
+              A().skipRealTimeIntro?.();
+              setFr(true);
+              setPv(1);
+            },
+          },
+          language === 'es' ? 'Saltar introducción 3D ⏭' : 'Skip 3D Intro ⏭',
+        ),
+      ),
     !welcomeOpen &&
       !missionOpen &&
+      !realTimeIntroActive &&
       h(SpaceshipCockpit, {
         language,
         cockpitVisible: fr && pv == 1,
+        cabinFirstPerson,
+        onToggleCabinPerspective: (firstP) => {
+          setCabinFirstPerson(firstP);
+          A().setCabinFirstPerson?.(firstP);
+        },
+        nearestStation: nearestCabinStation,
         activeStation: activeCockpitStation,
-        onSelectStation: setActiveCockpitStation,
+        onSelectStation: (stId) => {
+          setActiveCockpitStation(stId);
+          A().setActiveCabinStation?.(stId);
+          if (stId) A().moveAiToStation?.(stId, 'Explicación');
+        },
+        onWalkToStation: (stId) => {
+          A().walkAstronautToStation?.(stId);
+        },
         viewMode: !fr ? 'navigation' : pv == 1 ? 'cockpit' : 'exterior',
         onChangeViewMode: (nextMode) => {
           if (nextMode === 'cockpit') {
@@ -1856,6 +1918,7 @@ export default function App() {
           setSelectedObject(null);
           setMissionTargetKey(target?.key || 'barnard');
           setMissionInitialStage('arrival');
+          A().moveAiToStation?.('science', 'Explicación');
           setMissionOpen(true);
         },
         onTravelToPlanet: (planetName) => {
@@ -1875,51 +1938,50 @@ export default function App() {
         onOpenPlanetInfo: (planetName) => {
           setMore(planetName);
         },
-        onOpenMissionSelector: () => setMissionSelectorOpen(true),
+        onOpenMissionSelector: () => {
+          A().moveAiToStation?.('missions', 'Explicación');
+          setMissionSelectorOpen(true);
+        },
         onOpenAiConsole: () => {
+          A().moveAiToStation?.('comms', 'Comunicación');
           kronoxDialogHiddenRef.current = false;
           setKronoxDialogHidden(false);
           setKronoxOpen(true);
         },
-        onReplayCinematic: () => setCinematicOpen(true),
+        onReplayCinematic: () => {
+          setWelcomeOpen(false);
+          setRealTimeIntroActive(true);
+          A().startRealTimeIntro?.(() => {
+            setRealTimeIntroActive(false);
+            setFr(true);
+            setPv(1);
+          });
+        },
+        onOpenSettingsModal: () => setOpen((prev) => !prev),
+        onDispatchSceneEvent: (ev, payload) => {
+          const next = A().dispatchSceneEvent?.(ev, payload);
+          if (next) setDirectorState({ ...next });
+        },
+        onSkipDirectorSequence: () => {
+          A().skipDirectorSequence?.();
+          const st = A().getSceneDirectorState?.();
+          if (st) setDirectorState({ ...st });
+        },
+        directorState,
+        astronautCoords,
         findingsCount: missionFindingsSync.length,
       }),
     fr && h('canvas', { id: 'warp', className: 'warp' }),
     fr &&
-      pv == 1 &&
-      h(
-        'div',
-        { className: 'ck' },
-        h('div', { dangerouslySetInnerHTML: { __html: CK } }),
-        h('div', { className: 'scr', dangerouslySetInnerHTML: { __html: SC } }),
-        h('div', { id: 'tb', className: 'tb' }),
-        h('div', { id: 'yk', className: 'yk', dangerouslySetInnerHTML: { __html: YK } }),
-      ),
-    fr &&
+      pv == 3 &&
+      !realTimeIntroActive &&
       h(
         'div',
         { className: 'hud' },
         h('b', null, fv.toFixed(fv < 1 ? 2 : 0) + ' u/s'),
         (fv >= 300 ? ' · ≈ ' + Math.round(fv * 1.156) + ' años luz/s' : '') +
-          ' · ' +
-          (pv == 3 ? '3ª' : '1ª') +
-          ' persona' +
+          ' · Exterior Nave 120m' +
           (fo.au ? ' · piloto auto.' : ''),
-      ),
-    intro &&
-      h(
-        'div',
-        { className: 'cp' },
-        h('div', { className: 'cpf' }),
-        h('div', { className: 'dl' }),
-        h('div', { className: 'dr' }),
-        h(
-          'div',
-          { className: 'ht' },
-          h('div', null, '▸ ABORDANDO NAVE…'),
-          h('div', null, '▸ SISTEMAS EN LÍNEA'),
-          h('div', null, '▸ MOTORES ENCENDIDOS'),
-        ),
       ),
     welcomeOpen &&
       h(
@@ -1940,7 +2002,7 @@ export default function App() {
             h(
               'span',
               { className: 'welcomeEyebrow' },
-              'EXPEDICIÓN CIENTÍFICA ESPACIAL · NASA SPHEREx / GAIA DR3',
+              'VIDEOJUEGO DE EXPLORACIÓN ESPACIAL 3D · NASA SPHEREx / GAIA DR3',
             ),
             h(
               'div',
@@ -1988,7 +2050,7 @@ export default function App() {
             ),
           ),
 
-          /* Integrated Hero Title over the 3D Cosmos & Ship */
+          /* Integrated Hero Title over the Real-Time 3D Cosmos & 120m Ship */
           h(
             'div',
             { className: 'welcomeHeroCenter' },
@@ -1997,12 +2059,12 @@ export default function App() {
               'p',
               { className: 'welcomeMessage' },
               language === 'es'
-                ? 'Aborda la nave de exploración astronómica de 120 metros junto a Kronox IA y estudia el universo con observaciones infrarrojas reales del telescopio espacial SPHEREx.'
-                : 'Board the 120-meter astronomical exploration vessel alongside Kronox AI and study the universe with real infrared observations from the SPHEREx space telescope.',
+                ? 'Aborda la nave científica de 120 metros en un mundo 3D continuo, camina por su cabina habitable (1 unidad = 1 metro) junto a la entidad luminosa Kronox IA e investiga datos infrarrojos reales de SPHEREx.'
+                : 'Board the 120-meter scientific vessel in a continuous 3D world, walk through its habitable cabin (1 unit = 1 meter) alongside the luminous Kronox AI entity, and investigate real SPHEREx infrared data.',
             ),
           ),
 
-          /* Primary Narrative Actions (Section 1 & Section 7) */
+          /* Primary Narrative Actions (Section 1, 2 & 7) */
           h(
             'div',
             { className: 'welcomeActionButtons cinematicActions' },
@@ -2018,7 +2080,13 @@ export default function App() {
                     /* ignore */
                   }
                   setWelcomeOpen(false);
-                  setCinematicOpen(true);
+                  setRealTimeIntroActive(true);
+                  A().startRealTimeIntro?.(() => {
+                    setRealTimeIntroActive(false);
+                    setFr(true);
+                    setPv(1);
+                    setAiAvatarState('Acompañamiento');
+                  });
                 },
               },
               language === 'es' ? 'INICIAR EXPEDICIÓN' : 'START EXPEDITION',
@@ -2045,8 +2113,11 @@ export default function App() {
                     const resumeStage = savedExpedition?.stage || 'explore';
                     setMissionTargetKey(resumeKey);
                     setMissionInitialStage(resumeStage);
+                    A().skipRealTimeIntro?.();
+                    setFr(true);
+                    setPv(1);
                     setMissionOpen(true);
-                    setAiAvatarState('GREETING');
+                    setAiAvatarState('Acompañamiento');
                     const resumeTarget =
                       SPHEREX_TARGETS.find((t) => t.key === resumeKey) || SPHEREX_TARGETS[0];
                     notify(
@@ -2080,23 +2151,18 @@ export default function App() {
                     /* ignore */
                   }
                   setWelcomeOpen(false);
+                  setRealTimeIntroActive(false);
                   if (spec) {
                     A().board();
                     setSpec(false);
                   }
                   setFr(true);
                   setPv(1);
-                  A().free(true, false);
-                  A().view(1);
-                  setAiAvatarState('GREETING');
-                  setKronoxOpen(true);
-                  notify(
-                    'Has ingresado directamente a la cabina de mando en primera persona.',
-                    'Puente de mando',
-                  );
+                  A().skipRealTimeIntro?.();
+                  setAiAvatarState('Acompañamiento');
                 },
               },
-              language === 'es' ? 'SALTAR INTRODUCCIÓN' : 'SKIP INTRODUCTION',
+              language === 'es' ? 'ENTRAR DIRECTO A LA CABINA 3D' : 'ENTER 3D CABIN DIRECTLY',
             ),
           ),
 

@@ -10,7 +10,20 @@ import {
   mjdToJulianYear,
 } from '../src/data/spherexTargets.js';
 import { processKronoxQuery, matchSpherexTarget, matchPlanet } from '../src/utils/kronoxAI.js';
-import { KRONOX_AVATAR_STATES, buildKronoxAvatarMesh } from '../src/scene/kronoxAvatar3D.js';
+import {
+  SHIP_WORLD_UNITS,
+  KRONOX_LUMINOUS_STATES,
+  PHYSICAL_CABIN_STATIONS,
+  createKronoxLuminousEntity3D,
+  createAstronautModel3D,
+  buildHabitableCabin3D,
+} from '../src/scene/habitableShipWorld.js';
+import {
+  KRONOX_SCENE_EVENTS,
+  KRONOX_CONTROL_MODES,
+  buildCabinMachineSystems3D,
+  createKronoxSceneDirector,
+} from '../src/scene/kronoxSceneDirector.js';
 
 test('Product Flow - 5 Official SPHEREx Targets Completeness & Differentiated Scientific Status', () => {
   const targetKeys = SPHEREX_TARGETS.map((t) => t.key);
@@ -156,52 +169,196 @@ test('Onboard AI (Kronox) - Navigation, Scientific, Pedagogical and Companion In
   assert.ok(instMotion.reply.includes('movimiento propio'));
 });
 
-test('3D Holographic AI Avatar & Pre-recorded Cinematic Assets Integrity', () => {
-  // Verify all 9 required animation states
-  const expectedStates = [
-    'IDLE',
-    'GREETING',
-    'TALKING',
-    'EXPLAINING',
-    'POINTING',
-    'NAVIGATING',
-    'LISTENING',
-    'SUCCESS',
-    'FAREWELL',
-  ];
-  assert.deepEqual(KRONOX_AVATAR_STATES, expectedStates);
+test('Habitable 3D Ship World (1u=1m), 1.75m Astronaut, Physical Consoles & 3D Luminous Entity Integrity', () => {
+  // 1. Verify unified spatial metric scale (Section 3)
+  assert.equal(SHIP_WORLD_UNITS.METER, 1);
+  assert.equal(SHIP_WORLD_UNITS.SHIP_LENGTH_METERS, 120);
+  assert.equal(SHIP_WORLD_UNITS.ASTRONAUT_HEIGHT_METERS, 1.75);
+  assert.equal(SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, 1.65);
 
-  // Verify rigged 3D avatar mesh construction and state transitions
-  const avatar = buildKronoxAvatarMesh();
-  assert.ok(avatar.root, 'Avatar root THREE.Group must exist');
+  // 2. Verify all 8 required states of the 3D Luminous Energy Entity (Section 5)
+  const expectedStates = [
+    'Reposo',
+    'Escucha',
+    'Comunicación',
+    'Explicación',
+    'Señalización',
+    'Desplazamiento',
+    'Acompañamiento',
+    'Celebración',
+  ];
+  assert.deepEqual(KRONOX_LUMINOUS_STATES, expectedStates);
+
+  // 3. Verify 5 physical in-world stations inside the cabin (Section 4)
+  assert.equal(PHYSICAL_CABIN_STATIONS.length, 5);
+  const stationIds = PHYSICAL_CABIN_STATIONS.map((s) => s.id);
+  assert.deepEqual(stationIds, ['nav', 'science', 'missions', 'comms', 'windows']);
+
+  // 4. Verify 3D Luminous Entity construction, spatial movement, and pointing beam
+  const luminousAI = createKronoxLuminousEntity3D();
+  assert.ok(luminousAI.group, 'Luminous AI 3D group must exist');
+  assert.ok(luminousAI.trailLine, 'Luminous AI spatial wake trail must exist');
+  assert.ok(luminousAI.pointingBeam, 'Luminous AI 3D pointing beam must exist');
   for (const st of expectedStates) {
-    avatar.update(0.05, { state: st, speaking: st === 'TALKING', audioLevel: 0.5 });
+    luminousAI.setState(st);
+    luminousAI.update(0.05, 1.2, st === 'Comunicación', 0.6);
   }
 
-  // Verify epistemic taxonomy query & 3D avatar state coordination
+  // 5. Verify 1.75m Astronaut 3D model and 3D Habitable Cabin collision & proximity systems
+  const astronaut = createAstronautModel3D();
+  assert.ok(astronaut.root, 'Astronaut 3D body must exist');
+  assert.ok(astronaut.firstPersonHands, 'Astronaut 1st-person hands must exist');
+  astronaut.updateAnimation(1.0, true, 1);
+
+  const cabin = buildHabitableCabin3D();
+  assert.ok(cabin.cabinRoot, 'Habitable cabin 3D root must exist');
+  assert.equal(cabin.stationMeshes.length, 5, 'All 5 physical 3D consoles must be built');
+
+  // Verify proximity detection near Navigation Console (0, 0, -6.2)
+  const nearNav = cabin.findNearestInteractiveStation({ x: 0, y: 0, z: -4.9 });
+  assert.ok(nearNav, 'Should detect Navigation Console when standing within 2.45m');
+  assert.equal(nearNav.station.id, 'nav');
+
+  // Verify epistemic taxonomy query & AI coordination
   const epiRes = processKronoxQuery('Explica las categorías entre candidato, hallazgo y confirmado', {});
   assert.equal(epiRes.avatarState, 'EXPLAINING');
   assert.ok(epiRes.reply.includes('Objeto de la escena 3D'));
   assert.ok(epiRes.reply.includes('Hallazgo personal del usuario'));
   assert.ok(epiRes.reply.includes('Resultado científicamente confirmado'));
+});
 
-  // Verify all 5 pre-recorded cinematic MP4 videos and JPG posters exist in public/cinematics/
-  const cineDir = path.resolve('public/cinematics');
-  const expectedFiles = [
-    'scene01_cosmos.mp4',
-    'scene02_approach.mp4',
-    'scene03_cockpit.mp4',
-    'scene04_ai_greeting.mp4',
-    'scene05_missions.mp4',
-    'poster01_cosmos.jpg',
-    'poster02_approach.jpg',
-    'poster03_cockpit.jpg',
-    'poster04_ai_greeting.jpg',
-    'poster05_missions.jpg',
+test('KronoxSceneDirector & Machine-Controlled 3D Scene Events (All 10 Official Ship Events)', () => {
+  // 1. Verify all 10 official scene events exist
+  const expectedEventKeys = [
+    'CABIN_ENTERED',
+    'AI_ACTIVATED',
+    'NAVIGATION_SELECTED',
+    'DESTINATION_CONFIRMED',
+    'PROPULSION_ENGAGED',
+    'EXTERIOR_CAMERA_REQUESTED',
+    'JUMP_INITIATED',
+    'ARRIVAL_DETECTED',
+    'SCIENTIFIC_SCAN_STARTED',
+    'MISSION_ACTIVATED',
   ];
-  for (const file of expectedFiles) {
-    const full = path.join(cineDir, file);
-    assert.ok(fs.existsSync(full), `Missing cinematic asset: ${file}`);
-    assert.ok(fs.statSync(full).size > 10000, `Cinematic asset ${file} is unexpectedly small`);
-  }
+  assert.deepEqual(Object.keys(KRONOX_SCENE_EVENTS), expectedEventKeys);
+
+  // 2. Verify 3D machine systems (holographic nav map, AI projector, sensor sweep rings, bow reticle)
+  const machineSystems = buildCabinMachineSystems3D();
+  assert.ok(machineSystems.systemsRoot, '3D cabin machine systems root must exist');
+  assert.ok(machineSystems.navHoloGroup, '3D navigation hologram map must exist');
+  assert.ok(machineSystems.aiProjectorGroup, '3D AI projector emitter must exist');
+  assert.ok(machineSystems.sensorSweepGroup, '3D volumetric sensor sweep rings must exist');
+  assert.ok(machineSystems.bowReticleGroup, '3D bow window target reticle must exist');
+
+  // 3. Verify event-driven orchestration and synchronized AI narration
+  const luminousAI = createKronoxLuminousEntity3D();
+  const cabinSystem = buildHabitableCabin3D();
+  const narratives = [];
+  const stateChanges = [];
+
+  const director = createKronoxSceneDirector({
+    cabinSystem,
+    machineSystems,
+    luminousAI,
+    onNarrativeCallback: (text, stateName, stationId) => {
+      narratives.push({ text, stateName, stationId });
+    },
+    onEventCallback: (eventName, payload, state) => {
+      stateChanges.push({ eventName, state: { ...state } });
+    },
+  });
+
+  // Event 1: CABIN_ENTERED
+  director.dispatchEvent(KRONOX_SCENE_EVENTS.CABIN_ENTERED);
+  let st = director.getState();
+  assert.equal(st.lastEvent, 'CABIN_ENTERED');
+  assert.equal(st.controlMode, KRONOX_CONTROL_MODES.FREE_ASTRONAUT);
+
+  // Event 2: AI_ACTIVATED (AI Projector generates 3D luminous sphere & greets astronaut)
+  director.dispatchEvent(KRONOX_SCENE_EVENTS.AI_ACTIVATED);
+  st = director.getState();
+  assert.equal(st.aiActive, true);
+  assert.equal(st.lastEvent, 'AI_ACTIVATED');
+
+  // Event 3: NAVIGATION_SELECTED (Deploys 3D holographic star map & route vector on Navigation Console)
+  director.dispatchEvent(KRONOX_SCENE_EVENTS.NAVIGATION_SELECTED, {
+    targetKey: 'barnard',
+    targetName: 'Estrella de Barnard',
+    distanceLabel: '5,96 años luz',
+  });
+  st = director.getState();
+  assert.equal(st.navMapDeployed, true);
+  assert.equal(machineSystems.navHoloGroup.visible, true, '3D hologram map must be active');
+  assert.equal(st.controlMode, KRONOX_CONTROL_MODES.MACHINE_INTERACTION);
+
+  // Event 4: DESTINATION_CONFIRMED
+  director.dispatchEvent(KRONOX_SCENE_EVENTS.DESTINATION_CONFIRMED, {
+    targetKey: 'barnard',
+    targetName: 'Estrella de Barnard',
+  });
+  st = director.getState();
+  assert.equal(st.confirmedDestination?.key, 'barnard');
+  assert.equal(machineSystems.bowReticleGroup.visible, true);
+
+  // Event 5: PROPULSION_ENGAGED (Triggers real-time 3D propulsion & exterior camera choreography)
+  director.dispatchEvent(KRONOX_SCENE_EVENTS.PROPULSION_ENGAGED, {
+    targetKey: 'barnard',
+    targetName: 'Estrella de Barnard',
+  });
+  st = director.getState();
+  assert.equal(st.propulsionState, 'ENGAGED');
+  assert.equal(st.controlMode, KRONOX_CONTROL_MODES.CINEMATIC_SEQUENCE);
+  assert.equal(st.activeSequence?.type, 'PROPULSION_AND_DEPARTURE');
+
+  // Tick real-time 3D propulsion sequence across its stages
+  const seqStage1 = director.update(0.5, 1.0);
+  assert.equal(seqStage1?.type, 'PROPULSION_AND_DEPARTURE');
+  assert.equal(seqStage1?.showExteriorShip, true);
+
+  const seqStage2 = director.update(2.2, 3.2);
+  assert.equal(director.getState().propulsionState, 'JUMP');
+  assert.equal(seqStage2?.showExteriorShip, true);
+
+  // Event 6: EXTERIOR_CAMERA_REQUESTED
+  director.dispatchEvent(KRONOX_SCENE_EVENTS.EXTERIOR_CAMERA_REQUESTED);
+  st = director.getState();
+  assert.equal(st.controlMode, KRONOX_CONTROL_MODES.EXTERIOR_FLIGHT);
+
+  // Event 7: JUMP_INITIATED
+  director.dispatchEvent(KRONOX_SCENE_EVENTS.JUMP_INITIATED, {
+    targetName: 'Estrella de Barnard',
+  });
+  st = director.getState();
+  assert.equal(st.propulsionState, 'JUMP');
+
+  // Event 8: ARRIVAL_DETECTED (Activates 3D sensors & highlights target on bow windows)
+  director.dispatchEvent(KRONOX_SCENE_EVENTS.ARRIVAL_DETECTED, {
+    targetKey: 'barnard',
+    targetName: 'Estrella de Barnard',
+  });
+  st = director.getState();
+  assert.equal(st.propulsionState, 'ARRIVED');
+  assert.equal(st.sensorState, 'SCANNING');
+  assert.equal(machineSystems.sensorSweepGroup.visible, true, '3D sensor sweep rings must be active on arrival');
+  assert.equal(machineSystems.bowReticleGroup.visible, true, '3D bow window reticle must highlight target');
+
+  // Event 9: SCIENTIFIC_SCAN_STARTED
+  director.dispatchEvent(KRONOX_SCENE_EVENTS.SCIENTIFIC_SCAN_STARTED, {
+    targetKey: 'barnard',
+    targetName: 'Estrella de Barnard',
+  });
+  st = director.getState();
+  assert.equal(st.sensorState, 'LOCKED');
+
+  // Event 10: MISSION_ACTIVATED
+  director.dispatchEvent(KRONOX_SCENE_EVENTS.MISSION_ACTIVATED, {
+    targetKey: 'barnard',
+    targetName: 'Estrella de Barnard',
+  });
+  st = director.getState();
+  assert.equal(st.lastEvent, 'MISSION_ACTIVATED');
+
+  assert.equal(stateChanges.length, 10, 'All 10 official scene events must emit synchronized state transitions');
+  assert.equal(narratives.length, 10, 'Kronox IA narrations must be triggered strictly by real ship events');
 });

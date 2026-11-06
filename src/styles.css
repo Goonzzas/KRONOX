@@ -6042,3 +6042,441 @@ small {
   flex-shrink: 0 !important;
 }
 
+
+/* ==========================================================================
+   KRONOX — VIDEOJUEGO DE EXPLORACIÓN ESPACIAL 3D (CABINA HABITABLE 1u=1m,
+   ASTRONAUTA 1.75m, CONSOLAS FÍSICAS 3D Y ENTIDAD LUMINOSA KRONOX IA 3D)
+   ========================================================================== */
+
+/* 1. Barra superior de puente de mando habitable 3D */
+.kronoxBridgeSettingsBtn {
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(110, 234, 255, 0.35);
+  background: rgba(8, 22, 42, 0.85);
+  color: #dff7ff;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.kronoxBridgeSettingsBtn:hover {
+  border-color: #6eeaff;
+  background: rgba(24, 65, 110, 0.88);
+  color: #ffffff;
+}
+.kronoxCabinPosReadout {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  color: #93e5ff;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: rgba(6, 18, 36, 0.72);
+  border: 1px solid rgba(110, 234, 255, 0.22);
+}
+
+/* 2. Brújula espacial y guía de caminata en cabina habitable 3D */
+.kronoxCabinSpatialCompass {
+  position: fixed;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 26;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(5, 13, 28, 0.76);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  backdrop-filter: blur(10px);
+  color: #cfe9ff;
+  font-size: 11.5px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.kronoxWalkHint strong {
+  color: #6eeaff;
+}
+.kronoxPhysicalStationsCompass {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.kronoxCompassMarker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.75);
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.kronoxCompassMarker i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 6px currentColor;
+}
+.kronoxCompassMarker:hover,
+.kronoxCompassMarker.near {
+  border-color: #38bdf8;
+  color: #ffffff;
+  background: rgba(14, 48, 86, 0.85);
+}
+.kronoxCompassMarker.active {
+  border-color: #6eeaff;
+  background: rgba(18, 78, 130, 0.92);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(110, 234, 255, 0.35);
+}
+
+/* 3. Indicador contextual de proximidad a consola física 3D (`[E] Operar...`) */
+.kronoxProximityPrompt {
+  position: fixed;
+  bottom: 122px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 32;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(6, 19, 38, 0.92), rgba(12, 34, 66, 0.92));
+  border: 1px solid rgba(110, 234, 255, 0.65);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), 0 0 18px rgba(56, 189, 248, 0.28);
+  backdrop-filter: blur(10px);
+  color: #eaf7ff;
+}
+.kronoxProximityKey {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(110, 234, 255, 0.18);
+  border: 1px solid #6eeaff;
+  color: #6eeaff;
+  font-family: ui-monospace, monospace;
+  font-weight: 800;
+  font-size: 13px;
+}
+.kronoxProximityInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.kronoxProximityInfo strong {
+  font-size: 13px;
+  color: #ffffff;
+}
+.kronoxProximityInfo span {
+  font-size: 11.5px;
+  color: #93c5fd;
+}
+.kronoxProximityActivateBtn {
+  padding: 7px 13px;
+  border-radius: 8px;
+  border: 1px solid #38bdf8;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.kronoxProximityActivateBtn:hover {
+  filter: brightness(1.12);
+}
+
+/* 4. Pantalla diegética de instrumento conectada a consola física 3D */
+.kronoxDiegeticConsole {
+  position: fixed;
+  bottom: 118px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  width: min(760px, 92vw);
+  padding: 16px 20px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(6, 16, 34, 0.92), rgba(4, 10, 22, 0.95));
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.72), 0 0 24px rgba(56, 189, 248, 0.22);
+  backdrop-filter: blur(14px);
+  color: #eef8ff;
+}
+.kronoxDiegeticTag {
+  display: inline-block;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: #6eeaff;
+  margin-bottom: 3px;
+}
+
+/* 5. Etiqueta proyectada en el mundo 3D sobre la entidad luminosa Kronox IA */
+.kronoxInWorldTag {
+  position: fixed;
+  z-index: 25;
+  transform: translate(-50%, -100%);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: rgba(6, 20, 42, 0.82);
+  border: 1px solid rgba(110, 234, 255, 0.55);
+  color: #e6f9ff;
+  font-size: 11px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px rgba(110, 234, 255, 0.28);
+  transition: transform 0.12s ease, border-color 0.15s ease;
+}
+.kronoxInWorldTag.speaking {
+  border-color: #a5f3fc;
+  box-shadow: 0 0 18px rgba(110, 234, 255, 0.65);
+}
+.kronoxInWorldPulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6eeaff;
+  box-shadow: 0 0 8px #6eeaff;
+}
+.kronoxInWorldTag small {
+  color: #7dd3fc;
+  font-weight: 600;
+}
+
+/* 6. Barra de subtítulos y diálogo contextual sincronizada con la entidad de luz 3D */
+.kronoxSubtitleDock {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 34;
+  width: min(860px, 94vw);
+  padding: 10px 16px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(6, 15, 32, 0.86), rgba(4, 10, 22, 0.93));
+  border: 1px solid rgba(110, 234, 255, 0.35);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(12px);
+  color: #eaf7ff;
+}
+.kronoxSubtitleDock.is-speaking {
+  border-color: rgba(110, 234, 255, 0.72);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(56, 189, 248, 0.25);
+}
+.kronoxSubtitleMainRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.kronoxLuminousBadgeBtn {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 50%;
+  border: 1px solid rgba(110, 234, 255, 0.55);
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.32), rgba(7, 18, 38, 0.92));
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.kronoxSubtitleContent {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.kronoxSubtitleMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 3px;
+}
+.kronoxEntityName {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #7dd3fc;
+}
+.kronoxStatePill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.16);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #bae6fd;
+}
+.kronoxEpistemicInline {
+  font-size: 10.5px;
+  color: #94a3b8;
+}
+.kronoxMiniVoiceWave {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 12px;
+}
+.kronoxMiniVoiceWave i {
+  display: inline-block;
+  width: 2px;
+  height: calc(3px + var(--bar-level, 0.1) * 8px);
+  background: #6eeaff;
+  border-radius: 2px;
+}
+.kronoxSubtitleText {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.42;
+  color: #f1f5f9;
+}
+.kronoxSubtitleQuickActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.kronoxSubActionBtn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.8);
+  color: #e2e8f0;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.kronoxSubActionBtn.primary {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(2, 132, 199, 0.28);
+  color: #e0f2fe;
+}
+.kronoxSecondaryCommandDrawer {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 7. HUD de introducción cinematográfica 3D en tiempo real (sin diapositivas) */
+.kronoxRealTimeIntroHud {
+  position: fixed;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: rgba(5, 14, 30, 0.84);
+  border: 1px solid rgba(110, 234, 255, 0.45);
+  backdrop-filter: blur(10px);
+  color: #eaf7ff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+.kronoxRealTimeIntroBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: #7dd3fc;
+}
+.kronoxRealTimeIntroCaption {
+  margin: 0;
+  font-size: 13px;
+  color: #f8fafc;
+}
+.kronoxRealTimeSkipBtn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(110, 234, 255, 0.55);
+  background: rgba(14, 65, 110, 0.8);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 8. Modal secundario de ajustes (reemplaza la barra lateral permanente Sistema Solar 3D) */
+.kronoxSecondarySettingsModal {
+  z-index: 65 !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85) !important;
+}
+
+/* 9. Orquestador de Escenas 3D Dirigidas por los Sistemas de la Nave (KronoxSceneDirector) */
+.kronoxDirectorModePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: rgba(14, 116, 144, 0.25);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #bae6fd;
+}
+.kronoxDirectorModePill[data-mode='CINEMATIC_SEQUENCE'] {
+  background: rgba(234, 88, 12, 0.25);
+  border-color: rgba(251, 146, 60, 0.65);
+  color: #fed7aa;
+}
+.kronoxDirectorModePill[data-mode='MACHINE_INTERACTION'] {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: rgba(52, 211, 153, 0.55);
+  color: #a7f3d0;
+}
+.kronoxNavConfirmationBox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(8, 30, 56, 0.72);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+}
+.kronoxNavRouteMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.kronoxNavRouteMeta strong {
+  font-size: 12px;
+  color: #7dd3fc;
+}
+.kronoxNavRouteMeta span {
+  font-size: 11px;
+  color: #cbd5e1;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+.kronoxConfirmPropulsionBtn {
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.5), rgba(14, 165, 233, 0.35)) !important;
+  border-color: rgba(125, 211, 252, 0.85) !important;
+  color: #f8fafc !important;
+  font-weight: 800 !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+}
+.kronoxStationBtnRow button.active {
+  border-color: rgba(110, 234, 255, 0.85) !important;
+  background: rgba(14, 116, 144, 0.45) !important;
+  color: #fff !important;
+}

@@ -1,8 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { t } from '../i18n.js';
 import { KRONOX_QUICK_PROMPTS } from '../utils/kronoxAI.js';
-import KronoxAvatarStage from './KronoxAvatarStage.jsx';
+import { KRONOX_LUMINOUS_STATES } from '../scene/habitableShipWorld.js';
 
+/**
+ * In-World 3D Luminous AI Dialogue & Subtitle HUD (Section 5).
+ * Kronox IA is a real 3D luminous energy sphere inside the Three.js cabin scene (no humanoid figure,
+ * no separate floating corner chat box). This component renders:
+ * 1. A discreet 3D-projected floating state badge near the 3D light entity in the cabin.
+ * 2. A contextual cinematic subtitle bar at the bottom of the screen when Kronox IA speaks or guides the astronaut.
+ * 3. A secondary collapsible command input bar when the astronaut wants to type a command or question.
+ */
 export default function KronoxWidget({
   guide,
   language = 'es',
@@ -22,92 +30,53 @@ export default function KronoxWidget({
   missionStarting = false,
   onCommand,
   onRepeatSpeech,
+  onPauseSpeech,
+  speechPaused = false,
   onReplayCinematic,
-  aiRole = 'Inteligencia de a bordo',
-  avatarState = 'IDLE',
-  pointDirection = 'right',
-  epistemicCategory = 'Comunicación de puente de mando',
+  aiRole = 'Entidad Luminosa 3D',
+  avatarState = 'Reposo',
+  epistemicCategory = 'Comunicación espacial en puente 3D',
   history = [],
+  aiProjection = null,
 }) {
   const [typed, setTyped] = useState('');
   const [inputQuery, setInputQuery] = useState('');
   const [inputFocused, setInputFocused] = useState(false);
-  const [position, setPosition] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('kronox-widget-position'));
-      return saved && Number.isFinite(saved.x) && Number.isFinite(saved.y) ? saved : null;
-    } catch {
-      return null;
-    }
-  });
-  const dragRef = useRef(null);
-  const movedRef = useRef(false);
-  const isTransmitting = speaking || typed.length < guide.length;
-  const panelSide = position && position.x < window.innerWidth / 2 ? 'right' : 'left';
-  const widgetStyle = position
-    ? { left: position.x, top: position.y, right: 'auto', bottom: 'auto' }
-    : undefined;
+  const [textPaused, setTextPaused] = useState(false);
 
-  // Compute effective 3D avatar animation state
-  const effectiveAvatarState = inputFocused
-    ? 'LISTENING'
-    : speaking && (avatarState === 'IDLE' || avatarState === 'LISTENING')
-      ? 'TALKING'
-      : avatarState || 'IDLE';
-
-  const startDrag = (event) => {
-    if (event.button !== undefined && event.button !== 0) return;
-    event.preventDefault();
-    movedRef.current = false;
-    dragRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: position?.x ?? window.innerWidth - 45,
-      originY: position?.y ?? window.innerHeight - 112,
-    };
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+  // Map legacy state strings to the 8 required Spanish states of the 3D luminous entity
+  const stateMap = {
+    IDLE: 'Reposo',
+    LISTENING: 'Escucha',
+    TALKING: 'Comunicación',
+    EXPLAINING: 'Explicación',
+    POINTING: 'Señalización',
+    GREETING: 'Acompañamiento',
+    CELEBRATING: 'Celebración',
   };
-  const moveDrag = (event) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    const dx = event.clientX - drag.startX;
-    const dy = event.clientY - drag.startY;
-    if (Math.abs(dx) + Math.abs(dy) > 4) movedRef.current = true;
-    if (!movedRef.current) return;
-    const x = Math.max(34, Math.min(window.innerWidth - 34, drag.originX + dx));
-    const y = Math.max(34, Math.min(window.innerHeight - 34, drag.originY + dy));
-    setPosition({ x, y });
-  };
-  const endDrag = (event) => {
-    if (!dragRef.current) return;
-    if (movedRef.current) {
-      const x = Math.max(34, Math.min(window.innerWidth - 34, event.clientX));
-      const y = Math.max(34, Math.min(window.innerHeight - 34, event.clientY));
-      const next = { x, y };
-      setPosition(next);
-      try {
-        localStorage.setItem('kronox-widget-position', JSON.stringify(next));
-      } catch {
-        // Keep dragging available when storage is disabled.
-      }
-    }
-    dragRef.current = null;
-    setTimeout(() => {
-      movedRef.current = false;
-    }, 0);
-  };
+  const resolvedState = inputFocused
+    ? 'Escucha'
+    : speaking && (avatarState === 'IDLE' || avatarState === 'Reposo')
+      ? 'Comunicación'
+      : stateMap[avatarState] || (KRONOX_LUMINOUS_STATES.includes(avatarState) ? avatarState : 'Acompañamiento');
 
   useEffect(() => {
     setTyped('');
-    let index = 0;
-    const timer = setInterval(() => {
-      index += 2;
-      setTyped(guide.slice(0, index));
-      if (index >= guide.length) clearInterval(timer);
-    }, 16);
-    return () => clearInterval(timer);
+    setTextPaused(false);
   }, [guide]);
+
+  useEffect(() => {
+    if (textPaused || speechPaused) return undefined;
+    const text = guide || '';
+    if (typed.length >= text.length) return undefined;
+    const timer = setInterval(() => {
+      setTyped((prev) => {
+        const nextIdx = Math.min(text.length, prev.length + 3);
+        return text.slice(0, nextIdx);
+      });
+    }, 14);
+    return () => clearInterval(timer);
+  }, [guide, textPaused, speechPaused, typed.length]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -123,197 +92,186 @@ export default function KronoxWidget({
   };
 
   return (
-    <div
-      className={`kronoxWidget ${position ? 'is-positioned' : ''} ${speaking ? 'is-speaking' : ''} ${isTransmitting ? 'is-transmitting' : ''} ${panelOpen ? 'panel-visible' : ''}`}
-      style={widgetStyle}
-      data-panel-side={panelSide}
-    >
-      {/* Persistent 3D Holographic Avatar Pod + Quick Toggle Button */}
-      <div
-        className="kronoxHologramPod"
-        onPointerDown={startDrag}
-        onPointerMove={moveDrag}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-      >
-        <KronoxAvatarStage
-          animState={effectiveAvatarState}
-          speaking={speaking}
-          audioLevels={audioLevels}
-          pointDirection={pointDirection}
-          compact={!panelOpen}
-          onClickAvatar={() => {
-            if (!movedRef.current) onOrbClick();
-          }}
-        />
+    <>
+      {/* 1. 3D-PROJECTED TAG ATTACHED TO THE REAL 3D LUMINOUS ENTITY INSIDE THE CABIN */}
+      {aiProjection?.visible && (
         <button
-          className="kronoxOrb"
-          aria-label={t('Kronox, inteligencia tridimensional de a bordo', language)}
-          title={t('Kronox, inteligencia tridimensional de a bordo', language)}
-          onClick={(event) => {
-            if (movedRef.current) {
-              event.preventDefault();
-              return;
-            }
-            onOrbClick();
+          type="button"
+          className={`kronoxInWorldTag ${speaking ? 'speaking' : ''}`}
+          style={{
+            left: `${Math.max(90, Math.min((typeof window !== 'undefined' ? window.innerWidth : 1280) - 90, aiProjection.x))}px`,
+            top: `${Math.max(70, Math.min((typeof window !== 'undefined' ? window.innerHeight : 720) - 140, aiProjection.y - 54))}px`,
           }}
+          onClick={onOrbClick}
+          title="Entidad de luz 3D Kronox IA · Haz clic para abrir canal de órdenes"
         >
-          <span className="kronoxCore" />
-          <svg className="kronoxGyro" viewBox="0 0 100 100" aria-hidden="true">
-            <ellipse className="gyroRing ringOne" cx="50" cy="50" rx="39" ry="17" />
-            <ellipse className="gyroRing ringTwo" cx="50" cy="50" rx="39" ry="17" />
-            <ellipse className="gyroRing ringThree" cx="50" cy="50" rx="39" ry="17" />
-            <path className="kronoxFourStar" d="M50 7 57 43 93 50 57 57 50 93 43 57 7 50 43 43Z" />
-          </svg>
+          <span className="kronoxInWorldPulse" />
+          <strong>KRONOX IA 3D</strong>
+          <small>{aiProjection.state || resolvedState}</small>
         </button>
-      </div>
+      )}
 
-      {panelOpen && (
-        <div className={`kronoxBubble kronoxAiConsole ${isTransmitting ? 'transmitting' : ''}`}>
-          <div className="kronoxPanelTop">
-            <div className="kronoxName">
-              {t('KRONOX · IA HOLOGRÁFICA 3D', language)}
-              <span className="kronoxRoleBadge">{t(aiRole, language)}</span>
+      {/* 2. CONTEXTUAL SUBTITLE & DIALOGUE BAR SYNCHRONIZED WITH THE 3D LUMINOUS ENTITY */}
+      <div
+        className={`kronoxSubtitleDock ${speaking ? 'is-speaking' : ''} ${panelOpen ? 'expanded' : 'compact'}`}
+        role="region"
+        aria-label={t('Diálogo contextual de la entidad luminosa Kronox IA', language)}
+      >
+        <div className="kronoxSubtitleMainRow">
+          {/* Iconic Luminous Energy Core (No humanoid figure) */}
+          <button
+            type="button"
+            className="kronoxLuminousBadgeBtn"
+            onClick={onOrbClick}
+            aria-label={t('Alternar consola de órdenes de Kronox IA', language)}
+            title={t('Alternar entrada de comandos para Kronox IA', language)}
+          >
+            <span className="kronoxCore" />
+            <svg className="kronoxGyro" viewBox="0 0 100 100" aria-hidden="true">
+              <ellipse className="gyroRing ringOne" cx="50" cy="50" rx="39" ry="17" />
+              <ellipse className="gyroRing ringTwo" cx="50" cy="50" rx="39" ry="17" />
+              <ellipse className="gyroRing ringThree" cx="50" cy="50" rx="39" ry="17" />
+              <path
+                className="kronoxFourStar"
+                d="M50 7 57 43 93 50 57 57 50 93 43 57 7 50 43 43Z"
+              />
+            </svg>
+          </button>
+
+          <div className="kronoxSubtitleContent">
+            <div className="kronoxSubtitleMeta">
+              <span className="kronoxEntityName">KRONOX IA · ENTIDAD LUMINOSA 3D</span>
+              <span className="kronoxStatePill" data-state={resolvedState}>
+                ● {resolvedState}
+              </span>
+              <span className="kronoxEpistemicInline">◈ {epistemicCategory}</span>
+              <div className="kronoxMiniVoiceWave" aria-hidden="true">
+                {Array.from({ length: 16 }, (_, idx) => (
+                  <i key={idx} style={{ '--bar-level': audioLevels?.[idx * 2] ?? 0.1 }} />
+                ))}
+              </div>
             </div>
-            <span className="kronoxStatus">
-              <i />
-              {speaking ? t('transmitiendo…', language) : t(effectiveAvatarState, language)}
-            </span>
+
+            <p className="kronoxSubtitleText" aria-live="polite">
+              {typed}
+              <span className="kronoxCursor">▍</span>
+            </p>
+          </div>
+
+          <div className="kronoxSubtitleQuickActions">
             <button
-              className="kronoxClose"
-              aria-label={t('Cerrar panel de Kronox', language)}
-              onClick={onClose}
+              type="button"
+              className="kronoxSubActionBtn"
+              onClick={onToggleVoice}
+              title={voice ? 'Silenciar síntesis de voz' : 'Activar síntesis de voz'}
             >
-              ×
+              {voice ? '🔊 Voz' : '🔇 Mudo'}
             </button>
-          </div>
-
-          {/* Epistemic Category & Voice Engine Transparency Badge */}
-          <div className="kronoxEpistemicBar">
-            <span className="kronoxEpistemicTag">◈ {epistemicCategory}</span>
-            <small className="kronoxVoiceTechNote">
-              {voice ? 'Voz: Síntesis TTS Web / Audio local' : 'Subtítulos sincronizados (Audio silenciado)'}
-            </small>
-          </div>
-
-          <div className="kronoxVoiceBars" aria-hidden="true">
-            {Array.from({ length: 48 }, (_, index) => (
-              <i key={index} style={{ '--bar-level': audioLevels?.[index] ?? 0.08 }} />
-            ))}
-          </div>
-
-          <p className="kronoxAiMessage" aria-live="polite">
-            {typed}
-            <span className="kronoxCursor">▍</span>
-          </p>
-
-          {history.length > 0 && (
-            <div className="kronoxAiHistory" aria-label={t('Registro de órdenes recientes', language)}>
-              {history.slice(-2).map((item, idx) => (
-                <div key={idx} className="kronoxAiHistoryRow">
-                  <span className="kronoxAiUserQuery">▸ {item.query}</span>
-                  {item.actionLabel && (
-                    <span className="kronoxAiExecTag">✓ {item.actionLabel}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Interactive Command & Question Input */}
-          <form className="kronoxCommandForm" onSubmit={handleSubmit}>
-            <input
-              type="text"
-              className="kronoxCommandInput"
-              value={inputQuery}
-              onFocus={() => setInputFocused(true)}
-              onBlur={() => setInputFocused(false)}
-              onChange={(e) => setInputQuery(e.target.value)}
-              placeholder={
-                language === 'en'
-                  ? 'Ask or command (e.g. "Take me to Barnard")...'
-                  : 'Pregunta u ordena (ej. «Llévame a Barnard»)...'
-              }
-              aria-label={t('Enviar orden o consulta a Kronox', language)}
-            />
-            <button type="submit" className="kronoxCommandSend">
-              {language === 'en' ? 'Send' : 'Enviar'}
-            </button>
-          </form>
-
-          {/* Suggested Real Actions & Queries */}
-          <div className="kronoxQuickPrompts">
-            {KRONOX_QUICK_PROMPTS.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                className="kronoxPromptChip"
-                onClick={() => handleQuickPrompt(item.query)}
-              >
-                {t(item.label, language)}
-              </button>
-            ))}
-          </div>
-
-          <div className="kronoxVoiceControlsRow">
-            <button type="button" onClick={onToggleVoice}>
-              {voice ? t('Silenciar voz', language) : t('Activar voz', language)}
+            <button
+              type="button"
+              className="kronoxSubActionBtn"
+              onClick={() => {
+                setTextPaused((prev) => !prev);
+                onPauseSpeech?.();
+              }}
+              title={textPaused || speechPaused ? 'Reanudar locución de Kronox IA' : 'Pausar locución de Kronox IA'}
+              aria-label={textPaused || speechPaused ? 'Reanudar locución' : 'Pausar locución'}
+            >
+              {textPaused || speechPaused ? '▶ Reanudar' : '⏸ Pausar'}
             </button>
             {onRepeatSpeech && (
               <button
                 type="button"
-                onClick={onRepeatSpeech}
-                title={t('Repetir explicación actual', language)}
+                className="kronoxSubActionBtn"
+                onClick={() => {
+                  setTextPaused(false);
+                  setTyped('');
+                  onRepeatSpeech();
+                }}
+                title="Repetir locución de Kronox IA"
+                aria-label="Repetir locución"
               >
-                ↺ {t('Repetir explicación', language)}
+                ↺ Repetir
               </button>
             )}
-            {onReplayCinematic && (
-              <button
-                type="button"
-                onClick={onReplayCinematic}
-                title={t('Reproducir secuencias cinematográficas de introducción', language)}
-              >
-                🎬 {t('Ver cinemática', language)}
-              </button>
-            )}
-            {voice && (
-              <label className="r" style={{ fontSize: 12, marginBottom: 0 }}>
-                {t(language === 'es' ? 'Acento' : 'Voice', language)}{' '}
-                <select value={accent} onChange={(event) => onAccentChange(event.target.value)}>
-                  {language === 'es' ? (
-                    <>
-                      <option value="es-US">Latino</option>
-                      <option value="es-ES">España</option>
-                    </>
-                  ) : (
-                    <option value="en-US">United States</option>
-                  )}
-                </select>
-              </label>
-            )}
-            {near && (
-              <button type="button" onClick={() => onMore(near)}>
-                {t('Ficha de ' + near, language)}
-              </button>
-            )}
-          </div>
-          {voiceError && <small role="status">{voiceError}</small>}
-
-          <div className="kronoxMissionOffer">
-            <span>{t('SISTEMA DE MISIONES · SPHEREx', language)}</span>
-            <p>
-              {t(
-                'Selecciona un destino estelar o pídeme que trace rumbo hacia cualquier estrella del catálogo.',
-                language,
-              )}
-            </p>
-            <button type="button" onClick={onStartMission} disabled={missionStarting}>
-              {missionStarting ? t('Preparando el salto…', language) : t('Elegir misión', language)}
+            <button
+              type="button"
+              className="kronoxSubActionBtn primary"
+              onClick={onOrbClick}
+            >
+              {panelOpen ? 'Ocultar comandos' : 'Hablar con Kronox'}
             </button>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* 3. SECONDARY COLLAPSIBLE COMMAND INPUT & QUICK ORDERS */}
+        {panelOpen && (
+          <div className="kronoxSecondaryCommandDrawer">
+            <form className="kronoxCommandForm" onSubmit={handleSubmit}>
+              <input
+                type="text"
+                className="kronoxCommandInput"
+                value={inputQuery}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                onChange={(e) => setInputQuery(e.target.value)}
+                placeholder={
+                  language === 'en'
+                    ? 'Ask or command Kronox IA (e.g. "Take me to Barnard", "Compare epochs")...'
+                    : 'Escribe una orden o consulta para Kronox IA (ej. «Llévame a Barnard», «Compara las épocas»)...'
+                }
+                aria-label={t('Enviar orden o consulta a Kronox', language)}
+              />
+              <button type="submit" className="kronoxCommandSend">
+                {language === 'en' ? 'Transmit' : 'Transmitir'}
+              </button>
+              <button
+                type="button"
+                className="kronoxSubActionBtn"
+                onClick={onClose}
+                aria-label="Cerrar barra de comandos"
+              >
+                ×
+              </button>
+            </form>
+
+            <div className="kronoxQuickPrompts">
+              {KRONOX_QUICK_PROMPTS.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  className="kronoxPromptChip"
+                  onClick={() => handleQuickPrompt(item.query)}
+                >
+                  {t(item.label, language)}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="kronoxPromptChip highlight"
+                onClick={onStartMission}
+                disabled={missionStarting}
+              >
+                ✦ {missionStarting ? 'Preparando salto…' : 'Catálogo de misiones'}
+              </button>
+            </div>
+
+            {history.length > 0 && (
+              <div className="kronoxAiHistory">
+                {history.slice(-2).map((item, idx) => (
+                  <div key={idx} className="kronoxAiHistoryRow">
+                    <span className="kronoxAiUserQuery">▸ {item.query}</span>
+                    {item.actionLabel && (
+                      <span className="kronoxAiExecTag">✓ {item.actionLabel}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {voiceError && <small role="status">{voiceError}</small>}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

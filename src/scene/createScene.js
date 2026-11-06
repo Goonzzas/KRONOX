@@ -3,6 +3,19 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { P, D2R, TAU, T0, kep, pos } from '../data/planetData.js';
 import { SPHEREX_TARGETS } from '../data/spherexTargets.js';
 import { NEARBY_GALAXIES } from '../data/nearbyGalaxies.js';
+import {
+  SHIP_WORLD_UNITS,
+  PHYSICAL_CABIN_STATIONS,
+  buildHabitableCabin3D,
+  createAstronautModel3D,
+  createKronoxLuminousEntity3D,
+} from './habitableShipWorld.js';
+import {
+  KRONOX_SCENE_EVENTS,
+  KRONOX_CONTROL_MODES,
+  buildCabinMachineSystems3D,
+  createKronoxSceneDirector,
+} from './kronoxSceneDirector.js';
 
 // A single scale cannot show both the Milky Way and nearby star systems
 // clearly. Expand only the inner 25 light-years to 1,000 map units per
@@ -2520,6 +2533,118 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   sc.add(tr);
   ship.visible = false;
   sc.add(ship);
+
+  // =========================================================================
+  // HABITABLE 3D CABIN WORLD (`1 unit = 1 meter`), 1.75m ASTRONAUT & LUMINOUS AI
+  // =========================================================================
+  const localCabinWorld = new THREE.Group();
+  localCabinWorld.name = 'LocalHabitableShipWorld';
+  localCabinWorld.visible = false;
+  sc.add(localCabinWorld);
+
+  const cabinSystem = buildHabitableCabin3D();
+  localCabinWorld.add(cabinSystem.cabinRoot);
+
+  const astronaut3D = createAstronautModel3D();
+  localCabinWorld.add(astronaut3D.root);
+  localCabinWorld.add(astronaut3D.firstPersonHands);
+
+  const luminousAI = createKronoxLuminousEntity3D();
+  localCabinWorld.add(luminousAI.group);
+  localCabinWorld.add(luminousAI.trailLine);
+  localCabinWorld.add(luminousAI.pointingBeam);
+
+  // Machine-Driven 3D Holograms, Projector Cone, Sensor Sweep & Scene Director (Sections 2 & 3)
+  const machineSystems = buildCabinMachineSystems3D();
+  localCabinWorld.add(machineSystems.systemsRoot);
+
+  const sceneDirector = createKronoxSceneDirector({
+    cabinSystem,
+    machineSystems,
+    luminousAI,
+    onEventCallback: (eventName, payload, directorState) => {
+      S.onSceneDirectorEvent?.(eventName, payload, directorState);
+    },
+    onNarrativeCallback: (text, aiState, stationId, directorState) => {
+      S.onAiTourNarrative?.(text, aiState, stationId, directorState);
+    },
+    onControlModeChange: (controlMode, directorState) => {
+      S.onControlModeChange?.(controlMode, directorState);
+    },
+  });
+
+  // Walkable Astronaut State in Local Meters (`1 unit = 1 m`)
+  const astronautPos = new V(0, 0, -1.8);
+  let astronautYaw = 0;
+  let astronautPitch = 0;
+  let cabinFirstPerson = true; // true = 1st-person eye height (1.65 m), false = 3rd-person over-shoulder
+  let activeCabinStation = null;
+  let nearestCabinStation = null;
+  let lastNearestStationId = null;
+  let aiFollowAstronaut = true;
+  let aiSpeakingState = false;
+  let aiAudioLevelState = 0.08;
+
+  // Real-time 3D Cinematic Intro Spline State (Section 2)
+  let realTimeIntro = null;
+  // Guided In-World Tour State (Section 6)
+  let guidedTourState = null;
+
+  function startRealTimeIntroSequence(onCompleteCallback) {
+    // Ensure ship is in free flight in the 3D cosmos
+    if (!free) {
+      setFree(true, false);
+      S.fr?.(true);
+    }
+    pv = 3;
+    ship.visible = true;
+    localCabinWorld.visible = false;
+    astronautPos.set(0, 0, -1.8);
+    astronautYaw = 0;
+    astronautPitch = 0;
+
+    realTimeIntro = {
+      elapsed: 0,
+      duration: 11.5,
+      stageNotified: -1,
+      onComplete: onCompleteCallback,
+    };
+    S.onIntroStageChange?.('apertura', 'Apertura cósmica: la nave KRONOX de 120 m avanza por el brazo de Orión.');
+  }
+
+  function skipRealTimeIntroSequence() {
+    const cb = realTimeIntro?.onComplete;
+    realTimeIntro = null;
+    if (!free) {
+      setFree(true, false);
+      S.fr?.(true);
+    }
+    pv = 1;
+    ship.visible = false;
+    localCabinWorld.visible = true;
+    astronautPos.set(0, 0, -1.8);
+    astronautYaw = 0;
+    astronautPitch = 0;
+    luminousAI.setTargetPosition(new V(0.95, 1.72, -4.2), 'Comunicación');
+    if (cb) cb();
+    startGuidedCabinTour();
+  }
+
+  function startGuidedCabinTour() {
+    guidedTourState = {
+      step: 0,
+      timer: 0,
+    };
+    aiFollowAstronaut = false;
+    const navSt = PHYSICAL_CABIN_STATIONS[0];
+    luminousAI.setTargetPosition(navSt.aiHoverPos, 'Desplazamiento');
+    luminousAI.pointAtWorldPosition(navSt.consolePos, true);
+    S.onAiTourNarrative?.(
+      'Bienvenido a bordo, astronauta. Soy Kronox, la inteligencia luminosa de esta expedición. Camina con WASD o sígueme hacia la Consola de Navegación en proa.',
+      'Explicación',
+      'nav',
+    );
+  }
   function setFree(on, launchFromEarth = false) {
     spectator = false;
     free = on;
@@ -2727,6 +2852,37 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
       return;
     }
+    // Interacción con consolas físicas 3D dentro de la cabina habitable (Sección 4)
+    if (clickMoved < 6 && !nearbyMapState && free && pv == 1 && !realTimeIntro) {
+      const rect = dom.getBoundingClientRect();
+      nearbyPointer.set(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1,
+      );
+      nearbyRaycaster.setFromCamera(nearbyPointer, cam);
+      const stationNodes = cabinSystem.stationMeshes.map((s) => s.group);
+      const stHits = nearbyRaycaster.intersectObjects(stationNodes, true);
+      if (stHits.length > 0) {
+        let node = stHits[0].object;
+        while (node && !node.userData?.stationId) node = node.parent;
+        if (node?.userData?.stationId) {
+          const stId = node.userData.stationId;
+          activeCabinStation = stId;
+          const stObj = PHYSICAL_CABIN_STATIONS.find((s) => s.id === stId);
+          if (stObj) {
+            aiFollowAstronaut = false;
+            luminousAI.setTargetPosition(stObj.aiHoverPos, 'Explicación');
+            luminousAI.pointAtWorldPosition(stObj.consolePos, true);
+          }
+          if (stId === 'nav') sceneDirector.dispatchEvent('NAVIGATION_SELECTED', {});
+          else if (stId === 'science') sceneDirector.dispatchEvent('SCIENTIFIC_SCAN_STARTED', {});
+          else if (stId === 'missions') sceneDirector.dispatchEvent('MISSION_ACTIVATED', {});
+          else if (stId === 'comms') sceneDirector.dispatchEvent('AI_ACTIVATED', {});
+          S.onStationInteract?.(stId);
+          return;
+        }
+      }
+    }
     // Bloque 3: Selección interactiva de objetos astronómicos en el universo 3D
     if (clickMoved < 6 && !nearbyMapState) {
       const rect = dom.getBoundingClientRect();
@@ -2759,11 +2915,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
   };
   const onPointerMove = (e) => {
-    if (free && drag && !launchSequence && !launchCameraBlend) {
-      fy -= e.movementX * 0.003;
-      fp = Math.max(-1.55, Math.min(1.55, fp - e.movementY * 0.003));
-      yw = Math.max(-80, Math.min(80, yw + e.movementX));
-      yp = Math.max(-80, Math.min(80, yp + e.movementY));
+    if (free && drag && !launchSequence && !launchCameraBlend && !realTimeIntro) {
+      if (pv == 1) {
+        astronautYaw -= e.movementX * 0.0032;
+        astronautPitch = Math.max(-1.18, Math.min(1.18, astronautPitch - e.movementY * 0.0028));
+      } else {
+        fy -= e.movementX * 0.003;
+        fp = Math.max(-1.55, Math.min(1.55, fp - e.movementY * 0.003));
+        yw = Math.max(-80, Math.min(80, yw + e.movementX));
+        yp = Math.max(-80, Math.min(80, yp + e.movementY));
+      }
     }
   };
   const onWheel = (e) => {
@@ -2780,7 +2941,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
   };
   const onKeyDown = (e) => {
-    keys[e.key.toLowerCase()] = 1;
+    const tag = e.target?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    const k = e.key.toLowerCase();
+    keys[k] = 1;
+    // Tecla contextual [E] para operar la consola física más cercana en cabina 3D
+    if (k === 'e' && free && pv == 1 && !realTimeIntro && nearestCabinStation) {
+      const stId = nearestCabinStation.station.id;
+      activeCabinStation = stId;
+      const stObj = nearestCabinStation.station;
+      aiFollowAstronaut = false;
+      luminousAI.setTargetPosition(stObj.aiHoverPos, 'Explicación');
+      luminousAI.pointAtWorldPosition(stObj.consolePos, true);
+      if (stId === 'nav') sceneDirector.dispatchEvent('NAVIGATION_SELECTED', {});
+      else if (stId === 'science') sceneDirector.dispatchEvent('SCIENTIFIC_SCAN_STARTED', {});
+      else if (stId === 'missions') sceneDirector.dispatchEvent('MISSION_ACTIVATED', {});
+      else if (stId === 'comms') sceneDirector.dispatchEvent('AI_ACTIVATED', {});
+      S.onStationInteract?.(stId);
+    }
   };
   const onKeyUp = (e) => {
     delete keys[e.key.toLowerCase()];
@@ -2942,13 +3120,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       ti += dt;
       if (ti > 3.6 && ti - dt <= 3.6) S.intro(false);
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
-      const ok = ti >= 5,
+      const inHabitableCabin = pv == 1 && !realTimeIntro && !launchSequence && !launchCameraBlend;
+      const ok = ti >= 5 && !inHabitableCabin,
         mx = ok ? mv.x || (O.au ? 1 : 0) : 0,
         f = new V(0, 0, -1).applyQuaternion(q),
         r = new V(1, 0, 0).applyQuaternion(q),
         bs = fs * (keys.shift ? 5 : 1);
       pvl.copy(vel);
-      if (launchSequence) {
+      if (realTimeIntro) {
+        // Avance suave de la nave de 120 m durante la secuencia cinematográfica 3D en tiempo real
+        vel.copy(f).multiplyScalar(shipSz * 1.4);
+        sp.addScaledVector(vel, dt);
+      } else if (launchSequence) {
         const launch = launchSequence;
         launch.elapsed = Math.min(launch.duration, launch.elapsed + dt);
         const progress = launch.elapsed / launch.duration,
@@ -2969,7 +3152,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           ti = 4.1;
           S.intro(false);
         }
-      } else {
+      } else if (!inHabitableCabin) {
         vel.lerp(
           f
             .multiplyScalar(mx * bs)
@@ -2978,9 +3161,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           1 - Math.exp(-dt * (O.in ? 1.2 : 14)),
         );
         sp.addScaledVector(vel, dt);
+      } else if (!nav) {
+        vel.multiplyScalar(Math.exp(-dt * 8));
       }
       ac += (vel.distanceTo(pvl) / Math.max(dt, 1e-4) - ac) * Math.min(1, dt * 8);
       if (nav) {
+        if (!nav.directorEngagedNotified) {
+          nav.directorEngagedNotified = true;
+          sceneDirector.dispatchEvent('PROPULSION_ENGAGED', {
+            duration: Math.min(7.2, Math.max(4.5, (nav.align || 0.8) + (nav.duration || 3.5))),
+          });
+        }
         nav.elapsed += dt;
         if (nav.phase === 'arrival') {
           sp.copy(nav.to);
@@ -2991,10 +3182,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             const restoreAutoSpeed = !nav.respectSpeed;
             const onArrive = nav.onArrive;
             nav = null;
+            sceneDirector.dispatchEvent('ARRIVAL_DETECTED', {});
             if (restoreAutoSpeed) S.fv(oldFs);
             if (onArrive) onArrive();
           }
         } else if (nav.phase === 'jumpout') {
+          if (!nav.directorJumpNotified) {
+            nav.directorJumpNotified = true;
+            sceneDirector.dispatchEvent('JUMP_INITIATED', {});
+          }
           q.copy(nav.q);
           if (nav.elapsed >= 0.3 * nav.motionFactor) {
             nav.phase = 'transit';
@@ -3033,41 +3229,341 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       const sz = shipSz,
         kk = Math.min(1, Math.max(0, (ti - 2.6) / 2.4)),
         e = 1 - Math.pow(1 - kk, 3);
-      bk += (-(ti >= 5 ? mv.z : 0) * 0.5 - bk) * Math.min(1, dt * 5);
-      cam.quaternion.copy(q);
-      if (pv == 1)
-        cam.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new V(0, 0, 1), bk * 0.35));
-      const pilotQuaternion = cam.quaternion.clone(),
-        pilotPosition = sp
-          .clone()
-          .add(
-            new V(0, 0.3, 1)
-              .multiplyScalar(shipOffset() * e * (pv == 3 ? 1 : 0))
-              .applyQuaternion(q),
+      bk += (-(ti >= 5 && !inHabitableCabin ? mv.z : 0) * 0.5 - bk) * Math.min(1, dt * 5);
+
+      if (realTimeIntro) {
+        // =========================================================================
+        // SECCIÓN 2: SECUENCIA CINEMATOGRÁFICA CONTINUA EN TIEMPO REAL EN EL MOTOR 3D
+        // =========================================================================
+        realTimeIntro.elapsed += dt;
+        const u = Math.min(1, realTimeIntro.elapsed / realTimeIntro.duration);
+        ship.visible = u < 0.78;
+        localCabinWorld.visible = u >= 0.74;
+        localCabinWorld.position.copy(sp);
+        localCabinWorld.quaternion.copy(q);
+
+        if (u < 0.34) {
+          // 1. Apertura: Plano general del cosmos y la nave KRONOX de 120m avanzando
+          if (realTimeIntro.stageNotified !== 0) {
+            realTimeIntro.stageNotified = 0;
+            S.onIntroStageChange?.(
+              'apertura',
+              'Plano cósmico en tiempo real: la nave científica KRONOX (120 m) navega entre estrellas reales.',
+            );
+          }
+          const t = u / 0.34;
+          const ease = t * t * (3 - 2 * t);
+          const camOff = new V(
+            THREE.MathUtils.lerp(sz * 6.5, sz * 2.8, ease),
+            THREE.MathUtils.lerp(sz * 2.4, sz * 0.9, ease),
+            THREE.MathUtils.lerp(-sz * 5.2, sz * 2.2, ease),
+          ).applyQuaternion(q);
+          cam.position.copy(sp).add(camOff);
+          cam.lookAt(sp.clone().add(new V(0, sz * 0.12, -sz * 0.4).applyQuaternion(q)));
+        } else if (u < 0.68) {
+          // 2. Movimiento de cámara: Aproximación continua al casco y propulsores
+          if (realTimeIntro.stageNotified !== 1) {
+            realTimeIntro.stageNotified = 1;
+            S.onIntroStageChange?.(
+              'aproximacion',
+              'Aproximación continua en el motor 3D: rodeando el fuselaje y los propulsores iónicos hacia la esclusa de popa.',
+            );
+          }
+          const t = (u - 0.34) / 0.34;
+          const ease = t * t * (3 - 2 * t);
+          const camOff = new V(
+            THREE.MathUtils.lerp(sz * 2.8, 0, ease),
+            THREE.MathUtils.lerp(sz * 0.9, sz * 0.22, ease),
+            THREE.MathUtils.lerp(sz * 2.2, sz * 1.15, ease),
+          ).applyQuaternion(q);
+          cam.position.copy(sp).add(camOff);
+          cam.lookAt(sp.clone().add(new V(0, sz * 0.14, -sz * 0.9).applyQuaternion(q)));
+        } else if (u < 0.86) {
+          // 3. Transición hacia el interior: Entrada por la esclusa al puente habitable 3D
+          if (realTimeIntro.stageNotified !== 2) {
+            realTimeIntro.stageNotified = 2;
+            S.onIntroStageChange?.(
+              'transicion',
+              'Ingreso directo al puente habitable 3D (escala 1 unidad = 1 metro) hacia la posición del astronauta.',
+            );
+          }
+          const t = (u - 0.68) / 0.18;
+          const ease = t * t * (3 - 2 * t);
+          const localCamPos = new V(
+            0,
+            THREE.MathUtils.lerp(2.4, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, ease),
+            THREE.MathUtils.lerp(9.5, astronautPos.z, ease),
           );
-      if (launchSequence) {
-        cam.position.copy(sp).add(launchSequence.cameraOffset);
-        cam.lookAt(sp);
-      } else if (launchCameraBlend) {
-        const blend = launchCameraBlend;
-        blend.elapsed = Math.min(blend.duration, blend.elapsed + dt);
-        const amount = blend.elapsed / blend.duration,
-          eased = amount * amount * (3 - 2 * amount);
-        cam.position.lerpVectors(blend.fromPosition, pilotPosition, eased);
-        cam.quaternion.copy(blend.fromQuaternion).slerp(pilotQuaternion, eased);
-        if (amount >= 1) launchCameraBlend = null;
+          const worldCamPos = localCamPos.clone().applyQuaternion(q).add(sp);
+          const worldLook = new V(0, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, -6.5)
+            .applyQuaternion(q)
+            .add(sp);
+          cam.position.copy(worldCamPos);
+          cam.lookAt(worldLook);
+          luminousAI.setTargetPosition(new V(0, 1.78, -5.8), 'Desplazamiento');
+          luminousAI.update(dt, clk.elapsedTime, false, 0.12);
+        } else {
+          // 4 & 5. Llegada a la cabina + Activación de Kronox IA acercándose al astronauta
+          if (realTimeIntro.stageNotified !== 3) {
+            realTimeIntro.stageNotified = 3;
+            luminousAI.setTargetPosition(new V(0.85, 1.68, -3.8), 'Comunicación');
+            S.onIntroStageChange?.(
+              'activacion',
+              'Perspectiva del astronauta (1.75 m) activa. La entidad luminosa Kronox IA se aproxima para iniciar la expedición.',
+            );
+          }
+          const eyeLocal = new V(
+            astronautPos.x,
+            SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
+            astronautPos.z,
+          );
+          cam.position.copy(eyeLocal.applyQuaternion(q).add(sp));
+          const lookTarget = new V(0.35, 1.66, -5.2).applyQuaternion(q).add(sp);
+          cam.lookAt(lookTarget);
+          luminousAI.update(dt, clk.elapsedTime, true, 0.65);
+        }
+
+        if (u >= 1) {
+          const cb = realTimeIntro.onComplete;
+          realTimeIntro = null;
+          pv = 1;
+          ship.visible = false;
+          localCabinWorld.visible = true;
+          sceneDirector.dispatchEvent('CABIN_ENTERED', {});
+          sceneDirector.dispatchEvent('AI_ACTIVATED', {});
+          if (cb) cb();
+          startGuidedCabinTour();
+        }
       } else {
-        cam.position.copy(pilotPosition);
+        // Actualizar KronoxSceneDirector y secuencias dirigidas por los sistemas de la nave (Secciones 2, 3 y 4)
+        const directorSeq = sceneDirector.update(dt, clk.elapsedTime);
+
+        if (directorSeq && directorSeq.type === 'PROPULSION_AND_DEPARTURE' && !directorSeq.finished) {
+          // Secuencia cinematográfica en tiempo real dirigida por el Sistema de Propulsión (Sección 4):
+          // 1. La cámara se desplaza hacia atrás mostrando la nave de 120m mientras los motores se encienden
+          // 2. Toma exterior amplia acompañando la aceleración real del modelo en el cosmos
+          // 3. Regreso fluido a la cabina habitable 3D donde Kronox IA continúa la conversación
+          const u = directorSeq.progress;
+          ship.visible = directorSeq.showExteriorShip;
+          localCabinWorld.visible = directorSeq.showInteriorCabin;
+          localCabinWorld.position.copy(sp);
+          localCabinWorld.quaternion.copy(q);
+
+          if (u < 0.36) {
+            const t = u / 0.36;
+            const ease = t * t * (3 - 2 * t);
+            const camOff = new V(
+              THREE.MathUtils.lerp(0, sz * 1.4, ease),
+              THREE.MathUtils.lerp(sz * 0.25, sz * 0.85, ease),
+              THREE.MathUtils.lerp(sz * 0.9, sz * 2.6, ease),
+            ).applyQuaternion(q);
+            cam.position.copy(sp).add(camOff);
+            cam.lookAt(sp.clone().add(new V(0, 0, -sz * 0.6).applyQuaternion(q)));
+          } else if (u < 0.78) {
+            const t = (u - 0.36) / 0.42;
+            const ease = t * t * (3 - 2 * t);
+            const camOff = new V(
+              THREE.MathUtils.lerp(sz * 1.4, -sz * 2.2, ease),
+              THREE.MathUtils.lerp(sz * 0.85, sz * 1.2, ease),
+              THREE.MathUtils.lerp(sz * 2.6, sz * 3.4, ease),
+            ).applyQuaternion(q);
+            cam.position.copy(sp).add(camOff);
+            cam.lookAt(sp.clone().add(new V(0, sz * 0.1, -sz * 1.1).applyQuaternion(q)));
+          } else {
+            const t = (u - 0.78) / 0.22;
+            const ease = t * t * (3 - 2 * t);
+            const localCamPos = new V(
+              THREE.MathUtils.lerp(0, astronautPos.x, ease),
+              THREE.MathUtils.lerp(2.3, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, ease),
+              THREE.MathUtils.lerp(8.2, astronautPos.z, ease),
+            );
+            cam.position.copy(localCamPos.applyQuaternion(q).add(sp));
+            const lookTarget = new V(0, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, -8.5)
+              .applyQuaternion(q)
+              .add(sp);
+            cam.lookAt(lookTarget);
+          }
+          luminousAI.update(dt, clk.elapsedTime, aiSpeakingState, aiAudioLevelState);
+        } else if (inHabitableCabin) {
+        // =========================================================================
+        // SECCIÓN 3, 4 y 5: CABINA HABITABLE 3D (`1 u = 1 m`), ASTRONAUTA Y KRONOX IA 3D
+        // =========================================================================
+        localCabinWorld.visible = true;
+        localCabinWorld.position.copy(sp);
+        localCabinWorld.quaternion.copy(q);
+
+        // Movimiento de caminata del astronauta (WASD) a escala humana (4.2 m/s)
+        const walkSpeed = SHIP_WORLD_UNITS.WALK_SPEED_MPS * (keys.shift ? 1.55 : 1);
+        const forwardInput = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0);
+        const strafeInput = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
+        const isWalking = forwardInput !== 0 || strafeInput !== 0;
+
+        if (isWalking) {
+          const localForward = new V(-Math.sin(astronautYaw), 0, -Math.cos(astronautYaw));
+          const localRight = new V(Math.cos(astronautYaw), 0, -Math.sin(astronautYaw));
+          const stepVec = new V()
+            .addScaledVector(localForward, forwardInput)
+            .addScaledVector(localRight, strafeInput);
+          if (stepVec.lengthSq() > 1e-5) {
+            stepVec.normalize().multiplyScalar(walkSpeed * dt);
+            astronautPos.add(stepVec);
+            cabinSystem.clampAstronautPosition(astronautPos);
+          }
+        }
+
+        // Actualizar modelo 3D del astronauta (1.75m cuerpo completo en 3ª persona, manos en 1ª persona)
+        astronaut3D.root.position.copy(astronautPos);
+        astronaut3D.root.rotation.y = astronautYaw;
+        astronaut3D.updateAnimation(dt, isWalking, walkSpeed, cabinFirstPerson);
+
+        // Calcular cámara en 1ª persona (ojos a 1.65 m) o 3ª persona dentro de la cabina (detrás del astronauta de 1.75 m)
+        const localLookQuat = new THREE.Quaternion().setFromEuler(
+          new THREE.Euler(astronautPitch, astronautYaw, 0, 'YXZ'),
+        );
+        const headBob = isWalking ? Math.sin(clk.elapsedTime * 9.5) * 0.028 : 0;
+
+        let localCamPos;
+        if (cabinFirstPerson) {
+          localCamPos = new V(
+            astronautPos.x,
+            SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + headBob,
+            astronautPos.z,
+          );
+          astronaut3D.firstPersonHands.position.copy(localCamPos);
+          astronaut3D.firstPersonHands.quaternion.copy(localLookQuat);
+        } else {
+          const thirdPersonOffset = new V(0.42, 0.45, 2.35).applyQuaternion(localLookQuat);
+          localCamPos = new V(
+            astronautPos.x,
+            SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
+            astronautPos.z,
+          ).add(thirdPersonOffset);
+          cabinSystem.clampAstronautPosition(localCamPos);
+          localCamPos.y = Math.max(1.2, Math.min(3.75, localCamPos.y));
+        }
+
+        cam.position.copy(localCamPos.clone().applyQuaternion(q).add(sp));
+        cam.quaternion.copy(q).multiply(localLookQuat);
+
+        // Detectar proximidad a las 5 consolas físicas 3D
+        nearestCabinStation = cabinSystem.findNearestInteractiveStation(astronautPos);
+        const nearId = nearestCabinStation ? nearestCabinStation.station.id : null;
+        if (nearId !== lastNearestStationId) {
+          lastNearestStationId = nearId;
+          S.onNearestStationChange?.(
+            nearestCabinStation
+              ? {
+                  ...nearestCabinStation.station,
+                  distance: Number(nearestCabinStation.distance.toFixed(2)),
+                }
+              : null,
+          );
+        }
+        cabinSystem.updateStations(clk.elapsedTime, nearId, activeCabinStation);
+
+        // Recorrido guiado inicial de Kronox IA por la cabina (Sección 6)
+        if (guidedTourState) {
+          guidedTourState.timer += dt;
+          if (guidedTourState.step === 0 && (nearId === 'nav' || guidedTourState.timer > 7.5)) {
+            guidedTourState.step = 1;
+            guidedTourState.timer = 0;
+            const sciSt = PHYSICAL_CABIN_STATIONS.find((s) => s.id === 'science');
+            luminousAI.setTargetPosition(sciSt.aiHoverPos, 'Desplazamiento');
+            luminousAI.pointAtWorldPosition(sciSt.consolePos, true);
+            S.onAiTourNarrative?.(
+              'A babor se encuentra la Consola Científica SPHEREx. Acércate y pulsa [E] o haz clic sobre sus instrumentos para comparar épocas infrarrojas reales.',
+              'Señalización',
+              'science',
+            );
+          } else if (guidedTourState.step === 1 && (nearId === 'science' || guidedTourState.timer > 8.0)) {
+            guidedTourState.step = 2;
+            guidedTourState.timer = 0;
+            const winSt = PHYSICAL_CABIN_STATIONS.find((s) => s.id === 'windows');
+            luminousAI.setTargetPosition(winSt.aiHoverPos, 'Acompañamiento');
+            luminousAI.pointAtWorldPosition(winSt.consolePos, true);
+            S.onAiTourNarrative?.(
+              'Frente a nosotros tienes el Mirador Panorámico de Proa y a estribor la Consola de Misiones. Explora libremente la cabina con WASD o pídeme que te guíe.',
+              'Acompañamiento',
+              'windows',
+            );
+          } else if (guidedTourState.step === 2 && guidedTourState.timer > 7.0) {
+            guidedTourState = null;
+            aiFollowAstronaut = true;
+            luminousAI.pointAtWorldPosition(null, false);
+          }
+        } else if (aiFollowAstronaut) {
+          // Acompañamiento espacial: la entidad de luz flota suavemente a la derecha/delante del astronauta
+          const companionOffset = new V(1.15, 1.62, -1.75).applyAxisAngle(
+            new V(0, 1, 0),
+            astronautYaw,
+          );
+          const companionTarget = astronautPos.clone().add(companionOffset);
+          companionTarget.x = Math.max(-5.5, Math.min(5.5, companionTarget.x));
+          companionTarget.z = Math.max(-9.8, Math.min(9.8, companionTarget.z));
+          companionTarget.y = 1.62;
+          luminousAI.setTargetPosition(
+            companionTarget,
+            isWalking ? 'Acompañamiento' : aiSpeakingState ? 'Comunicación' : 'Reposo',
+          );
+        }
+
+        luminousAI.update(dt, clk.elapsedTime, aiSpeakingState, aiAudioLevelState);
+
+        // Proyectar la posición 3D de Kronox IA a coordenadas 2D de pantalla para subtítulos contextuales
+        if (S.onAiScreenProjection && Math.floor(clk.elapsedTime * 20) !== Math.floor((clk.elapsedTime - dt) * 20)) {
+          const aiWorldPos = luminousAI.group.position.clone().applyQuaternion(q).add(sp);
+          const projected = aiWorldPos.clone().project(cam);
+          const inFront = projected.z >= -1 && projected.z <= 1;
+          const sx = (projected.x * 0.5 + 0.5) * innerWidth;
+          const sy = (-projected.y * 0.5 + 0.5) * innerHeight;
+          S.onAiScreenProjection({
+            visible: inFront && sx >= -100 && sx <= innerWidth + 100 && sy >= -100 && sy <= innerHeight + 100,
+            x: Math.round(sx),
+            y: Math.round(sy),
+            state: luminousAI.getState(),
+            astronautX: Number(astronautPos.x.toFixed(2)),
+            astronautZ: Number(astronautPos.z.toFixed(2)),
+            cabinFirstPerson,
+          });
+        }
+      } else {
+        localCabinWorld.visible = false;
+        cam.quaternion.copy(q);
+        const pilotQuaternion = cam.quaternion.clone(),
+          pilotPosition = sp
+            .clone()
+            .add(
+              new V(0, 0.3, 1)
+                .multiplyScalar(shipOffset() * e * (pv == 3 ? 1 : 0))
+                .applyQuaternion(q),
+            );
+        if (launchSequence) {
+          cam.position.copy(sp).add(launchSequence.cameraOffset);
+          cam.lookAt(sp);
+        } else if (launchCameraBlend) {
+          const blend = launchCameraBlend;
+          blend.elapsed = Math.min(blend.duration, blend.elapsed + dt);
+          const amount = blend.elapsed / blend.duration,
+            eased = amount * amount * (3 - 2 * amount);
+          cam.position.lerpVectors(blend.fromPosition, pilotPosition, eased);
+          cam.quaternion.copy(blend.fromQuaternion).slerp(pilotQuaternion, eased);
+          if (amount >= 1) launchCameraBlend = null;
+        } else {
+          cam.position.copy(pilotPosition);
+        }
+        }
       }
       const tt =
         ti < 5
           ? 1.2 * (1 - Math.min(1, Math.max(0, (ti - 3.2) / 1.8))) + 0.3
           : Math.min(1.6, vel.length() / fs) + 0.15;
       th += (tt - th) * Math.min(1, dt * 6);
-      ship.visible =
-        !!launchSequence ||
-        (!!launchCameraBlend && pv == 1) ||
-        (pv == 3 && kk > 0.02 && !(nav && nav.long && nav.phase === 'transit'));
+      if (!realTimeIntro && !sceneDirector.getState().activeSequence) {
+        ship.visible =
+          !!launchSequence ||
+          (!!launchCameraBlend && pv == 1) ||
+          (pv == 3 && kk > 0.02 && !(nav && nav.long && nav.phase === 'transit'));
+      }
       ship.position.copy(sp);
       ship.scale.setScalar(sz);
       ship.quaternion.copy(q).multiply(new THREE.Quaternion().setFromAxisAngle(new V(0, 0, 1), bk));
@@ -3322,6 +3818,113 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     },
     getShipPosition: () => [sp.x, sp.y, sp.z],
     getShipScale: () => shipSz,
+    startRealTimeIntro: startRealTimeIntroSequence,
+    skipRealTimeIntro: skipRealTimeIntroSequence,
+    startGuidedTour: startGuidedCabinTour,
+    setCabinFirstPerson: (firstPerson) => {
+      cabinFirstPerson = Boolean(firstPerson);
+      if (!free) {
+        setFree(true, false);
+        S.fr?.(true);
+      }
+      pv = 1;
+      ship.visible = false;
+      localCabinWorld.visible = true;
+    },
+    getCabinFirstPerson: () => cabinFirstPerson,
+    getAstronautPosition: () => ({
+      x: Number(astronautPos.x.toFixed(2)),
+      y: SHIP_WORLD_UNITS.ASTRONAUT_HEIGHT_METERS,
+      eyeY: SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
+      z: Number(astronautPos.z.toFixed(2)),
+      yaw: Number(astronautYaw.toFixed(2)),
+      cabinFirstPerson,
+    }),
+    walkAstronautToStation: (stationId) => {
+      const st = PHYSICAL_CABIN_STATIONS.find((s) => s.id === stationId);
+      if (!st) return null;
+      if (!free) {
+        setFree(true, false);
+        S.fr?.(true);
+      }
+      pv = 1;
+      ship.visible = false;
+      localCabinWorld.visible = true;
+      astronautPos.copy(st.position);
+      const dx = st.consolePos.x - st.position.x;
+      const dz = st.consolePos.z - st.position.z;
+      astronautYaw = Math.atan2(-dx, -dz);
+      astronautPitch = -0.08;
+      activeCabinStation = stationId;
+      aiFollowAstronaut = false;
+      luminousAI.setTargetPosition(st.aiHoverPos, 'Explicación');
+      luminousAI.pointAtWorldPosition(st.consolePos, true);
+      return st;
+    },
+    moveAiToStation: (stationId, stateName = 'Explicación') => {
+      const st = PHYSICAL_CABIN_STATIONS.find((s) => s.id === stationId);
+      if (!st) return;
+      guidedTourState = null;
+      aiFollowAstronaut = false;
+      luminousAI.setTargetPosition(st.aiHoverPos, stateName);
+      luminousAI.pointAtWorldPosition(st.consolePos, true);
+    },
+    setAiFollowAstronaut: (follow) => {
+      guidedTourState = null;
+      aiFollowAstronaut = Boolean(follow);
+      if (aiFollowAstronaut) luminousAI.pointAtWorldPosition(null, false);
+    },
+    setAiLuminousState: (stateName, speaking = false, audioLevel = 0.08) => {
+      if (stateName) luminousAI.setState(stateName);
+      aiSpeakingState = Boolean(speaking);
+      aiAudioLevelState = Number.isFinite(audioLevel) ? audioLevel : 0.08;
+    },
+    pointAiAtExternalObject: (kind, key) => {
+      guidedTourState = null;
+      aiFollowAstronaut = false;
+      const winSt = PHYSICAL_CABIN_STATIONS.find((s) => s.id === 'windows');
+      if (winSt) {
+        luminousAI.setTargetPosition(winSt.aiHoverPos, 'Señalización');
+        luminousAI.pointAtWorldPosition(new V(0, 2.2, -14.5), true);
+      }
+      if (kind && key) {
+        if (kind === 'spherex') {
+          const found = missionMarkers.get(key);
+          if (found) found.label.visible = true;
+        }
+        S.onObjectSelect?.({ kind, key });
+      }
+    },
+    setActiveCabinStation: (stationId) => {
+      activeCabinStation = stationId || null;
+      if (!stationId) {
+        aiFollowAstronaut = true;
+        luminousAI.pointAtWorldPosition(null, false);
+        sceneDirector.returnToAstronautControl();
+      }
+    },
+    dispatchSceneEvent: (eventName, payload = {}) => {
+      if (eventName === KRONOX_SCENE_EVENTS.EXTERIOR_CAMERA_REQUESTED) {
+        if (!free) {
+          setFree(true, false);
+          S.fr?.(true);
+        }
+        pv = 3;
+        ship.visible = true;
+        localCabinWorld.visible = false;
+      } else if (eventName === KRONOX_SCENE_EVENTS.CABIN_ENTERED) {
+        if (!free) {
+          setFree(true, false);
+          S.fr?.(true);
+        }
+        pv = 1;
+        ship.visible = false;
+        localCabinWorld.visible = true;
+      }
+      return sceneDirector.dispatchEvent(eventName, payload);
+    },
+    getSceneDirectorState: () => sceneDirector.getState(),
+    skipDirectorSequence: () => sceneDirector.skipActiveSequence(),
     quality: (mode) => {
       qualityMode = mode;
       R.setPixelRatio(pixelRatioFor(qualityMode));

@@ -1,18 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { SPHEREX_TARGETS } from '../data/spherexTargets.js';
 import { P, INFO } from '../data/planetData.js';
+import { PHYSICAL_CABIN_STATIONS, SHIP_WORLD_UNITS } from '../scene/habitableShipWorld.js';
+import { KRONOX_SCENE_EVENTS, KRONOX_CONTROL_MODES } from '../scene/kronoxSceneDirector.js';
 import { t } from '../i18n.js';
 
 /**
- * Interactive 3D Cockpit & Bridge Systems for KRONOX (Bloque 1, Bloque 2, Bloque 3, Bloque 6).
- * Integrates the 5 functional onboard stations and the contextual 3D object inspector.
+ * In-World 3D Habitable Cabin HUD & Diegetic Console Interface (Sections 2, 3, 6 & 7).
+ * Replaces the rejected floating EST-01..05 dock and 2D SVG cockpit with:
+ * - Physical proximity interaction prompt (`[E] Operar Consola...`)
+ * - Astronaut 1st-person (1.65 m eyes) / 3rd-person (1.75 m full spacesuit) / Exterior Ship (120 m) toggle
+ * - Diegetic console instrument screens anchored to physical 3D consoles inside the bridge
+ * - Real-time 3D ship system events (`KronoxSceneDirector`)
  */
 export default function SpaceshipCockpit({
   language = 'es',
   cockpitVisible = false,
+  cabinFirstPerson = true,
+  onToggleCabinPerspective,
+  nearestStation = null,
   activeStation = null,
   onSelectStation,
-  viewMode = 'exterior', // 'exterior' | 'cockpit' | 'navigation'
+  onWalkToStation,
+  viewMode = 'cockpit', // 'cockpit' | 'exterior' | 'navigation'
   onChangeViewMode,
   flightSpeed = 1,
   onSpeedPreset,
@@ -25,9 +35,23 @@ export default function SpaceshipCockpit({
   onOpenMissionSelector,
   onOpenAiConsole,
   onReplayCinematic,
+  onOpenSettingsModal,
+  onDispatchSceneEvent,
+  onSkipDirectorSequence,
+  directorState = null,
+  astronautCoords = { x: 0, z: -1.8 },
   findingsCount = 0,
 }) {
-  // Resolve contextual 3D object metadata (Bloque 3)
+  // Plotted target in the 3D Navigation Console hologram before confirming propulsion
+  const [plottedNavTarget, setPlottedNavTarget] = useState(null);
+
+  const controlModeLabel =
+    directorState?.controlMode === KRONOX_CONTROL_MODES.CINEMATIC_SEQUENCE
+      ? 'Secuencia 3D de Sistemas'
+      : activeStation || directorState?.controlMode === KRONOX_CONTROL_MODES.MACHINE_INTERACTION
+        ? 'Operando Máquina 3D'
+        : 'Control Libre Astronauta';
+  // Contextual 3D Astronomical Object Inspector
   let objectCard = null;
   if (selectedObject?.kind === 'spherex') {
     const tgt = SPHEREX_TARGETS.find((item) => item.key === selectedObject.key);
@@ -64,7 +88,9 @@ export default function SpaceshipCockpit({
         coordinates: pl.au
           ? `Semieje orbital: ${pl.au} UA · Inclinación: ${pl.i || 0}°`
           : 'Centro del Sistema Solar (0 UA)',
-        distance: pl.au ? `≈ ${(pl.au * 149.6).toFixed(1)} millones de km del Sol` : 'Referencia heliocéntrica',
+        distance: pl.au
+          ? `≈ ${(pl.au * 149.6).toFixed(1)} millones de km del Sol`
+          : 'Referencia heliocéntrica',
         intro:
           info?.intro ||
           `Cuerpo del Sistema Solar con diámetro de ${(pl.km * 2).toLocaleString('es-ES')} km.`,
@@ -77,54 +103,164 @@ export default function SpaceshipCockpit({
 
   return (
     <>
-      {/* TOP BRIDGE VIEW MODE & TELEMETRY BAR (Siempre accesible en el universo 3D) */}
-      <div className="kronoxBridgeTopBar" role="region" aria-label={t('Modos de vista y puente de mando', language)}>
+      {/* TOP BRIDGE VIEW MODE & PHYSICAL SCALE BAR */}
+      <div
+        className="kronoxBridgeTopBar"
+        role="region"
+        aria-label={t('Modos de vista y puente habitable 3D', language)}
+      >
         <div className="kronoxBridgeIdentity">
           <span className="kronoxShipDot" />
-          <strong>NAVE KRONOX · 120 m</strong>
-          <small className="kronoxScaleTag">Escala física fija</small>
+          <strong>NAVE KRONOX · {SHIP_WORLD_UNITS.SHIP_LENGTH_METERS} m</strong>
+          <small className="kronoxScaleTag">
+            1 u = 1 m · Astronauta {SHIP_WORLD_UNITS.ASTRONAUT_HEIGHT_METERS} m
+          </small>
         </div>
 
-        <div className="kronoxViewModeSwitcher" role="group" aria-label="Selector de vista de nave">
+        <div className="kronoxViewModeSwitcher" role="group" aria-label="Selector de cámara 3D">
           <button
             type="button"
-            className={`kronoxViewBtn ${viewMode === 'cockpit' ? 'active' : ''}`}
-            onClick={() => onChangeViewMode('cockpit')}
+            className={`kronoxViewBtn ${viewMode === 'cockpit' && cabinFirstPerson ? 'active' : ''}`}
+            onClick={() => {
+              onChangeViewMode('cockpit');
+              onToggleCabinPerspective?.(true);
+            }}
           >
-            <span>1ª Persona · Cabina</span>
+            <span>Cabina 1ª Persona ({SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS} m)</span>
+          </button>
+          <button
+            type="button"
+            className={`kronoxViewBtn ${viewMode === 'cockpit' && !cabinFirstPerson ? 'active' : ''}`}
+            onClick={() => {
+              onChangeViewMode('cockpit');
+              onToggleCabinPerspective?.(false);
+            }}
+          >
+            <span>Cabina 3ª Persona ({SHIP_WORLD_UNITS.ASTRONAUT_HEIGHT_METERS} m)</span>
           </button>
           <button
             type="button"
             className={`kronoxViewBtn ${viewMode === 'exterior' ? 'active' : ''}`}
             onClick={() => onChangeViewMode('exterior')}
           >
-            <span>Vista Exterior · Nave</span>
+            <span>Vuelo Exterior ({SHIP_WORLD_UNITS.SHIP_LENGTH_METERS} m)</span>
           </button>
           <button
             type="button"
             className={`kronoxViewBtn ${viewMode === 'navigation' ? 'active' : ''}`}
             onClick={() => onChangeViewMode('navigation')}
           >
-            <span>Vista de Navegación</span>
+            <span>Mapa Cósmico</span>
           </button>
         </div>
 
         <div className="kronoxCruiseReadout">
-          <span>CRUCERO: {flightSpeed >= 100 ? flightSpeed.toFixed(0) : flightSpeed.toFixed(1)} u/s</span>
+          <span
+            className="kronoxDirectorModePill"
+            data-mode={directorState?.controlMode || 'FREE_ASTRONAUT'}
+            title={`Orquestador de escena 3D · Último evento: ${directorState?.lastEvent || 'CABIN_ENTERED'}`}
+          >
+            ◈ {controlModeLabel}
+          </span>
+          {directorState?.activeSequence && onSkipDirectorSequence && (
+            <button
+              type="button"
+              className="kronoxBridgeCinemaBtn"
+              onClick={onSkipDirectorSequence}
+              title="Saltar secuencia 3D de sistemas y volver al control libre en cabina"
+            >
+              ⏭ Saltar secuencia 3D
+            </button>
+          )}
+          {viewMode === 'cockpit' ? (
+            <span className="kronoxCabinPosReadout" title="Posición física del astronauta dentro del puente 3D">
+              PUENTE 3D: X {astronautCoords.x >= 0 ? `+${astronautCoords.x}` : astronautCoords.x} m · Z{' '}
+              {astronautCoords.z >= 0 ? `+${astronautCoords.z}` : astronautCoords.z} m
+            </span>
+          ) : (
+            <span>
+              CRUCERO: {flightSpeed >= 100 ? flightSpeed.toFixed(0) : flightSpeed.toFixed(1)} u/s
+            </span>
+          )}
           {onReplayCinematic && (
             <button
               type="button"
               className="kronoxBridgeCinemaBtn"
               onClick={onReplayCinematic}
-              title="Reproducir introducción cinematográfica pregrabada"
+              title="Reproducir secuencia 3D de aproximación e ingreso a la cabina en tiempo real"
             >
-              🎬 Cinemática
+              🎬 Intro 3D
+            </button>
+          )}
+          {onOpenSettingsModal && (
+            <button
+              type="button"
+              className="kronoxBridgeSettingsBtn"
+              onClick={onOpenSettingsModal}
+              aria-label="Abrir ajustes del simulador"
+            >
+              ⚙ Ajustes
             </button>
           )}
         </div>
       </div>
 
-      {/* CONTEXTUAL 3D ASTRONOMICAL OBJECT INSPECTOR (Bloque 3) */}
+      {/* IN-WORLD WALKING & PHYSICAL CONSOLE TELEMETRY BAR (Subtle spatial compass inside 3D cabin) */}
+      {cockpitVisible && (
+        <div className="kronoxCabinSpatialCompass" role="navigation" aria-label="Consolas físicas en el puente 3D">
+          <span className="kronoxWalkHint">
+            <strong>WASD</strong> Caminar ({SHIP_WORLD_UNITS.WALK_SPEED_MPS} m/s) · <strong>Ratón</strong> Mirar ·{' '}
+            <strong>[E] / Clic 3D</strong> Operar consola
+          </span>
+          <div className="kronoxPhysicalStationsCompass">
+            {PHYSICAL_CABIN_STATIONS.map((st) => {
+              const isNear = nearestStation?.id === st.id;
+              const isActive = activeStation === st.id;
+              return (
+                <button
+                  key={st.id}
+                  type="button"
+                  className={`kronoxCompassMarker ${isNear ? 'near' : ''} ${isActive ? 'active' : ''}`}
+                  onClick={() => {
+                    onWalkToStation?.(st.id);
+                    onSelectStation(isActive ? null : st.id);
+                    if (st.id === 'comms') onOpenAiConsole?.();
+                  }}
+                  title={`Caminar hacia ${st.title} (${st.position.x}m, ${st.position.z}m)`}
+                >
+                  <i style={{ background: st.color }} />
+                  <span>{st.shortTitle}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* PROXIMITY INTERACTION PROMPT WHEN ASTRONAUT IS NEAR A PHYSICAL 3D CONSOLE */}
+      {cockpitVisible && nearestStation && !activeStation && (
+        <div className="kronoxProximityPrompt" role="status" aria-live="polite">
+          <div className="kronoxProximityKey">[E]</div>
+          <div className="kronoxProximityInfo">
+            <strong>{nearestStation.title}</strong>
+            <span>
+              Distancia: {nearestStation.distance} m · {nearestStation.prompt}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="kronoxProximityActivateBtn"
+            onClick={() => {
+              onSelectStation(nearestStation.id);
+              if (nearestStation.id === 'comms') onOpenAiConsole?.();
+            }}
+          >
+            Operar instrumento
+          </button>
+        </div>
+      )}
+
+      {/* CONTEXTUAL 3D ASTRONOMICAL OBJECT INSPECTOR */}
       {objectCard && (
         <aside
           className="kronoxObjectInspector"
@@ -159,7 +295,9 @@ export default function SpaceshipCockpit({
 
           <p className="kronoxInspectorIntro">{objectCard.intro}</p>
 
-          <div className={`kronoxInspectorSpherexStatus ${objectCard.hasSpherex ? 'available' : 'none'}`}>
+          <div
+            className={`kronoxInspectorSpherexStatus ${objectCard.hasSpherex ? 'available' : 'none'}`}
+          >
             <span>{objectCard.hasSpherex ? '✦ ' : '○ '}</span>
             <span>{objectCard.spherexBadge}</span>
           </div>
@@ -179,7 +317,7 @@ export default function SpaceshipCockpit({
                   className="kronoxInspectorBtn secondary"
                   onClick={() => onOpenSpherexObservatory(objectCard.target)}
                 >
-                  Investigar archivo SPHEREx
+                  Investigar en Consola Científica SPHEREx
                 </button>
               </>
             ) : (
@@ -206,171 +344,186 @@ export default function SpaceshipCockpit({
         </aside>
       )}
 
-      {/* INTERACTIVE COCKPIT CONSOLES DOCK (Bloque 1 y Bloque 6) */}
-      {cockpitVisible && (
-        <div className="kronoxCockpitStations" role="navigation" aria-label="Estaciones de la cabina">
-          <div className="kronoxStationsDock">
-            <button
-              type="button"
-              className={`kronoxStationHotspot ${activeStation === 'nav' ? 'active' : ''}`}
-              onClick={() => onSelectStation(activeStation === 'nav' ? null : 'nav')}
-            >
-              <span className="kronoxStationCode">EST-01</span>
-              <strong>Consola de Navegación</strong>
-              <small>Rutas, velocidades y escalas</small>
-            </button>
-
-            <button
-              type="button"
-              className={`kronoxStationHotspot ${activeStation === 'science' ? 'active' : ''}`}
-              onClick={() => onSelectStation(activeStation === 'science' ? null : 'science')}
-            >
-              <span className="kronoxStationCode">EST-02</span>
-              <strong>Consola Científica</strong>
-              <small>Archivo temporal SPHEREx</small>
-            </button>
-
-            <button
-              type="button"
-              className={`kronoxStationHotspot ${activeStation === 'missions' ? 'active' : ''}`}
-              onClick={() => onSelectStation(activeStation === 'missions' ? null : 'missions')}
-            >
-              <span className="kronoxStationCode">EST-03</span>
-              <strong>Sistema de Misiones</strong>
-              <small>Expediciones ({findingsCount} hallazgos)</small>
-            </button>
-
-            <button
-              type="button"
-              className={`kronoxStationHotspot ${activeStation === 'comms' ? 'active' : ''}`}
-              onClick={() => {
-                onSelectStation('comms');
-                onOpenAiConsole();
-              }}
-            >
-              <span className="kronoxStationCode">EST-04</span>
-              <strong>Comunicaciones · IA</strong>
-              <small>Hablar con Kronox</small>
-            </button>
-
-            <button
-              type="button"
-              className={`kronoxStationHotspot ${activeStation === 'windows' ? 'active' : ''}`}
-              onClick={() => onSelectStation(activeStation === 'windows' ? null : 'windows')}
-            >
-              <span className="kronoxStationCode">EST-05</span>
-              <strong>Ventanas de Observación</strong>
-              <small>Vista despejada del cosmos</small>
+      {/* DIEGETIC CONSOLE INSTRUMENT OVERLAY WHEN INTERACTING WITH A PHYSICAL 3D CONSOLE */}
+      {cockpitVisible && activeStation === 'nav' && (
+        <div className="kronoxDiegeticConsole" role="dialog" aria-label="Consola de Navegación">
+          <div className="kronoxStationDrawerHead">
+            <div>
+              <span className="kronoxDiegeticTag">ESTACIÓN FÍSICA DE PROA · (0.0 m, -6.2 m) · MAPA HOLOGRÁFICO 3D ACTIVO</span>
+              <h4>CONSOLA DE NAVEGACIÓN · PROPULSIÓN Y SALTOS ESTELARES</h4>
+            </div>
+            <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar consola">
+              ×
             </button>
           </div>
-
-          {/* ACTIVE STATION PANEL OVERLAY */}
-          {activeStation === 'nav' && (
-            <div className="kronoxStationDrawer" role="dialog" aria-label="Consola de Navegación">
-              <div className="kronoxStationDrawerHead">
-                <h4>CONSOLA DE NAVEGACIÓN · PROPULSIÓN Y DESTINOS</h4>
-                <button type="button" onClick={() => onSelectStation(null)}>×</button>
+          <p className="kronoxStationDesc">
+            1) Selecciona un destino para desplegar la ruta sobre el mapa holográfico 3D de la consola y escuchar el análisis de Kronox IA. 2) Confirma el rumbo para encender los propulsores de la nave de 120 m:
+          </p>
+          <div className="kronoxStationGrid">
+            <div className="kronoxStationBlock">
+              <small>PASO 1 · CALCULAR RUTA EN HOLOGRAMA 3D (NAVIGATION_SELECTED)</small>
+              <div className="kronoxStationBtnRow">
+                {SPHEREX_TARGETS.map((tgt) => {
+                  const isPlotted = plottedNavTarget?.key === tgt.key;
+                  return (
+                    <button
+                      key={tgt.key}
+                      type="button"
+                      className={isPlotted ? 'active' : ''}
+                      onClick={() => {
+                        setPlottedNavTarget(tgt);
+                        onDispatchSceneEvent?.(KRONOX_SCENE_EVENTS.NAVIGATION_SELECTED, {
+                          targetKey: tgt.key,
+                          targetName: tgt.name,
+                          distanceLabel: tgt.distanceLabel,
+                          coordinates: `RA ${tgt.ra.toFixed(4)}° · Dec ${tgt.dec.toFixed(4)}°`,
+                        });
+                      }}
+                    >
+                      ⌖ {tgt.name} ({tgt.distanceLabel})
+                    </button>
+                  );
+                })}
               </div>
-              <p className="kronoxStationDesc">
-                Selecciona régimen de velocidad de crucero (independiente de los fotogramas) o inicia un salto de larga distancia:
-              </p>
-              <div className="kronoxStationGrid">
-                <div className="kronoxStationBlock">
-                  <small>RÉGIMEN DE CRUCERO</small>
+            </div>
+            <div className="kronoxStationBlock">
+              <small>PASO 2 · CONFIRMAR DESTINO Y ACTIVAR PROPULSIÓN 3D</small>
+              {plottedNavTarget ? (
+                <div className="kronoxNavConfirmationBox">
+                  <div className="kronoxNavRouteMeta">
+                    <strong>Ruta 3D trazada: {plottedNavTarget.name}</strong>
+                    <span>
+                      ICRS RA {plottedNavTarget.ra.toFixed(4)}° · Dec {plottedNavTarget.dec.toFixed(4)}° ·{' '}
+                      {plottedNavTarget.distanceLabel}
+                    </span>
+                  </div>
                   <div className="kronoxStationBtnRow">
-                    {[
-                      ['Planetaria (1 u/s)', 1],
-                      ['Sistema Solar (60 u/s)', 60],
-                      ['Vecindario Galáctico (3000 u/s)', 3000],
-                      ['Hipervelocidad (40000 u/s)', 40000],
-                    ].map(([label, val]) => (
-                      <button key={label} type="button" onClick={() => onSpeedPreset(val)}>
-                        {label}
-                      </button>
-                    ))}
+                    <button
+                      type="button"
+                      className="kronoxConfirmPropulsionBtn"
+                      onClick={() => {
+                        const targetToFly = plottedNavTarget;
+                        onDispatchSceneEvent?.(KRONOX_SCENE_EVENTS.DESTINATION_CONFIRMED, {
+                          targetKey: targetToFly.key,
+                          targetName: targetToFly.name,
+                          distanceLabel: targetToFly.distanceLabel,
+                        });
+                        onSelectStation(null);
+                        onTravelToSpherex(targetToFly);
+                      }}
+                    >
+                      🚀 Confirmar destino y encender propulsores ({plottedNavTarget.name})
+                    </button>
                   </div>
                 </div>
-                <div className="kronoxStationBlock">
-                  <small>SALTO RÁPIDO A OBJETIVO SPHEREx</small>
-                  <div className="kronoxStationBtnRow">
-                    {SPHEREX_TARGETS.map((tgt) => (
-                      <button
-                        key={tgt.key}
-                        type="button"
-                        onClick={() => {
-                          onSelectStation(null);
-                          onTravelToSpherex(tgt);
-                        }}
-                      >
-                        ⌖ {tgt.name} ({tgt.distanceLabel})
-                      </button>
-                    ))}
-                  </div>
+              ) : (
+                <div className="kronoxStationBtnRow">
+                  {[
+                    ['Órbita Planetaria (1 u/s)', 1],
+                    ['Sistema Solar (60 u/s)', 60],
+                    ['Brazo de Orión (3000 u/s)', 3000],
+                    ['Salto Interestelar (40000 u/s)', 40000],
+                  ].map(([label, val]) => (
+                    <button key={label} type="button" onClick={() => onSpeedPreset(val)}>
+                      {label}
+                    </button>
+                  ))}
                 </div>
-              </div>
+              )}
             </div>
-          )}
+          </div>
+        </div>
+      )}
 
-          {activeStation === 'science' && (
-            <div className="kronoxStationDrawer" role="dialog" aria-label="Consola Científica">
-              <div className="kronoxStationDrawerHead">
-                <h4>CONSOLA CIENTÍFICA · ARCHIVO INFRARROJO NASA SPHEREx</h4>
-                <button type="button" onClick={() => onSelectStation(null)}>×</button>
-              </div>
-              <p className="kronoxStationDesc">
-                Accede directamente a los recortes FITS reales de cada estrella, filtra observaciones por fecha o banda y compara épocas:
-              </p>
-              <div className="kronoxStationBtnRow">
-                {SPHEREX_TARGETS.map((tgt) => (
-                  <button
-                    key={tgt.key}
-                    type="button"
-                    onClick={() => {
-                      onSelectStation(null);
-                      onOpenSpherexObservatory(tgt);
-                    }}
-                  >
-                    ✦ Analizar {tgt.name} ({tgt.preferredBand} · {tgt.scientificStatus})
-                  </button>
-                ))}
-              </div>
+      {cockpitVisible && activeStation === 'science' && (
+        <div className="kronoxDiegeticConsole" role="dialog" aria-label="Consola Científica">
+          <div className="kronoxStationDrawerHead">
+            <div>
+              <span className="kronoxDiegeticTag">ESTACIÓN FÍSICA DE BABOR · (-4.2 m, -2.2 m) · SENSORES 3D ACTIVOS</span>
+              <h4>CONSOLA CIENTÍFICA · ESPECTROFOTOMETRÍA NASA SPHEREx</h4>
             </div>
-          )}
+            <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar consola">
+              ×
+            </button>
+          </div>
+          <p className="kronoxStationDesc">
+            Activa el barrido volumétrico 3D de sensores o abre directamente el archivo IRSA de NASA/IPAC para comparar épocas temporales y verificar astrometría WCS:
+          </p>
+          <div className="kronoxStationBtnRow">
+            {SPHEREX_TARGETS.map((tgt) => (
+              <button
+                key={tgt.key}
+                type="button"
+                onClick={() => {
+                  onDispatchSceneEvent?.(KRONOX_SCENE_EVENTS.SCIENTIFIC_SCAN_STARTED, {
+                    targetKey: tgt.key,
+                    targetName: tgt.name,
+                    preferredBand: tgt.preferredBand,
+                  });
+                  onSelectStation(null);
+                  onOpenSpherexObservatory(tgt);
+                }}
+              >
+                ✦ Escanear e investigar {tgt.name} ({tgt.preferredBand} · {tgt.scientificStatus})
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
-          {activeStation === 'missions' && (
-            <div className="kronoxStationDrawer" role="dialog" aria-label="Sistema de Misiones">
-              <div className="kronoxStationDrawerHead">
-                <h4>SISTEMA DE MISIONES · DESCUBRIMIENTO GUIADO</h4>
-                <button type="button" onClick={() => onSelectStation(null)}>×</button>
-              </div>
-              <p className="kronoxStationDesc">
-                Elige entre rastrear el movimiento propio de estrellas cercanas o estudiar la variabilidad de flujo infrarrojo. Llevas {findingsCount} hallazgo(s) guardado(s).
-              </p>
-              <div className="kronoxStationBtnRow">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelectStation(null);
-                    onOpenMissionSelector();
-                  }}
-                >
-                  Abrir catálogo completo de misiones ↗
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSelectStation(null);
-                    onOpenSpherexObservatory(SPHEREX_TARGETS[0]);
-                  }}
-                >
-                  Iniciar reto guiado en Estrella de Barnard
-                </button>
-              </div>
+      {cockpitVisible && activeStation === 'missions' && (
+        <div className="kronoxDiegeticConsole" role="dialog" aria-label="Consola de Misiones">
+          <div className="kronoxStationDrawerHead">
+            <div>
+              <span className="kronoxDiegeticTag">ESTACIÓN FÍSICA DE ESTRIBOR · (+4.2 m, -2.2 m)</span>
+              <h4>CONSOLA DE MISIONES · BITÁCORA Y RETOS CIENTÍFICOS</h4>
             </div>
-          )}
+            <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar consola">
+              ×
+            </button>
+          </div>
+          <p className="kronoxStationDesc">
+            Participa en misiones de identificación guiada: localiza estrellas de alto movimiento propio o fluctuaciones fotométricas. Hallazgos registrados: <strong>{findingsCount}</strong>.
+          </p>
+          <div className="kronoxStationBtnRow">
+            <button
+              type="button"
+              onClick={() => {
+                onSelectStation(null);
+                onOpenMissionSelector();
+              }}
+            >
+              Abrir selector táctico de expediciones ↗
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onSelectStation(null);
+                onOpenSpherexObservatory(SPHEREX_TARGETS[0]);
+              }}
+            >
+              Iniciar entrenamiento guiado en Estrella de Barnard
+            </button>
+          </div>
+        </div>
+      )}
+
+      {cockpitVisible && activeStation === 'windows' && (
+        <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Mirador Panorámico de Proa">
+          <div className="kronoxStationDrawerHead">
+            <div>
+              <span className="kronoxDiegeticTag">MIRADOR PANORÁMICO DE PROA · (0.0 m, -9.8 m)</span>
+              <h4>OBSERVACIÓN VISUAL DIRECTA DEL COSMOS 3D</h4>
+            </div>
+            <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar mirador">
+              ×
+            </button>
+          </div>
+          <p className="kronoxStationDesc">
+            Haz clic directamente sobre cualquier estrella o planeta a través del parabrisas panorámico para que Kronox IA apunte con su haz luminoso 3D y despliegue su telemetría.
+          </p>
         </div>
       )}
     </>
   );
 }
-
