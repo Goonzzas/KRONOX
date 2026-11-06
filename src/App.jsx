@@ -2147,6 +2147,18 @@ export default function App() {
             ),
           ),
 
+          h(
+            'p',
+            { className: 'welcomeVoiceHint', role: 'status' },
+            voice
+              ? language === 'es'
+                ? 'La voz de Kronox está activa: escucharás la introducción y las indicaciones de la misión.'
+                : 'Kronox voice is on: you will hear the introduction and mission guidance.'
+              : language === 'es'
+                ? 'Activa la voz de Kronox para escuchar la introducción y las indicaciones de la misión.'
+                : 'Turn on Kronox voice to hear the introduction and mission guidance.',
+          ),
+
           /* Integrated Hero Title over the Real-Time 3D Cosmos & 120m Ship */
           h(
             'div',
