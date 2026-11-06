@@ -1914,6 +1914,49 @@
   margin: 10px 0 24px;
 }
 
+.welcomeSequenceSummary {
+  margin: 12px auto 0;
+  max-width: 560px;
+  color: #a9c8df;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.welcomeDevicePrompt {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin: 0 0 18px;
+  color: #dbeafe;
+  font-size: 12px;
+}
+
+.welcomeDeviceChoices {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.welcomeDeviceChoices button {
+  min-width: 128px;
+  padding: 8px 14px;
+  border: 1px solid rgba(125, 211, 252, 0.32);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.welcomeDeviceChoices button.selected,
+.welcomeDeviceChoices button:hover,
+.welcomeDeviceChoices button:focus-visible {
+  border-color: #38bdf8;
+  background: rgba(14, 165, 233, 0.2);
+  color: #e0f2fe;
+}
+
+
 .welcomeCinematicLogo {
   margin: 0 0 10px;
   font-size: clamp(2.6rem, 6vw, 4.2rem);
