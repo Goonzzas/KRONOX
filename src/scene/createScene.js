@@ -2727,12 +2727,36 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let targetPitch = 0;
   let cabinFirstPerson = true; // true = 1st-person eye height (1.65 m), false = 3rd-person over-shoulder
   let activeCabinStation = null;
+  let freeHelmMode = false;
+  let freeHelmBlend = 0;
   let nearestCabinStation = null;
   let lastNearestStationId = null;
   let aiFollowAstronaut = true;
   let aiSpeakingState = false;
   let aiAudioLevelState = 0.08;
   let lastScreenProjectionTime = 0;
+
+  function occupyNavigationSeat() {
+    const station = PHYSICAL_CABIN_STATIONS.find((item) => item.id === 'nav');
+    if (!station) return;
+    if (!free) {
+      setFree(true, false);
+      S.fr?.(true);
+    }
+    pv = 1;
+    cabinFirstPerson = true;
+    ship.visible = false;
+    localCabinWorld.visible = true;
+    astronautPos.copy(station.position);
+    astronautVel.set(0, 0, 0);
+    const dx = station.consolePos.x - station.position.x;
+    const dz = station.consolePos.z - station.position.z;
+    astronautYaw = Math.atan2(-dx, -dz);
+    targetYaw = astronautYaw;
+    astronautPitch = -0.015;
+    targetPitch = -0.015;
+    activeCabinStation = 'nav';
+  }
 
   // Real-time 3D Cinematic Intro Spline State (Section 2)
   let realTimeIntro = null;
@@ -3121,7 +3145,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         while (node && !node.userData?.stationId) node = node.parent;
         if (node?.userData?.stationId) {
           const stId = node.userData.stationId;
-          activeCabinStation = stId;
+          if (stId === 'nav') occupyNavigationSeat();
+          else activeCabinStation = stId;
           const stObj = PHYSICAL_CABIN_STATIONS.find((s) => s.id === stId);
           if (stObj) {
             aiFollowAstronaut = false;
@@ -3199,11 +3224,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const tag = e.target?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     const k = e.key.toLowerCase();
+    if (k === 'escape' && freeHelmMode) {
+      freeHelmMode = false;
+      S.onFreeHelmChange?.(false);
+      e.preventDefault();
+      return;
+    }
     keys[k] = 1;
     // Tecla contextual [E] para operar la consola física más cercana en cabina 3D
     if (k === 'e' && free && pv == 1 && !realTimeIntro && nearestCabinStation && activeCabinStation !== 'nav') {
       const stId = nearestCabinStation.station.id;
-      activeCabinStation = stId;
+      if (stId === 'nav') occupyNavigationSeat();
+      else activeCabinStation = stId;
       const stObj = nearestCabinStation.station;
       aiFollowAstronaut = false;
       luminousAI.setTargetPosition(stObj.aiHoverPos, 'Explicación');
@@ -3378,6 +3410,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
       const inHabitableCabin = pv == 1 && !realTimeIntro && !launchSequence && !launchCameraBlend;
       const pilotingFromCabin = inHabitableCabin && activeCabinStation === 'nav';
+      freeHelmBlend += ((freeHelmMode ? 1 : 0) - freeHelmBlend) * Math.min(1, dt * 3.2);
       if (pilotingFromCabin) {
         fy += ((keys.d ? 1 : 0) - (keys.a ? 1 : 0)) * dt * 0.72;
         q.setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
@@ -3736,7 +3769,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           localCamPos = new V(
             astronautPos.x,
             SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + headBob,
-            astronautPos.z,
+            astronautPos.z - freeHelmBlend * 0.42,
           );
           astronaut3D.firstPersonHands.position.copy(localCamPos);
           astronaut3D.firstPersonHands.quaternion.copy(localLookQuat);
@@ -4230,6 +4263,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       ship.visible = false;
       localCabinWorld.visible = true;
     },
+    setFreeHelmMode: (enabled) => {
+      freeHelmMode = Boolean(enabled);
+      if (freeHelmMode) {
+        cabinFirstPerson = true;
+        pv = 1;
+        ship.visible = false;
+        localCabinWorld.visible = true;
+        astronautPitch = -0.015;
+        targetPitch = -0.015;
+      }
+      S.onFreeHelmChange?.(freeHelmMode);
+    },
     getCabinFirstPerson: () => cabinFirstPerson,
     getAstronautPosition: () => ({
       x: Number(astronautPos.x.toFixed(2)),
@@ -4352,7 +4397,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return pointedLocal;
     },
     setActiveCabinStation: (stationId) => {
-      activeCabinStation = stationId || null;
+      if (stationId === 'nav') occupyNavigationSeat();
+      else activeCabinStation = stationId || null;
+      if (!stationId) {
+        freeHelmMode = false;
+        freeHelmBlend = 0;
+        S.onFreeHelmChange?.(false);
+      }
       if (!stationId) {
         aiFollowAstronaut = true;
         luminousAI.pointAtWorldPosition(null, false);

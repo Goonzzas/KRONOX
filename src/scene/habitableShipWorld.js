@@ -892,27 +892,33 @@ export function buildHabitableCabin3D() {
       const helm = new THREE.Group();
       helm.position.set(0, 0.26, 0.52);
       helmWheel = new THREE.Group();
-      const wheelRing = new THREE.Mesh(
-        new THREE.TorusGeometry(0.38, 0.045, 10, 40),
-        new THREE.MeshStandardMaterial({ color: 0x7dd3fc, metalness: 0.82, roughness: 0.22, emissive: 0x075985, emissiveIntensity: 0.38 }),
-      );
-      helmWheel.add(wheelRing);
-      const wheelHub = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.13, 16), seatMetal);
-      wheelHub.rotation.x = Math.PI / 2;
-      helmWheel.add(wheelHub);
-      for (let spoke = 0; spoke < 3; spoke++) {
-        const angle = (spoke / 3) * Math.PI * 2;
-        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.035, 0.045), seatMetal);
-        bar.position.set(Math.cos(angle) * 0.19, Math.sin(angle) * 0.19, 0);
-        bar.rotation.z = angle;
-        helmWheel.add(bar);
-      }
+      const yokeMaterial = new THREE.MeshStandardMaterial({ color: 0x7dd3fc, metalness: 0.82, roughness: 0.22, emissive: 0x075985, emissiveIntensity: 0.38 });
+      const yokeCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-0.42, -0.08, 0),
+        new THREE.Vector3(-0.42, 0.08, 0),
+        new THREE.Vector3(-0.36, 0.28, 0),
+        new THREE.Vector3(-0.2, 0.3, 0),
+        new THREE.Vector3(0, 0.2, 0),
+        new THREE.Vector3(0.2, 0.3, 0),
+        new THREE.Vector3(0.36, 0.28, 0),
+        new THREE.Vector3(0.42, 0.08, 0),
+        new THREE.Vector3(0.42, -0.08, 0),
+      ]);
+      helmWheel.add(new THREE.Mesh(new THREE.TubeGeometry(yokeCurve, 32, 0.052, 10, false), yokeMaterial));
+      const yokeHub = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.11), seatMetal);
+      yokeHub.position.set(0, 0.13, 0);
+      helmWheel.add(yokeHub);
+      [-0.4, 0.4].forEach((x) => {
+        const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.22, 14), seatMetal);
+        grip.position.set(x, 0.01, 0);
+        helmWheel.add(grip);
+      });
       helm.add(helmWheel);
-      const helmColumn = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.09, 0.46, 14), seatMetal);
-      helmColumn.position.set(0, -0.29, -0.01);
+      const helmColumn = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.09, 0.62, 14), seatMetal);
+      helmColumn.position.set(0, -0.31, -0.01);
       helm.add(helmColumn);
       const helmBase = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.1, 0.3), seatMetal);
-      helmBase.position.set(0, -0.48, 0.02);
+      helmBase.position.set(0, -0.64, 0.02);
       helm.add(helmBase);
       stationGroup.add(helm);
       stationGroup.userData.helmWheel = helmWheel;

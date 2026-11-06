@@ -114,6 +114,7 @@ export default function App() {
     [missionFindingsSync, setMissionFindingsSync] = useState(() => loadFindingsFromStorage()),
     [selectedObject, setSelectedObject] = useState(null),
     [activeCockpitStation, setActiveCockpitStation] = useState(null),
+    [freeHelmMode, setFreeHelmMode] = useState(false),
     [nearestCabinStation, setNearestCabinStation] = useState(null),
     [cabinFirstPerson, setCabinFirstPerson] = useState(true),
     [astronautCoords, setAstronautCoords] = useState({ x: 0, z: -1.8 }),
@@ -510,6 +511,7 @@ export default function App() {
       },
       onStationInteract: (stationId) => {
         setActiveCockpitStation(stationId);
+        if (!stationId) setFreeHelmMode(false);
         A().onGuidedStationInteraction?.(stationId);
         if (stationId === 'comms') {
           kronoxDialogHiddenRef.current = false;
@@ -521,6 +523,7 @@ export default function App() {
           setMissionSelectorOpen(true);
         }
       },
+      onFreeHelmChange: (enabled) => setFreeHelmMode(Boolean(enabled)),
       onIntroStageChange: (stageKey, captionText) => {
         setRealTimeIntroActive(true);
         setRealTimeIntroCaption(captionText);
@@ -1951,7 +1954,16 @@ export default function App() {
         },
         nearestStation: nearestCabinStation,
         activeStation: activeCockpitStation,
+        freeHelmMode,
+        onToggleFreeHelm: (enabled) => {
+          setFreeHelmMode(Boolean(enabled));
+          A().setFreeHelmMode?.(enabled);
+        },
         onSelectStation: (stId) => {
+          if (!stId) {
+            setFreeHelmMode(false);
+            A().setFreeHelmMode?.(false);
+          }
           setActiveCockpitStation(stId);
           A().setActiveCabinStation?.(stId);
           if (stId) A().moveAiToStation?.(stId, 'Explicación');

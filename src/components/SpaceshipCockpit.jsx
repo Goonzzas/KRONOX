@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SPHEREX_TARGETS } from '../data/spherexTargets.js';
 import { P, INFO } from '../data/planetData.js';
 import { PHYSICAL_CABIN_STATIONS, SHIP_WORLD_UNITS } from '../scene/habitableShipWorld.js';
@@ -34,6 +34,8 @@ export default function SpaceshipCockpit({
   onQuickTravel,
   onOpenSpherexObservatory,
   onTravelToPlanet,
+  freeHelmMode = false,
+  onToggleFreeHelm,
   onOpenPlanetInfo,
   onOpenMissionSelector,
   onOpenAiConsole,
@@ -49,6 +51,10 @@ export default function SpaceshipCockpit({
 }) {
   const [navigationMode, setNavigationMode] = useState('manual');
   const [navigationTarget, setNavigationTarget] = useState('planet:Tierra');
+  const [navigationExperience, setNavigationExperience] = useState('choose');
+  useEffect(() => {
+    if (activeStation !== 'nav') setNavigationExperience('choose');
+  }, [activeStation]);
 
   const controlModeLabel =
     directorState?.controlMode === KRONOX_CONTROL_MODES.CINEMATIC_SEQUENCE
@@ -314,7 +320,7 @@ export default function SpaceshipCockpit({
       )}
 
       {/* DIEGETIC CONSOLE INSTRUMENT OVERLAY WHEN INTERACTING WITH A PHYSICAL 3D CONSOLE */}
-      {cockpitVisible && activeStation === 'nav' && (
+      {cockpitVisible && activeStation === 'nav' && !freeHelmMode && (
         <div
           className="kronoxDiegeticConsole kronoxNavConsole"
           role="dialog"
@@ -346,6 +352,20 @@ export default function SpaceshipCockpit({
             <div><small>RUMBO / INCLINACIÓN</small><strong>{consoleProjection?.heading ?? 0}° / {consoleProjection?.pitch ?? 0}°</strong></div>
             <div><small>MASA · {consoleProjection?.flightMode ?? 'ESPERA'}</small><strong>Sin especificar <i>kg</i></strong></div>
           </div>
+          {navigationExperience === 'choose' ? (
+            <div className="kronoxNavExperienceChoice">
+              <button type="button" onClick={() => setNavigationExperience('travel')}>
+                <strong>✦ Planificar viaje</strong>
+                <span>Elegir un destino y pilotar manualmente o activar el piloto automático.</span>
+              </button>
+              <button type="button" onClick={() => onToggleFreeHelm?.(true)}>
+                <strong>✈ Timón libre</strong>
+                <span>Tomar el control en primera persona, sin el panel de navegación.</span>
+              </button>
+            </div>
+          ) : (
+            <>
+          <button type="button" className="kronoxNavBack" onClick={() => setNavigationExperience('choose')}>← Volver a opciones de pilotaje</button>
           <div className="kronoxNavModeTabs" role="tablist" aria-label="Modo de pilotaje">
             <button type="button" role="tab" aria-selected={navigationMode === 'manual'} className={navigationMode === 'manual' ? 'active' : ''} onClick={() => setNavigationMode('manual')}>✧ Pilotaje manual</button>
             <button type="button" role="tab" aria-selected={navigationMode === 'auto'} className={navigationMode === 'auto' ? 'active' : ''} onClick={() => setNavigationMode('auto')}>⌖ Piloto automático</button>
@@ -395,6 +415,8 @@ export default function SpaceshipCockpit({
                 }
               }}>🚀 Calcular ruta y viajar automáticamente</button>
             </div>
+          )}
+            </>
           )}
         </div>
       )}

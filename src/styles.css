@@ -6678,6 +6678,13 @@ small {
 .kronoxNavModeTabs { display: flex; gap: 6px; margin: 9px 0; padding-bottom: 8px; border-bottom: 1px solid rgba(113, 176, 202, .18); }
 .kronoxNavModeTabs button { padding: 7px 10px; border: 1px solid rgba(118, 164, 187, .26); border-radius: 7px; color: #9db6c6; background: rgba(8, 23, 39, .72); cursor: pointer; font-size: 10px; font-weight: 700; }
 .kronoxNavModeTabs button.active { border-color: rgba(56, 189, 248, .72); color: #dcf8ff; background: rgba(14, 116, 144, .32); }
+.kronoxNavExperienceChoice { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 11px; }
+.kronoxNavExperienceChoice button { display: grid; gap: 6px; min-height: 86px; padding: 12px; text-align: left; border: 1px solid rgba(69, 191, 231, .38); border-radius: 9px; color: #e2f7ff; background: linear-gradient(145deg, rgba(13, 50, 73, .94), rgba(5, 20, 35, .94)); cursor: pointer; transition: border-color .18s ease, transform .18s ease, background .18s ease; }
+.kronoxNavExperienceChoice button:hover { transform: translateY(-2px); border-color: rgba(125, 211, 252, .82); background: linear-gradient(145deg, rgba(15, 76, 104, .96), rgba(5, 26, 44, .96)); }
+.kronoxNavExperienceChoice strong { font-size: 13px; letter-spacing: .04em; }
+.kronoxNavExperienceChoice span { color: #9db8c9; font: 10px/1.45 system-ui, sans-serif; }
+.kronoxNavBack { margin: 5px 0 0; padding: 4px 0; border: 0; color: #8fcbe1; background: transparent; cursor: pointer; font-size: 10px; }
+.kronoxNavBack:hover { color: #e3f9ff; }
 .kronoxNavManualPanel { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 12px; align-items: center; }
 .kronoxNavManualPanel > div:first-child { display: grid; gap: 6px; }
 .kronoxNavManualPanel > div:first-child strong { color: #bceeff; font-size: 10px; letter-spacing: .12em; }
@@ -6703,6 +6710,8 @@ small {
   .kronoxNavManualPanel { grid-template-columns: minmax(0, 1fr) 108px; gap: 6px; }
   .kronoxNavAutopilotPanel { grid-template-columns: 1fr; }
   .kronoxNavAutopilotPanel label { grid-column: auto; }
+  .kronoxNavExperienceChoice { grid-template-columns: 1fr; }
+  .kronoxNavExperienceChoice button { min-height: 64px; }
 }
 
 /* Narrative appears only while Kronox has something to say; objectives stay in their own HUD. */
