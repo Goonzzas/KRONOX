@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   SPHEREX_TARGETS,
   SPHEREX_MISSION_TYPES,
@@ -8,6 +10,7 @@ import {
   mjdToJulianYear,
 } from '../src/data/spherexTargets.js';
 import { processKronoxQuery, matchSpherexTarget, matchPlanet } from '../src/utils/kronoxAI.js';
+import { KRONOX_AVATAR_STATES, buildKronoxAvatarMesh } from '../src/scene/kronoxAvatar3D.js';
 
 test('Product Flow - 5 Official SPHEREx Targets Completeness & Differentiated Scientific Status', () => {
   const targetKeys = SPHEREX_TARGETS.map((t) => t.key);
@@ -151,4 +154,54 @@ test('Onboard AI (Kronox) - Navigation, Scientific, Pedagogical and Companion In
   });
   assert.equal(instMotion.role, 'Instructora de misiones');
   assert.ok(instMotion.reply.includes('movimiento propio'));
+});
+
+test('3D Holographic AI Avatar & Pre-recorded Cinematic Assets Integrity', () => {
+  // Verify all 9 required animation states
+  const expectedStates = [
+    'IDLE',
+    'GREETING',
+    'TALKING',
+    'EXPLAINING',
+    'POINTING',
+    'NAVIGATING',
+    'LISTENING',
+    'SUCCESS',
+    'FAREWELL',
+  ];
+  assert.deepEqual(KRONOX_AVATAR_STATES, expectedStates);
+
+  // Verify rigged 3D avatar mesh construction and state transitions
+  const avatar = buildKronoxAvatarMesh();
+  assert.ok(avatar.root, 'Avatar root THREE.Group must exist');
+  for (const st of expectedStates) {
+    avatar.update(0.05, { state: st, speaking: st === 'TALKING', audioLevel: 0.5 });
+  }
+
+  // Verify epistemic taxonomy query & 3D avatar state coordination
+  const epiRes = processKronoxQuery('Explica las categorías entre candidato, hallazgo y confirmado', {});
+  assert.equal(epiRes.avatarState, 'EXPLAINING');
+  assert.ok(epiRes.reply.includes('Objeto de la escena 3D'));
+  assert.ok(epiRes.reply.includes('Hallazgo personal del usuario'));
+  assert.ok(epiRes.reply.includes('Resultado científicamente confirmado'));
+
+  // Verify all 5 pre-recorded cinematic MP4 videos and JPG posters exist in public/cinematics/
+  const cineDir = path.resolve('public/cinematics');
+  const expectedFiles = [
+    'scene01_cosmos.mp4',
+    'scene02_approach.mp4',
+    'scene03_cockpit.mp4',
+    'scene04_ai_greeting.mp4',
+    'scene05_missions.mp4',
+    'poster01_cosmos.jpg',
+    'poster02_approach.jpg',
+    'poster03_cockpit.jpg',
+    'poster04_ai_greeting.jpg',
+    'poster05_missions.jpg',
+  ];
+  for (const file of expectedFiles) {
+    const full = path.join(cineDir, file);
+    assert.ok(fs.existsSync(full), `Missing cinematic asset: ${file}`);
+    assert.ok(fs.statSync(full).size > 10000, `Cinematic asset ${file} is unexpectedly small`);
+  }
 });

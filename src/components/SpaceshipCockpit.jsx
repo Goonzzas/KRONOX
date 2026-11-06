@@ -24,6 +24,7 @@ export default function SpaceshipCockpit({
   onOpenPlanetInfo,
   onOpenMissionSelector,
   onOpenAiConsole,
+  onReplayCinematic,
   findingsCount = 0,
 }) {
   // Resolve contextual 3D object metadata (Bloque 3)
@@ -110,6 +111,16 @@ export default function SpaceshipCockpit({
 
         <div className="kronoxCruiseReadout">
           <span>CRUCERO: {flightSpeed >= 100 ? flightSpeed.toFixed(0) : flightSpeed.toFixed(1)} u/s</span>
+          {onReplayCinematic && (
+            <button
+              type="button"
+              className="kronoxBridgeCinemaBtn"
+              onClick={onReplayCinematic}
+              title="Reproducir introducción cinematográfica pregrabada"
+            >
+              🎬 Cinemática
+            </button>
+          )}
         </div>
       </div>
 

@@ -3307,6 +3307,21 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
       S.onObjectSelect?.({ kind, key });
     },
+    setCameraPose: (posArr, lookArr, fovVal) => {
+      if (Array.isArray(posArr) && posArr.length === 3) {
+        cam.position.set(posArr[0], posArr[1], posArr[2]);
+      }
+      if (Array.isArray(lookArr) && lookArr.length === 3) {
+        cam.lookAt(lookArr[0], lookArr[1], lookArr[2]);
+        ct.target.set(lookArr[0], lookArr[1], lookArr[2]);
+      }
+      if (Number.isFinite(fovVal)) {
+        cam.fov = fovVal;
+        cam.updateProjectionMatrix();
+      }
+    },
+    getShipPosition: () => [sp.x, sp.y, sp.z],
+    getShipScale: () => shipSz,
     quality: (mode) => {
       qualityMode = mode;
       R.setPixelRatio(pixelRatioFor(qualityMode));

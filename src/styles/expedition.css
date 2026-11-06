@@ -1822,4 +1822,446 @@
   color: #7dd3fc;
 }
 
+/* ==========================================================================
+   CINEMATIC WELCOME SCREEN (Sections 1 & 7)
+   ========================================================================== */
+.cinematicWelcomeShade {
+  background: radial-gradient(
+    circle at 50% 42%,
+    rgba(2, 6, 23, 0.18) 0%,
+    rgba(2, 6, 23, 0.68) 72%,
+    rgba(2, 6, 23, 0.88) 100%
+  ) !important;
+  backdrop-filter: blur(2px) !important;
+}
+
+.cinematicWelcomeStage {
+  background: rgba(6, 12, 24, 0.62) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(56, 189, 248, 0.32) !important;
+  max-width: 720px !important;
+  padding: 28px 34px !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.72), 0 0 40px rgba(14, 165, 233, 0.14) !important;
+}
+
+.welcomeCinematicTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.welcomeDiscreetControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.welcomeVoicePill,
+.welcomeSettingsToggleBtn {
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.welcomeVoicePill.active,
+.welcomeSettingsToggleBtn.active {
+  background: rgba(14, 165, 233, 0.22);
+  border-color: #38bdf8;
+  color: #e0f2fe;
+}
+
+.welcomeHeroCenter {
+  text-align: center;
+  margin: 10px 0 24px;
+}
+
+.welcomeCinematicLogo {
+  margin: 0 0 10px;
+  font-size: clamp(2.6rem, 6vw, 4.2rem);
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  color: #f8fafc;
+  text-shadow: 0 0 28px rgba(56, 189, 248, 0.55), 0 4px 18px rgba(0, 0, 0, 0.8);
+}
+
+.cinematicActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.welcomeLaunch.continueBtn {
+  background: rgba(16, 185, 129, 0.2) !important;
+  border: 1px solid rgba(16, 185, 129, 0.55) !important;
+  color: #a7f3d0 !important;
+  font-weight: 700;
+}
+
+.welcomeSecondarySettings {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* ==========================================================================
+   PRE-RECORDED CINEMATIC SEQUENCE PLAYER (Section 2)
+   ========================================================================== */
+.kronoxCinematicOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: #020617;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kronoxCinematicViewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.kronoxCinematicVideo,
+.kronoxCinematicFallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background-size: cover;
+  background-position: center;
+  z-index: 1;
+}
+
+.kronoxCinematicTopBar {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 18px 28px;
+  background: linear-gradient(180deg, rgba(2, 6, 23, 0.88) 0%, rgba(2, 6, 23, 0) 100%);
+}
+
+.kronoxCinematicBadgeGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.kronoxPrerecordedTag {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.22);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  color: #7dd3fc;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.kronoxCinematicTelemetry {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.kronoxCinematicTopActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kronoxCinematicAudioBtn,
+.kronoxCinematicReplayBtn,
+.kronoxCinematicSkipBtn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(15, 23, 42, 0.84);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.kronoxCinematicSkipBtn {
+  background: rgba(2, 132, 199, 0.28);
+  border-color: #38bdf8;
+  color: #f8fafc;
+}
+
+.kronoxCinematicBottomBar {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 24px 28px;
+  background: linear-gradient(0deg, rgba(2, 6, 23, 0.94) 0%, rgba(2, 6, 23, 0) 100%);
+}
+
+.kronoxCinematicSubtitleBox {
+  flex: 1;
+  min-width: 280px;
+  max-width: 780px;
+  padding: 14px 18px;
+  background: rgba(7, 13, 25, 0.84);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 12px;
+}
+
+.kronoxSubtitleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.kronoxSubtitleHeader strong {
+  color: #38bdf8;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.kronoxSceneStepDots {
+  display: flex;
+  gap: 6px;
+}
+
+.kronoxSceneDot {
+  width: 22px;
+  height: 6px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(148, 163, 184, 0.3);
+  cursor: pointer;
+}
+
+.kronoxSceneDot.done {
+  background: rgba(56, 189, 248, 0.55);
+}
+
+.kronoxSceneDot.active {
+  background: #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
+}
+
+.kronoxSubtitleText {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #f8fafc;
+}
+
+.kronoxSceneProgressBar {
+  height: 3px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.kronoxSceneProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #0ea5e9, #fef08a);
+  transition: width 150ms linear;
+}
+
+.kronoxCinematicNavBtns {
+  display: flex;
+  gap: 8px;
+}
+
+.kronoxCineNavBtn {
+  padding: 9px 15px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.kronoxCineNavBtn.primary {
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  border-color: #38bdf8;
+  color: #fff;
+}
+
+/* ==========================================================================
+   3D HOLOGRAPHIC AI AVATAR & FIELD BEACON (Sections 3, 4 & 5)
+   ========================================================================== */
+.kronoxHologramPod {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.kronoxAvatar3DContainer {
+  position: relative;
+  width: 148px;
+  height: 184px;
+  border-radius: 14px;
+  background: radial-gradient(
+    ellipse at 50% 65%,
+    rgba(14, 165, 233, 0.22) 0%,
+    rgba(7, 14, 28, 0.78) 72%
+  );
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.6), inset 0 0 18px rgba(56, 189, 248, 0.18);
+  overflow: hidden;
+  cursor: pointer;
+  transition: width 180ms ease, height 180ms ease;
+}
+
+.kronoxAvatar3DContainer.is-compact {
+  width: 96px;
+  height: 124px;
+}
+
+.kronoxAvatarCanvasMount {
+  width: 100%;
+  height: 100%;
+}
+
+.kronoxAvatarStateChip {
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.82);
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  font-size: 9px;
+  font-family: ui-monospace, monospace;
+  color: #7dd3fc;
+  pointer-events: none;
+}
+
+.kronoxAvatarHoloDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 6px #38bdf8;
+}
+
+.kronoxEpistemicBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 8px;
+  margin-bottom: 6px;
+  border-radius: 6px;
+  background: rgba(14, 165, 233, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.kronoxEpistemicTag {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #7dd3fc;
+}
+
+.kronoxVoiceTechNote {
+  font-size: 9.5px;
+  color: #94a3b8;
+}
+
+.kronoxBridgeCinemaBtn {
+  margin-left: 8px;
+  padding: 3px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  background: rgba(14, 165, 233, 0.2);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #e0f2fe;
+  cursor: pointer;
+}
+
+/* 3D AI Visual Field Beacon inside SpherexMission */
+.kronoxAiFieldBeacon {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 68px;
+  height: 68px;
+  pointer-events: none;
+  z-index: 14;
+}
+
+.kronoxBeaconRingOuter {
+  position: absolute;
+  inset: 0;
+  border: 1.5px dashed #38bdf8;
+  border-radius: 50%;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.45);
+  animation: kronoxSpinBeacon 9s linear infinite;
+}
+
+.kronoxBeaconRingInner {
+  position: absolute;
+  inset: 14px;
+  border: 1.5px solid #fef08a;
+  border-radius: 50%;
+}
+
+.kronoxBeaconTag {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(2, 6, 23, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #7dd3fc;
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+@keyframes kronoxSpinBeacon {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
 

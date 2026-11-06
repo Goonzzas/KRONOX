@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { t } from '../i18n.js';
 import { KRONOX_QUICK_PROMPTS } from '../utils/kronoxAI.js';
+import KronoxAvatarStage from './KronoxAvatarStage.jsx';
 
 export default function KronoxWidget({
   guide,
@@ -20,11 +21,17 @@ export default function KronoxWidget({
   onStartMission,
   missionStarting = false,
   onCommand,
+  onRepeatSpeech,
+  onReplayCinematic,
   aiRole = 'Inteligencia de a bordo',
+  avatarState = 'IDLE',
+  pointDirection = 'right',
+  epistemicCategory = 'Comunicación de puente de mando',
   history = [],
 }) {
   const [typed, setTyped] = useState('');
   const [inputQuery, setInputQuery] = useState('');
+  const [inputFocused, setInputFocused] = useState(false);
   const [position, setPosition] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('kronox-widget-position'));
@@ -40,6 +47,13 @@ export default function KronoxWidget({
   const widgetStyle = position
     ? { left: position.x, top: position.y, right: 'auto', bottom: 'auto' }
     : undefined;
+
+  // Compute effective 3D avatar animation state
+  const effectiveAvatarState = inputFocused
+    ? 'LISTENING'
+    : speaking && (avatarState === 'IDLE' || avatarState === 'LISTENING')
+      ? 'TALKING'
+      : avatarState || 'IDLE';
 
   const startDrag = (event) => {
     if (event.button !== undefined && event.button !== 0) return;
@@ -114,43 +128,56 @@ export default function KronoxWidget({
       style={widgetStyle}
       data-panel-side={panelSide}
     >
-      <button
-        className="kronoxOrb"
-        aria-label={t('Kronox, inteligencia de a bordo', language)}
-        title={t('Kronox, inteligencia de a bordo', language)}
-        onClick={(event) => {
-          if (movedRef.current) {
-            event.preventDefault();
-            return;
-          }
-          onOrbClick();
-        }}
+      {/* Persistent 3D Holographic Avatar Pod + Quick Toggle Button */}
+      <div
+        className="kronoxHologramPod"
         onPointerDown={startDrag}
         onPointerMove={moveDrag}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
       >
-        <span className="kronoxCore" />
-        <svg className="kronoxGyro" viewBox="0 0 100 100" aria-hidden="true">
-          <ellipse className="gyroRing ringOne" cx="50" cy="50" rx="39" ry="17" />
-          <ellipse className="gyroRing ringTwo" cx="50" cy="50" rx="39" ry="17" />
-          <ellipse className="gyroRing ringThree" cx="50" cy="50" rx="39" ry="17" />
-          <path className="kronoxFourStar" d="M50 7 57 43 93 50 57 57 50 93 43 57 7 50 43 43Z" />
-        </svg>
-        <i className="kronoxSpark sparkOne" />
-        <i className="kronoxSpark sparkTwo" />
-        <i className="kronoxSpark sparkThree" />
-      </button>
+        <KronoxAvatarStage
+          animState={effectiveAvatarState}
+          speaking={speaking}
+          audioLevels={audioLevels}
+          pointDirection={pointDirection}
+          compact={!panelOpen}
+          onClickAvatar={() => {
+            if (!movedRef.current) onOrbClick();
+          }}
+        />
+        <button
+          className="kronoxOrb"
+          aria-label={t('Kronox, inteligencia tridimensional de a bordo', language)}
+          title={t('Kronox, inteligencia tridimensional de a bordo', language)}
+          onClick={(event) => {
+            if (movedRef.current) {
+              event.preventDefault();
+              return;
+            }
+            onOrbClick();
+          }}
+        >
+          <span className="kronoxCore" />
+          <svg className="kronoxGyro" viewBox="0 0 100 100" aria-hidden="true">
+            <ellipse className="gyroRing ringOne" cx="50" cy="50" rx="39" ry="17" />
+            <ellipse className="gyroRing ringTwo" cx="50" cy="50" rx="39" ry="17" />
+            <ellipse className="gyroRing ringThree" cx="50" cy="50" rx="39" ry="17" />
+            <path className="kronoxFourStar" d="M50 7 57 43 93 50 57 57 50 93 43 57 7 50 43 43Z" />
+          </svg>
+        </button>
+      </div>
+
       {panelOpen && (
         <div className={`kronoxBubble kronoxAiConsole ${isTransmitting ? 'transmitting' : ''}`}>
           <div className="kronoxPanelTop">
             <div className="kronoxName">
-              {t('KRONOX · IA DE A BORDO', language)}
+              {t('KRONOX · IA HOLOGRÁFICA 3D', language)}
               <span className="kronoxRoleBadge">{t(aiRole, language)}</span>
             </div>
             <span className="kronoxStatus">
               <i />
-              {speaking ? t('transmitiendo…', language) : t('en línea', language)}
+              {speaking ? t('transmitiendo…', language) : t(effectiveAvatarState, language)}
             </span>
             <button
               className="kronoxClose"
@@ -160,6 +187,15 @@ export default function KronoxWidget({
               ×
             </button>
           </div>
+
+          {/* Epistemic Category & Voice Engine Transparency Badge */}
+          <div className="kronoxEpistemicBar">
+            <span className="kronoxEpistemicTag">◈ {epistemicCategory}</span>
+            <small className="kronoxVoiceTechNote">
+              {voice ? 'Voz: Síntesis TTS Web / Audio local' : 'Subtítulos sincronizados (Audio silenciado)'}
+            </small>
+          </div>
+
           <div className="kronoxVoiceBars" aria-hidden="true">
             {Array.from({ length: 48 }, (_, index) => (
               <i key={index} style={{ '--bar-level': audioLevels?.[index] ?? 0.08 }} />
@@ -190,6 +226,8 @@ export default function KronoxWidget({
               type="text"
               className="kronoxCommandInput"
               value={inputQuery}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
               onChange={(e) => setInputQuery(e.target.value)}
               placeholder={
                 language === 'en'
@@ -221,6 +259,24 @@ export default function KronoxWidget({
             <button type="button" onClick={onToggleVoice}>
               {voice ? t('Silenciar voz', language) : t('Activar voz', language)}
             </button>
+            {onRepeatSpeech && (
+              <button
+                type="button"
+                onClick={onRepeatSpeech}
+                title={t('Repetir explicación actual', language)}
+              >
+                ↺ {t('Repetir explicación', language)}
+              </button>
+            )}
+            {onReplayCinematic && (
+              <button
+                type="button"
+                onClick={onReplayCinematic}
+                title={t('Reproducir secuencias cinematográficas de introducción', language)}
+              >
+                🎬 {t('Ver cinemática', language)}
+              </button>
+            )}
             {voice && (
               <label className="r" style={{ fontSize: 12, marginBottom: 0 }}>
                 {t(language === 'es' ? 'Acento' : 'Voice', language)}{' '}

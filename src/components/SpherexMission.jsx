@@ -205,6 +205,7 @@ export default function SpherexMission({
   language = 'es',
   onStateSync,
   onAskKronox,
+  aiHighlightActive = false,
 }) {
   const [navParams] = useState(() => {
     try {
@@ -258,6 +259,13 @@ export default function SpherexMission({
   // Bloque 4.1: Progressive Discovery Challenge
   const [discoveryStep, setDiscoveryStep] = useState(1);
   const [discoveryVerification, setDiscoveryVerification] = useState(null);
+  const [localAiBeacon, setLocalAiBeacon] = useState(false);
+
+  useEffect(() => {
+    if (aiHighlightActive) {
+      setLocalAiBeacon(true);
+    }
+  }, [aiHighlightActive]);
 
   // Rendered FITS frames
   const [frameA, setFrameA] = useState(null);
@@ -920,6 +928,27 @@ export default function SpherexMission({
               {/* ASTRONOMICAL STAGE CONTAINER */}
               <div className="kronoxCanvasArea">
                 {/* Visual Canvas */}
+                {/* Sección 5: Indicación visual de la IA sobre el campo estelar (visible incluso mientras carga el FITS) */}
+                {(localAiBeacon || stage === 'investigate') && (
+                  <div
+                    className={`kronoxAiFieldBeacon ${localAiBeacon ? 'is-pulsing' : ''}`}
+                    style={{
+                      left: `${activeMarkerToShow ? activeMarkerToShow.xPercent : 50}%`,
+                      top: `${activeMarkerToShow ? activeMarkerToShow.yPercent : 50}%`,
+                    }}
+                    title="Región señalada por Kronox IA"
+                  >
+                    <span className="kronoxBeaconRingOuter" />
+                    <span className="kronoxBeaconRingInner" />
+                    <small className="kronoxBeaconTag">
+                      {discoveryStep === 1
+                        ? 'Pista 1: Busca estrellas fijas alrededor'
+                        : discoveryStep === 2
+                          ? 'Pista 2: Región de movimiento / flujo'
+                          : 'Pista 3: Haz clic para verificar WCS'}
+                    </small>
+                  </div>
+                )}
                 {loadingFrameA ? (
                   <div className="kronoxLoadingPlate">
                     <span className="kronoxSpinner" />
@@ -1238,9 +1267,12 @@ export default function SpherexMission({
                           <button
                             type="button"
                             className="kronoxAskAiBtn"
-                            onClick={() => onAskKronox('Dame una pista para encontrar el objeto')}
+                            onClick={() => {
+                              setLocalAiBeacon(true);
+                              onAskKronox('Dame una pista para identificar el objeto');
+                            }}
                           >
-                            Consultar a Kronox IA
+                            Señalar en campo (Kronox IA 3D)
                           </button>
                         )}
                       </div>
