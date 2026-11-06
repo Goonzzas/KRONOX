@@ -1350,6 +1350,50 @@
   white-space: nowrap;
 }
 
+/* Central pilot console: the same flight controls work from the nav station
+   inside the cabin and from the exterior chase view. */
+.kronoxPilotConsole {
+  position: fixed;
+  z-index: 34;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  width: min(620px, calc(100vw - 32px));
+  padding: 13px 16px 9px;
+  color: #e7f7ff;
+  background: linear-gradient(145deg, rgba(5, 15, 30, .94), rgba(9, 25, 43, .88));
+  border: 1px solid rgba(77, 205, 255, .42);
+  border-radius: 18px;
+  box-shadow: 0 14px 48px rgba(0, 0, 0, .52), inset 0 1px rgba(255,255,255,.06), 0 0 28px rgba(14, 165, 233, .12);
+  backdrop-filter: blur(16px);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.kronoxPilotConsoleHeader { display: flex; align-items: center; gap: 10px; }
+.kronoxPilotStatusDot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: #48f0ba; box-shadow: 0 0 12px #48f0ba; }
+.kronoxPilotConsoleHeader > div { display: grid; gap: 3px; }
+.kronoxPilotConsoleHeader strong { font-size: 11px; letter-spacing: .16em; color: #bdefff; }
+.kronoxPilotConsoleHeader small { font: 10px system-ui, sans-serif; color: #8daec2; }
+.kronoxPilotRelease { margin-left: auto; padding: 6px 10px; border: 1px solid rgba(148, 163, 184, .28); border-radius: 8px; color: #bed1df; background: rgba(15, 23, 42, .68); cursor: pointer; }
+.kronoxPilotConsoleBody { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(260px, 1.25fr); gap: 18px; align-items: center; margin-top: 13px; }
+.kronoxPilotTelemetry { min-width: 0; display: grid; gap: 5px; }
+.kronoxPilotTelemetry > span, .kronoxPilotControls > span { color: #86a9c0; font-size: 9px; letter-spacing: .12em; }
+.kronoxPilotTelemetry > strong { font-size: 26px; line-height: 1; color: #f4fbff; text-shadow: 0 0 16px rgba(56,189,248,.28); }
+.kronoxPilotTelemetry > strong small { font-size: 11px; color: #72c9e7; }
+.kronoxPilotSpeedActions { display: flex; gap: 6px; }
+.kronoxPilotSpeedActions button, .kronoxPilotPad button, .kronoxPilotVertical button { min-width: 34px; min-height: 30px; border: 1px solid rgba(92, 194, 229, .27); border-radius: 8px; color: #d9f5ff; background: rgba(16, 43, 64, .74); cursor: pointer; touch-action: none; }
+.kronoxPilotSpeedActions button:hover, .kronoxPilotPad button:hover, .kronoxPilotVertical button:hover { border-color: #67dcff; background: rgba(18, 92, 126, .7); }
+.kronoxPilotCoordinates { margin-top: 2px; color: #7399af; font-size: 9px; }
+.kronoxPilotControls { display: grid; grid-template-columns: 112px 1fr; align-items: center; gap: 6px 12px; }
+.kronoxPilotControls > span { grid-column: 1 / -1; }
+.kronoxPilotPad { display: grid; grid-template-columns: repeat(3, 34px); grid-template-rows: repeat(2, 30px); gap: 3px; justify-content: center; }
+.kronoxPilotPad button:nth-child(1) { grid-area: 1 / 2; }
+.kronoxPilotPad button:nth-child(2) { grid-area: 2 / 1; }
+.kronoxPilotPad button:nth-child(3) { grid-area: 2 / 2; }
+.kronoxPilotPad button:nth-child(4) { grid-area: 2 / 3; }
+.kronoxPilotVertical { display: flex; flex-direction: column; gap: 4px; }
+.kronoxPilotVertical button { min-height: 31px; font-size: 9px; letter-spacing: .04em; }
+.kronoxPilotConsole footer { margin-top: 9px; padding-top: 7px; border-top: 1px solid rgba(130, 190, 220, .12); text-align: center; color: #7794a8; font: 9px system-ui, sans-serif; letter-spacing: .04em; }
+
 @media (max-width: 760px), (pointer: coarse) {
   .kronoxBridgeTopBar {
     top: max(6px, env(safe-area-inset-top, 0px));
@@ -1369,6 +1413,13 @@
   .kronoxBridgeSettingsBtn { min-height: 36px; padding: 6px 11px; font-size: 11px; }
   .kronoxBridgeSettingsBtn > span:first-child { font-size: 16px; }
   .kronoxViewBtn { padding: 5px 7px; font-size: 10px; }
+  .kronoxPilotConsole { bottom: max(12px, env(safe-area-inset-bottom, 0px)); width: min(420px, calc(100vw - 20px)); padding: 10px 12px 8px; border-radius: 15px; }
+  .kronoxPilotConsoleBody { grid-template-columns: minmax(95px, .8fr) minmax(200px, 1.2fr); gap: 8px; margin-top: 9px; }
+  .kronoxPilotConsoleHeader small { font-size: 9px; }
+  .kronoxPilotTelemetry > strong { font-size: 21px; }
+  .kronoxPilotControls { grid-template-columns: 104px 1fr; gap: 5px; }
+  .kronoxPilotVertical button { min-width: 61px; font-size: 8px; }
+  .kronoxPilotConsole footer { font-size: 8px; }
   .kronoxResetExteriorView { order: 3; margin: 0; min-height: 32px; }
   .guideObjectiveHud { top: calc(118px + env(safe-area-inset-top, 0px)); }
   .kronoxDialogueCard { top: calc(118px + env(safe-area-inset-top, 0px)); }
@@ -2347,4 +2398,3 @@
     transform: rotate(360deg);
   }
 }
-

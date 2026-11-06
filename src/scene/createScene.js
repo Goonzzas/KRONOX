@@ -3201,7 +3201,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const k = e.key.toLowerCase();
     keys[k] = 1;
     // Tecla contextual [E] para operar la consola física más cercana en cabina 3D
-    if (k === 'e' && free && pv == 1 && !realTimeIntro && nearestCabinStation) {
+    if (k === 'e' && free && pv == 1 && !realTimeIntro && nearestCabinStation && activeCabinStation !== 'nav') {
       const stId = nearestCabinStation.station.id;
       activeCabinStation = stId;
       const stObj = nearestCabinStation.station;
@@ -3377,7 +3377,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (ti > 3.6 && ti - dt <= 3.6) S.intro(false);
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
       const inHabitableCabin = pv == 1 && !realTimeIntro && !launchSequence && !launchCameraBlend;
-      const ok = ti >= 5 && !inHabitableCabin,
+      const pilotingFromCabin = inHabitableCabin && activeCabinStation === 'nav',
+        ok = ti >= 5 && (!inHabitableCabin || pilotingFromCabin),
         mx = ok && !exteriorCameraMode ? mv.x || (O.au ? 1 : 0) : 0,
         f = new V(0, 0, -1).applyQuaternion(q),
         r = new V(1, 0, 0).applyQuaternion(q),
@@ -3424,7 +3425,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             );
           }
         }
-      } else if (!inHabitableCabin && !exteriorCameraMode) {
+      } else if ((!inHabitableCabin || pilotingFromCabin) && !exteriorCameraMode) {
         vel.lerp(
           f
             .multiplyScalar(mx * bs)
@@ -3682,7 +3683,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         const targetSpeed = keys.shift ? SHIP_WORLD_UNITS.SPRINT_SPEED_MPS : SHIP_WORLD_UNITS.WALK_SPEED_MPS;
         const forwardInput = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0);
         const strafeInput = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
-        const hasInput = forwardInput !== 0 || strafeInput !== 0;
+        const hasInput = activeCabinStation !== 'nav' && (forwardInput !== 0 || strafeInput !== 0);
 
         const desiredVel = new V(0, 0, 0);
         if (hasInput) {

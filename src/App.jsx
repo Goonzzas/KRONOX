@@ -1951,6 +1951,10 @@ export default function App() {
         },
         nearestStation: nearestCabinStation,
         activeStation: activeCockpitStation,
+        onExitPilotStation: () => {
+          setActiveCockpitStation(null);
+          A().setActiveCabinStation?.(null);
+        },
         onSelectStation: (stId) => {
           setActiveCockpitStation(stId);
           A().setActiveCabinStation?.(stId);
@@ -1998,6 +2002,7 @@ export default function App() {
           A().speed(v);
           setFv(v);
         },
+        onFlightKey: (key, pressed) => A().key(key, pressed),
         selectedObject,
         onCloseObjectInspector: () => setSelectedObject(null),
         onTravelToSpherex: (target) => {

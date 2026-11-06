@@ -21,12 +21,14 @@ export default function SpaceshipCockpit({
   nearestStation = null,
   activeStation = null,
   onSelectStation,
+  onExitPilotStation,
   onWalkToStation,
   viewMode = 'cockpit', // 'cockpit' | 'exterior' | 'navigation'
   onChangeViewMode,
   onResetExteriorView,
   flightSpeed = 1,
   onSpeedPreset,
+  onFlightKey,
   selectedObject = null,
   onCloseObjectInspector,
   onTravelToSpherex,
@@ -225,6 +227,54 @@ export default function SpaceshipCockpit({
             Interactuar
           </button>
         </div>
+      )}
+
+      {/* One pilot interface shared by the physical navigation console and exterior view. */}
+      {(viewMode === 'exterior' || (viewMode === 'cockpit' && activeStation === 'nav')) && (
+        <section className="kronoxPilotConsole" aria-label="Panel central de pilotaje">
+          <div className="kronoxPilotConsoleHeader">
+            <span className="kronoxPilotStatusDot" />
+            <div>
+              <strong>{language === 'es' ? 'PUESTO DE PILOTAJE' : 'PILOT STATION'}</strong>
+              <small>{viewMode === 'cockpit' ? (language === 'es' ? 'Consola física · control de nave activo' : 'Physical console · ship control active') : (language === 'es' ? 'Control manual · cámara exterior' : 'Manual control · exterior camera')}</small>
+            </div>
+            {viewMode === 'cockpit' && (
+              <button type="button" className="kronoxPilotRelease" onClick={onExitPilotStation}>
+                {language === 'es' ? 'Soltar' : 'Release'}
+              </button>
+            )}
+          </div>
+          <div className="kronoxPilotConsoleBody">
+            <div className="kronoxPilotTelemetry">
+              <span>{language === 'es' ? 'VELOCIDAD DE CRUCERO' : 'CRUISE SPEED'}</span>
+              <strong>{flightSpeed >= 1000 ? `${(flightSpeed / 1000).toFixed(1)}k` : flightSpeed.toFixed(flightSpeed < 10 ? 1 : 0)} <small>u/s</small></strong>
+              <div className="kronoxPilotSpeedActions">
+                <button type="button" onClick={() => onSpeedPreset?.(Math.max(0.01, flightSpeed / 2))} aria-label="Reducir velocidad">−</button>
+                <button type="button" onClick={() => onSpeedPreset?.(Math.min(50000, flightSpeed * 2))} aria-label="Aumentar velocidad">+</button>
+              </div>
+              {viewMode === 'cockpit' && <small className="kronoxPilotCoordinates">CABINA · X {astronautCoords.x.toFixed(1)} m · Z {astronautCoords.z.toFixed(1)} m</small>}
+            </div>
+            <div className="kronoxPilotControls">
+              <span>{language === 'es' ? 'TRASLACIÓN' : 'TRANSLATION'}</span>
+              <div className="kronoxPilotPad" aria-label="Controles de traslación">
+                {[
+                  ['w', '↑', 'Avanzar'], ['a', '←', 'Izquierda'], ['s', '↓', 'Retroceder'], ['d', '→', 'Derecha'],
+                ].map(([key, symbol, label]) => (
+                  <button key={key} type="button" aria-label={label}
+                    onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.(key, true); }}
+                    onPointerUp={() => onFlightKey?.(key, false)}
+                    onPointerCancel={() => onFlightKey?.(key, false)}
+                    onLostPointerCapture={() => onFlightKey?.(key, false)}>{symbol}</button>
+                ))}
+              </div>
+              <div className="kronoxPilotVertical">
+                <button type="button" aria-label="Subir nave" onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.('e', true); }} onPointerUp={() => onFlightKey?.('e', false)} onPointerCancel={() => onFlightKey?.('e', false)} onLostPointerCapture={() => onFlightKey?.('e', false)}>↑ SUBIR</button>
+                <button type="button" aria-label="Bajar nave" onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onFlightKey?.('q', true); }} onPointerUp={() => onFlightKey?.('q', false)} onPointerCancel={() => onFlightKey?.('q', false)} onLostPointerCapture={() => onFlightKey?.('q', false)}>↓ BAJAR</button>
+              </div>
+            </div>
+          </div>
+          <footer>W A S D · {language === 'es' ? 'dirección' : 'direction'}　 Q / E · {language === 'es' ? 'vertical' : 'vertical'}　 SHIFT · ×5</footer>
+        </section>
       )}
 
       {/* CONTEXTUAL 3D ASTRONOMICAL OBJECT INSPECTOR */}
