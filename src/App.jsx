@@ -1948,6 +1948,9 @@ export default function App() {
           setKronoxDialogHidden(false);
           setKronoxOpen(true);
         },
+        onStartGuidedTour: () => {
+          A().startGuidedTour?.();
+        },
         onReplayCinematic: () => {
           setWelcomeOpen(false);
           setRealTimeIntroActive(true);

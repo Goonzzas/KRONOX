@@ -12,8 +12,8 @@ export const SHIP_WORLD_UNITS = {
   ASTRONAUT_HEIGHT_METERS: 1.75,
   ASTRONAUT_EYE_METERS: 1.65,
   ASTRONAUT_RADIUS_METERS: 0.36,
-  WALK_SPEED_MPS: 4.2,
-  SPRINT_SPEED_MPS: 7.4,
+  WALK_SPEED_MPS: 1.4, // Caminata humana natural: 1.4 m/s (~5.0 km/h)
+  SPRINT_SPEED_MPS: 3.5, // Carrera humana con traje espacial: 3.5 m/s (~12.6 km/h)
 };
 
 /**
@@ -391,11 +391,11 @@ export function createKronoxLuminousEntity3D() {
     // If in Acompañamiento mode and astronaut moves, glide alongside at comfortable shoulder height
     if (followAstronaut && astronautPos && state !== 'Señalización') {
       const desired = new THREE.Vector3(
-        Math.max(-5.2, Math.min(5.2, astronautPos.x + 1.35)),
-        1.72,
-        Math.max(-9.8, Math.min(7.2, astronautPos.z - 1.5)),
+        Math.max(-5.2, Math.min(5.2, astronautPos.x + 1.15)),
+        1.68 + Math.sin(clock * 1.8) * 0.08,
+        Math.max(-9.8, Math.min(7.2, astronautPos.z - 1.45)),
       );
-      targetPos.lerp(desired, dt * 2.5);
+      targetPos.lerp(desired, dt * 2.2);
     }
 
     // Clamp targetPos inside walkable bridge bounds so Kronox IA never passes through walls or ceiling
@@ -404,7 +404,8 @@ export function createKronoxLuminousEntity3D() {
     targetPos.z = Math.max(-10.8, Math.min(8.8, targetPos.z));
 
     const distToTarget = currentPos.distanceTo(targetPos);
-    const speedFactor = distToTarget > 0.25 ? 3.4 : 1.8;
+    // Transición de aceleración suave en trayectorias espaciales (aceleración y desaceleración orgánica)
+    const speedFactor = distToTarget > 1.2 ? 3.0 : distToTarget > 0.35 ? 2.2 : 1.4;
     currentPos.lerp(targetPos, Math.min(1, dt * speedFactor));
 
     // Prevent currentPos from intersecting central console pedestals while gliding across the bridge

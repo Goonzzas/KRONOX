@@ -34,6 +34,7 @@ export default function SpaceshipCockpit({
   onOpenPlanetInfo,
   onOpenMissionSelector,
   onOpenAiConsole,
+  onStartGuidedTour,
   onReplayCinematic,
   onOpenSettingsModal,
   onDispatchSceneEvent,
@@ -525,6 +526,43 @@ export default function SpaceshipCockpit({
           <p className="kronoxStationDesc">
             Haz clic directamente sobre cualquier estrella o planeta a través del parabrisas panorámico para que Kronox IA apunte con su haz luminoso 3D y despliegue su telemetría.
           </p>
+        </div>
+      )}
+
+      {cockpitVisible && activeStation === 'comms' && (
+        <div className="kronoxDiegeticConsole" role="dialog" aria-label="Consola de Comunicaciones">
+          <div className="kronoxStationDrawerHead">
+            <div>
+              <span className="kronoxDiegeticTag">ESTACIÓN FÍSICA CUÁNTICA · (-2.8 m, +2.8 m) · NÚCLEO ACTIVO</span>
+              <h4>CONSOLA DE COMUNICACIONES · KRONOX IA</h4>
+            </div>
+            <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar comunicaciones">
+              ×
+            </button>
+          </div>
+          <p className="kronoxStationDesc">
+            Núcleo de inteligencia de a bordo en línea. Puedes interactuar directamente con la entidad luminosa o solicitar un recorrido guiado por los instrumentos del puente:
+          </p>
+          <div className="kronoxStationBtnRow">
+            <button
+              type="button"
+              className="active"
+              onClick={() => {
+                onOpenAiConsole?.();
+              }}
+            >
+              ✦ Transmitir consulta o dialogar con Kronox IA
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onSelectStation(null);
+                onStartGuidedTour?.();
+              }}
+            >
+              Iniciar recorrido guiado por el puente
+            </button>
+          </div>
         </div>
       )}
     </>

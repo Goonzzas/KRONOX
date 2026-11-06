@@ -2575,8 +2575,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
   // Walkable Astronaut State in Local Meters (`1 unit = 1 m`)
   const astronautPos = new V(0, 0, -1.8);
+  const astronautVel = new V(0, 0, 0); // Smooth velocity vector for natural acceleration/deceleration
   let astronautYaw = 0;
   let astronautPitch = 0;
+  let targetYaw = 0;
+  let targetPitch = 0;
   let cabinFirstPerson = true; // true = 1st-person eye height (1.65 m), false = 3rd-person over-shoulder
   let activeCabinStation = null;
   let nearestCabinStation = null;
@@ -2607,8 +2610,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     ship.visible = true;
     localCabinWorld.visible = false;
     astronautPos.set(0, 0, -1.8);
+    astronautVel.set(0, 0, 0);
     astronautYaw = 0;
     astronautPitch = 0;
+    targetYaw = 0;
+    targetPitch = 0;
 
     realTimeIntro = {
       elapsed: 0,
@@ -2631,8 +2637,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     ship.visible = false;
     localCabinWorld.visible = true;
     astronautPos.set(0, 0, -1.8);
+    astronautVel.set(0, 0, 0);
     astronautYaw = 0;
     astronautPitch = 0;
+    targetYaw = 0;
+    targetPitch = 0;
     sceneDirector.dispatchEvent('CABIN_ENTERED', {});
     sceneDirector.dispatchEvent('AI_ACTIVATED', {});
     if (cb) cb();
@@ -2926,8 +2935,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const onPointerMove = (e) => {
     if (free && drag && !launchSequence && !launchCameraBlend && !realTimeIntro) {
       if (pv == 1) {
-        astronautYaw -= e.movementX * 0.0032;
-        astronautPitch = Math.max(-1.18, Math.min(1.18, astronautPitch - e.movementY * 0.0028));
+        // Suavizado cinemático de rotación de cabeza/casco de astronauta
+        targetYaw -= e.movementX * 0.0024;
+        targetPitch = Math.max(-1.18, Math.min(1.18, targetPitch - e.movementY * 0.0022));
       } else {
         fy -= e.movementX * 0.003;
         fp = Math.max(-1.55, Math.min(1.55, fp - e.movementY * 0.003));
@@ -3401,35 +3411,51 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         localCabinWorld.position.copy(sp);
         localCabinWorld.quaternion.copy(q);
 
-        // Movimiento de caminata del astronauta (WASD) a escala humana (4.2 m/s)
-        const walkSpeed = SHIP_WORLD_UNITS.WALK_SPEED_MPS * (keys.shift ? 1.55 : 1);
+        // 1. Interpolación suave de giro de cabeza (casco de astronauta)
+        astronautYaw += (targetYaw - astronautYaw) * Math.min(1, dt * 14);
+        astronautPitch += (targetPitch - astronautPitch) * Math.min(1, dt * 14);
+
+        // 2. Locomoción humana natural (1.4 m/s normal, 3.5 m/s carrera con Shift)
+        const targetSpeed = keys.shift ? SHIP_WORLD_UNITS.SPRINT_SPEED_MPS : SHIP_WORLD_UNITS.WALK_SPEED_MPS;
         const forwardInput = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0);
         const strafeInput = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
-        const isWalking = forwardInput !== 0 || strafeInput !== 0;
+        const hasInput = forwardInput !== 0 || strafeInput !== 0;
 
-        if (isWalking) {
+        const desiredVel = new V(0, 0, 0);
+        if (hasInput) {
           const localForward = new V(-Math.sin(astronautYaw), 0, -Math.cos(astronautYaw));
           const localRight = new V(Math.cos(astronautYaw), 0, -Math.sin(astronautYaw));
-          const stepVec = new V()
+          desiredVel
             .addScaledVector(localForward, forwardInput)
             .addScaledVector(localRight, strafeInput);
-          if (stepVec.lengthSq() > 1e-5) {
-            stepVec.normalize().multiplyScalar(walkSpeed * dt);
-            astronautPos.add(stepVec);
-            cabinSystem.clampAstronautPosition(astronautPos);
+          if (desiredVel.lengthSq() > 1e-4) {
+            desiredVel.normalize().multiplyScalar(targetSpeed);
           }
+        }
+
+        // Aceleración gradual (9 m/s²) y frenado suave (12 m/s²)
+        const accelRate = hasInput ? 9.2 : 12.5;
+        astronautVel.lerp(desiredVel, Math.min(1, dt * accelRate));
+
+        const currentSpeed = astronautVel.length();
+        const isWalking = currentSpeed > 0.05;
+
+        if (currentSpeed > 1e-4) {
+          astronautPos.addScaledVector(astronautVel, dt);
+          cabinSystem.clampAstronautPosition(astronautPos);
         }
 
         // Actualizar modelo 3D del astronauta (1.75m cuerpo completo en 3ª persona, manos en 1ª persona)
         astronaut3D.root.position.copy(astronautPos);
         astronaut3D.root.rotation.y = astronautYaw;
-        astronaut3D.updateAnimation(dt, isWalking, walkSpeed, cabinFirstPerson);
+        astronaut3D.updateAnimation(dt, isWalking, currentSpeed, cabinFirstPerson);
 
         // Calcular cámara en 1ª persona (ojos a 1.65 m) o 3ª persona dentro de la cabina (detrás del astronauta de 1.75 m)
         const localLookQuat = new THREE.Quaternion().setFromEuler(
           new THREE.Euler(astronautPitch, astronautYaw, 0, 'YXZ'),
         );
-        const headBob = isWalking ? Math.sin(clk.elapsedTime * 9.5) * 0.028 : 0;
+        // Oscilación de paso (head bob) sincronizada con la velocidad real de caminata
+        const headBob = isWalking ? Math.sin(clk.elapsedTime * (keys.shift ? 11.5 : 8.2)) * (0.015 * Math.min(1.2, currentSpeed / 1.4)) : 0;
 
         let localCamPos;
         if (cabinFirstPerson) {
@@ -3501,8 +3527,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             luminousAI.pointAtWorldPosition(null, false);
           }
         } else if (aiFollowAstronaut) {
-          // Acompañamiento espacial: la entidad de luz flota suavemente a la derecha/delante del astronauta
-          const companionOffset = new V(1.15, 1.62, -1.75).applyAxisAngle(
+          // Acompañamiento espacial inteligente: la entidad luminosa flota suavemente a estribor o babor adelantada
+          // Se desplaza de forma fluida con flotación orgánica y respeta la distancia de conversación (~1.6 m)
+          const companionSide = Math.sin(clk.elapsedTime * 0.15) > 0 ? 1.05 : 0.95;
+          const companionOffset = new V(companionSide, 1.62 + Math.sin(clk.elapsedTime * 1.6) * 0.06, -1.55).applyAxisAngle(
             new V(0, 1, 0),
             astronautYaw,
           );
@@ -3871,9 +3899,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       };
     },
     setAstronautLook: (yawRad, pitchRad) => {
-      if (Number.isFinite(yawRad)) astronautYaw = yawRad;
+      if (Number.isFinite(yawRad)) {
+        astronautYaw = yawRad;
+        targetYaw = yawRad;
+      }
       if (Number.isFinite(pitchRad)) {
-        astronautPitch = Math.max(-1.18, Math.min(1.18, pitchRad));
+        const clamped = Math.max(-1.18, Math.min(1.18, pitchRad));
+        astronautPitch = clamped;
+        targetPitch = clamped;
       }
     },
     walkAstronautToStation: (stationId) => {
@@ -3887,10 +3920,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       ship.visible = false;
       localCabinWorld.visible = true;
       astronautPos.copy(st.position);
+      astronautVel.set(0, 0, 0);
       const dx = st.consolePos.x - st.position.x;
       const dz = st.consolePos.z - st.position.z;
       astronautYaw = Math.atan2(-dx, -dz);
+      targetYaw = astronautYaw;
       astronautPitch = -0.08;
+      targetPitch = -0.08;
       activeCabinStation = stationId;
       aiFollowAstronaut = false;
       luminousAI.setTargetPosition(st.aiHoverPos, 'Explicación');
