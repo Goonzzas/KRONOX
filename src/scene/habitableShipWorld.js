@@ -398,13 +398,41 @@ export function createKronoxLuminousEntity3D() {
       targetPos.lerp(desired, dt * 2.5);
     }
 
+    // Clamp targetPos inside walkable bridge bounds so Kronox IA never passes through walls or ceiling
+    targetPos.x = Math.max(-5.8, Math.min(5.8, targetPos.x));
+    targetPos.y = Math.max(1.15, Math.min(3.55, targetPos.y));
+    targetPos.z = Math.max(-10.8, Math.min(8.8, targetPos.z));
+
     const distToTarget = currentPos.distanceTo(targetPos);
     const speedFactor = distToTarget > 0.25 ? 3.4 : 1.8;
     currentPos.lerp(targetPos, Math.min(1, dt * speedFactor));
 
+    // Prevent currentPos from intersecting central console pedestals while gliding across the bridge
+    const navConsoleCenter = new THREE.Vector2(0, -7.35);
+    const distToNavConsole = Math.hypot(
+      currentPos.x - navConsoleCenter.x,
+      currentPos.z - navConsoleCenter.y,
+    );
+    if (distToNavConsole < 1.05 && currentPos.y < 1.65) {
+      currentPos.y = 1.72;
+    }
+
     // Gentle harmonic float
     const floatY = Math.sin(clock * 2.4) * 0.065;
     group.position.set(currentPos.x, currentPos.y + floatY, currentPos.z);
+
+    // Orient starGroup / entity towards pointed target or movement direction
+    if (hasPointedTarget) {
+      const dir = pointedTargetPos.clone().sub(group.position);
+      if (dir.lengthSq() > 1e-4) {
+        group.rotation.y = Math.atan2(dir.x, dir.z);
+      }
+    } else if (distToTarget > 0.15) {
+      const moveDir = targetPos.clone().sub(currentPos);
+      if (moveDir.lengthSq() > 1e-4) {
+        group.rotation.y = Math.atan2(moveDir.x, moveDir.z);
+      }
+    }
 
     // Effective animation state
     const activeState =
@@ -505,6 +533,7 @@ export function createKronoxLuminousEntity3D() {
     setState,
     getState: () => state,
     getPosition: () => group.position.clone(),
+    getPointedTarget: () => (hasPointedTarget ? pointedTargetPos.clone() : null),
   };
 }
 

@@ -361,4 +361,86 @@ test('KronoxSceneDirector & Machine-Controlled 3D Scene Events (All 10 Official 
 
   assert.equal(stateChanges.length, 10, 'All 10 official scene events must emit synchronized state transitions');
   assert.equal(narratives.length, 10, 'Kronox IA narrations must be triggered strictly by real ship events');
+
+  // 4. Verify sequence interruption, skipping, and recovery to FREE_ASTRONAUT without locking controls (Section 4)
+  director.dispatchEvent(KRONOX_SCENE_EVENTS.PROPULSION_ENGAGED, {
+    targetKey: 'wise-0855',
+    targetName: 'WISE 0855',
+    duration: 6.4,
+  });
+  assert.equal(director.getState().controlMode, KRONOX_CONTROL_MODES.CINEMATIC_SEQUENCE);
+  director.skipActiveSequence();
+  assert.equal(director.getState().activeSequence, null, 'Active sequence must be cleared on skip');
+  assert.equal(
+    director.getState().controlMode,
+    KRONOX_CONTROL_MODES.FREE_ASTRONAUT,
+    'Skipping sequence must immediately return control to FREE_ASTRONAUT',
+  );
+
+  // Verify natural sequence completion returns control to FREE_ASTRONAUT
+  director.dispatchEvent(KRONOX_SCENE_EVENTS.PROPULSION_ENGAGED, {
+    targetKey: 'barnard',
+    targetName: 'Estrella de Barnard',
+    duration: 4.0,
+  });
+  const finishRes = director.update(4.2, 10.0);
+  assert.equal(finishRes?.finished, true);
+  assert.equal(director.getState().activeSequence, null);
+  assert.equal(director.getState().controlMode, KRONOX_CONTROL_MODES.FREE_ASTRONAUT);
+});
+
+test('Astronaut Wall/Console Collisions & Kronox IA Spatial Bounds Integrity (Sections 1, 2 & 3)', () => {
+  const cabin = buildHabitableCabin3D();
+  const r = SHIP_WORLD_UNITS.ASTRONAUT_RADIUS_METERS; // 0.36 m
+
+  // 1. Test outer wall collision clamping (Port, Starboard, Bow, Aft)
+  const portAttempt = { x: -12.0, y: 0, z: 0 };
+  cabin.clampAstronautPosition(portAttempt);
+  assert.ok(Math.abs(portAttempt.x - (-6.35 + r)) < 1e-6, 'Port wall must block astronaut at -5.99m');
+
+  const starboardAttempt = { x: 12.0, y: 0, z: 0 };
+  cabin.clampAstronautPosition(starboardAttempt);
+  assert.ok(Math.abs(starboardAttempt.x - (6.35 - r)) < 1e-6, 'Starboard wall must block astronaut at +5.99m');
+
+  const bowAttempt = { x: 2.5, y: 0, z: -20.0 };
+  cabin.clampAstronautPosition(bowAttempt);
+  assert.ok(Math.abs(bowAttempt.z - (-11.25 + r)) < 1e-6, 'Bow panoramic dome must block astronaut at -10.89m');
+
+  const aftAttempt = { x: 0, y: 0, z: 20.0 };
+  cabin.clampAstronautPosition(aftAttempt);
+  assert.ok(Math.abs(aftAttempt.z - (9.85 - r)) < 1e-6, 'Aft airlock bulkhead must block astronaut at +9.49m');
+
+  // 2. Test physical 3D console collision pushback (Navigation Console at (0, 0.95, -7.35), radius 0.95m)
+  const insideNavConsole = { x: 0, y: 0, z: -7.1 };
+  cabin.clampAstronautPosition(insideNavConsole);
+  const distFromNavCenter = Math.hypot(insideNavConsole.x - 0, insideNavConsole.z - -7.35);
+  assert.ok(
+    distFromNavCenter >= 0.95 + r - 1e-4,
+    `Astronaut must be pushed outside console collider (dist=${distFromNavCenter.toFixed(3)}m >= ${(0.95 + r).toFixed(2)}m)`,
+  );
+
+  // 3. Test proximity detection across all 5 physical 3D consoles independently
+  for (const st of PHYSICAL_CABIN_STATIONS) {
+    const near = cabin.findNearestInteractiveStation(st.position);
+    assert.ok(near, `Must detect physical station ${st.id} when standing at its pad`);
+    assert.equal(near.station.id, st.id);
+    assert.equal(near.distance, 0);
+  }
+
+  // 4. Test Kronox IA 3D entity wall-clamping & real machine pointing coordinates
+  const ai = createKronoxLuminousEntity3D();
+  ai.setTargetPosition({ x: 99, y: 99, z: -99 }, 'Desplazamiento');
+  ai.update(0.5, 1.0);
+  const aiPos = ai.getPosition();
+  assert.ok(aiPos.x <= 5.8 && aiPos.x >= -5.8, 'Kronox IA must stay within bridge X bounds');
+  assert.ok(aiPos.z <= 8.8 && aiPos.z >= -10.8, 'Kronox IA must stay within bridge Z bounds');
+
+  const sciSt = PHYSICAL_CABIN_STATIONS.find((s) => s.id === 'science');
+  ai.pointAtWorldPosition(sciSt.consolePos, true);
+  ai.update(0.1, 1.1);
+  const pointed = ai.getPointedTarget();
+  assert.ok(pointed, 'Kronox IA must expose its pointed 3D coordinate');
+  assert.equal(pointed.x, sciSt.consolePos.x);
+  assert.equal(pointed.y, sciSt.consolePos.y);
+  assert.equal(pointed.z, sciSt.consolePos.z);
 });

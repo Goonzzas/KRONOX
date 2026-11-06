@@ -413,7 +413,7 @@ export function createKronoxSceneDirector({
           shipState.selectedDestination?.name ||
           'el objetivo estelar';
 
-        // Start real-time 3D propulsion & exterior flyby sequence (Section 4 example!)
+        // Start real-time 3D propulsion & exterior departure sequence (Section 4)
         shipState.activeSequence = {
           type: 'PROPULSION_AND_DEPARTURE',
           elapsed: 0,
@@ -423,7 +423,7 @@ export function createKronoxSceneDirector({
         };
         luminousAI.setTargetPosition(new THREE.Vector3(1.2, 1.75, -5.2), 'Desplazamiento');
         narrateSynced(
-          `Propulsores iónicos encendidos. Observa cómo la nave KRONOX de 120 metros acelera y alinea su vector de salida hacia ${tgtName}.`,
+          `Propulsores iónicos encendidos. Observa cómo la nave KRONOX de 120 metros alinea su vector y se desplaza hacia ${tgtName} (interpolación espacial suavizada sp.lerpVectors en unidades de mapa galáctico).`,
           'Desplazamiento',
           'nav',
         );
@@ -433,7 +433,7 @@ export function createKronoxSceneDirector({
       case 'EXTERIOR_CAMERA_REQUESTED': {
         setControlMode(KRONOX_CONTROL_MODES.EXTERIOR_FLIGHT);
         narrateSynced(
-          `Cámara exterior del casco activa (${SHIP_WORLD_UNITS.SHIP_LENGTH_METERS} metros de eslora). Los motores responden en tiempo real al empuje de navegación.`,
+          `Cámara exterior del casco activa (${SHIP_WORLD_UNITS.SHIP_LENGTH_METERS} metros de eslora). Los motores responden al régimen de velocidad de crucero del simulador.`,
           'Acompañamiento',
           null,
         );
@@ -448,7 +448,7 @@ export function createKronoxSceneDirector({
           shipState.confirmedDestination?.name ||
           'el sistema estelar';
         narrateSynced(
-          `Salto interestelar en curso hacia ${tgtName}. La nave se desplaza físicamente por el brazo de Orión hacia las coordenadas del objetivo.`,
+          `Tránsito interestelar en curso hacia ${tgtName}. Desplazamiento visual simulado en el mapa galáctico 3D hacia sus coordenadas ICRS J2025.8.`,
           'Desplazamiento',
           'windows',
         );

@@ -173,13 +173,13 @@ export default function SpaceshipCockpit({
             </button>
           )}
           {viewMode === 'cockpit' ? (
-            <span className="kronoxCabinPosReadout" title="Posición física del astronauta dentro del puente 3D">
+            <span className="kronoxCabinPosReadout" title="Posición y velocidad física del astronauta dentro del puente 3D (1 u = 1 m)">
               PUENTE 3D: X {astronautCoords.x >= 0 ? `+${astronautCoords.x}` : astronautCoords.x} m · Z{' '}
-              {astronautCoords.z >= 0 ? `+${astronautCoords.z}` : astronautCoords.z} m
+              {astronautCoords.z >= 0 ? `+${astronautCoords.z}` : astronautCoords.z} m · {SHIP_WORLD_UNITS.WALK_SPEED_MPS} m/s
             </span>
           ) : (
-            <span>
-              CRUCERO: {flightSpeed >= 100 ? flightSpeed.toFixed(0) : flightSpeed.toFixed(1)} u/s
+            <span title="Velocidad de desplazamiento en unidades del mapa cósmico 3D">
+              MAPA CÓSMICO: {flightSpeed >= 100 ? flightSpeed.toFixed(0) : flightSpeed.toFixed(1)} u/s (mapa)
             </span>
           )}
           {onReplayCinematic && (
@@ -393,8 +393,11 @@ export default function SpaceshipCockpit({
                   <div className="kronoxNavRouteMeta">
                     <strong>Ruta 3D trazada: {plottedNavTarget.name}</strong>
                     <span>
-                      ICRS RA {plottedNavTarget.ra.toFixed(4)}° · Dec {plottedNavTarget.dec.toFixed(4)}° ·{' '}
-                      {plottedNavTarget.distanceLabel}
+                      Posición astronómica: ICRS RA {plottedNavTarget.ra.toFixed(4)}° · Dec {plottedNavTarget.dec.toFixed(4)}° (J2025.8) ·{' '}
+                      Distancia física: {plottedNavTarget.distanceLabel} ({plottedNavTarget.distanceLy} ly)
+                    </span>
+                    <span>
+                      Tránsito en simulador: interpolación espacial suavizada (sp.lerpVectors) a través del mapa galáctico 3D
                     </span>
                   </div>
                   <div className="kronoxStationBtnRow">

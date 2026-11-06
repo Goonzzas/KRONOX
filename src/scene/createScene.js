@@ -2591,6 +2591,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let guidedTourState = null;
 
   function startRealTimeIntroSequence(onCompleteCallback) {
+    // Cancel any incompatible active sequences so two sequences never run simultaneously (Section 4)
+    sceneDirector.skipActiveSequence();
+    nav = null;
+    launchSequence = null;
+    launchCameraBlend = null;
+    guidedTourState = null;
+
     // Ensure ship is in free flight in the 3D cosmos
     if (!free) {
       setFree(true, false);
@@ -2615,6 +2622,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   function skipRealTimeIntroSequence() {
     const cb = realTimeIntro?.onComplete;
     realTimeIntro = null;
+    sceneDirector.skipActiveSequence();
     if (!free) {
       setFree(true, false);
       S.fr?.(true);
@@ -2625,7 +2633,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     astronautPos.set(0, 0, -1.8);
     astronautYaw = 0;
     astronautPitch = 0;
-    luminousAI.setTargetPosition(new V(0.95, 1.72, -4.2), 'Comunicación');
+    sceneDirector.dispatchEvent('CABIN_ENTERED', {});
+    sceneDirector.dispatchEvent('AI_ACTIVATED', {});
     if (cb) cb();
     startGuidedCabinTour();
   }
@@ -3838,8 +3847,35 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       eyeY: SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
       z: Number(astronautPos.z.toFixed(2)),
       yaw: Number(astronautYaw.toFixed(2)),
+      pitch: Number(astronautPitch.toFixed(2)),
       cabinFirstPerson,
+      nearestStationId: nearestCabinStation ? nearestCabinStation.station.id : null,
+      nearestStationDist: nearestCabinStation ? Number(nearestCabinStation.distance.toFixed(2)) : null,
+      activeStationId: activeCabinStation,
     }),
+    getAiTelemetry: () => {
+      const pos = luminousAI.getPosition();
+      const pointed = luminousAI.getPointedTarget ? luminousAI.getPointedTarget() : null;
+      return {
+        x: Number(pos.x.toFixed(2)),
+        y: Number(pos.y.toFixed(2)),
+        z: Number(pos.z.toFixed(2)),
+        state: luminousAI.getState(),
+        pointedTarget: pointed
+          ? {
+              x: Number(pointed.x.toFixed(2)),
+              y: Number(pointed.y.toFixed(2)),
+              z: Number(pointed.z.toFixed(2)),
+            }
+          : null,
+      };
+    },
+    setAstronautLook: (yawRad, pitchRad) => {
+      if (Number.isFinite(yawRad)) astronautYaw = yawRad;
+      if (Number.isFinite(pitchRad)) {
+        astronautPitch = Math.max(-1.18, Math.min(1.18, pitchRad));
+      }
+    },
     walkAstronautToStation: (stationId) => {
       const st = PHYSICAL_CABIN_STATIONS.find((s) => s.id === stationId);
       if (!st) return null;
@@ -3883,17 +3919,39 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       guidedTourState = null;
       aiFollowAstronaut = false;
       const winSt = PHYSICAL_CABIN_STATIONS.find((s) => s.id === 'windows');
-      if (winSt) {
-        luminousAI.setTargetPosition(winSt.aiHoverPos, 'Señalización');
-        luminousAI.pointAtWorldPosition(new V(0, 2.2, -14.5), true);
-      }
+      let pointedLocal = new V(0, 2.2, -14.5);
+
       if (kind && key) {
+        let worldTargetPos = null;
         if (kind === 'spherex') {
           const found = missionMarkers.get(key);
-          if (found) found.label.visible = true;
+          if (found) {
+            found.label.visible = true;
+            worldTargetPos = found.marker.getWorldPosition(new V());
+          }
+        } else if (kind === 'planet') {
+          const planetObj = B.find((b) => b.p.n === key);
+          if (planetObj) {
+            worldTargetPos = planetObj.pivot.getWorldPosition(new V());
+          }
+        }
+        // Transform real 3D world position of the star/planet into cabin local coordinates
+        // and project onto the panoramic bow window plane so the 3D beam points at the actual object
+        if (worldTargetPos && localCabinWorld) {
+          localCabinWorld.updateMatrixWorld(true);
+          const localObjPos = localCabinWorld.worldToLocal(worldTargetPos.clone());
+          const aiOrigin = winSt ? winSt.aiHoverPos : new V(1.6, 1.85, -10.2);
+          const dirToObj = localObjPos.clone().sub(aiOrigin).normalize();
+          pointedLocal = aiOrigin.clone().addScaledVector(dirToObj, 4.2);
         }
         S.onObjectSelect?.({ kind, key });
       }
+
+      if (winSt) {
+        luminousAI.setTargetPosition(winSt.aiHoverPos, 'Señalización');
+        luminousAI.pointAtWorldPosition(pointedLocal, true);
+      }
+      return pointedLocal;
     },
     setActiveCabinStation: (stationId) => {
       activeCabinStation = stationId || null;
@@ -3924,7 +3982,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return sceneDirector.dispatchEvent(eventName, payload);
     },
     getSceneDirectorState: () => sceneDirector.getState(),
-    skipDirectorSequence: () => sceneDirector.skipActiveSequence(),
+    skipDirectorSequence: () => {
+      sceneDirector.skipActiveSequence();
+      if (!free) {
+        setFree(true, false);
+        S.fr?.(true);
+      }
+      pv = 1;
+      ship.visible = false;
+      localCabinWorld.visible = true;
+      return sceneDirector.getState();
+    },
     quality: (mode) => {
       qualityMode = mode;
       R.setPixelRatio(pixelRatioFor(qualityMode));
