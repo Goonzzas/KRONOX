@@ -82,9 +82,6 @@ export default function App() {
         const p = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
         if (p && (p.get('observatory') === 'true' || p.has('target'))) return false;
         if (p && p.get('welcome') === 'false') return false;
-        if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('kronox-intro-seen') === '1') {
-          return false;
-        }
         return true;
       } catch {
         return true;
@@ -2161,6 +2158,52 @@ export default function App() {
               language === 'es'
                 ? 'Aborda la nave científica de 120 metros en un mundo 3D continuo, camina por su cabina habitable (1 unidad = 1 metro) junto a la entidad luminosa Kronox IA e investiga datos infrarrojos reales de SPHEREx.'
                 : 'Board the 120-meter scientific vessel in a continuous 3D world, walk through its habitable cabin (1 unit = 1 meter) alongside the luminous Kronox AI entity, and investigate real SPHEREx infrared data.',
+            ),
+            h(
+              'p',
+              { className: 'welcomeSequenceSummary' },
+              language === 'es'
+                ? 'Introducción: despegue desde la Tierra → recorrido espacial → llegada a la cabina en primera persona.'
+                : 'Intro: launch from Earth → spaceflight overview → arrival inside the cabin in first person.',
+            ),
+          ),
+
+          h(
+            'section',
+            {
+              className: 'welcomeDevicePrompt',
+              'aria-label': language === 'es' ? 'Selecciona tu dispositivo' : 'Choose your device',
+            },
+            h(
+              'span',
+              null,
+              language === 'es' ? '¿Desde qué dispositivo jugarás?' : 'Which device are you playing on?',
+            ),
+            h(
+              'div',
+              { className: 'welcomeDeviceChoices' },
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: deviceMode === 'desktop' ? 'selected' : '',
+                  'aria-pressed': deviceMode === 'desktop',
+                  onClick: () => setDeviceMode('desktop'),
+                },
+                '🖥️ ',
+                'PC / Laptop',
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: deviceMode === 'mobile' ? 'selected' : '',
+                  'aria-pressed': deviceMode === 'mobile',
+                  onClick: () => setDeviceMode('mobile'),
+                },
+                '📱 ',
+                language === 'es' ? 'Móvil / Táctil' : 'Mobile / Touch',
+              ),
             ),
           ),
 
