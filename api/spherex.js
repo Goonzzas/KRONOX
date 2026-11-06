@@ -18,20 +18,27 @@ function sendError(res, status, message) {
   return res.status(status).json({ error: message });
 }
 
-async function fetchWithRetry(url, options, attempts = 4) {
-  let result;
+async function fetchWithRetry(url, options = {}, attempts = 4) {
+  const { timeoutMs = 0, ...fetchOptions } = options;
+  let lastResponse;
   let lastError;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      result = await fetch(url, options);
-      if (result.status !== 429 && result.status < 500) return result;
+      // Create a fresh timeout signal for every attempt. A timed-out signal stays
+      // aborted forever and must not be reused for retries.
+      const attemptOptions = timeoutMs
+        ? { ...fetchOptions, signal: AbortSignal.timeout(timeoutMs) }
+        : fetchOptions;
+      const response = await fetch(url, attemptOptions);
+      lastResponse = response;
+      if (response.status !== 429 && response.status < 500) return response;
     } catch (error) {
       lastError = error;
     }
     if (attempt + 1 < attempts)
       await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
   }
-  if (result) return result;
+  if (lastResponse) return lastResponse;
   throw lastError || new Error('Network request failed');
 }
 
@@ -175,7 +182,7 @@ async function querySiaCollection(collection, ra, dec, radius) {
   url.searchParams.set('POS', `circle ${ra} ${dec} ${radius}`);
   url.searchParams.set('RESPONSEFORMAT', 'CSV');
   url.searchParams.set('MAXREC', String(MAX_SEARCH_RESULTS));
-  const archiveResponse = await fetchWithRetry(url, { signal: AbortSignal.timeout(25000) });
+  const archiveResponse = await fetchWithRetry(url, { timeoutMs: 25000 });
   if (!archiveResponse.ok) {
     throw new Error(`El archivo IRSA (${collection}) no respondió a la búsqueda.`);
   }
@@ -245,7 +252,6 @@ export default async function handler(request, response) {
       const results = await Promise.all(
         collectionsToQuery.map((col) =>
           querySiaCollection(col, ra, dec, radius).catch((err) => {
-            if (collectionsToQuery.length === 1) throw err;
             return { records: [], truncated: false, error: err.message };
           }),
         ),
@@ -253,12 +259,20 @@ export default async function handler(request, response) {
       const rawRecords = results.flatMap((r) => r.records);
       const deduplicated = deduplicateSiaRecords(rawRecords);
       const truncated = results.some((r) => r.truncated);
+      const failedCollections = results
+        .map((result, index) => result.error ? collectionsToQuery[index] : null)
+        .filter(Boolean);
+      if (failedCollections.length === collectionsToQuery.length) {
+        throw new Error(`IRSA no respondió para: ${failedCollections.join(', ')}`);
+      }
       return response.status(200).json({
         records: deduplicated,
         collection: collectionsToQuery.join('+'),
         rawCount: rawRecords.length,
         deduplicatedCount: deduplicated.length,
         truncated,
+        partial: failedCollections.length > 0,
+        failedCollections,
       });
     } catch (error) {
       console.error('SPHEREx SIA search failed:', error);
@@ -293,9 +307,7 @@ export default async function handler(request, response) {
       // A half-degree field gives the viewer enough detector pixels and
       // surrounding reference stars to compare observations over time.
       cutoutUrl.searchParams.set('size', '0.5');
-      const imageResponse = await fetchWithRetry(cutoutUrl, {
-        signal: AbortSignal.timeout(30000),
-      });
+      const imageResponse = await fetchWithRetry(cutoutUrl, { timeoutMs: 30000 });
       if (!imageResponse.ok)
         return sendError(response, 502, 'IRSA no pudo generar el recorte de esta observación.');
       response.setHeader('Content-Type', 'application/fits');

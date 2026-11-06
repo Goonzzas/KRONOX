@@ -360,7 +360,9 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   const requestRef = useRef(0);
   const compareRequestRef = useRef(0);
   const searchRef = useRef(0);
-  const stretchRef = useRef(null);
+  // Keep a stable display stretch per detector. A single stretch shared across
+  // all six infrared bands can make valid frames look almost black.
+  const stretchByBandRef = useRef(new Map());
   const frameCacheRef = useRef(new Map()); // local LRU in-memory cache for parsed FITS
 
   useEffect(() => {
@@ -396,11 +398,11 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     }
   }, [visibleRecords, frameIndex, compareIndex]);
 
-  const search = async (nextRa = ra, nextDec = dec, nextRelease = release, targetObj = TARGETS[selected]) => {
+  const search = async (nextRa = ra, nextDec = dec, nextRelease = release) => {
     const searchId = ++searchRef.current;
     // Lock the common WCS sky-grid center once for the whole observation sequence
     setImageCenter({ ra: Number(nextRa), dec: Number(nextDec) });
-    stretchRef.current = null;
+    stretchByBandRef.current.clear();
     frameCacheRef.current.clear();
     setLoading(true);
     setError('');
@@ -436,25 +438,23 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
       const sorted = [...unique.values()].sort(
         (a, b) => Number(a.dateAvg || a.date) - Number(b.dateAvg || b.date),
       );
-      const bandCounts = new Map();
-      for (const record of sorted)
-        bandCounts.set(record.band, (bandCounts.get(record.band) || 0) + 1);
-      const mostObservedBand = [...bandCounts].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
-      const targetPreferred = targetObj?.preferredBand;
-      const selectedBand = targetPreferred && sorted.some((r) => r.band === targetPreferred)
-        ? targetPreferred
-        : mostObservedBand;
       setRecords(sorted);
-      setBand(selectedBand);
+      // Start with every returned observation visible. Users can narrow to one
+      // detector when they want scientifically comparable epochs.
+      setBand('');
       if (sorted.length > 1) {
         setCompareIndex(sorted.length - 1);
       }
       setTruncated(body.truncated);
-      setStatus(
-        sorted.length
-          ? `Se encontraron ${sorted.length} imágenes en ${new Set(sorted.map((row) => new Date((Number(row.dateAvg || row.date) - 40587) * 86400000).toISOString().slice(0, 10))).size} días distintos.`
-          : 'No hay imágenes SPHEREx disponibles para estas coordenadas en este lanzamiento.',
-      );
+      const resultStatus = sorted.length
+        ? `Se encontraron ${sorted.length} imágenes en ${new Set(sorted.map((row) => new Date((Number(row.dateAvg || row.date) - 40587) * 86400000).toISOString().slice(0, 10))).size} días distintos.`
+        : 'No hay imágenes SPHEREx disponibles para estas coordenadas en este lanzamiento.';
+      const partialWarning = body.partial
+        ? language === 'en'
+          ? ` Warning: IRSA did not respond for ${body.failedCollections.join(', ')}; this timeline may be incomplete.`
+          : ` Aviso: IRSA no respondió para ${body.failedCollections.join(', ')}; la línea de tiempo puede estar incompleta.`
+        : '';
+      setStatus(`${resultStatus}${partialWarning}`);
     } catch (cause) {
       if (searchId === searchRef.current) {
         setError(cause.message);
@@ -466,7 +466,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
   };
 
   useEffect(() => {
-    search(ra, dec, release, initialTarget);
+    search(ra, dec, release);
     // Load the first target as soon as Kronox arrives at the observatory.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -475,7 +475,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     setSelected(index);
     setRa(String(TARGETS[index].ra));
     setDec(String(TARGETS[index].dec));
-    stretchRef.current = null;
+    stretchByBandRef.current.clear();
     frameCacheRef.current.clear();
     setRecords([]);
     setImage('');
@@ -485,7 +485,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     setDiffDataUrl('');
     setSelectedCandidate(null);
     setStatus(`Buscando observaciones de ${TARGETS[index].name}…`);
-    search(String(TARGETS[index].ra), String(TARGETS[index].dec), release, TARGETS[index]);
+    search(String(TARGETS[index].ra), String(TARGETS[index].dec), release);
   };
 
   // Helper to retrieve or fetch a parsed FITS frame from cache
@@ -506,11 +506,14 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     }
     const buffer = await response.arrayBuffer();
     if (tokenRef.current !== currentToken) return null;
-    const rendered = parseFits(buffer, stretchRef.current, imageCenter, {
+    const fixedRange = stretchByBandRef.current.get(record.band) || null;
+    const rendered = parseFits(buffer, fixedRange, imageCenter, {
       zodiMode,
       flagPolicy,
     });
-    if (!stretchRef.current) stretchRef.current = rendered.range;
+    if (!stretchByBandRef.current.has(record.band)) {
+      stretchByBandRef.current.set(record.band, rendered.range);
+    }
     frameCacheRef.current.set(cacheKey, rendered);
     return rendered;
   };
@@ -1018,7 +1021,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
     const targetIndex = TARGETS.findIndex((tgt) => tgt.key === finding.targetKey);
     if (targetIndex !== -1 && targetIndex !== selected) {
       setSelected(targetIndex);
-      search(String(TARGETS[targetIndex].ra), String(TARGETS[targetIndex].dec), release, TARGETS[targetIndex]);
+      search(String(TARGETS[targetIndex].ra), String(TARGETS[targetIndex].dec), release);
     }
     if (finding.band) {
       setBand(finding.band);
@@ -1353,7 +1356,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                       <select
                         value={zodiMode}
                         onChange={(event) => {
-                          stretchRef.current = null;
+                          stretchByBandRef.current.clear();
                           frameCacheRef.current.clear();
                           setZodiMode(event.target.value);
                         }}
@@ -1369,7 +1372,7 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                       <select
                         value={flagPolicy}
                         onChange={(event) => {
-                          stretchRef.current = null;
+                          stretchByBandRef.current.clear();
                           frameCacheRef.current.clear();
                           setFlagPolicy(event.target.value);
                         }}
@@ -1523,8 +1526,6 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                     <select
                       value={band}
                       onChange={(event) => {
-                        stretchRef.current = null;
-                        frameCacheRef.current.clear();
                         setBand(event.target.value);
                         setFrameIndex(0);
                         const nextLen = event.target.value
@@ -1535,10 +1536,10 @@ export default function SpherexMission({ onClose, initialTargetKey = 'barnard', 
                       }}
                       disabled={!bands.length}
                     >
-                      <option value="">{t('Todas', language)}</option>
+                      <option value="">{t('Todas', language)} · {records.length}</option>
                       {bands.map((name) => (
                         <option key={name} value={name}>
-                          {formatBandLabel(name)}
+                          {formatBandLabel(name)} · {records.filter((record) => record.band === name).length}
                         </option>
                       ))}
                     </select>
