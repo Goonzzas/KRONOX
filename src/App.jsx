@@ -680,9 +680,9 @@ export default function App() {
       gal: 'Movimiento galáctico',
     },
     startTravel = (run, label, afterArrival, awaitSceneArrival = false) => {
-      // Travel was previously triggered while the astronaut remained in the
-      // cabin or the ship was in spectator mode, so the route ran off-screen.
-      // Every fast-travel path now begins from the visible, controllable chase view.
+      // Keep the active cockpit/exterior perspective for the whole trip. If
+      // travel starts from a navigation-only state, use the chase camera.
+      const travelView = fr ? pv : 3;
       if (spec) {
         A().board();
         setSpec(false);
@@ -690,8 +690,8 @@ export default function App() {
         A().free(true, false);
       }
       setFr(true);
-      setPv(3);
-      A().view(3);
+      setPv(travelView);
+      A().view(travelView);
       playCue('travel');
       setNavigation({ label: t(label, language), phase: 'countdown', progress: 0 });
       clearTimeout(missionTravelTipTimer.current);
@@ -1643,7 +1643,7 @@ export default function App() {
     h(KronoxWidget, {
       narrative: guide,
       dialogueHidden: kronoxDialogHidden,
-      showCornerOrb: fr && !welcomeOpen && !realTimeIntroActive,
+      showCornerOrb: fr && pv === 3 && !welcomeOpen && !realTimeIntroActive,
       speaking,
       audioLevels,
       panelOpen: kronoxOpen,
