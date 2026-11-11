@@ -4,7 +4,7 @@
 
 **Explora el sistema solar · Sigue las señales · Descubre el cielo infrarrojo**
 
-[🚀 Abrir KRONOX](https://kronox-delta.vercel.app) · [📖 Guía de usuario](docs/GUIA_USUARIO.md) · [🧭 Arquitectura](docs/ARQUITECTURA.md) · [📚 Wiki del proyecto](docs/wiki/README.md)
+[🚀 Abrir KRONOX](https://kronox-three.vercel.app) · [📖 Guía de usuario](docs/GUIA_USUARIO.md) · [🧭 Arquitectura](docs/ARQUITECTURA.md) · [📚 Wiki del proyecto](docs/wiki/README.md)
 
 <img src="docs/kronox-badges.svg" alt="React 18 · Vite 8 · Three.js · SPHEREx con alineación WCS · API Vercel · español e inglés · WebGL" width="100%" />
 
