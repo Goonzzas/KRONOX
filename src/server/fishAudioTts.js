@@ -2,16 +2,23 @@ import fallbackVoiceHandler from '../../api/voice.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import os from 'node:os';
 
 export const FISH_AUDIO_VOICE_ID = '8150d8bf74d245cd84a154b785aa7fab';
 export const FISH_AUDIO_TTS_ENDPOINT = 'https://api.fish.audio/v1/tts';
 export const FISH_AUDIO_MODEL_ENDPOINT = 'https://api.fish.audio/model';
 
 const memoryCache = new Map();
-const cacheDir = path.resolve(process.cwd(), '.cache', 'fish-audio');
+const cacheDir =
+  process.env.VERCEL === '1'
+    ? path.join(os.tmpdir(), 'kronox-cache', 'fish-audio')
+    : path.resolve(process.cwd(), '.cache', 'fish-audio');
 
 function getCacheKey(referenceId, model, format, text) {
-  return crypto.createHash('sha256').update(`${referenceId}:${model}:${format}:${text}`).digest('hex');
+  return crypto
+    .createHash('sha256')
+    .update(`${referenceId}:${model}:${format}:${text}`)
+    .digest('hex');
 }
 
 function getServerFishApiKey() {
@@ -42,7 +49,8 @@ export async function verifyFishVoiceAccess(referenceId = FISH_AUDIO_VOICE_ID, f
       accessible: false,
       referenceId: cleanId,
       provider: 'fallback',
-      reason: 'FISH_AUDIO_API_KEY no configurada en el entorno del servidor; usando proveedor TTS de respaldo.',
+      reason:
+        'FISH_AUDIO_API_KEY no configurada en el entorno del servidor; usando proveedor TTS de respaldo.',
     };
   }
 
@@ -104,7 +112,9 @@ export async function synthesizeWithFishAudio({
   format = 'mp3',
   fetchImpl = fetch,
 } = {}) {
-  const cleanText = String(text || '').trim().slice(0, 650);
+  const cleanText = String(text || '')
+    .trim()
+    .slice(0, 650);
   if (!cleanText) {
     const err = new Error('Missing text');
     err.statusCode = 400;
@@ -222,7 +232,8 @@ export async function synthesizeWithFishAudio({
  * proveedor TTS existente (`api/voice.js`).
  */
 export default async function fishTtsHandler(req, res) {
-  const query = req.query || Object.fromEntries(new URL(req.url || '/', 'http://localhost').searchParams);
+  const query =
+    req.query || Object.fromEntries(new URL(req.url || '/', 'http://localhost').searchParams);
 
   if (query.status === '1' || query.verify === '1') {
     const status = await verifyFishVoiceAccess(query.reference_id || FISH_AUDIO_VOICE_ID);
@@ -230,7 +241,9 @@ export default async function fishTtsHandler(req, res) {
     return res.status(200).json(status);
   }
 
-  const text = String(query.text || '').trim().slice(0, 650);
+  const text = String(query.text || '')
+    .trim()
+    .slice(0, 650);
   if (!text) {
     return res.status(400).json({ error: 'Missing text' });
   }

@@ -171,7 +171,7 @@ test('Original entry and Cronos events remain available, with an opening stage a
     await harness.close();
   }
 });
-test('Astronomical appearance, science, image data and services remain byte-identical to the pre-cinematic baseline', () => {
+test('Astronomical appearance, science and image data remain byte-identical to the pre-cinematic baseline', () => {
   const baseline = JSON.parse(
       fs.readFileSync('docs/cinematic-navigation-2026-11-07/baseline.json'),
     ),
@@ -191,8 +191,9 @@ test('Astronomical appearance, science, image data and services remain byte-iden
       'src/utils/scientificEvidence.js',
     ];
   for (const file of baseline.files.filter(
-    // The legacy voice adapter now has an intentional network timeout; scientific services stay protected.
-    (f) => f.path !== 'api/voice.js' && (protectedPrefixes.some((p) => f.path.startsWith(p)) || protectedFiles.includes(f.path)),
+    // Intentional deployment changes: voice timeout and best-effort temporary IRSA cache.
+    // Query plans, science extraction, images and scene reconstruction stay protected.
+    (f) => !['api/voice.js', 'api/lib/irsaCache.js'].includes(f.path) && (protectedPrefixes.some((p) => f.path.startsWith(p)) || protectedFiles.includes(f.path)),
   )) {
     assert.ok(fs.existsSync(file.path));
     assert.equal(

@@ -1,8 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import os from 'node:os';
 const inflight = new Map();
-const root = path.resolve(process.cwd(), '.cache', 'irsa-v2');
+const root =
+  process.env.VERCEL === '1'
+    ? path.join(os.tmpdir(), 'kronox-cache', 'irsa-v2')
+    : path.resolve(process.cwd(), '.cache', 'irsa-v2');
 export async function cachedIrsaBytes(
   url,
   {
@@ -53,22 +57,26 @@ export async function cachedIrsaBytes(
         }
         const bytes = Buffer.concat(parts);
         if (enabled) {
-          await fs.mkdir(root, { recursive: true });
-          await fs.writeFile(file, bytes);
-          const files = (await fs.readdir(root)).filter((n) => /^[a-f0-9]{64}\.bin$/.test(n));
-          let stats = await Promise.all(
-            files.map(async (n) => ({
-              file: path.join(root, n),
-              ...(await fs.stat(path.join(root, n))),
-            })),
-          );
-          let total = stats.reduce((s, f) => s + f.size, 0);
-          for (const f of stats.sort((a, b) => a.mtimeMs - b.mtimeMs)) {
-            if (total <= 192 * 1024 * 1024) break;
-            if (f.file !== file && path.dirname(f.file) === root) {
-              await fs.unlink(f.file);
-              total -= f.size;
+          try {
+            await fs.mkdir(root, { recursive: true });
+            await fs.writeFile(file, bytes);
+            const files = (await fs.readdir(root)).filter((n) => /^[a-f0-9]{64}\.bin$/.test(n));
+            let stats = await Promise.all(
+              files.map(async (n) => ({
+                file: path.join(root, n),
+                ...(await fs.stat(path.join(root, n))),
+              })),
+            );
+            let total = stats.reduce((s, f) => s + f.size, 0);
+            for (const f of stats.sort((a, b) => a.mtimeMs - b.mtimeMs)) {
+              if (total <= 192 * 1024 * 1024) break;
+              if (f.file !== file && path.dirname(f.file) === root) {
+                await fs.unlink(f.file);
+                total -= f.size;
+              }
             }
+          } catch {
+            // An ephemeral cache failure must never discard a successful IRSA response.
           }
         }
         return { bytes, cached: false };
