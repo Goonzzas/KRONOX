@@ -1,6 +1,6 @@
-import {parseCsvTable,buildSearchPlan} from './lib/archivePlan.js';
-import {cachedIrsaBytes} from './lib/irsaCache.js';
-export {parseCsv,buildSearchPlan} from './lib/archivePlan.js';
+import {parseCsvTable,buildSearchPlan} from './_lib/archivePlan.js';
+import {cachedIrsaBytes} from './_lib/irsaCache.js';
+export {parseCsv,buildSearchPlan} from './_lib/archivePlan.js';
 import {parseFitsCardValue} from '../src/utils/fitsCard.js';
 const IRSA_SIA = 'https://irsa.ipac.caltech.edu/SIA';
 

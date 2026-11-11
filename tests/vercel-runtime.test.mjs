@@ -22,7 +22,7 @@ test('Vercel IRSA requests use temporary storage and survive a failed cache writ
       attemptedCache = p;
       throw Object.assign(new Error('Read-only filesystem'), { code: 'EROFS' });
     };
-    const { cachedIrsaBytes } = await import('./api/lib/irsaCache.js');
+    const { cachedIrsaBytes } = await import('./api/_lib/irsaCache.js');
     const result = await cachedIrsaBytes('https://irsa.ipac.caltech.edu/runtime-cache-regression', { force: true });
     assert.equal(result.bytes.toString(), 'verified IRSA data');
     assert.equal(result.cached, false);

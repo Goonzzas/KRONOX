@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
 import handler,{querySiaCollection} from '../api/spherex.js';
-import {parseCsvTable,buildSearchPlan} from '../api/lib/archivePlan.js';
-import {cachedIrsaBytes} from '../api/lib/irsaCache.js';
+import {parseCsvTable,buildSearchPlan} from '../api/_lib/archivePlan.js';
+import {cachedIrsaBytes} from '../api/_lib/irsaCache.js';
 import {collectArchive,observationStats,FrameLru,fitsCacheKey} from '../src/utils/archiveClient.js';
 test('Archive parses quoted lines and real Barnard responses without a 1000-row cap or version loss',async()=>{
  assert.equal(parseCsvTable('a,b\n"x,y","line1\nline2"\n').rows[0].b,'line1\nline2');assert.throws(()=>parseCsvTable('a\n"unfinished'));
