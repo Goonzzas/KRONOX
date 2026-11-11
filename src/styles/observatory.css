@@ -1,0 +1,419 @@
+/* Dedicated image workspace: headers never shrink; one scroll container owns the content. */
+.kronoxExpeditionShade {
+  padding: 10px;
+}
+.kronoxExpeditionShade .kronoxExpeditionSheet {
+  width: calc(100vw - 20px);
+  height: calc(100vh - 20px);
+  height: calc(100dvh - 20px);
+  max-width: none;
+  max-height: none;
+  min-height: 0;
+  border-radius: 12px;
+}
+.kronoxExpeditionShade .kronoxExpeditionHeader {
+  flex: 0 0 auto;
+  min-height: 64px;
+  padding: 12px 20px;
+  gap: 16px;
+}
+.kronoxExpeditionShade .kronoxExpeditionStages {
+  flex: 0 0 auto;
+  min-height: 48px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.kronoxExpeditionShade .kronoxExpeditionWorkspace {
+  display: block;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-padding: 16px;
+}
+.kronoxExpeditionShade .kronoxObservationView {
+  display: block;
+  overflow: visible;
+  min-height: 0;
+}
+.kronoxExpeditionShade .kronoxCanvasArea {
+  height: clamp(420px, 64vh, 800px);
+  min-height: 420px;
+  flex: none;
+  width: 100%;
+}
+.kronoxExpeditionShade .kronoxSingleStage,
+.kronoxExpeditionShade .kronoxSideBySideStage,
+.kronoxExpeditionShade .kronoxDiffStage {
+  height: 100%;
+  min-height: 0;
+}
+.kronoxExpeditionShade .kronoxImageFrame {
+  display: block;
+  width: auto;
+  height: 100%;
+  max-height: 100%;
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+}
+.kronoxExpeditionShade .kronoxImageFrame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.kronoxExpeditionShade .kronoxDualPane {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+}
+.kronoxExpeditionShade .kronoxPaneCanvas {
+  height: calc(100% - 38px);
+  min-height: 0;
+}
+.kronoxExpeditionShade .kronoxStageRibbon {
+  flex-wrap: wrap;
+}
+.kronoxExpeditionShade .kronoxRibbonControls {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.kronoxExpeditionShade .observatorySource {
+  flex: 0 0 auto;
+  margin: 8px 18px;
+  padding: 8px 12px;
+  font-size: 11px;
+}
+.observatorySource b {
+  display: inline-block;
+  margin-right: 12px;
+}
+.observatorySource > p {
+  display: inline;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.archiveSourceOptions {
+  display: inline-block;
+  margin-left: 14px;
+}
+.archiveSourceOptions[open] {
+  display: block;
+  margin: 10px 0 0;
+}
+.archiveSourceOptions summary {
+  color: #a9dff4;
+  cursor: pointer;
+  padding: 5px 0;
+}
+.archiveSourceOptions label {
+  line-height: 1.7;
+}
+.observatoryImageToolbar,
+.temporalPairControls {
+  padding: 12px 18px;
+  background: #102432;
+  border-bottom: 1px solid #2a4658;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: end;
+  color: #d5e7f1;
+  font-size: 12px;
+}
+.observatoryImageToolbar label,
+.temporalPairControls label {
+  display: grid;
+  gap: 5px;
+}
+.observatoryImageToolbar button,
+.temporalPairControls button,
+.observationGallery button,
+.observationGallery select,
+.observatoryImageToolbar select,
+.temporalPairControls select {
+  padding: 8px 11px;
+  border: 1px solid #4b7187;
+  background: #173749;
+  color: #e7f4fa;
+  border-radius: 6px;
+  font: inherit;
+  cursor: pointer;
+}
+.observatoryImageToolbar span {
+  font-size: 11px;
+  max-width: 320px;
+  color: #aac5d5;
+}
+.temporalPairControls > div {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: end;
+  width: 100%;
+}
+.temporalPairControls label {
+  flex: 1;
+  min-width: 180px;
+}
+.temporalPairControls select {
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+}
+.temporalPairControls p {
+  width: 100%;
+  margin: 3px 0;
+  line-height: 1.6;
+  color: #c1d7e4;
+}
+.temporalPairControls button:disabled {
+  opacity: 0.55;
+}
+.observationGallery button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.observationGallery {
+  padding: 20px;
+  background: #0b1723;
+  border-top: 1px solid #365568;
+}
+.observationGallery > header {
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.observationGallery h3 {
+  font-size: 19px;
+  margin: 0 0 6px;
+}
+.observationGallery header p {
+  font-size: 12px;
+  color: #b6cedd;
+  margin: 0;
+  line-height: 1.5;
+}
+.observationGallery header label {
+  font-size: 12px;
+  display: grid;
+  gap: 5px;
+  max-width: 100%;
+}
+.observationGallery select {
+  max-width: 100%;
+}
+.observationGalleryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.observationCard {
+  border: 1px solid #2d4c60;
+  border-radius: 9px;
+  overflow: hidden;
+  background: #101f2e;
+  min-width: 0;
+}
+.observationCard.selected {
+  outline: 2px solid #5cc5f3;
+}
+.observationCardImage {
+  border: 0 !important;
+  border-radius: 0 !important;
+  width: 100%;
+  height: clamp(180px, 23vw, 300px);
+  display: grid;
+  place-items: center;
+  padding: 0 !important;
+  background: #02070c !important;
+}
+.observationCardImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.observationCardImage span {
+  padding: 20px;
+  font-size: 12px;
+  color: #8eaebb;
+}
+.observationCard > div {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  font-size: 12px;
+}
+.observationCard b {
+  color: #def3ff;
+}
+.observationCard small {
+  color: #9eb8ca;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.observationCard footer {
+  display: flex;
+  gap: 7px;
+  padding: 0 12px 12px;
+  flex-wrap: wrap;
+}
+.observationGallery > nav {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  justify-content: center;
+  margin: 20px 0;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.archiveIndex {
+  padding: 14px 20px;
+  background: #0e1b29;
+  border-top: 1px solid #355267;
+}
+.archiveIndex > summary {
+  cursor: pointer;
+  color: #abcfe1;
+  font-size: 12px;
+}
+.kronoxExpeditionShade .archiveIndex .kronoxTimelineBar {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  margin-top: 14px;
+}
+.kronoxExpeditionShade .kronoxTimelineChips {
+  max-height: none;
+  flex-wrap: wrap;
+  overflow: visible;
+}
+.observatoryAnalysis[hidden] {
+  display: none !important;
+}
+.observatoryAnalysis {
+  padding: 0 18px 22px;
+}
+.observatoryAnalysis .juanEvidenceLab {
+  margin: 16px 0;
+}
+.observatoryAnalysis .juanSpectrum {
+  max-height: 460px;
+  min-height: 250px;
+}
+.observatoryAnalysis .juanTableWrap {
+  max-height: 380px;
+  overflow: auto;
+}
+.observatoryAnalysis .juanRgb {
+  width: min(640px, 100%);
+}
+.kronoxExpeditionShade .kronoxArrivalCard,
+.kronoxExpeditionShade .kronoxNotebookView,
+.kronoxExpeditionShade .kronoxSummaryView {
+  overflow: visible;
+  min-height: min-content;
+}
+@media (min-width: 1500px) {
+  .observationGalleryGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .observationCardImage {
+    height: 260px;
+  }
+}
+@media (max-width: 850px) {
+  .kronoxExpeditionShade .kronoxCanvasArea {
+    height: 58vh;
+    min-height: 340px;
+  }
+  .observationGalleryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .kronoxExpeditionShade .kronoxExpeditionHeader {
+    padding: 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .kronoxExpeditionShade .kronoxHeaderTitle {
+    font-size: 16px;
+  }
+  .observatoryImageToolbar,
+  .temporalPairControls {
+    padding: 10px;
+  }
+  .observationGallery {
+    padding: 12px;
+  }
+  .observatoryAnalysis {
+    padding: 0 8px;
+  }
+  .kronoxExpeditionShade .kronoxSideBySideStage {
+    flex-direction: column;
+  }
+  .kronoxExpeditionShade .kronoxSideBySideStage .kronoxDualPane {
+    width: 100%;
+    height: 50%;
+  }
+  .kronoxExpeditionShade .kronoxCanvasArea:has(.kronoxSideBySideStage) {
+    height: 900px;
+  }
+  .kronoxExpeditionShade .observatorySource {
+    margin: 5px 10px;
+  }
+  .archiveSourceOptions {
+    display: block;
+    margin-left: 0;
+  }
+}
+@media (max-width: 500px) {
+  .observationGalleryGrid {
+    grid-template-columns: 1fr;
+  }
+  .observationCardImage {
+    height: 280px;
+  }
+  .kronoxCloseLabel {
+    display: none;
+  }
+  .temporalPairControls label {
+    min-width: 100%;
+  }
+  .observatoryImageToolbar {
+    font-size: 11px;
+  }
+  .kronoxExpeditionShade {
+    padding: 4px;
+  }
+  .kronoxExpeditionShade .kronoxExpeditionSheet {
+    width: calc(100vw - 8px);
+    height: calc(100dvh - 8px);
+  }
+}
+
+.kronoxExpeditionShade .kronoxSideBySideStage {
+  display: flex;
+  flex-direction: row;
+  box-sizing: border-box;
+}
+.observationGalleryFilters {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+}
+.observationGalleryFilters label {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+}
+@media (max-width: 850px) {
+  .kronoxExpeditionShade .kronoxSideBySideStage {
+    flex-direction: column;
+  }
+}

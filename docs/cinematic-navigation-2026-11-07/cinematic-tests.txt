@@ -1,0 +1,14 @@
+✔ Jump phases run in order, in seconds, with deterministic arrival at 30 and 144 Hz (8.3894ms)
+✔ Entry visibly lengthens trails before cruise and exit fades them; reduced motion suppresses the threshold pulse (0.5519ms)
+✔ Temporary corridor attaches without altering exterior objects and releases every owned GPU resource (6.9022ms)
+✔ Existing scene keeps the ship visible through consecutive Barnard, RW Aurigae and galaxy jumps; heading survives control handoff (5736.1898ms)
+✔ Original entry and Cronos events remain available, with an opening stage and repeatable skip (5163.7001ms)
+✔ Astronomical appearance, science, image data and services remain byte-identical to the pre-cinematic baseline (208.9684ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11527.2746

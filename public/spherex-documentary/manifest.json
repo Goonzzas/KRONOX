@@ -1,0 +1,48 @@
+{
+  "title": "SPHEREx: 102 colores para descubrir el universo",
+  "provenance": "NASA Science Mission Directorate, JPL-Caltech, SpaceX, Caltech Cleanroom",
+  "resources": [
+    {
+      "id": "orbit-concept",
+      "file": "spherex_orbit_concept_pia26531.jpg",
+      "title": "SPHEREx en Órbita Polar Heliosíncrona",
+      "credit": "NASA / JPL-Caltech (PIA26531)",
+      "act": "INTRO"
+    },
+    {
+      "id": "team-caltech",
+      "file": "spherex_team_caltech_pia26534.jpg",
+      "title": "Equipo de SPHEREx en Sala Limpia de Caltech",
+      "credit": "NASA / JPL-Caltech (PIA26534)",
+      "act": "HISTORY"
+    },
+    {
+      "id": "photon-shield",
+      "file": "spherex_photon_shield_pia25784.jpg",
+      "title": "Construcción de los Tres Escudos Fotónicos Cónicos",
+      "credit": "NASA / JPL-Caltech (PIA25784)",
+      "act": "CONSTRUCTION"
+    },
+    {
+      "id": "thermal-vacuum",
+      "file": "spherex_thermal_vacuum_test.jpg",
+      "title": "Ensayos Criogénicos en Cámara de Vacío Térmico",
+      "credit": "NASA / JPL-Caltech / KASI",
+      "act": "CONSTRUCTION"
+    },
+    {
+      "id": "falcon9-launch",
+      "file": "spherex_falcon9_fairing_launch.jpg",
+      "title": "Integración en Cofia de Falcon 9 (Vandenberg SLC-4E)",
+      "credit": "NASA / SpaceX (11 de Marzo de 2025)",
+      "act": "LAUNCH"
+    },
+    {
+      "id": "spacecraft-payload",
+      "file": "spherex_spacecraft_payload.jpg",
+      "title": "Observatorio Criogénico y Espectrómetro de 102 Colores",
+      "credit": "NASA / JPL-Caltech",
+      "act": "SCIENCE"
+    }
+  ]
+}

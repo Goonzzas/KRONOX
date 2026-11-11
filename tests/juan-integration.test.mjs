@@ -1,0 +1,26 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import * as THREE from 'three';
+import {createDestinationResources,summarizeFrameTimes,VISUAL_BUDGET} from '../src/scene/destinationVisuals.js';
+import {processKronoxQuery} from '../src/utils/kronoxAI.js';
+import {RESEARCH_CATALOG} from '../src/data/researchCatalog.js';
+import handler,{fetchWithRetry} from '../api/spherex.js';
+const fakeDocument={createElement(){return {width:0,height:0,getContext(){return {fillRect(){},clearRect(){},save(){},restore(){},translate(){},createRadialGradient(){return {addColorStop(){}};}};}};}};
+test('Destinations use round halo, lazy detail, shared geometry, no square dust, and explicit illustrative volume',()=>{
+ const resources=createDestinationResources(fakeDocument),star=resources.build({key:'barnard',type:'estrella'}),galaxy=resources.build({key:'m31',type:'galaxia',morphology:'spiral'});
+ assert.equal(star.detailBuilt,false);assert.equal(galaxy.detailBuilt,false);const camera=new THREE.PerspectiveCamera();camera.position.set(0,0,500);star.update(camera);assert.equal(star.detailBuilt,false);camera.position.set(0,0,1.3);star.update(camera);galaxy.update(camera);assert.ok(star.detailBuilt&&galaxy.detailBuilt);assert.ok(star.marker.userData.representation.includes('ILUSTRACIÓN'));
+ const meshes=[];star.marker.traverse(n=>{if(n.isMesh)meshes.push(n);assert.ok(!n.isPoints);});assert.equal(meshes.length,1);const other=resources.build({key:'rw-aurigae',type:'estrella'});other.ensureDetail();let geometry;other.marker.traverse(n=>{if(n.isMesh)geometry=n.geometry;});assert.equal(meshes[0].geometry,geometry);assert.ok(meshes[0].geometry.index.count < new THREE.SphereGeometry(1,48,32).index.count);resources.dispose();
+});
+test('Frame timing summary reports samples instead of claiming unmeasured FPS',()=>{assert.equal(summarizeFrameTimes([]),null);const stats=summarizeFrameTimes([10,20,30]);assert.equal(stats.meanFrameMs,20);assert.equal(stats.p95Ms,30);assert.equal(stats.fps,50);});
+test('Catalog distinguishes local pixels, archive coverage, and unresolved targets without invented distances',()=>{assert.equal(RESEARCH_CATALOG.targets.length,21);assert.equal(RESEARCH_CATALOG.targets.filter(t=>t.verification==='LOCAL_FITS_VALIDATED').length,4);assert.equal(RESEARCH_CATALOG.targets.filter(t=>t.verification==='ARCHIVE_COVERAGE_ONLY').length,11);for(const t of RESEARCH_CATALOG.targets){assert.ok(t.question&&t.identifier&&t.type);if(t.distanceLy!==null)assert.ok(t.distanceSource);if(t.verification.startsWith('PENDING_COORDINATES'))assert.equal(t.ra,null);}});
+test('Cronos explains loaded axes, exact selection and uncertainty, unloaded spectrum and synthetic mode',()=>{
+ const base={activeTargetKey:'m31',missionOpen:true};assert.match(processKronoxQuery('¿Qué representa este eje?',base).reply,/no hay un espectro cargado/);
+ const measurement={flux:10,sigma:2,unit:'MJy/sr',wave:4.1,valid:10,total:12,radiusArcsec:24.6};const context={...base,scienceContext:{targetKey:'m31',hasSpectrum:true,unit:'MJy/sr',measurements:[measurement],selected:measurement}};
+ assert.match(processKronoxQuery('¿Qué representa este eje?',context).reply,/μm/);const peak=processKronoxQuery('¿Qué puedo concluir de este pico?',context);assert.match(peak.reply,/10.00 ± 2.00 MJy\/sr/);assert.match(peak.reply,/No puedo declarar/);
+ assert.match(processKronoxQuery('¿Qué estoy viendo?',{...context,scienceContext:{...context.scienceContext,activeTool:'synthetic-chemistry'}}).reply,/simulación educativa/);
+ assert.match(processKronoxQuery('¿Qué es una banda infrarroja?',base).reply,/píxel/);
+ assert.match(processKronoxQuery('¿Qué significa este pico?',{...base,scienceContext:{targetKey:'barnard',hasSpectrum:true}}).reply,/no hay un espectro cargado/);
+});
+test('Backend retry receives a fresh timeout signal on every attempt',async()=>{const original=globalThis.fetch;const signals=[];try{globalThis.fetch=async(_,{signal})=>{signals.push(signal);if(signals.length===1){await new Promise(r=>setTimeout(r,10));throw new DOMException('timeout','TimeoutError');}assert.equal(signal.aborted,false);return new Response('ok');};const result=await fetchWithRetry('https://irsa.ipac.caltech.edu/test',{timeoutMs:5},2);assert.equal(await result.text(),'ok');assert.equal(signals.length,2);assert.notEqual(signals[0],signals[1]);}finally{globalThis.fetch=original;}});
+test('Backend propagates QR2/QR3 partial failures and does not report them complete',async()=>{const original=globalThis.fetch;try{globalThis.fetch=async url=>{if(String(url).includes('spherex_qr3'))return new Response('error',{status:400});return new Response('s_ra,obs_id,t_min,t_max,access_url,energy_bandpassname\n1,test,60000,60001,https://irsa.ipac.caltech.edu/ibe/data/spherex/qr2/example.fits,SPHEREx-D2');};let result,status;const res={setHeader(){},status(code){status=code;return this;},json(value){result=value;return this;}};await handler({method:'GET',url:'http://localhost/api/spherex?action=search&ra=1&dec=2'},res);assert.equal(status,200);assert.equal(result.partial,true);assert.deepEqual(result.failedCollections,['spherex_qr3']);assert.equal(result.records.length,1);}finally{globalThis.fetch=original;}});

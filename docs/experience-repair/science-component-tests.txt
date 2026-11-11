@@ -1,0 +1,23 @@
+✔ React mission component: real local observation, inspect, justify, save, closure and restore without Internet (2439.4768ms)
+✔ Destinations use round halo, lazy detail, shared geometry, no square dust, and explicit illustrative volume (27.1044ms)
+✔ Frame timing summary reports samples instead of claiming unmeasured FPS (0.4003ms)
+✔ Catalog distinguishes local pixels, archive coverage, and unresolved targets without invented distances (0.3959ms)
+✔ Cronos explains loaded axes, exact selection and uncertainty, unloaded spectrum and synthetic mode (2.0744ms)
+✔ Backend retry receives a fresh timeout signal on every attempt (450.4847ms)
+✔ Backend propagates QR2/QR3 partial failures and does not report them complete (4.6102ms)
+✔ Real FITS worker transfers typed pixels, restores WCS/SIP and wavelength calibration without scientific changes (231.423ms)
+✔ RGB masks real per-pixel wavelength intervals and visual adjustments do not change flux arrays (147.5363ms)
+WebSocket server error: Port 24678 is already in use
+✔ Spectrum renders real numbers, empty extraction has an explicit cause, and samples accumulate beyond 12 with bounded frames (1659.9434ms)
+✔ Five astronomical contexts use catalog distances and restrict Orion to the galactic overview (10.1826ms)
+✔ Origin rebasing preserves projection/relative distances and restores simulation coordinates even on render failure (5.0057ms)
+✔ M101 has six distinct authentic cutouts, hashes, calibrated units, positive variance and valid central apertures (1072.1173ms)
+✔ Solar-origin target frame has no galactic-anchor offset and preserves ICRS angular separations (2.4374ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2920.2999

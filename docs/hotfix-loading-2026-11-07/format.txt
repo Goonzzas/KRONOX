@@ -1,0 +1,5 @@
+index.html 268ms
+src/bootstrap.js 9ms (unchanged)
+vite.config.js 37ms
+tests/loading.test.mjs 30ms
+scripts/check-client-modules.mjs 21ms

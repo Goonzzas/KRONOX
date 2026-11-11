@@ -1,0 +1,1 @@
+import fs from 'node:fs';let s=fs.readFileSync('tests/juan-component.test.mjs','utf8');const needle="    const mainImages = () =>";if(!s.includes(needle))throw Error('Test anchor missing');s=s.replace(needle,"    await act(async()=>{await new Promise(r=>setTimeout(r,100));});\n"+needle);fs.writeFileSync('tests/juan-component.test.mjs',s);

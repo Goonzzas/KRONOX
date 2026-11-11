@@ -1,0 +1,2160 @@
+{
+  "type": "div",
+  "props": {
+    "className": "kronoxExpeditionShade",
+    "role": "dialog",
+    "aria-modal": "true"
+  },
+  "children": [
+    {
+      "type": "div",
+      "props": {
+        "className": "kronoxExpeditionSheet"
+      },
+      "children": [
+        {
+          "type": "header",
+          "props": {
+            "className": "kronoxExpeditionHeader"
+          },
+          "children": [
+            {
+              "type": "div",
+              "props": {
+                "className": "kronoxHeaderBadge"
+              },
+              "children": [
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxCompassIcon"
+                  },
+                  "children": [
+                    {
+                      "type": "svg",
+                      "props": {
+                        "width": "16",
+                        "height": "16",
+                        "viewBox": "0 0 24 24",
+                        "fill": "none",
+                        "stroke": "currentColor",
+                        "strokeWidth": "2",
+                        "strokeLinecap": "round",
+                        "strokeLinejoin": "round",
+                        "aria-hidden": "true"
+                      },
+                      "children": [
+                        {
+                          "type": "circle",
+                          "props": {
+                            "cx": "12",
+                            "cy": "12",
+                            "r": "10"
+                          },
+                          "children": null
+                        },
+                        {
+                          "type": "polygon",
+                          "props": {
+                            "points": "16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"
+                          },
+                          "children": null
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "div",
+                  "props": {
+                    "className": "kronoxHeaderText"
+                  },
+                  "children": [
+                    {
+                      "type": "span",
+                      "props": {
+                        "className": "kronoxHeaderSub"
+                      },
+                      "children": [
+                        "EXPEDICIÓN CIENTÍFICA SPHEREx"
+                      ]
+                    },
+                    {
+                      "type": "h2",
+                      "props": {
+                        "className": "kronoxHeaderTitle"
+                      },
+                      "children": [
+                        "M31 · Andrómeda (núcleo)"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "div",
+              "props": {
+                "className": "kronoxTargetSelector"
+              },
+              "children": [
+                {
+                  "type": "label",
+                  "props": {
+                    "htmlFor": "target-select",
+                    "className": "sr-only"
+                  },
+                  "children": [
+                    "Seleccionar objeto"
+                  ]
+                },
+                {
+                  "type": "select",
+                  "props": {
+                    "id": "target-select",
+                    "value": 5,
+                    "className": "kronoxTargetDropdown"
+                  },
+                  "children": [
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 0
+                      },
+                      "children": [
+                        "Estrella de Barnard",
+                        " "
+                      ]
+                    },
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 1
+                      },
+                      "children": [
+                        "Epsilon Indi B",
+                        " "
+                      ]
+                    },
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 2
+                      },
+                      "children": [
+                        "WISE 0855",
+                        " ",
+                        "⚠"
+                      ]
+                    },
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 3
+                      },
+                      "children": [
+                        "RW Aurigae",
+                        " "
+                      ]
+                    },
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 4
+                      },
+                      "children": [
+                        "R Draconis",
+                        " "
+                      ]
+                    },
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 5
+                      },
+                      "children": [
+                        "M31 · Andrómeda (núcleo)",
+                        " "
+                      ]
+                    },
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 6
+                      },
+                      "children": [
+                        "M101 · Molinete (núcleo)",
+                        " "
+                      ]
+                    },
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 7
+                      },
+                      "children": [
+                        "Enana de Sagitario",
+                        " "
+                      ]
+                    },
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 8
+                      },
+                      "children": [
+                        "Gran Nube de Magallanes",
+                        " "
+                      ]
+                    },
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 9
+                      },
+                      "children": [
+                        "Pequeña Nube de Magallanes",
+                        " "
+                      ]
+                    },
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 10
+                      },
+                      "children": [
+                        "Galaxia del Triángulo",
+                        " "
+                      ]
+                    },
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 11
+                      },
+                      "children": [
+                        "Galaxia de Barnard",
+                        " "
+                      ]
+                    },
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 12
+                      },
+                      "children": [
+                        "Galaxia del Escultor",
+                        " "
+                      ]
+                    },
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 13
+                      },
+                      "children": [
+                        "Galaxia de Bode",
+                        " "
+                      ]
+                    },
+                    {
+                      "type": "option",
+                      "props": {
+                        "value": 14
+                      },
+                      "children": [
+                        "Galaxia del Cigarro",
+                        " "
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "props": {
+                "type": "button",
+                "className": "kronoxCloseButton",
+                "title": "Regresar a la nave y al universo 3D"
+              },
+              "children": [
+                {
+                  "type": "svg",
+                  "props": {
+                    "width": "16",
+                    "height": "16",
+                    "viewBox": "0 0 24 24",
+                    "fill": "none",
+                    "stroke": "currentColor",
+                    "strokeWidth": "2",
+                    "strokeLinecap": "round",
+                    "strokeLinejoin": "round",
+                    "aria-hidden": "true"
+                  },
+                  "children": [
+                    {
+                      "type": "line",
+                      "props": {
+                        "x1": "18",
+                        "y1": "6",
+                        "x2": "6",
+                        "y2": "18"
+                      },
+                      "children": null
+                    },
+                    {
+                      "type": "line",
+                      "props": {
+                        "x1": "6",
+                        "y1": "6",
+                        "x2": "18",
+                        "y2": "18"
+                      },
+                      "children": null
+                    }
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxCloseLabel"
+                  },
+                  "children": [
+                    "Regresar al espacio 3D"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "div",
+          "props": {
+            "className": "juanArchiveBanner observatorySource",
+            "role": "status"
+          },
+          "children": [
+            {
+              "type": "b",
+              "props": {},
+              "children": [
+                "DATOS REALES GUARDADOS · DEMO SIN RED"
+              ]
+            },
+            {
+              "type": "p",
+              "props": {},
+              "children": [
+                "Conjunto local versionado: productos reales QR2/QR3. No es el archivo completo ni un cubo espectral.",
+                " "
+              ]
+            },
+            {
+              "type": "details",
+              "props": {
+                "className": "archiveSourceOptions"
+              },
+              "children": [
+                {
+                  "type": "summary",
+                  "props": {},
+                  "children": [
+                    "Origen de datos y opciones de consulta"
+                  ]
+                },
+                {
+                  "type": "button",
+                  "props": {},
+                  "children": [
+                    "Reintentar"
+                  ]
+                },
+                {
+                  "type": "button",
+                  "props": {
+                    "disabled": false
+                  },
+                  "children": [
+                    "Usar productos locales verificados"
+                  ]
+                },
+                {
+                  "type": "button",
+                  "props": {},
+                  "children": [
+                    "Consultar archivo en vivo"
+                  ]
+                },
+                {
+                  "type": "label",
+                  "props": {},
+                  "children": [
+                    {
+                      "type": "input",
+                      "props": {
+                        "type": "checkbox",
+                        "checked": false
+                      },
+                      "children": null
+                    },
+                    " ",
+                    "Consultar por intervalos mensuales (recuperación de consultas grandes)"
+                  ]
+                },
+                {
+                  "type": "label",
+                  "props": {},
+                  "children": [
+                    {
+                      "type": "input",
+                      "props": {
+                        "type": "checkbox",
+                        "checked": true
+                      },
+                      "children": null
+                    },
+                    " ",
+                    "Incluir campos profundos QR2/QR3"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "p",
+              "props": {},
+              "children": [
+                "ctx.fillRect is not a function"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "nav",
+          "props": {
+            "className": "kronoxExpeditionStages",
+            "aria-label": "Etapas de la expedición"
+          },
+          "children": [
+            {
+              "type": "button",
+              "props": {
+                "type": "button",
+                "className": "kronoxStageTab  completed"
+              },
+              "children": [
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageStep"
+                  },
+                  "children": [
+                    "1"
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageIcon"
+                  },
+                  "children": [
+                    {
+                      "type": "svg",
+                      "props": {
+                        "width": "16",
+                        "height": "16",
+                        "viewBox": "0 0 24 24",
+                        "fill": "none",
+                        "stroke": "currentColor",
+                        "strokeWidth": "2",
+                        "strokeLinecap": "round",
+                        "strokeLinejoin": "round",
+                        "aria-hidden": "true"
+                      },
+                      "children": [
+                        {
+                          "type": "circle",
+                          "props": {
+                            "cx": "12",
+                            "cy": "12",
+                            "r": "10"
+                          },
+                          "children": null
+                        },
+                        {
+                          "type": "polygon",
+                          "props": {
+                            "points": "16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"
+                          },
+                          "children": null
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageName"
+                  },
+                  "children": [
+                    "Llegada"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "props": {
+                "type": "button",
+                "className": "kronoxStageTab active "
+              },
+              "children": [
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageStep"
+                  },
+                  "children": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageIcon"
+                  },
+                  "children": [
+                    {
+                      "type": "svg",
+                      "props": {
+                        "width": "16",
+                        "height": "16",
+                        "viewBox": "0 0 24 24",
+                        "fill": "none",
+                        "stroke": "currentColor",
+                        "strokeWidth": "2",
+                        "strokeLinecap": "round",
+                        "strokeLinejoin": "round",
+                        "aria-hidden": "true"
+                      },
+                      "children": [
+                        {
+                          "type": "path",
+                          "props": {
+                            "d": "M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"
+                          },
+                          "children": null
+                        },
+                        {
+                          "type": "circle",
+                          "props": {
+                            "cx": "12",
+                            "cy": "12",
+                            "r": "3"
+                          },
+                          "children": null
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageName"
+                  },
+                  "children": [
+                    "Imágenes"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "props": {
+                "type": "button",
+                "className": "kronoxStageTab  "
+              },
+              "children": [
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageStep"
+                  },
+                  "children": [
+                    "3"
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageIcon"
+                  },
+                  "children": [
+                    {
+                      "type": "svg",
+                      "props": {
+                        "width": "16",
+                        "height": "16",
+                        "viewBox": "0 0 24 24",
+                        "fill": "none",
+                        "stroke": "currentColor",
+                        "strokeWidth": "2",
+                        "strokeLinecap": "round",
+                        "strokeLinejoin": "round",
+                        "aria-hidden": "true"
+                      },
+                      "children": [
+                        {
+                          "type": "path",
+                          "props": {
+                            "d": "m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.9a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"
+                          },
+                          "children": null
+                        },
+                        {
+                          "type": "path",
+                          "props": {
+                            "d": "m22 12.5-8.58 3.9a2 2 0 0 1-1.66 0L2 12.5"
+                          },
+                          "children": null
+                        },
+                        {
+                          "type": "path",
+                          "props": {
+                            "d": "m22 17.5-8.58 3.9a2 2 0 0 1-1.66 0L2 17.5"
+                          },
+                          "children": null
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageName"
+                  },
+                  "children": [
+                    "Comparar épocas"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "props": {
+                "type": "button",
+                "className": "kronoxStageTab  "
+              },
+              "children": [
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageStep"
+                  },
+                  "children": [
+                    "4"
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageIcon"
+                  },
+                  "children": [
+                    {
+                      "type": "svg",
+                      "props": {
+                        "width": "16",
+                        "height": "16",
+                        "viewBox": "0 0 24 24",
+                        "fill": "none",
+                        "stroke": "currentColor",
+                        "strokeWidth": "2",
+                        "strokeLinecap": "round",
+                        "strokeLinejoin": "round",
+                        "aria-hidden": "true"
+                      },
+                      "children": [
+                        {
+                          "type": "path",
+                          "props": {
+                            "d": "m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.9a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"
+                          },
+                          "children": null
+                        },
+                        {
+                          "type": "path",
+                          "props": {
+                            "d": "m22 12.5-8.58 3.9a2 2 0 0 1-1.66 0L2 12.5"
+                          },
+                          "children": null
+                        },
+                        {
+                          "type": "path",
+                          "props": {
+                            "d": "m22 17.5-8.58 3.9a2 2 0 0 1-1.66 0L2 17.5"
+                          },
+                          "children": null
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageName"
+                  },
+                  "children": [
+                    "Análisis espectral"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "props": {
+                "type": "button",
+                "className": "kronoxStageTab  "
+              },
+              "children": [
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageStep"
+                  },
+                  "children": [
+                    "5"
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageIcon"
+                  },
+                  "children": [
+                    {
+                      "type": "svg",
+                      "props": {
+                        "width": "16",
+                        "height": "16",
+                        "viewBox": "0 0 24 24",
+                        "fill": "none",
+                        "stroke": "currentColor",
+                        "strokeWidth": "2",
+                        "strokeLinecap": "round",
+                        "strokeLinejoin": "round",
+                        "aria-hidden": "true"
+                      },
+                      "children": [
+                        {
+                          "type": "path",
+                          "props": {
+                            "d": "M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"
+                          },
+                          "children": null
+                        },
+                        {
+                          "type": "line",
+                          "props": {
+                            "x1": "16",
+                            "y1": "8",
+                            "x2": "2",
+                            "y2": "22"
+                          },
+                          "children": null
+                        },
+                        {
+                          "type": "line",
+                          "props": {
+                            "x1": "17.5",
+                            "y1": "15",
+                            "x2": "9",
+                            "y2": "15"
+                          },
+                          "children": null
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageName"
+                  },
+                  "children": [
+                    "Investigación"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "props": {
+                "type": "button",
+                "className": "kronoxStageTab  "
+              },
+              "children": [
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageStep"
+                  },
+                  "children": [
+                    "6"
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageIcon"
+                  },
+                  "children": [
+                    {
+                      "type": "svg",
+                      "props": {
+                        "width": "16",
+                        "height": "16",
+                        "viewBox": "0 0 24 24",
+                        "fill": "none",
+                        "stroke": "currentColor",
+                        "strokeWidth": "2",
+                        "strokeLinecap": "round",
+                        "strokeLinejoin": "round",
+                        "aria-hidden": "true"
+                      },
+                      "children": [
+                        {
+                          "type": "line",
+                          "props": {
+                            "x1": "9",
+                            "y1": "18",
+                            "x2": "15",
+                            "y2": "18"
+                          },
+                          "children": null
+                        },
+                        {
+                          "type": "line",
+                          "props": {
+                            "x1": "10",
+                            "y1": "22",
+                            "x2": "14",
+                            "y2": "22"
+                          },
+                          "children": null
+                        },
+                        {
+                          "type": "path",
+                          "props": {
+                            "d": "M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"
+                          },
+                          "children": null
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageName"
+                  },
+                  "children": [
+                    "Cuaderno de campo"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "props": {
+                "type": "button",
+                "className": "kronoxStageTab  "
+              },
+              "children": [
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageStep"
+                  },
+                  "children": [
+                    "7"
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageIcon"
+                  },
+                  "children": [
+                    {
+                      "type": "svg",
+                      "props": {
+                        "width": "16",
+                        "height": "16",
+                        "viewBox": "0 0 24 24",
+                        "fill": "none",
+                        "stroke": "currentColor",
+                        "strokeWidth": "2",
+                        "strokeLinecap": "round",
+                        "strokeLinejoin": "round",
+                        "aria-hidden": "true"
+                      },
+                      "children": [
+                        {
+                          "type": "circle",
+                          "props": {
+                            "cx": "12",
+                            "cy": "8",
+                            "r": "6"
+                          },
+                          "children": null
+                        },
+                        {
+                          "type": "path",
+                          "props": {
+                            "d": "M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"
+                          },
+                          "children": null
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "span",
+                  "props": {
+                    "className": "kronoxStageName"
+                  },
+                  "children": [
+                    "Cierre de misión"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "main",
+          "props": {
+            "className": "kronoxExpeditionWorkspace"
+          },
+          "children": [
+            {
+              "type": "div",
+              "props": {
+                "className": "kronoxObservationView"
+              },
+              "children": [
+                {
+                  "type": "div",
+                  "props": {
+                    "className": "kronoxStageRibbon"
+                  },
+                  "children": [
+                    {
+                      "type": "div",
+                      "props": {
+                        "className": "kronoxRibbonText"
+                      },
+                      "children": [
+                        {
+                          "type": "strong",
+                          "props": {},
+                          "children": [
+                            "Etapa de Exploración:"
+                          ]
+                        },
+                        " Examina la imagen astronómica real. Usa los controles de zoom para acercarte o arrastra con el ratón."
+                      ]
+                    },
+                    {
+                      "type": "div",
+                      "props": {
+                        "className": "kronoxRibbonControls"
+                      },
+                      "children": [
+                        {
+                          "type": "button",
+                          "props": {
+                            "type": "button",
+                            "className": "kronoxRibbonBtn highlight",
+                            "disabled": false
+                          },
+                          "children": [
+                            {
+                              "type": "span",
+                              "props": {},
+                              "children": [
+                                "Comparar con otra fecha"
+                              ]
+                            },
+                            {
+                              "type": "svg",
+                              "props": {
+                                "width": "14",
+                                "height": "14",
+                                "viewBox": "0 0 24 24",
+                                "fill": "none",
+                                "stroke": "currentColor",
+                                "strokeWidth": "2",
+                                "strokeLinecap": "round",
+                                "strokeLinejoin": "round",
+                                "aria-hidden": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "polyline",
+                                  "props": {
+                                    "points": "9 18 15 12 9 6"
+                                  },
+                                  "children": null
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "div",
+                  "props": {
+                    "className": "observatoryImageToolbar"
+                  },
+                  "children": [
+                    {
+                      "type": "label",
+                      "props": {},
+                      "children": [
+                        "Campo angular",
+                        {
+                          "type": "select",
+                          "props": {
+                            "value": "0.08",
+                            "disabled": true
+                          },
+                          "children": [
+                            {
+                              "type": "option",
+                              "props": {
+                                "value": "0.08"
+                              },
+                              "children": [
+                                "Recorte local ",
+                                "0.08",
+                                "°"
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "label",
+                      "props": {},
+                      "children": [
+                        "Detector de la secuencia",
+                        {
+                          "type": "select",
+                          "props": {
+                            "value": "SPHEREx-D3"
+                          },
+                          "children": [
+                            {
+                              "type": "option",
+                              "props": {},
+                              "children": [
+                                "SPHEREx-D1"
+                              ]
+                            },
+                            {
+                              "type": "option",
+                              "props": {},
+                              "children": [
+                                "SPHEREx-D5"
+                              ]
+                            },
+                            {
+                              "type": "option",
+                              "props": {},
+                              "children": [
+                                "SPHEREx-D6"
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "button",
+                      "props": {
+                        "disabled": true
+                      },
+                      "children": [
+                        "Época anterior"
+                      ]
+                    },
+                    {
+                      "type": "button",
+                      "props": {
+                        "disabled": true
+                      },
+                      "children": [
+                        "Recorrer fechas"
+                      ]
+                    },
+                    {
+                      "type": "button",
+                      "props": {
+                        "disabled": true
+                      },
+                      "children": [
+                        "Época siguiente"
+                      ]
+                    },
+                    {
+                      "type": "span",
+                      "props": {},
+                      "children": [
+                        "0",
+                        " fechas representativas · el detector puede tener distinta λ LVF"
+                      ]
+                    },
+                    {
+                      "type": "button",
+                      "props": {},
+                      "children": [
+                        "Pasar al análisis espectral"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "div",
+                  "props": {
+                    "className": "kronoxCanvasArea"
+                  },
+                  "children": [
+                    {
+                      "type": "div",
+                      "props": {
+                        "className": "kronoxErrorPlate"
+                      },
+                      "children": [
+                        {
+                          "type": "svg",
+                          "props": {
+                            "width": "14",
+                            "height": "14",
+                            "viewBox": "0 0 24 24",
+                            "fill": "none",
+                            "stroke": "currentColor",
+                            "strokeWidth": "2",
+                            "strokeLinecap": "round",
+                            "strokeLinejoin": "round",
+                            "aria-hidden": "true"
+                          },
+                          "children": [
+                            {
+                              "type": "path",
+                              "props": {
+                                "d": "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"
+                              },
+                              "children": null
+                            },
+                            {
+                              "type": "line",
+                              "props": {
+                                "x1": "12",
+                                "y1": "9",
+                                "x2": "12",
+                                "y2": "13"
+                              },
+                              "children": null
+                            },
+                            {
+                              "type": "line",
+                              "props": {
+                                "x1": "12",
+                                "y1": "17",
+                                "x2": "12.01",
+                                "y2": "17"
+                              },
+                              "children": null
+                            }
+                          ]
+                        },
+                        {
+                          "type": "span",
+                          "props": {},
+                          "children": [
+                            "ctx.fillRect is not a function"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "div",
+                      "props": {
+                        "className": "kronoxOpticalControls"
+                      },
+                      "children": [
+                        {
+                          "type": "button",
+                          "props": {
+                            "type": "button",
+                            "title": "Acercar"
+                          },
+                          "children": [
+                            {
+                              "type": "svg",
+                              "props": {
+                                "width": "14",
+                                "height": "14",
+                                "viewBox": "0 0 24 24",
+                                "fill": "none",
+                                "stroke": "currentColor",
+                                "strokeWidth": "2",
+                                "strokeLinecap": "round",
+                                "strokeLinejoin": "round",
+                                "aria-hidden": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "circle",
+                                  "props": {
+                                    "cx": "11",
+                                    "cy": "11",
+                                    "r": "8"
+                                  },
+                                  "children": null
+                                },
+                                {
+                                  "type": "line",
+                                  "props": {
+                                    "x1": "21",
+                                    "y1": "21",
+                                    "x2": "16.65",
+                                    "y2": "16.65"
+                                  },
+                                  "children": null
+                                },
+                                {
+                                  "type": "line",
+                                  "props": {
+                                    "x1": "11",
+                                    "y1": "8",
+                                    "x2": "11",
+                                    "y2": "14"
+                                  },
+                                  "children": null
+                                },
+                                {
+                                  "type": "line",
+                                  "props": {
+                                    "x1": "8",
+                                    "y1": "11",
+                                    "x2": "14",
+                                    "y2": "11"
+                                  },
+                                  "children": null
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "button",
+                          "props": {
+                            "type": "button",
+                            "title": "Alejar"
+                          },
+                          "children": [
+                            {
+                              "type": "svg",
+                              "props": {
+                                "width": "14",
+                                "height": "14",
+                                "viewBox": "0 0 24 24",
+                                "fill": "none",
+                                "stroke": "currentColor",
+                                "strokeWidth": "2",
+                                "strokeLinecap": "round",
+                                "strokeLinejoin": "round",
+                                "aria-hidden": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "circle",
+                                  "props": {
+                                    "cx": "11",
+                                    "cy": "11",
+                                    "r": "8"
+                                  },
+                                  "children": null
+                                },
+                                {
+                                  "type": "line",
+                                  "props": {
+                                    "x1": "21",
+                                    "y1": "21",
+                                    "x2": "16.65",
+                                    "y2": "16.65"
+                                  },
+                                  "children": null
+                                },
+                                {
+                                  "type": "line",
+                                  "props": {
+                                    "x1": "8",
+                                    "y1": "11",
+                                    "x2": "14",
+                                    "y2": "11"
+                                  },
+                                  "children": null
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "button",
+                          "props": {
+                            "type": "button",
+                            "title": "Restablecer encuadre"
+                          },
+                          "children": [
+                            {
+                              "type": "svg",
+                              "props": {
+                                "width": "14",
+                                "height": "14",
+                                "viewBox": "0 0 24 24",
+                                "fill": "none",
+                                "stroke": "currentColor",
+                                "strokeWidth": "2",
+                                "strokeLinecap": "round",
+                                "strokeLinejoin": "round",
+                                "aria-hidden": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "path",
+                                  "props": {
+                                    "d": "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
+                                  },
+                                  "children": null
+                                },
+                                {
+                                  "type": "path",
+                                  "props": {
+                                    "d": "M3 3v5h5"
+                                  },
+                                  "children": null
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "span",
+                          "props": {
+                            "className": "kronoxZoomValue"
+                          },
+                          "children": [
+                            "1.0",
+                            "x"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "div",
+                  "props": {
+                    "className": "juanViewMeta"
+                  },
+                  "children": null
+                },
+                {
+                  "type": "section",
+                  "props": {
+                    "className": "observationGallery",
+                    "aria-label": "Galería de imágenes reales por fecha"
+                  },
+                  "children": [
+                    {
+                      "type": "header",
+                      "props": {},
+                      "children": [
+                        {
+                          "type": "div",
+                          "props": {},
+                          "children": [
+                            {
+                              "type": "h3",
+                              "props": {},
+                              "children": [
+                                "Imágenes del archivo"
+                              ]
+                            },
+                            {
+                              "type": "p",
+                              "props": {},
+                              "children": [
+                                "18/12/2025 — 31/12/2025 · 14 días de cobertura",
+                                " ",
+                                "· Cada tarjeta abre una imagen individual."
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "label",
+                          "props": {},
+                          "children": [
+                            "Organizar",
+                            {
+                              "type": "select",
+                              "props": {
+                                "value": "epochs"
+                              },
+                              "children": [
+                                {
+                                  "type": "option",
+                                  "props": {
+                                    "value": "epochs"
+                                  },
+                                  "children": [
+                                    "Recorrido de fechas (selección distribuida)"
+                                  ]
+                                },
+                                {
+                                  "type": "option",
+                                  "props": {
+                                    "value": "exposures"
+                                  },
+                                  "children": [
+                                    "Todas las exposiciones y detectores"
+                                  ]
+                                },
+                                {
+                                  "type": "option",
+                                  "props": {
+                                    "value": "versions"
+                                  },
+                                  "children": [
+                                    "Todos los productos y versiones"
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "div",
+                      "props": {
+                        "className": "observationGalleryFilters"
+                      },
+                      "children": [
+                        {
+                          "type": "label",
+                          "props": {},
+                          "children": [
+                            "Año",
+                            {
+                              "type": "select",
+                              "props": {
+                                "aria-label": "Año de la galería",
+                                "value": "ALL"
+                              },
+                              "children": [
+                                {
+                                  "type": "option",
+                                  "props": {
+                                    "value": "ALL"
+                                  },
+                                  "children": [
+                                    "Todos los años"
+                                  ]
+                                },
+                                {
+                                  "type": "option",
+                                  "props": {},
+                                  "children": [
+                                    "2025"
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "label",
+                          "props": {},
+                          "children": [
+                            "Detector",
+                            {
+                              "type": "select",
+                              "props": {
+                                "aria-label": "Detector de la galería",
+                                "value": "ALL"
+                              },
+                              "children": [
+                                {
+                                  "type": "option",
+                                  "props": {
+                                    "value": "ALL"
+                                  },
+                                  "children": [
+                                    "Todos los detectores"
+                                  ]
+                                },
+                                {
+                                  "type": "option",
+                                  "props": {},
+                                  "children": [
+                                    "SPHEREx-D1"
+                                  ]
+                                },
+                                {
+                                  "type": "option",
+                                  "props": {},
+                                  "children": [
+                                    "SPHEREx-D5"
+                                  ]
+                                },
+                                {
+                                  "type": "option",
+                                  "props": {},
+                                  "children": [
+                                    "SPHEREx-D6"
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "div",
+                      "props": {
+                        "className": "observationGalleryGrid"
+                      },
+                      "children": [
+                        {
+                          "type": "article",
+                          "props": {
+                            "className": "observationCard selected"
+                          },
+                          "children": [
+                            {
+                              "type": "button",
+                              "props": {
+                                "className": "observationCardImage",
+                                "aria-label": "Abrir imagen 18 dic 2025 SPHEREx-D6"
+                              },
+                              "children": [
+                                {
+                                  "type": "span",
+                                  "props": {},
+                                  "children": [
+                                    "No se pudo cargar"
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "div",
+                              "props": {},
+                              "children": [
+                                {
+                                  "type": "b",
+                                  "props": {},
+                                  "children": [
+                                    "18 dic 2025"
+                                  ]
+                                },
+                                {
+                                  "type": "span",
+                                  "props": {},
+                                  "children": [
+                                    "SPHEREx-D6",
+                                    " · ",
+                                    "QR2"
+                                  ]
+                                },
+                                {
+                                  "type": "small",
+                                  "props": {},
+                                  "children": [
+                                    "2025W51_1A_0684_2"
+                                  ]
+                                },
+                                {
+                                  "type": "small",
+                                  "props": {
+                                    "role": "status"
+                                  },
+                                  "children": [
+                                    "ctx.fillRect is not a function"
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "footer",
+                              "props": {},
+                              "children": [
+                                {
+                                  "type": "button",
+                                  "props": {},
+                                  "children": [
+                                    "Reintentar imagen"
+                                  ]
+                                },
+                                {
+                                  "type": "button",
+                                  "props": {},
+                                  "children": [
+                                    "Abrir"
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "article",
+                          "props": {
+                            "className": "observationCard"
+                          },
+                          "children": [
+                            {
+                              "type": "button",
+                              "props": {
+                                "className": "observationCardImage",
+                                "aria-label": "Abrir imagen 21 dic 2025 SPHEREx-D5"
+                              },
+                              "children": [
+                                {
+                                  "type": "span",
+                                  "props": {},
+                                  "children": [
+                                    "No se pudo cargar"
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "div",
+                              "props": {},
+                              "children": [
+                                {
+                                  "type": "b",
+                                  "props": {},
+                                  "children": [
+                                    "21 dic 2025"
+                                  ]
+                                },
+                                {
+                                  "type": "span",
+                                  "props": {},
+                                  "children": [
+                                    "SPHEREx-D5",
+                                    " · ",
+                                    "QR2"
+                                  ]
+                                },
+                                {
+                                  "type": "small",
+                                  "props": {},
+                                  "children": [
+                                    "2025W51_2A_0653_1"
+                                  ]
+                                },
+                                {
+                                  "type": "small",
+                                  "props": {
+                                    "role": "status"
+                                  },
+                                  "children": [
+                                    "Failed exposure fixture"
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "footer",
+                              "props": {},
+                              "children": [
+                                {
+                                  "type": "button",
+                                  "props": {},
+                                  "children": [
+                                    "Reintentar imagen"
+                                  ]
+                                },
+                                {
+                                  "type": "button",
+                                  "props": {},
+                                  "children": [
+                                    "Abrir"
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "article",
+                          "props": {
+                            "className": "observationCard"
+                          },
+                          "children": [
+                            {
+                              "type": "button",
+                              "props": {
+                                "className": "observationCardImage",
+                                "aria-label": "Abrir imagen 31 dic 2025 SPHEREx-D1"
+                              },
+                              "children": [
+                                {
+                                  "type": "span",
+                                  "props": {},
+                                  "children": [
+                                    "No se pudo cargar"
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "div",
+                              "props": {},
+                              "children": [
+                                {
+                                  "type": "b",
+                                  "props": {},
+                                  "children": [
+                                    "31 dic 2025"
+                                  ]
+                                },
+                                {
+                                  "type": "span",
+                                  "props": {},
+                                  "children": [
+                                    "SPHEREx-D1",
+                                    " · ",
+                                    "QR2"
+                                  ]
+                                },
+                                {
+                                  "type": "small",
+                                  "props": {},
+                                  "children": [
+                                    "2026W01_1A_0564_2"
+                                  ]
+                                },
+                                {
+                                  "type": "small",
+                                  "props": {
+                                    "role": "status"
+                                  },
+                                  "children": [
+                                    "ctx.fillRect is not a function"
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "footer",
+                              "props": {},
+                              "children": [
+                                {
+                                  "type": "button",
+                                  "props": {},
+                                  "children": [
+                                    "Reintentar imagen"
+                                  ]
+                                },
+                                {
+                                  "type": "button",
+                                  "props": {},
+                                  "children": [
+                                    "Abrir"
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "nav",
+                      "props": {
+                        "aria-label": "Páginas de imágenes"
+                      },
+                      "children": [
+                        {
+                          "type": "button",
+                          "props": {
+                            "disabled": true
+                          },
+                          "children": [
+                            "Imágenes anteriores"
+                          ]
+                        },
+                        {
+                          "type": "span",
+                          "props": {},
+                          "children": [
+                            "1",
+                            " / ",
+                            "1",
+                            " · ",
+                            "3",
+                            " imágenes en esta vista · ",
+                            "3",
+                            " productos consultados"
+                          ]
+                        },
+                        {
+                          "type": "button",
+                          "props": {
+                            "disabled": true
+                          },
+                          "children": [
+                            "Más imágenes"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "p",
+                      "props": {
+                        "className": "juanScienceNote"
+                      },
+                      "children": [
+                        "La vista distribuida facilita recorrer el intervalo completo. Todas las exposiciones y sus versiones siguen disponibles en el selector. Distintos detectores o λ no demuestran un cambio temporal."
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "details",
+                  "props": {
+                    "className": "archiveIndex"
+                  },
+                  "children": [
+                    {
+                      "type": "summary",
+                      "props": {},
+                      "children": [
+                        "Índice detallado de productos, versiones y filtros"
+                      ]
+                    },
+                    {
+                      "type": "div",
+                      "props": {
+                        "className": "kronoxTimelineBar"
+                      },
+                      "children": [
+                        {
+                          "type": "div",
+                          "props": {
+                            "className": "kronoxTimelineHeaderRow"
+                          },
+                          "children": [
+                            {
+                              "type": "span",
+                              "props": {
+                                "className": "kronoxTimelineLabel"
+                              },
+                              "children": [
+                                "Archivo SPHEREx (",
+                                "3",
+                                " de ",
+                                "3",
+                                " productos reales; ",
+                                "3",
+                                " exposiciones):"
+                              ]
+                            },
+                            {
+                              "type": "div",
+                              "props": {
+                                "className": "kronoxArchiveFilters"
+                              },
+                              "children": [
+                                {
+                                  "type": "label",
+                                  "props": {
+                                    "className": "kronoxArchiveFilterLabel"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "span",
+                                      "props": {},
+                                      "children": [
+                                        "Año:"
+                                      ]
+                                    },
+                                    {
+                                      "type": "select",
+                                      "props": {
+                                        "value": "ALL",
+                                        "aria-label": "Filtrar observaciones por año"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "option",
+                                          "props": {
+                                            "value": "ALL"
+                                          },
+                                          "children": [
+                                            "Todos (",
+                                            "3",
+                                            ")"
+                                          ]
+                                        },
+                                        {
+                                          "type": "option",
+                                          "props": {
+                                            "value": "2025"
+                                          },
+                                          "children": [
+                                            "2025"
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "label",
+                                  "props": {
+                                    "className": "kronoxArchiveFilterLabel"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "span",
+                                      "props": {},
+                                      "children": [
+                                        "Banda:"
+                                      ]
+                                    },
+                                    {
+                                      "type": "select",
+                                      "props": {
+                                        "value": "ALL",
+                                        "aria-label": "Filtrar observaciones por banda infrarroja"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "option",
+                                          "props": {
+                                            "value": "ALL"
+                                          },
+                                          "children": [
+                                            "Todas (",
+                                            "3",
+                                            ")"
+                                          ]
+                                        },
+                                        {
+                                          "type": "option",
+                                          "props": {
+                                            "value": "SPHEREx-D1"
+                                          },
+                                          "children": [
+                                            "SPHEREx-D1"
+                                          ]
+                                        },
+                                        {
+                                          "type": "option",
+                                          "props": {
+                                            "value": "SPHEREx-D5"
+                                          },
+                                          "children": [
+                                            "SPHEREx-D5"
+                                          ]
+                                        },
+                                        {
+                                          "type": "option",
+                                          "props": {
+                                            "value": "SPHEREx-D6"
+                                          },
+                                          "children": [
+                                            "SPHEREx-D6"
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "div",
+                          "props": {
+                            "className": "juanGalleryPager"
+                          },
+                          "children": [
+                            {
+                              "type": "button",
+                              "props": {
+                                "disabled": true
+                              },
+                              "children": [
+                                "Página anterior"
+                              ]
+                            },
+                            {
+                              "type": "span",
+                              "props": {},
+                              "children": [
+                                "Página ",
+                                "1",
+                                " / ",
+                                "1",
+                                " · 24 productos por página"
+                              ]
+                            },
+                            {
+                              "type": "button",
+                              "props": {
+                                "disabled": true
+                              },
+                              "children": [
+                                "Página siguiente"
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "p",
+                          "props": {
+                            "className": "juanScienceNote"
+                          },
+                          "children": [
+                            "Un producto corresponde a un detector, una exposición y una versión de procesamiento. Varias versiones o detectores de la misma exposición no son épocas independientes. El solapamiento SIA indica cobertura, no una detección del objeto."
+                          ]
+                        },
+                        {
+                          "type": "div",
+                          "props": {
+                            "className": "kronoxTimelineChips"
+                          },
+                          "children": [
+                            {
+                              "type": "button",
+                              "props": {
+                                "type": "button",
+                                "className": "kronoxDateChip primary "
+                              },
+                              "children": [
+                                {
+                                  "type": "span",
+                                  "props": {},
+                                  "children": [
+                                    "18 dic 2025 (05:10 UTC)"
+                                  ]
+                                },
+                                {
+                                  "type": "small",
+                                  "props": {
+                                    "className": "kronoxChipBand"
+                                  },
+                                  "children": [
+                                    "SPHEREx-D6",
+                                    " · ",
+                                    "spherex_qr2",
+                                    " · "
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "button",
+                              "props": {
+                                "type": "button",
+                                "className": "kronoxDateChip  "
+                              },
+                              "children": [
+                                {
+                                  "type": "span",
+                                  "props": {},
+                                  "children": [
+                                    "21 dic 2025 (14:36 UTC)"
+                                  ]
+                                },
+                                {
+                                  "type": "small",
+                                  "props": {
+                                    "className": "kronoxChipBand"
+                                  },
+                                  "children": [
+                                    "SPHEREx-D5",
+                                    " · ",
+                                    "spherex_qr2",
+                                    " · "
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "button",
+                              "props": {
+                                "type": "button",
+                                "className": "kronoxDateChip  "
+                              },
+                              "children": [
+                                {
+                                  "type": "span",
+                                  "props": {},
+                                  "children": [
+                                    "31 dic 2025 (17:27 UTC)"
+                                  ]
+                                },
+                                {
+                                  "type": "small",
+                                  "props": {
+                                    "className": "kronoxChipBand"
+                                  },
+                                  "children": [
+                                    "SPHEREx-D1",
+                                    " · ",
+                                    "spherex_qr2",
+                                    " · "
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1116 @@
+{
+  "createdAt": "2026-11-08T00:30:32.016Z",
+  "workingCopy": "C:\\Users\\OPPENHEIMER\\Desktop\\kronox-juan",
+  "files": [
+    {
+      "path": "src/App.jsx",
+      "sha256": "db5306c72b33ac7be64d0d3185102fe9be58d29f325231d10ce71e0c3b340ecc",
+      "size": 94211
+    },
+    {
+      "path": "src/bootstrap.js",
+      "sha256": "ecad968a864bc466937bc68219dd37e0d429027419f07c85c86f67be2f4a033f",
+      "size": 215
+    },
+    {
+      "path": "src/components/BootErrorBoundary.jsx",
+      "sha256": "f65b81bb512367342b52b0cd77e95be6b555f46beee2357d1cb08b32a5e01082",
+      "size": 1453
+    },
+    {
+      "path": "src/components/EvidenceLab.jsx",
+      "sha256": "e76240b558bc941eefb14e6db66b8f15fe7a99172ca897a8d188d829e8ae0da3",
+      "size": 22352
+    },
+    {
+      "path": "src/components/KronoxWidget.tsx",
+      "sha256": "e93473ba5312a29c8d66e6910ae48cc895c5b2ccef0e860d11f84ddd037f91be",
+      "size": 13687
+    },
+    {
+      "path": "src/components/MobileFlightControls.jsx",
+      "sha256": "8b6998449b6ad55bb73faf5b0517ccd24341c69f630a696ee34b9c3bf424e2ca",
+      "size": 3247
+    },
+    {
+      "path": "src/components/NavigationDock.jsx",
+      "sha256": "125424537d07c8f95c3f25ddd81259a85edf76d384e42b966041424deea2f7fd",
+      "size": 2510
+    },
+    {
+      "path": "src/components/NearbyGalaxies.jsx",
+      "sha256": "5641ca3b7803524088f391e34d55b5a4644ef03c466d1ba584d5be2837cb84e6",
+      "size": 6348
+    },
+    {
+      "path": "src/components/ObservationGallery.jsx",
+      "sha256": "c918a94962ec7d6d3760a00c634b6103119f79d62f42f7945e45b0bcef145818",
+      "size": 6133
+    },
+    {
+      "path": "src/components/PlanetInfoModal.jsx",
+      "sha256": "6559834dc9f134ca8a9695feeea218d6e75ac0f8b9aeb225bf05d3f88fe0f918",
+      "size": 3975
+    },
+    {
+      "path": "src/components/QuickTravelMenu.jsx",
+      "sha256": "5d6d09ad676e6a4f08a81a1817102f77ba227607cde78fc78bd6f0478ef1a158",
+      "size": 1953
+    },
+    {
+      "path": "src/components/SpaceshipCockpit.jsx",
+      "sha256": "839d6a1d53d91ab0453992f51d1256e7a2e745d19948f6c162de527b2eeba2fa",
+      "size": 36212
+    },
+    {
+      "path": "src/components/SpectrumPlot.jsx",
+      "sha256": "40b17b2b364d9b5a4f4e56e6e57303cb78706aed93182c203ac2c2be9a682f0c",
+      "size": 4632
+    },
+    {
+      "path": "src/components/SpherexMission.jsx",
+      "sha256": "b0ad068301548a629331e3773b1e35c0e29a35b716a12834c1ddcd458081595b",
+      "size": 96771
+    },
+    {
+      "path": "src/components/SpherexMissionSelector.jsx",
+      "sha256": "88ea03123e1730e2c02a54776843af20338ff896216336b2ee18bd5a456e698c",
+      "size": 6511
+    },
+    {
+      "path": "src/components/StellarCatalogPanel.jsx",
+      "sha256": "b2f19faf358366b2ef5bd12351daef082c498e5af7052a0886f2f903d799a2a3",
+      "size": 1318
+    },
+    {
+      "path": "src/components/ToastNotification.jsx",
+      "sha256": "fb3de5118cdd192b1ce79ee5d3e38b68db9ab6ff7b78d36fd4c0dc92a3fafe87",
+      "size": 539
+    },
+    {
+      "path": "src/components/useObservationSamples.js",
+      "sha256": "a62032383e0122cf1f6b8f9ec29792ca6ec6517cad09aadbdea979361c44b832",
+      "size": 4116
+    },
+    {
+      "path": "src/data/localObservations.js",
+      "sha256": "480ded25b9fa44d7080589f0d7c0ff8e984602f255334da65101bd34109ba84d",
+      "size": 22815
+    },
+    {
+      "path": "src/data/m101Observations.js",
+      "sha256": "bccbf795096219280a196800e9f3b508ad1f331f2b526c37d6ae5e96fb031326",
+      "size": 17287
+    },
+    {
+      "path": "src/data/navigationCatalog.js",
+      "sha256": "3738fb7abf589934de129361c63e6d8739d2a403be2348178ad187e70adb71ef",
+      "size": 77474
+    },
+    {
+      "path": "src/data/nearbyGalaxies.js",
+      "sha256": "9bb74f959ee4441ead70b026025d93b9241005df6655158540c255046797da07",
+      "size": 14214
+    },
+    {
+      "path": "src/data/planetData.js",
+      "sha256": "4223dd526fae1947db520563675e65a3f69258238868c02e70bed381858cfe46",
+      "size": 12065
+    },
+    {
+      "path": "src/data/researchCatalog.js",
+      "sha256": "65081084162a3229e3d6d011367b7e0b4d2b7b9cb7ba137c3a8eebd099e6105e",
+      "size": 54301
+    },
+    {
+      "path": "src/data/spherexTargets.js",
+      "sha256": "a61e9b4191fc6403a8a02f95e5116f8682d1f06190d8032d2660d62b28e9dcbc",
+      "size": 16831
+    },
+    {
+      "path": "src/data/temporalObservationsData.js",
+      "sha256": "effc47b315499364aafc5189ad2efb22a4c9689c073d92aced80d4fd78218df8",
+      "size": 361267
+    },
+    {
+      "path": "src/data/verifiedObservations.js",
+      "sha256": "78c87a1768ffde10fda9c9d4feddb9ac0e1e075d14de757b02144a6890953462",
+      "size": 1502
+    },
+    {
+      "path": "src/i18n.js",
+      "sha256": "c93abf889cc3c1c32a1ae069467c017cc826673d64893850ec1cd82ea34673d6",
+      "size": 38280
+    },
+    {
+      "path": "src/main.jsx",
+      "sha256": "0fab88dea5c7fba2720600eaf6c27dc1bea6cb2a80f774289bba665e19deeaba",
+      "size": 285
+    },
+    {
+      "path": "src/scene/astronomicalPositions.js",
+      "sha256": "719d9f45ae4b10d34a7978c53aca4a9d7f5c1a63ca610c439f01bc1ab712be8a",
+      "size": 1118
+    },
+    {
+      "path": "src/scene/createScene.js",
+      "sha256": "defef1ebb11f100dcb6cb35c9c719e1a0b99c65205c9ec67a673f6c0c00372f3",
+      "size": 164648
+    },
+    {
+      "path": "src/scene/destinationVisuals.js",
+      "sha256": "ee39dd122209e411c2ad7c9bd6d2855ba68d34ada9ab9a6268d4acd63138f5f1",
+      "size": 6829
+    },
+    {
+      "path": "src/scene/disposeResources.js",
+      "sha256": "439a00e61574e776b507aa33fcb324b1c5c500060f4b70fd4dd99482d15dff7c",
+      "size": 1036
+    },
+    {
+      "path": "src/scene/flightDynamics.js",
+      "sha256": "5f8dfc5e2bded0d93ce4659fabb9a101a15631f5849b47a1f39ef26649aca4dc",
+      "size": 867
+    },
+    {
+      "path": "src/scene/galaxyVisuals.js",
+      "sha256": "e034e7d0440faf2e0d4bc562bda96c8f883fa52484921424238003832741388b",
+      "size": 2771
+    },
+    {
+      "path": "src/scene/habitableShipWorld.js",
+      "sha256": "8944e9cdb3bd146ae16c16dfa0ff4ec2d055d9f56fa26f80fa543edb82107c2a",
+      "size": 39767
+    },
+    {
+      "path": "src/scene/kronoxSceneDirector.js",
+      "sha256": "f7d36ca1afce44b769088faf2b11b55f24ccb94e8c5bcb585fe9e9a0dbcefb35",
+      "size": 21522
+    },
+    {
+      "path": "src/scene/mapLayout.js",
+      "sha256": "34354419ae9009ebd28de060a8466139e299297b7d5844e87ded7a983cdb1b59",
+      "size": 5580
+    },
+    {
+      "path": "src/scene/navigationAtlas.js",
+      "sha256": "d8dae0141a105eb8b17d457891386b4172dd458610f91ef14254648e184f2400",
+      "size": 6251
+    },
+    {
+      "path": "src/scene/navigationScale.js",
+      "sha256": "5620cc3032b6be4184334d18455a33d62667994cd61cf60514c2d1e86a708a22",
+      "size": 2152
+    },
+    {
+      "path": "src/scene/originRebase.js",
+      "sha256": "8a9a51bc097531e7ed11312e3d71c53f6f3fd30adc73b931b42a0627ba14faff",
+      "size": 993
+    },
+    {
+      "path": "src/scene/sceneLabels.js",
+      "sha256": "1d65f898a9ec7d561c9c06cadaa7e2db17e69655f0fcc06089bed4a224ec1ebf",
+      "size": 1743
+    },
+    {
+      "path": "src/state/kronoxMessages.ts",
+      "sha256": "d910ac8c9c4ca793b4ac4d02baf0a4144baf4131519de6c1083090c8bc13f47f",
+      "size": 3667
+    },
+    {
+      "path": "src/styles/evidenceLab.css",
+      "sha256": "72a8043bdd11444482f0f012a9dca44418cee2b5b0f7f05af8f97ded98bbe05d",
+      "size": 5356
+    },
+    {
+      "path": "src/styles/expedition.css",
+      "sha256": "f17f6247875b422fb8c02d4a1bc058f8354df9cc283a6b2a8fc95f542da6f6cb",
+      "size": 45607
+    },
+    {
+      "path": "src/styles/navigationExperience.css",
+      "sha256": "9196856bfe7820c86bf38d7fdff62008676e4292170957c88f358d267f12d3bd",
+      "size": 6933
+    },
+    {
+      "path": "src/styles/observatory.css",
+      "sha256": "b18b7623dd0715ef1ae511ac37dd601d6f5e16c4546b9a6bf49da295e3594a3c",
+      "size": 8467
+    },
+    {
+      "path": "src/styles.css",
+      "sha256": "249a8b8121454762b7fff6fcd9201bf7f64d6eef63a29afd4b9f6a9e31f2a51a",
+      "size": 154921
+    },
+    {
+      "path": "src/utils/archiveClient.js",
+      "sha256": "b520ee93907fb79a45bb8603acdc4c3f27d6857e73b4db5bf1c5432872651952",
+      "size": 5436
+    },
+    {
+      "path": "src/utils/contextualScienceHelp.js",
+      "sha256": "cea49bae9fea2afe971c337ea4f15e6421659a69d5f27086f67460b54596728c",
+      "size": 3535
+    },
+    {
+      "path": "src/utils/differentialImaging.js",
+      "sha256": "2cbf5e74e71365f235b8cef831130c1e4f912db4340c65a74cdf4b484300a8f0",
+      "size": 74316
+    },
+    {
+      "path": "src/utils/findingsStorage.js",
+      "sha256": "c5bc35b6f1dcc260b2711438f6901e28a03de9ec7030ec9062e8091248165b88",
+      "size": 8056
+    },
+    {
+      "path": "src/utils/fitsCard.js",
+      "sha256": "ccfb43773855d4e4a30d422bfe2840e82c4a1815f4db988df76f67bea2d9b7d9",
+      "size": 377
+    },
+    {
+      "path": "src/utils/fitsDecode.js",
+      "sha256": "b928886664f99db7ac3ab5a965ab972f582d6789bc07f64ed66e22811335cb60",
+      "size": 1913
+    },
+    {
+      "path": "src/utils/fitsImage.js",
+      "sha256": "2a931e936ced584100a081e93bfe49ca4626e1d2dc985ccfb949c1d55a43b856",
+      "size": 49709
+    },
+    {
+      "path": "src/utils/fitsTransport.js",
+      "sha256": "1caaed6ff19ba4654fe4a619822bbd19952e590abcbd1a5912760ecf33f88ec2",
+      "size": 3600
+    },
+    {
+      "path": "src/utils/floatingOverlayLayout.js",
+      "sha256": "d0dc35ff70afdf8e71bf12ec1b1e2f695bc5ddd489d1a4a52ee3520795c0c628",
+      "size": 6064
+    },
+    {
+      "path": "src/utils/gameAudio.js",
+      "sha256": "774479d729ec03d18a1061d663526f9d7ef9cce3b3a441c2bfb3ea351cfbb305",
+      "size": 2568
+    },
+    {
+      "path": "src/utils/kronoxAI.js",
+      "sha256": "48f9e7f715806a9cedd7046118189dfa5b9881d9b93aed03cc2150426b4bbb5b",
+      "size": 29248
+    },
+    {
+      "path": "src/utils/rgbComposite.js",
+      "sha256": "9d845b7cdd4746d634c6838c2df2737a6e47c9c2c280fcf6a447973bc05a0dad",
+      "size": 2837
+    },
+    {
+      "path": "src/utils/scientificEvidence.js",
+      "sha256": "312ac4cce85c242f2a7f78eee2dfc5ed53b5f75c5e43184799051d7fabef2b77",
+      "size": 6436
+    },
+    {
+      "path": "src/utils/sharedFrameLoads.js",
+      "sha256": "ac8becb3f43aaaa13893d1278d9d1a1ec447b2ab6903820d0f920f4e5ba29a12",
+      "size": 2525
+    },
+    {
+      "path": "src/utils/temporalObservations.js",
+      "sha256": "dcc4c33c616d81b513e28aa25c7c173d3aba0ce433d1b2f5332e04f77f0fc66f",
+      "size": 5050
+    },
+    {
+      "path": "src/utils/voiceProvider.js",
+      "sha256": "aa8bbda64b8fc3c1508942cd26905ba45f5bc3a1b44913f2595c57bdbf7d6d25",
+      "size": 690
+    },
+    {
+      "path": "src/workers/fitsWorker.js",
+      "sha256": "f9d45f74e3971ff8196d12ae8fd01ea5d3d3282b3bd0cd3ca81e86a828024d5a",
+      "size": 692
+    },
+    {
+      "path": "src/workers/rgbWorker.js",
+      "sha256": "4f60ed7f385176b502eb765658b163b60671cf6e26043e064ea6f6509efeb38a",
+      "size": 255
+    },
+    {
+      "path": "api/lib/archivePlan.js",
+      "sha256": "5c22c153c03a17d49686c94dc681966f2284116026d9eb52a4a530f5b002ae97",
+      "size": 2041
+    },
+    {
+      "path": "api/lib/irsaCache.js",
+      "sha256": "8922e4d85118d04d9bba38b4b7787b7fa12fdc45d174b7817a29d5141dc65adb",
+      "size": 2953
+    },
+    {
+      "path": "api/locale.js",
+      "sha256": "f114b282e543ad2c0a4ba433a099c25f9dbe890bb405709549cb0f8225d0c5d7",
+      "size": 524
+    },
+    {
+      "path": "api/spherex.js",
+      "sha256": "3dcd58f3c0eb2016bc28aae96ef8c556938a21b56e5a58b468e60262b60ed3c7",
+      "size": 13725
+    },
+    {
+      "path": "api/voice.js",
+      "sha256": "fbd1f80e5a6657134b67af8eec5200ae119e79f8c2c87ad2ffb093cd55df3b2a",
+      "size": 1694
+    },
+    {
+      "path": "public/demo/barnard/D2.fits",
+      "sha256": "a87291d60f000b3bd04a8368d3ace3f77ff96d42261d248c66e2e3218e919bba",
+      "size": 115200
+    },
+    {
+      "path": "public/demo/barnard/D3.fits",
+      "sha256": "9ef71f05a991ebdced84359517136f6da7f29a1cc7abeaa6788cc2cd8bcbc5ad",
+      "size": 115200
+    },
+    {
+      "path": "public/demo/barnard/D5.fits",
+      "sha256": "05be243021d252781d58f39bf5ff3f484a3d326e049e589661ea3fbfb4c4c54c",
+      "size": 115200
+    },
+    {
+      "path": "public/demo/barnard/D6.fits",
+      "sha256": "4f82f806a64307f2a30a4ad6594a9336935706e423bc9e67f63379473b9768e9",
+      "size": 115200
+    },
+    {
+      "path": "public/demo/m101/D1.fits",
+      "sha256": "40a0afe1a559ae3a862ecb5643a334c6b0958d8d90a62f3282d9ee5820419e9d",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/m101/D2.fits",
+      "sha256": "0d70512bc4914e3252729f0ab34369eeb2715e3c036721491316305a422d1d2c",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/m101/D3.fits",
+      "sha256": "8a683837c216d745ef27556ba575a8f36b95d7b2235dcee45b4efd92c3407f05",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/m101/D4.fits",
+      "sha256": "14dc31a707455c583319c02f2c7b69746208b21f8bd845ba4b59684818778d6c",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/m101/D5.fits",
+      "sha256": "ba39a61c63fa621a80660234356c90e9b17c0f9c34bb894cdf42b69731eb0cdd",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/m101/D6.fits",
+      "sha256": "4227dd794d9fe6b15497ea17987f6e6c519edc25598838366bf646dc47b5efa9",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/m101/manifest.json",
+      "sha256": "fea7ba4bd04df7b8fb4e1a4a20ac60c3438bbafb9b56a3b260eb8ac692d17894",
+      "size": 17189
+    },
+    {
+      "path": "public/demo/m31/D1.fits",
+      "sha256": "39a585af04b13cb4da133c19615b06147d1799e0e34551855c9ca110f173af80",
+      "size": 115200
+    },
+    {
+      "path": "public/demo/m31/D5.fits",
+      "sha256": "df58b653e22193a6643a8d447d6b664f910372df6edf6b9824e4ce0f6b0b319a",
+      "size": 115200
+    },
+    {
+      "path": "public/demo/m31/D6.fits",
+      "sha256": "4b8245306c3b465a6fe5a4c0c2bfa591d679e379e674997d02272c9ad81d9411",
+      "size": 115200
+    },
+    {
+      "path": "public/demo/manifest.json",
+      "sha256": "e7936f10a1b8febefcf753705780c90ae83cc01b080ff89bcc81639f2a43242e",
+      "size": 41524
+    },
+    {
+      "path": "public/demo/rw-aurigae/D1.fits",
+      "sha256": "f5f03e14e88f40606faf11190a2358abe2836549e47620811204e6b431a4708a",
+      "size": 115200
+    },
+    {
+      "path": "public/demo/rw-aurigae/D2.fits",
+      "sha256": "6f4a76952b59427b56aa8e62cd4cb9ae14bd36fcbb8b0853628faf7b748945ef",
+      "size": 112320
+    },
+    {
+      "path": "public/demo/rw-aurigae/D3.fits",
+      "sha256": "8d1cd335cf44077a75e2b3d4d5e95d8934ec0d4c12868fc37717ff581e155d6a",
+      "size": 115200
+    },
+    {
+      "path": "public/demo/rw-aurigae/D4.fits",
+      "sha256": "45a14be1345b62bd45da4b47dda4eec873c4d5d1c590fc4af22ec271ae74110f",
+      "size": 115200
+    },
+    {
+      "path": "public/demo/rw-aurigae/D5.fits",
+      "sha256": "538ea09df96c5312d7ac0cce055852eaef6a841053956482ab043d9f954af9a3",
+      "size": 112320
+    },
+    {
+      "path": "public/demo/rw-aurigae/D6.fits",
+      "sha256": "cf6687225cf6fa75cd03be4cf9a5e3cbd63fae45ea0f6b3b63d898797a538032",
+      "size": 115200
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W33_2C_0321_2-D6.fits",
+      "sha256": "27e41db1cde1bc1882224decc13667517c6215687c8f1a373ceb9f08d68e8afe",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W33_2C_0321_3-D6.fits",
+      "sha256": "16a793df82008cdd292ce27e1cef297a0b88079d3f1e7c3b79a3eb1478cec743",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W33_2C_0386_3-D6.fits",
+      "sha256": "3cb17b73d46436b4cb92588b95d2cedc7cf9f701180bdd532bb53c77d780d718",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W33_2C_0386_4-D6.fits",
+      "sha256": "06c2530ab2087ecfe5c0d9c945d0a345410e9d75e1fbfe482fdcac43dbbf01e8",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W34_1B_0164_2-D6.fits",
+      "sha256": "d6fa3252489d38bb98c351c3b921df491ed44a7e9620d0f8064985abdab03a39",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W34_1B_0164_3-D6.fits",
+      "sha256": "51b91d65b8427cb864c40c8b6f60c3c0dd520d0e94f5cc4676397d7b2d1791da",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W34_2B_0030_1-D6.fits",
+      "sha256": "47dd0764907c7ed9e24e9b9be646d4dd54b05409664b61626f4a0c6493766917",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W34_2B_0030_3-D6.fits",
+      "sha256": "22315c4c417aca13388e7388dadd9c6c917271a1e4472a5661af20b753428a9d",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W34_2B_0030_4-D6.fits",
+      "sha256": "c34028b3fefa71f2d018aae67752bfcba9930a2e171a823d8204d218dcef6e47",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W35_1A_0008_1-D6.fits",
+      "sha256": "83fb09684639e64a7eca79be31185d24d64f60a9a085fac81aa7fd6960d8b121",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W35_1A_0008_2-D6.fits",
+      "sha256": "8bf82dd11d6189e87142846f8f617d804cd96b0e5a2f9298feba1ec5fa8fa448",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W35_1A_0008_3-D6.fits",
+      "sha256": "5a8e8006ae31a84294251760d8a94a741c0749380c96632f549b812b753ee340",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W35_1A_0008_4-D6.fits",
+      "sha256": "af24fc56d42d78951034640edcc26c1b87ef5852565e49c6d7a56a68cf514456",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W35_1A_0484_1-D6.fits",
+      "sha256": "662522914d2d76165495520b2e5c6a603911ae6b2bdcaa406863fa3411eb42f6",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2025W35_1A_0484_2-D6.fits",
+      "sha256": "c2bb55d32b32d150d56022bc3a510687fe1f72fbc067f76d8e597f4959953043",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W12_1A_0598_3-D6.fits",
+      "sha256": "c01d23a34012a93e50a44dc1505d7d9123ff8462635bf72b3ed9545ad953e588",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W12_1A_0610_1-D6.fits",
+      "sha256": "2b48b0135bf0ee575b4677d880c02c8a8a5c9bd7ee9cce442b0266dc0323d297",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W12_1A_0610_2-D6.fits",
+      "sha256": "05b8d23cc08d158a2540f79d675fa6dd78e367ba7d5b9225158db305b60a5def",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W12_1A_0610_3-D6.fits",
+      "sha256": "57b1c544faf38d980434ae8e218056595be865f1b52ea84d5d49039a287baf36",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W12_1A_0610_4-D6.fits",
+      "sha256": "37fd7bef6b85a18130efb935034fde2c808a243f371c0b52e3d314ec00a43fad",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W12_2A_0324_1-D6.fits",
+      "sha256": "225a8b6bffc43d0b7b8439be328e8c85a2a369be9e8369b65a45795e1bb18528",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W12_2A_0324_2-D6.fits",
+      "sha256": "a7e72315bd9cf8e330ad4b2b17fb1692fbfc57a41884045723eb3c10f06b4703",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W13_1A_0129_3-D6.fits",
+      "sha256": "8613749e697245a95e3d75d2960e8f16565919b28b807b00f0cbe4d096107d18",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W13_1A_0549_1-D6.fits",
+      "sha256": "30118ddcc193fc8caa4b278fa0da62c3b423aba36b14efb6658e666501232347",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W15_2A_0137_1-D6.fits",
+      "sha256": "9701f27ade0425e73e26bf4e8f1940ac7347fc11f590bfae567bc84f082413e6",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W19_1A_0046_1-D6.fits",
+      "sha256": "fd3d817339f0c6fa3b0dcc71e88c91798da8b20c601f3a984b2149480eac085b",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W19_1A_0216_1-D6.fits",
+      "sha256": "32a6c7522a41cb55aa5a3c6b96fa703af26cc73c0fc5f2d160977ca358e2a6c3",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W19_1A_0326_1-D6.fits",
+      "sha256": "9a3df9bdfc20559f9ed35709d5ba11466457c7c9925d0a63eff3f6d41cf795ee",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W19_1A_0403_1-D6.fits",
+      "sha256": "1c1dbbbdccbe6ebaaaf19f2d5cbc951deb2d412ea7eb8d086e4ee678e5066fd5",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W33_2A_0594_4-D6.fits",
+      "sha256": "5961aeaaee3a3a4b74aa001eb39c8f641ce22d4bc58ae41b5eb2a83741b191ef",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W34_1A_0007_1-D6.fits",
+      "sha256": "958e554906d1889a81eee40307d1d6efb51b944a04a0025394abdaf2e74f0eb9",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W34_1A_0007_2-D6.fits",
+      "sha256": "9d66b4ae75d2b8421c417a2e399d64b4eda7d8ae086860a5c6e8a76ba8413e75",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W34_1A_0007_4-D6.fits",
+      "sha256": "6b36772e9ccb40384dd1ae336e0e4556e69c06e16ce026aa1c9dd8c5a803c170",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W34_1A_0176_1-D6.fits",
+      "sha256": "fa7095d0b8fc7119b5bdd3cecdfcf1167408e9cdcd5a5f0d82f82a8275609cf7",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W34_1A_0176_2-D6.fits",
+      "sha256": "2ebd4e59000d6b2833f8f0603c2495ee7528a7dbe90276787d4a968b61c1642a",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W34_1A_0238_1-D6.fits",
+      "sha256": "222b58fe0a303bdf2763acee2380e7a2ddfbb9a6fbcd243f5aab7c6728551e6d",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W34_1A_0308_1-D6.fits",
+      "sha256": "9f0231b8091488093d81f0e45456cf95d19aefb3d08df87636b774f76b6e9e08",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W34_1A_0308_2-D6.fits",
+      "sha256": "4a6cfb4f7403904af3ed1cb35baa39aba87051409513ae7bcff71a19539c2b9e",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W34_1A_0308_3-D6.fits",
+      "sha256": "3e24b79f8095744dddc03cc4eff0daf37d25d053b88a1fd939b567562d4b7869",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W34_1A_0308_4-D6.fits",
+      "sha256": "162e28599c3aaae19d95dcadcd7146e53d2628286d777bc3c40c94264ea395e0",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W34_1A_0431_1-D6.fits",
+      "sha256": "1205bc1c1149dc1ece8d60004379e8f8c287766911f25264028519f07c0fa4f5",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W34_1A_0431_2-D6.fits",
+      "sha256": "ec7f7bf3165b553868bec91460658e7eee9b553fc041222a7c5772ad237d4ffa",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W34_1A_0431_3-D6.fits",
+      "sha256": "5a56ffc295020a59bb5bb332fab5ae8649727ba6d54cac81165e4aecbf68a48f",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/barnard/2026W34_1A_0431_4-D6.fits",
+      "sha256": "e5688b014699e094a9f5c1dd96e175565668f3ad5a1faadf7b15b92068f37c42",
+      "size": 152640
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W19_2B_0101_1-D3.fits",
+      "sha256": "8780461e29b56123b98bfccd61cfae89e5144d566ce052b0d7a575c197f7dd40",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W19_2B_0101_2-D3.fits",
+      "sha256": "3f39ed102c1031481ea28f98b0220f62994b0326be3e53d1a234beeb2a2e17bd",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W19_2B_0101_3-D3.fits",
+      "sha256": "f1f8646cd40eb1ef8c5ff01823ee6d7138481bb00e3c4118632023c64e243965",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W19_2B_0399_1-D3.fits",
+      "sha256": "9875cffa63ff28b96ffc2b98df0e600c43d55618153a6c85b65d63d6e10aca1c",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W19_2B_0474_1-D3.fits",
+      "sha256": "d7ae7b787abdb540f94618e5ab1f794ac583bf5875d3513cc5977aac70210778",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W19_2B_0474_2-D3.fits",
+      "sha256": "3c2d12f8df258e3b9642d5bf918125e331dd2866047507ccc88e7fc50edd17f9",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W19_2B_0474_4-D3.fits",
+      "sha256": "b5906c3239e35201a2c9439ffb8e2260cbb26d343ba38b188b2e062458777c6a",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W20_2D_0434_1-D3.fits",
+      "sha256": "46cc92d9cc54ca37d2d607af0a105f4d4c9c6520789bcaf3eaa8a172531431a0",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W20_2D_0434_2-D3.fits",
+      "sha256": "6886afb0edebef7d262421cb7e624ddef5820541eebddbdeda4f67d5499878aa",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W20_2D_0434_3-D3.fits",
+      "sha256": "373d455244a3f56f0521fd4b4faf37b86b87c21a9a874c5601c6dea18d7c3749",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W20_2D_0434_4-D3.fits",
+      "sha256": "ee911ee5992872ae0c5f6bc489cefa3c3388083f999b647a4b207ec688e23f66",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W22_1B_0283_1-D3.fits",
+      "sha256": "c3dd9f2c5c59835c7e4c86314ccc07ac01e329042de3a21042a392fff50045ad",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W22_1B_0283_2-D3.fits",
+      "sha256": "6870f9a3aaa00ac635adb05b92c9b52f476bb1b73260e407a104de276b70a1cf",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W22_1B_0283_3-D3.fits",
+      "sha256": "32a28aff104203ebc15fc43a7c20ec60fdab5342ae7eb60724d833b5533ab140",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W22_1B_0283_4-D3.fits",
+      "sha256": "ecaf1ae476d8d142dc5fa084306f18189dd9ee7ef5a8dec01d3a8ae8a647d0ff",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W22_2B_0019_1-D3.fits",
+      "sha256": "77b5dfc281c2515e33a9c50aaffb612a4d3e418a8dd2f490f0dc1a7c41a05aa4",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W22_2B_0140_1-D3.fits",
+      "sha256": "e94c64848f7a00658b3ba2d689106997d21a1a0fc91bab0302cddca19b042678",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W50_2A_0543_1-D3.fits",
+      "sha256": "a6ec0e3718069c83ef8352a416770707275dbc58295b7c4bad88acb19450e713",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W50_2A_0543_2-D3.fits",
+      "sha256": "a84423c935d0bf28c61857bc5b67761a21ad37cf48a993e3e3b87c342410c534",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W50_2A_0543_3-D3.fits",
+      "sha256": "6dfde5ac63276b5b9b451c7b8f730b42419776aed7895d1601776ec4b6df3347",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W50_2A_0543_4-D3.fits",
+      "sha256": "2e7a4d337014d53805e80f0767619804e1bbf03e25b0bb52bef6ae3318d8c0f8",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W50_2A_0559_1-D3.fits",
+      "sha256": "f042a9939937532058a736b24475c012aceabc61ff8bd05a09d97abeb3202d71",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W50_2A_0632_2-D3.fits",
+      "sha256": "c99d5850c8e1bc7c9531fd5e22bd827bef7659f48b2ca9938e7ba8ce4c4e12cb",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W50_2A_0632_3-D3.fits",
+      "sha256": "1e60f5dad770446b5ad15805186f0a89d46baed2d16ec21f584d9eb709205a6f",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W50_2A_0632_4-D3.fits",
+      "sha256": "311f1e5fb0a83f9794eec52d356f1fc932123bb00451f1169259395693436d55",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W51_1A_0061_1-D3.fits",
+      "sha256": "b0a708271c8f3d16fd4ef1275850397bb82ade97ccacc8fb9a0957005b183639",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W51_1A_0061_2-D3.fits",
+      "sha256": "0c55a3ed956b8e9ddca8561e8e1308244a44f18ac919f69df294efa89bfb1a76",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W51_1A_0359_4-D3.fits",
+      "sha256": "2747052e4ccfd0aa53dd197118b520dc6f1fe6d01e39cefce9c0a1e695fe8cea",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W51_1A_0482_1-D3.fits",
+      "sha256": "8a683837c216d745ef27556ba575a8f36b95d7b2235dcee45b4efd92c3407f05",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W51_1A_0482_2-D3.fits",
+      "sha256": "a3a883f5a800af2c84a0ff0d817d1e8def81c354394c40d7f3dab951a2ccd1f6",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W51_1A_0482_3-D3.fits",
+      "sha256": "41f98691ecabafb247b0c433bcffbb798f4754b173d1cb89a8bdc31a88cbbc8e",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W51_1A_0482_4-D3.fits",
+      "sha256": "f44fef49cacf50abd684a85fbb7761afd90a6228a973516a57c37cddb6008452",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2025W51_1A_0726_1-D3.fits",
+      "sha256": "71b1f3d4dbbd56e0468494269ecbc9ea2272e676ae4d8274bcd4aa5cd1a92ccf",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W21_1A_0114_3-D3.fits",
+      "sha256": "1466b2b6dcde45478797659e73c72a563789d56a5fc0938ca53800176b5c4fed",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W21_1A_0114_4-D3.fits",
+      "sha256": "26b214f4472e76165480b4f8aeedb84d739fae59d06da0d8140fde44e4aa1b5e",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W21_1A_0277_1-D3.fits",
+      "sha256": "60b336c09a1ce9769674cfc8924eb9e816e5c392deb57e60c04bec95e4c5674d",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W22_2A_0591_2-D3.fits",
+      "sha256": "f5c02d8c6a78b065a994c87fa32725e38831523282229d8de0ad8d020df4101e",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W22_2A_0591_3-D3.fits",
+      "sha256": "7234eafc42caf9953a8ba9fed7d13fea9ef370cc1751a866d45a130315a86447",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W22_2A_0591_4-D3.fits",
+      "sha256": "dd769910164a5e9e42e0dfdb6838afa399b7554daf5cdb3df76d7be2e882a9c8",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W23_2A_0470_1-D3.fits",
+      "sha256": "403211262963a1e097341939a2fa1f30e597bf7a5820a06e96a2a1eeaca728fa",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W23_2A_0470_2-D3.fits",
+      "sha256": "f9e261b999e433bfeaeee12fc5cb5f3fff69304b532562a7cc579f25ee8ca7b2",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W23_2A_0470_3-D3.fits",
+      "sha256": "2af5ca09ed921c9b3e98c3c3548c7b81fd222b9b86430e31de95f68b146a9a2a",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W23_2A_0470_4-D3.fits",
+      "sha256": "39071ed4e05a82df9cc8febc3d88ea1e629ebe8e5046c8b1dd66a5bbbe4a626e",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W24_2B_0446_1-D3.fits",
+      "sha256": "28d8de6da7fda8d1e9d335463fa2b944423d6c2397826b063ffdf377240caed3",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W24_2B_0446_2-D3.fits",
+      "sha256": "f90974cf9fdd3ff8a82c360ba059a1e619ca99c01563b43a681aecbf6fd3f96b",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W24_2B_0446_3-D3.fits",
+      "sha256": "89994a7a3141a09761cc2917675d1a915ec4bc22a338299ae24b35988a323b27",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W24_2B_0446_4-D3.fits",
+      "sha256": "c9e7413ae04816d005b869ceb15fef5fd6d19846c696fe722b58cc964f9c34be",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/m101/2026W25_1A_0641_1-D3.fits",
+      "sha256": "f06291ac63e81bdda0716f9db3616b9ad683fdc46ad5e1721ce0d799459e3027",
+      "size": 149760
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2025W36_1A_0095_1-D1.fits",
+      "sha256": "81e4318e97cfd08542799451ac9abbe74b3a0fb3661f9e159341b64d0dbb8b60",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2025W36_1A_0095_2-D1.fits",
+      "sha256": "d533d3a06765b2578c8bbcb89a42ea8b485d32616f4280f809f7e15b8f54416d",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2025W36_1A_0233_2-D1.fits",
+      "sha256": "93385f036ec97286d670d161f4ca62f7b09f13d1fe5b19f9e2be8f586f7108bc",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2025W36_1A_0233_3-D1.fits",
+      "sha256": "5fb289b47903127b99839d10f5b41ffb7850f60dc4432f8355e8a9a1523632ec",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2025W36_1A_0446_1-D1.fits",
+      "sha256": "faf68c2ecc77ec6e0c2f049df630be184b5588d8dd4b4eda96acc6b3b63f17e1",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2025W36_1A_0446_2-D1.fits",
+      "sha256": "c54d5bce6f453a01e90d4a9c46d17d4eb2d643db675f67f23606f820fa853ce3",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2025W36_1A_0446_3-D1.fits",
+      "sha256": "b1a9f4ef1c63bb08121937defd27af0a361858af68ba6b7ed1686b6449ff4b24",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2025W36_1A_0446_4-D1.fits",
+      "sha256": "d08802469342a2d9e2489b5c65e3792b99b1aa78ce97ddb7f0e655151fa62647",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2025W36_1A_0606_1-D1.fits",
+      "sha256": "14faae245fd9214989e3100ae9fdfaa47cf788a9f785fcac3f446dcb36907967",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2025W36_1A_0606_2-D1.fits",
+      "sha256": "1adaef50d6d652d828810463fb8117e9dc555a2e14270ba8cb8683c7f04cee65",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2025W36_1A_0606_3-D1.fits",
+      "sha256": "e005b1f99199bfe9ffc82a95d4e818c70abda66971eb705a3569eda92bd2d30b",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2025W36_1A_0606_4-D1.fits",
+      "sha256": "016b5d7636a49f00811fc7a88ae7c25f49be7683cad694167749132289f45c5c",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2025W36_1A_0663_1-D1.fits",
+      "sha256": "bc3a39a0adb5ac60eb0f4d6b05fbdc0f8711f10e151d7da564ee625d2826de48",
+      "size": 146880
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2026W37_1A_0234_3-D1.fits",
+      "sha256": "87597e50cf4acefd08f8835a291ec76e4a9dc1dd092d4049ad4370cce9d07c37",
+      "size": 155520
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2026W37_1A_0234_4-D1.fits",
+      "sha256": "4299d4f3a6dd1934987160bc98c77245bfbda2bcf3d4459d664716a4182c01ec",
+      "size": 155520
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2026W37_1A_0331_1-D1.fits",
+      "sha256": "f485b2c99fd47f09a8771b5c9e5b883eea06f6f416ea3c6e5cff9459ce6b5f72",
+      "size": 155520
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2026W37_1A_0331_2-D1.fits",
+      "sha256": "b99443081fdacecc6ed9f746f69cbecbe62e6a63e6b643e0758689e6b3722fc0",
+      "size": 155520
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2026W37_1A_0331_3-D1.fits",
+      "sha256": "b335e5f01001035a5b71237da2966e00a3854d9566515cb234c3a9c58a1cd6e2",
+      "size": 155520
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2026W37_1A_0331_4-D1.fits",
+      "sha256": "5c2739216ea1794b5e675ba54b25deadde67ea056c173a9ac60fb13029cf2680",
+      "size": 155520
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2026W37_1A_0365_1-D1.fits",
+      "sha256": "2c73e48b3a3e6cbec8ef16d44f526e727ab3e39d86c6664fc08ccf97a4490b1a",
+      "size": 155520
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2026W37_1A_0365_2-D1.fits",
+      "sha256": "172cd35493ce6224a2570b12608b96a7d9597d238333ec3224b702f3d174063f",
+      "size": 155520
+    },
+    {
+      "path": "public/demo/temporal/rw-aurigae/2026W37_1A_0524_1-D1.fits",
+      "sha256": "d6f6d89c3834910c8090aa689937f54f2e532775f7b580ed1ae7a82c35abc210",
+      "size": 155520
+    },
+    {
+      "path": "public/textures/planets/2k_earth_clouds.jpg",
+      "sha256": "fffd7f68d41b37274822150e54a6ef605af1d3ec35624d9f628c3b896bfa42ed",
+      "size": 965676
+    },
+    {
+      "path": "public/textures/planets/2k_earth_daymap.jpg",
+      "sha256": "685bb3159a96e6bf88070d84a0b52a5c1dda03c6d57a0e1cfe9e4bd70accaf55",
+      "size": 678239
+    },
+    {
+      "path": "public/textures/planets/2k_earth_normal_map.jpg",
+      "sha256": "893865a29e76ee0622b3750b4382a2733448f8e7ac8f6934ba8195045791ed23",
+      "size": 319103
+    },
+    {
+      "path": "public/textures/planets/2k_jupiter.jpg",
+      "sha256": "b0f04d005350252636b0e3396fc592548cbd9e9126b269d32d5c6abd4b0e4f2b",
+      "size": 498976
+    },
+    {
+      "path": "public/textures/planets/2k_mars.jpg",
+      "sha256": "2d187f3e77a98eaa8cea5f4cc722f633c122ef170b9e94ace6b5fb6cbc3f8e01",
+      "size": 750547
+    },
+    {
+      "path": "public/textures/planets/2k_mercury.jpg",
+      "sha256": "5a5c80607f643496bac9a631e71957def35ed788895f18b678ac849c2b38e48a",
+      "size": 872555
+    },
+    {
+      "path": "public/textures/planets/2k_moon.jpg",
+      "sha256": "2764ba6535ea0481a062846ee033cc7a909dae05b31a8fd13f3e98f3a7fd92bd",
+      "size": 1053869
+    },
+    {
+      "path": "public/textures/planets/2k_neptune.jpg",
+      "sha256": "cb42ea82709741d28b0af44d8b283cbc6dbd0c521a7f0e1e1e010ade00977df6",
+      "size": 241580
+    },
+    {
+      "path": "public/textures/planets/2k_saturn.jpg",
+      "sha256": "54a900ca9bf7ab62e70f862852759abdf342e6d6436a95a2fe9ebdb6bcd3bbac",
+      "size": 199916
+    },
+    {
+      "path": "public/textures/planets/2k_uranus.jpg",
+      "sha256": "d15239d46f82d3ea13d2b260b5b29b2a382f42f2916dae0694d0387b1204a09d",
+      "size": 77751
+    },
+    {
+      "path": "public/textures/planets/2k_venus.jpg",
+      "sha256": "225012ad4911730605c4e189ca2a3bf674fce50cc48aab4102b936b47d6991ac",
+      "size": 229696
+    },
+    {
+      "path": "public/textures/planets/2k_venus_atmosphere.jpg",
+      "sha256": "225012ad4911730605c4e189ca2a3bf674fce50cc48aab4102b936b47d6991ac",
+      "size": 229696
+    },
+    {
+      "path": "public/textures/planets/README.md",
+      "sha256": "e17ebda5ff000a0c7010c9bd2dce862f16de338fe1c6392ca02ad208a9a02d43",
+      "size": 962
+    },
+    {
+      "path": "vite.config.js",
+      "sha256": "a2648c7e7c7f3c75686469ba0285b268e5f47b74290641c81d721137794efe81",
+      "size": 3062
+    },
+    {
+      "path": "index.html",
+      "sha256": "82e22d4ada51cd8a2d2996d59ecb4583e9e2d2f230bcf7f5aaf41721962eeb4d",
+      "size": 4577
+    },
+    {
+      "path": "LEEME-JUAN.md",
+      "sha256": "bac82cc08be06e5d0b18aab0155f0a97bc9d53cbdca123ccfa00f194e010c7ed",
+      "size": 5454
+    }
+  ]
+}

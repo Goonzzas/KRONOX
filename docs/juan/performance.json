@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-07T18:48:16.076Z",
+  "scope": "Node CPU benchmark, identical FITS/center/300px/.5deg; no browser or GPU FPS measured",
+  "baseline300": {
+    "medianMs": 63.36289999999997,
+    "minMs": 62.64280000000002,
+    "maxMs": 68.29369999999994,
+    "runs": 5,
+    "gridSize": 300,
+    "fovDeg": 0.5
+  },
+  "changed300": {
+    "medianMs": 70.21059999999989,
+    "minMs": 69.9031,
+    "maxMs": 79.37699999999995,
+    "runs": 5,
+    "gridSize": 300,
+    "fovDeg": 0.5
+  },
+  "changed96": {
+    "medianMs": 9.655099999999948,
+    "minMs": 9.195999999999913,
+    "maxMs": 11.239700000000084,
+    "runs": 5,
+    "gridSize": 96,
+    "fovDeg": 0.5,
+    "note": "Different display resolution, provided separately; not a like-for-like FPS comparison"
+  },
+  "geometryBudget": {
+    "beforeTriangles": 2976,
+    "afterTriangles": 720,
+    "scope": "Single star mesh; excludes other scene geometry"
+  },
+  "gpuBeforeAfter": null,
+  "reason": "Windows automation stopped before visual traversal; no fabricated performance result"
+}

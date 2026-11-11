@@ -1,0 +1,23 @@
+{
+  "checkedAt": "2026-11-07T22:40:18.178Z",
+  "outcomes": [
+    {
+      "port": 5173,
+      "status": 200,
+      "page": 1,
+      "pageCount": 4,
+      "nextCursor": 1,
+      "partial": false,
+      "products": 273
+    },
+    {
+      "port": 5174,
+      "status": 200,
+      "page": 1,
+      "pageCount": 4,
+      "nextCursor": 1,
+      "partial": false,
+      "products": 273
+    }
+  ]
+}

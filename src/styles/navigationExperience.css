@@ -1,0 +1,366 @@
+.navigationDock {
+  position: fixed;
+  top: 86px;
+  left: 16px;
+  width: 300px;
+  max-height: calc(100dvh - 110px);
+  z-index: 84;
+  color: #dcecf6;
+  background: #0b1e2de8;
+  border: 1px solid #456b82;
+  border-radius: 11px;
+  padding: 12px;
+  box-shadow: 0 8px 30px #0008;
+  font:
+    12px system-ui,
+    sans-serif;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+.navigationDock header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.navigationDock header div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.navigationDock header b {
+  font-size: 12px;
+}
+.navigationDock header small {
+  font-size: 10px;
+  color: #a0bfd1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
+}
+.navigationDock button,
+.navigationDock select {
+  font: inherit;
+  padding: 8px;
+  border: 1px solid #4f7186;
+  background: #173b50;
+  color: #e5f2f8;
+  border-radius: 6px;
+  cursor: pointer;
+  max-width: 100%;
+}
+.navigationDock header button {
+  font-size: 10px;
+  max-width: 118px;
+}
+.navigationDock .navigationObserve {
+  width: 100%;
+  margin-top: 10px;
+  background: #166591;
+  border-color: #4bb4de;
+}
+.navigationDockBody {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+}
+.navigationDockBody label {
+  display: grid;
+  gap: 6px;
+}
+.navigationDockBody p {
+  margin: 0;
+  color: #abc7d6;
+  line-height: 1.6;
+  font-size: 11px;
+}
+.navigationDockActions {
+  display: grid;
+  gap: 7px;
+}
+.navigationDockBody details {
+  border-top: 1px solid #36546a;
+  padding-top: 10px;
+}
+.navigationDockBody summary {
+  cursor: pointer;
+}
+.navigationDockBody details button {
+  margin-top: 8px;
+  width: 100%;
+  font-size: 10px;
+}
+.navigationDock output {
+  display: block;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+  padding-top: 8px;
+}
+.app .kronoxBridgeTopBar {
+  top: 12px;
+  max-width: calc(100vw - 32px);
+  min-height: 50px;
+  flex-wrap: wrap;
+  gap: 10px;
+  box-sizing: border-box;
+}
+.app .kronoxBridgeSettingsBtn {
+  padding: 7px 10px;
+  font-size: 11px;
+}
+.app .kronoxCruiseReadout {
+  gap: 8px;
+}
+.app .nearbyGalaxyControls {
+  top: 86px;
+  right: 16px;
+  width: 320px;
+  max-height: calc(100dvh - 110px);
+  padding: 16px;
+  overflow: auto;
+  z-index: 80;
+  box-sizing: border-box;
+}
+.nearbyGalaxyCatalogList {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+  max-height: 230px;
+  overflow: auto;
+}
+.nearbyGalaxyCatalogList button {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  border: 1px solid #36536b;
+  border-radius: 5px;
+  background: #102c40;
+  color: #d7eaf6;
+  font-size: 10px;
+  padding: 8px;
+  cursor: pointer;
+}
+.nearbyGalaxyCatalogList button[aria-pressed='true'] {
+  border-color: #61c4e7;
+}
+.nearbyGalaxyCatalogList span {
+  color: #9ac4d9;
+  white-space: nowrap;
+}
+.app .nearbyGalaxyActions {
+  grid-template-columns: 1fr 1fr;
+}
+.app .nearbyGalaxyDisclaimer {
+  font-size: 10px;
+  line-height: 1.6;
+}
+.app .kronoxObjectInspector {
+  top: 86px;
+  right: 16px;
+  max-height: calc(100dvh - 110px);
+  overflow: auto;
+  width: 320px;
+  box-sizing: border-box;
+}
+.app .kronoxGuideObjective {
+  top: 78px;
+  max-width: min(560px, calc(100vw - 680px));
+}
+.app .kronoxMissionArrivalCard,
+.app .missionArrivalCard {
+  bottom: 18px;
+  left: 16px;
+  max-width: min(440px, calc(100vw - 32px));
+}
+@media (max-width: 900px) {
+  .app .kronoxCruiseReadout .kronoxDirectorModePill {
+    display: none;
+  }
+  .navigationDock {
+    top: 82px;
+    width: 240px;
+    left: 8px;
+  }
+  .app .nearbyGalaxyControls,
+  .app .kronoxObjectInspector {
+    right: 8px;
+    top: 82px;
+    width: 270px;
+  }
+  .app .kronoxBridgeTopBar {
+    top: 6px;
+  }
+  .navigationDock header small {
+    max-width: 100px;
+  }
+  .app .kronoxGuideObjective {
+    max-width: calc(100vw - 32px);
+  }
+}
+@media (max-width: 600px) {
+  .navigationDock {
+    top: auto;
+    bottom: 10px;
+    left: 10px;
+    width: calc(100vw - 20px);
+    padding: 9px;
+    max-height: 65dvh;
+  }
+  .navigationDock:not(.expanded) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .navigationDock:not(.expanded) header {
+    flex: 1;
+  }
+  .navigationDock:not(.expanded) .navigationObserve {
+    width: auto;
+    margin: 0;
+    font-size: 11px;
+  }
+  .navigationDock header small {
+    display: none;
+  }
+  .navigationDock header b {
+    font-size: 10px;
+  }
+  .app .nearbyGalaxyControls,
+  .app .kronoxObjectInspector {
+    top: 76px;
+    right: 8px;
+    width: min(280px, calc(100vw - 16px));
+    max-height: 65dvh;
+  }
+  .app .kronoxScaleTag,
+  .app .kronoxBridgeIdentity {
+    display: none;
+  }
+  .app .kronoxViewBtn {
+    padding: 6px 8px;
+  }
+  .app .kronoxBridgeTopBar {
+    gap: 4px;
+  }
+  .app .kronoxCabinPosReadout {
+    display: none;
+  }
+}
+.stellarCatalogPanel {
+  position: fixed;
+  right: 16px;
+  top: 86px;
+  width: 290px;
+  max-height: calc(100dvh - 110px);
+  overflow: auto;
+  z-index: 80;
+  background: #0c2030ed;
+  border: 1px solid #41677f;
+  border-radius: 10px;
+  color: #ddecf4;
+  padding: 14px;
+  font:
+    12px system-ui,
+    sans-serif;
+}
+.stellarCatalogPanel summary {
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1.6;
+}
+.stellarCatalogPanel p,
+.stellarCatalogPanel small {
+  color: #9fbdce;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.stellarCatalogPanel details > div {
+  display: grid;
+  gap: 5px;
+  max-height: 50vh;
+  overflow: auto;
+  margin: 12px 0;
+}
+.stellarCatalogPanel button {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  border: 1px solid #34556d;
+  background: #133044;
+  color: #def0f9;
+  border-radius: 5px;
+  font: 11px system-ui;
+  padding: 8px;
+  cursor: pointer;
+}
+.stellarCatalogPanel button span {
+  font-size: 10px;
+  color: #97bfd5;
+}
+.stellarCatalogPanel button[aria-pressed='true'] {
+  border-color: #7ad4f5;
+}
+.stellarCatalogPanel:has(details:not([open])) {
+  width: auto;
+  max-width: 290px;
+}
+@media (max-width: 900px) {
+  .stellarCatalogPanel {
+    right: 8px;
+    width: 245px;
+  }
+}
+@media (max-width: 600px) {
+  .stellarCatalogPanel {
+    top: 78px;
+    max-height: 60vh;
+    width: 230px;
+  }
+}
+
+@media (max-width: 600px) {
+  .app .kronoxBridgeTopBar {
+    left: 8px;
+    right: 8px;
+    width: auto;
+    transform: none;
+    justify-content: center;
+  }
+  .app .nearbyGalaxyControls,
+  .app .kronoxObjectInspector,
+  .stellarCatalogPanel {
+    top: 100px;
+  }
+}
+
+.app .guideObjectiveHud,
+.app .navigationGuide {
+  top: 86px;
+  max-width: min(360px, calc(100vw - 680px));
+}
+.app .missionLaunchWindow {
+  bottom: 18px;
+  left: 16px;
+  max-width: min(440px, calc(100vw - 32px));
+}
+@media (max-width: 1100px) and (min-width: 601px) {
+  .app .guideObjectiveHud,
+  .app .navigationGuide {
+    max-width: calc(100vw - 570px);
+  }
+}
+@media (max-width: 600px) {
+  .app .guideObjectiveHud,
+  .app .navigationGuide {
+    top: auto;
+    bottom: 88px;
+    max-width: calc(100vw - 32px);
+  }
+  .app .missionLaunchWindow {
+    bottom: 88px;
+    left: 10px;
+    max-width: calc(100vw - 20px);
+  }
+}

@@ -1,0 +1,26 @@
+
+> kronox-solar-explorer@1.0.0 build
+> vite build
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 77 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/assets/rgbWorker-le4kidlW.js           1.25 kB
+dist/index.html                             1.48 kB │ gzip:   0.77 kB
+dist/assets/fitsWorker-TNCVT4t2.js         17.12 kB
+dist/assets/SpherexMission-Br0VotJk.css    39.84 kB │ gzip:   8.09 kB
+dist/assets/index-BzA6Dc-b.css            126.94 kB │ gzip:  25.80 kB
+dist/assets/rolldown-runtime-WkwZ5CU-.js    0.59 kB │ gzip:   0.36 kB
+dist/assets/react-BkjRDCYo.js              10.94 kB │ gzip:   4.17 kB
+dist/assets/SpherexMission-DloNg6F-.js    114.92 kB │ gzip:  38.88 kB
+dist/assets/three-DPMUnbjt.js             531.78 kB │ gzip: 132.68 kB
+dist/assets/index-Baxdh2Uo.js             556.85 kB │ gzip: 171.62 kB
+
+✓ built in 607ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.

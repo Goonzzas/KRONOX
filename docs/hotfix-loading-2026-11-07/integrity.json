@@ -1,0 +1,27 @@
+{
+  "checkedAt": "2026-11-07T22:54:17.479Z",
+  "originalUnchanged": true,
+  "originalFilesChecked": 129,
+  "files": [
+    {
+      "path": "index.html",
+      "sha256": "82e22d4ada51cd8a2d2996d59ecb4583e9e2d2f230bcf7f5aaf41721962eeb4d"
+    },
+    {
+      "path": "src/bootstrap.js",
+      "sha256": "ecad968a864bc466937bc68219dd37e0d429027419f07c85c86f67be2f4a033f"
+    },
+    {
+      "path": "vite.config.js",
+      "sha256": "a2648c7e7c7f3c75686469ba0285b268e5f47b74290641c81d721137794efe81"
+    },
+    {
+      "path": "tests/loading.test.mjs",
+      "sha256": "5f928dfa12bc2a41a41a180f5386801e1c8aef9dc9672e64f0357cc498582f9c"
+    },
+    {
+      "path": "scripts/check-client-modules.mjs",
+      "sha256": "246f13d236a7f6f26f71ef752844c58885c580c9167d59feb955e4cfd5a85060"
+    }
+  ]
+}

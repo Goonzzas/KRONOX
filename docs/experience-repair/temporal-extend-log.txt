@@ -1,0 +1,63 @@
+barnard remaining candidates 36
+barnard 2 Sin píxeles válidos en la apertura; evidencia insuficiente
+barnard 1 Sin píxeles válidos en la apertura; evidencia insuficiente
+barnard 3 valid 5 span none
+barnard 4 Sin píxeles válidos en la apertura; evidencia insuficiente
+barnard 6 Sin píxeles válidos en la apertura; evidencia insuficiente
+barnard 5 valid 10 span none
+barnard 7 valid 6 span none
+barnard 8 valid 2 span none
+barnard 9 valid 3 span none
+barnard 10 Sin píxeles válidos en la apertura; evidencia insuficiente
+barnard 11 Sin píxeles válidos en la apertura; evidencia insuficiente
+barnard 12 Sin píxeles válidos en la apertura; evidencia insuficiente
+barnard 13 Sin píxeles válidos en la apertura; evidencia insuficiente
+barnard 15 valid 2 span none
+barnard 14 Sin píxeles válidos en la apertura; evidencia insuficiente
+barnard 16 Sin píxeles válidos en la apertura; evidencia insuficiente
+barnard 17 valid 5 span none
+barnard 18 valid 3 span none
+barnard 20 Sin píxeles válidos en la apertura; evidencia insuficiente
+barnard 19 Sin píxeles válidos en la apertura; evidencia insuficiente
+barnard 21 valid 4 span 250.6
+barnard 22 valid 2 span 250.6
+barnard 23 valid 3 span 250.6
+barnard 24 valid 1 span 250.6
+barnard 25 valid 2 span 252.6
+barnard 26 valid 1 span 252.6
+barnard 27 valid 2 span 252.6
+barnard 28 valid 1 span 252.6
+barnard 29 valid 1 span 252.6
+barnard 30 valid 7 span 252.6
+barnard 31 valid 1 span 252.6
+barnard 32 valid 8 span 252.6
+barnard 33 Sin píxeles válidos en la apertura; evidencia insuficiente
+barnard 34 Sin píxeles válidos en la apertura; evidencia insuficiente
+barnard 35 valid 3 span 252.6
+barnard 36 Sin píxeles válidos en la apertura; evidencia insuficiente
+FINAL barnard 44 252.56821849999687
+m101 remaining candidates 23
+m101 2 valid 47 span 182.4
+m101 1 valid 50 span 182.4
+m101 4 valid 49 span 182.4
+m101 3 valid 40 span 182.4
+m101 5 Sin píxeles válidos en la apertura; evidencia insuficiente
+m101 6 valid 51 span 182.4
+m101 7 valid 47 span 182.4
+m101 8 Sin píxeles válidos en la apertura; evidencia insuficiente
+m101 9 valid 46 span 182.4
+m101 10 valid 51 span 182.4
+m101 11 valid 48 span 182.4
+m101 12 valid 48 span 182.4
+m101 13 valid 51 span 186.6
+m101 14 valid 51 span 186.6
+m101 15 valid 49 span 186.6
+m101 16 valid 52 span 186.6
+m101 17 Sin píxeles válidos en la apertura; evidencia insuficiente
+m101 18 valid 48 span 186.6
+m101 20 valid 51 span 186.6
+m101 19 valid 50 span 186.6
+m101 21 valid 47 span 186.6
+m101 22 valid 41 span 186.6
+m101 23 valid 50 span 186.6
+FINAL m101 48 186.64422300000297

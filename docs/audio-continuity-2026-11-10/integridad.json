@@ -1,0 +1,38 @@
+{
+  "at": "2026-11-10T21:26:50.739Z",
+  "workingCopy": "C:/Users/OPPENHEIMER/Desktop/kronox-juan",
+  "baselineFiles": 233,
+  "protectedFilesUnchanged": 228,
+  "changedBaselineFiles": [
+    "src/App.jsx",
+    "src/scene/createScene.js",
+    "src/server/fishAudioTts.js",
+    "api/voice.js",
+    "vite.config.js"
+  ],
+  "exteriorConstructionUnchanged": true,
+  "backupFilesVerified": 11,
+  "music": {
+    "originalFile": "Aurelion Sol, the Star Forger  Login Screen - League of Legends - League of Legends.mp3",
+    "bytes": 9023189,
+    "sha256": "f6f74e3471e15cb9c4c139a42d96dbee689def5cdbebf85e2b7dc30b0ad8c5ab",
+    "unmodified": true
+  },
+  "fish": {
+    "status": 200,
+    "provider": "fish-audio",
+    "reference": "8150d8bf74d245cd84a154b785aa7fab",
+    "bytes": 67708,
+    "model": "s2.1-pro-free"
+  },
+  "checks": {
+    "tests": 169,
+    "passed": 169,
+    "failed": 0,
+    "typecheck": true,
+    "build": true,
+    "clientModules": 84
+  },
+  "nativeBrowserReview": "Not completed: user stopped Computer Use with Escape. No further UI actions were attempted.",
+  "privateEnvExcluded": true
+}

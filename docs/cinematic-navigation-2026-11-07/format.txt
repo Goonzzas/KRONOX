@@ -1,0 +1,8 @@
+src/scene/jumpSequence.js 446ms
+src/scene/hyperspaceEffect.js 28ms
+src/components/CinematicOpening.jsx 10ms
+src/utils/flightPanelLayout.js 6ms
+src/styles/cinematicNavigation.css 152ms
+src/components/NavigationDock.jsx 13ms
+src/components/SpaceshipCockpit.jsx 103ms
+src/App.jsx 177ms

@@ -1,0 +1,17 @@
+✔ Destinations use round halo, lazy detail, shared geometry, no square dust, and explicit illustrative volume (12.2827ms)
+✔ Frame timing summary reports samples instead of claiming unmeasured FPS (0.3881ms)
+✔ Catalog distinguishes local pixels, archive coverage, and unresolved targets without invented distances (0.3416ms)
+✔ Cronos explains loaded axes, exact selection and uncertainty, unloaded spectrum and synthetic mode (2.0474ms)
+✔ Backend retry receives a fresh timeout signal on every attempt (468.1221ms)
+✔ Backend propagates QR2/QR3 partial failures and does not report them complete (5.1206ms)
+✔ Real FITS worker transfers typed pixels, restores WCS/SIP and wavelength calibration without scientific changes (186.7476ms)
+✔ RGB masks real per-pixel wavelength intervals and visual adjustments do not change flux arrays (88.0923ms)
+✔ Spectrum renders real numbers, empty extraction has an explicit cause, and samples accumulate beyond 12 with bounded frames (658.3142ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1421.1724

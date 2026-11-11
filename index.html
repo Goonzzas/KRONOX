@@ -6,15 +6,140 @@
     <meta name="theme-color" content="#000000" />
     <meta name="description" content="Explora el sistema solar en 3D con Kronox, tu guía astral." />
     <title>KRONOX · Explorador 3D</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #030712;
+      }
+      #kronox-startup {
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        min-height: 100dvh;
+        padding: 24px;
+        color: #c8dae8;
+        font:
+          14px system-ui,
+          sans-serif;
+        flex-direction: column;
+        gap: 14px;
+        text-align: center;
+      }
+      #kronox-startup h1 {
+        margin: 0;
+        font-size: 19px;
+        color: #9adfff;
+      }
+      #kronox-startup p {
+        margin: 0;
+        max-width: 520px;
+        line-height: 1.6;
+      }
+      #kronox-startup-spinner {
+        width: 36px;
+        height: 36px;
+        border: 3px solid #38bdf833;
+        border-top-color: #38bdf8;
+        border-radius: 50%;
+        animation: kronoxSpin 0.9s linear infinite;
+      }
+      #kronox-startup [hidden] {
+        display: none !important;
+      }
+      #kronox-startup button {
+        padding: 12px 20px;
+        background: #125d80;
+        border: 1px solid #5fc6ea;
+        border-radius: 7px;
+        color: white;
+        font: inherit;
+        cursor: pointer;
+      }
+      #kronox-startup details {
+        max-width: 640px;
+        text-align: left;
+        margin-top: 20px;
+      }
+      #kronox-startup pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        font-size: 12px;
+      }
+      #kronox-startup summary {
+        cursor: pointer;
+      }
+      @keyframes kronoxSpin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root">
-      <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#030712;color:#38bdf8;font-family:system-ui,-apple-system,sans-serif;flex-direction:column;gap:12px;">
-        <div style="width:36px;height:36px;border:3px solid rgba(56,189,248,0.2);border-top-color:#38bdf8;border-radius:50%;animation:kronoxSpin 0.9s linear infinite;"></div>
-        <span style="font-size:12px;letter-spacing:0.12em;color:#94a3b8;font-weight:600;text-transform:uppercase;">Cargando Observatorio KRONOX...</span>
-        <style>@keyframes kronoxSpin{to{transform:rotate(360deg)}}</style>
-      </div>
+      <main id="kronox-startup" role="status">
+        <div id="kronox-startup-spinner" aria-hidden="true"></div>
+        <h1 id="kronox-startup-title">Iniciando Kronox…</h1>
+        <p id="kronox-startup-message">Preparando la expedición.</p>
+        <div id="kronox-startup-actions" hidden>
+          <button id="kronox-startup-retry" type="button">Volver a cargar</button>
+          <details>
+            <summary>Información del error</summary>
+            <pre id="kronox-startup-error"></pre>
+          </details>
+        </div>
+      </main>
     </div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script id="kronox-startup-guard">
+      (() => {
+        let finished = false;
+        const get = (id) => document.getElementById(id);
+        const fail = (error) => {
+          if (finished || !get('kronox-startup')) return;
+          clearTimeout(timer);
+          get('kronox-startup').setAttribute('role', 'alert');
+          get('kronox-startup-spinner').hidden = true;
+          get('kronox-startup-title').textContent = 'No se pudo abrir Kronox';
+          get('kronox-startup-message').textContent =
+            'La carga se interrumpió. Puedes volver a intentarlo.';
+          get('kronox-startup-actions').hidden = false;
+          get('kronox-startup-error').textContent = String(
+            error?.message || error || 'Error al cargar la aplicación.',
+          );
+        };
+        const onError = (event) =>
+          fail(
+            event.error ||
+              event.message ||
+              (event.target?.src
+                ? 'No se pudo cargar: ' + event.target.src
+                : 'Error al cargar la aplicación.'),
+          );
+        const onRejection = (event) => fail(event.reason);
+        const timer = setTimeout(
+          () =>
+            fail(
+              new Error('El inicio excedió 12 segundos. No se completó la carga de la aplicación.'),
+            ),
+          12000,
+        );
+        window.addEventListener('error', onError, true);
+        window.addEventListener('unhandledrejection', onRejection);
+        get('kronox-startup-retry').addEventListener('click', () => window.location.reload());
+        window.__kronoxStartup = {
+          fail,
+          ready() {
+            finished = true;
+            clearTimeout(timer);
+            window.removeEventListener('error', onError, true);
+            window.removeEventListener('unhandledrejection', onRejection);
+          },
+        };
+      })();
+    </script>
+    <script type="module" src="/src/bootstrap.js"></script>
   </body>
 </html>

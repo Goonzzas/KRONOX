@@ -344,3 +344,5 @@ export const NEARBY_GALAXIES = [
 ];
 
 export const nearbyGalaxyByKey = (key) => NEARBY_GALAXIES.find((object) => object.key === key);
+
+NEARBY_GALAXIES.push({key:'m101',kind:'galaxy',name:{es:'M101 · Molinete',en:'M101 · Pinwheel'},catalog:'M101 / NGC 5457',type:{es:'Galaxia espiral',en:'Spiral galaxy'},constellation:{es:'Osa Mayor',en:'Ursa Major'},raDeg:210.80227,decDeg:54.34895,distanceMly:25,distanceText:{es:'≈ 25 millones de años luz',en:'≈ 25 million light-years'},description:{es:'Galaxia espiral; el modelo de volumen es ilustrativo y los recortes locales cubren su núcleo.',en:'Spiral galaxy; illustrative volume and nuclear cutouts.'},sources:[{label:'NASA/Hubble',url:'https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-101/'}]});

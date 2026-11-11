@@ -1,0 +1,28 @@
+✖ A failed image selection clears the previous frame and shows its error instead of reusing another exposure (1359.2358ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2703.6042
+
+✖ failing tests:
+
+test at tests\juan-component.test.mjs:168:1
+✖ A failed image selection clears the previous frame and shows its error instead of reusing another exposure (1359.2358ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///C:/Users/OPPENHEIMER/Desktop/kronox-juan/tests/juan-component.test.mjs:233:12)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

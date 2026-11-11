@@ -1,0 +1,55 @@
+{
+  "checkedAt": "2026-11-08T03:40:52.019Z",
+  "localDate": "2026-11-07",
+  "timezone": "America/Bogota",
+  "workingCopy": "C:/Users/OPPENHEIMER/Desktop/kronox-juan",
+  "original": {
+    "path": "C:/Users/OPPENHEIMER/Desktop/KRONOX-main",
+    "checkedFiles": 129,
+    "changedFiles": [],
+    "unchanged": true
+  },
+  "preCinematicBaseline": {
+    "files": 222,
+    "protectedFilesChecked": 217,
+    "allProtectedUnchanged": true,
+    "changedFiles": [
+      "src/App.jsx",
+      "src/components/NavigationDock.jsx",
+      "src/components/SpaceshipCockpit.jsx",
+      "src/scene/createScene.js",
+      "LEEME-JUAN.md"
+    ],
+    "newSourceFiles": [
+      "src/components/CinematicOpening.jsx",
+      "src/scene/jumpSequence.js",
+      "src/scene/hyperspaceEffect.js",
+      "src/styles/cinematicNavigation.css",
+      "src/utils/flightPanelLayout.js"
+    ]
+  },
+  "exteriorConstruction": {
+    "unchanged": true,
+    "characters": 56167,
+    "sha256": "968f587b4474b7b7953398d32d820f04c9d962f36757945d89c81bc833bc4f2b"
+  },
+  "backup": {
+    "path": "docs/cinematic-navigation-2026-11-07/before.json.gz",
+    "filesVerified": 74,
+    "allHashesValid": true,
+    "sha256": "44b2eca9f352f04b97e5b40abe03914f42b81c669f58075e4bd42d7b23b63b4f"
+  },
+  "additionalTestFiles": [
+    "tests/cinematic.test.mjs",
+    "scripts/test-support/sceneHarness.mjs"
+  ],
+  "tests": {
+    "total": 154,
+    "passed": 154,
+    "failed": 0,
+    "typecheck": true,
+    "build": true,
+    "clientModulesLinked": 79
+  },
+  "remoteOperations": []
+}

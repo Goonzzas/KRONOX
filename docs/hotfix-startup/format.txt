@@ -1,0 +1,5 @@
+src/scene/sceneLabels.js 49ms
+src/components/BootErrorBoundary.jsx 33ms
+scripts/test-support/sceneHarness.mjs 55ms
+tests/startup.test.mjs 19ms
+src/main.jsx 2ms

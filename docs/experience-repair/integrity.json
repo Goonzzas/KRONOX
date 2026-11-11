@@ -1,0 +1,292 @@
+{
+  "checkedAt": "2026-11-07T22:40:19.803Z",
+  "originalFilesChecked": 129,
+  "originalUnchanged": true,
+  "originalChanges": [],
+  "backup": {
+    "file": "backups/pre-experience-1794087694785.json.gz",
+    "files": 76,
+    "sha256": "1cf55ef21b6919952f887e1a1d5c9860a607ff317e17d81d2bbfab1e6273a186"
+  },
+  "gitPaths": [],
+  "changes": [
+    {
+      "path": "src/App.jsx",
+      "status": "modified",
+      "beforeSha256": "0e66741594dc2c622cbe2eac0a2ce6141d161a737d14bccb776e64dc60ab610e",
+      "afterSha256": "db5306c72b33ac7be64d0d3185102fe9be58d29f325231d10ce71e0c3b340ecc"
+    },
+    {
+      "path": "src/components/EvidenceLab.jsx",
+      "status": "modified",
+      "beforeSha256": "75ae56315946d8b50bbca8ebb1b9e3e6250a6210528b8d6d7d1ab156584de2ae",
+      "afterSha256": "e76240b558bc941eefb14e6db66b8f15fe7a99172ca897a8d188d829e8ae0da3"
+    },
+    {
+      "path": "src/components/NavigationDock.jsx",
+      "status": "added",
+      "beforeSha256": null,
+      "afterSha256": "125424537d07c8f95c3f25ddd81259a85edf76d384e42b966041424deea2f7fd"
+    },
+    {
+      "path": "src/components/NearbyGalaxies.jsx",
+      "status": "modified",
+      "beforeSha256": "e85b0495edf77341112382c3dd54d0198e2d4ab01fbefadfd48effc26068dcc2",
+      "afterSha256": "5641ca3b7803524088f391e34d55b5a4644ef03c466d1ba584d5be2837cb84e6"
+    },
+    {
+      "path": "src/components/ObservationGallery.jsx",
+      "status": "added",
+      "beforeSha256": null,
+      "afterSha256": "c918a94962ec7d6d3760a00c634b6103119f79d62f42f7945e45b0bcef145818"
+    },
+    {
+      "path": "src/components/SpaceshipCockpit.jsx",
+      "status": "modified",
+      "beforeSha256": "199c6a1fab21f50cee4cb120eb42e2ebaa5caf45bf507f698dd681526121b587",
+      "afterSha256": "839d6a1d53d91ab0453992f51d1256e7a2e745d19948f6c162de527b2eeba2fa"
+    },
+    {
+      "path": "src/components/SpherexMission.jsx",
+      "status": "modified",
+      "beforeSha256": "129d456f08186f91c8675e07a9f8862d3417a666a67b8895f041f29c28147426",
+      "afterSha256": "b0ad068301548a629331e3773b1e35c0e29a35b716a12834c1ddcd458081595b"
+    },
+    {
+      "path": "src/components/StellarCatalogPanel.jsx",
+      "status": "added",
+      "beforeSha256": null,
+      "afterSha256": "b2f19faf358366b2ef5bd12351daef082c498e5af7052a0886f2f903d799a2a3"
+    },
+    {
+      "path": "src/components/useObservationSamples.js",
+      "status": "modified",
+      "beforeSha256": "7de79016dc8680714a5236ad99f1ba95b47e3041e9ed0703f94962383dfae182",
+      "afterSha256": "a62032383e0122cf1f6b8f9ec29792ca6ec6517cad09aadbdea979361c44b832"
+    },
+    {
+      "path": "src/data/navigationCatalog.js",
+      "status": "added",
+      "beforeSha256": null,
+      "afterSha256": "3738fb7abf589934de129361c63e6d8739d2a403be2348178ad187e70adb71ef"
+    },
+    {
+      "path": "src/data/nearbyGalaxies.js",
+      "status": "modified",
+      "beforeSha256": "935ad89e000e5f86b12ab6564b0ac030418ccdc0a67e0915eca74cb32f205eef",
+      "afterSha256": "9bb74f959ee4441ead70b026025d93b9241005df6655158540c255046797da07"
+    },
+    {
+      "path": "src/data/spherexTargets.js",
+      "status": "modified",
+      "beforeSha256": "1d438bc125d241d68d9ac55fd9df54892104c10b361df6300c47a4fd3de0019a",
+      "afterSha256": "a61e9b4191fc6403a8a02f95e5116f8682d1f06190d8032d2660d62b28e9dcbc"
+    },
+    {
+      "path": "src/data/temporalObservationsData.js",
+      "status": "added",
+      "beforeSha256": null,
+      "afterSha256": "effc47b315499364aafc5189ad2efb22a4c9689c073d92aced80d4fd78218df8"
+    },
+    {
+      "path": "src/data/verifiedObservations.js",
+      "status": "modified",
+      "beforeSha256": "aa9ed5b69f41bdafd33032a4f2d5b328ae5a6ce5c284ae1086add5ef5559f7e3",
+      "afterSha256": "78c87a1768ffde10fda9c9d4feddb9ac0e1e075d14de757b02144a6890953462"
+    },
+    {
+      "path": "src/scene/createScene.js",
+      "status": "modified",
+      "beforeSha256": "05b44642e8f4a2799f131d97befea751e65165b505bd14df724c0981e3d4a91d",
+      "afterSha256": "defef1ebb11f100dcb6cb35c9c719e1a0b99c65205c9ec67a673f6c0c00372f3"
+    },
+    {
+      "path": "src/scene/destinationVisuals.js",
+      "status": "modified",
+      "beforeSha256": "e6280657f80c0d05029642c4fd471656ad23b5b575c411c04970d3eed11282bc",
+      "afterSha256": "ee39dd122209e411c2ad7c9bd6d2855ba68d34ada9ab9a6268d4acd63138f5f1"
+    },
+    {
+      "path": "src/scene/galaxyVisuals.js",
+      "status": "added",
+      "beforeSha256": null,
+      "afterSha256": "e034e7d0440faf2e0d4bc562bda96c8f883fa52484921424238003832741388b"
+    },
+    {
+      "path": "src/scene/mapLayout.js",
+      "status": "added",
+      "beforeSha256": null,
+      "afterSha256": "34354419ae9009ebd28de060a8466139e299297b7d5844e87ded7a983cdb1b59"
+    },
+    {
+      "path": "src/scene/navigationAtlas.js",
+      "status": "added",
+      "beforeSha256": null,
+      "afterSha256": "d8dae0141a105eb8b17d457891386b4172dd458610f91ef14254648e184f2400"
+    },
+    {
+      "path": "src/scene/sceneLabels.js",
+      "status": "modified",
+      "beforeSha256": "a355adfa424b7b541f485db5f023cfe01f686c6e35879fce07aac69e1e798d52",
+      "afterSha256": "1d65f898a9ec7d561c9c06cadaa7e2db17e69655f0fcc06089bed4a224ec1ebf"
+    },
+    {
+      "path": "src/styles/navigationExperience.css",
+      "status": "added",
+      "beforeSha256": null,
+      "afterSha256": "9196856bfe7820c86bf38d7fdff62008676e4292170957c88f358d267f12d3bd"
+    },
+    {
+      "path": "src/styles/observatory.css",
+      "status": "added",
+      "beforeSha256": null,
+      "afterSha256": "b18b7623dd0715ef1ae511ac37dd601d6f5e16c4546b9a6bf49da295e3594a3c"
+    },
+    {
+      "path": "src/utils/scientificEvidence.js",
+      "status": "modified",
+      "beforeSha256": "6598168efa9057c34de344a5564a2f20d52f34d6bfb0cc223ee7730f953fcd1f",
+      "afterSha256": "312ac4cce85c242f2a7f78eee2dfc5ed53b5f75c5e43184799051d7fabef2b77"
+    },
+    {
+      "path": "src/utils/temporalObservations.js",
+      "status": "added",
+      "beforeSha256": null,
+      "afterSha256": "dcc4c33c616d81b513e28aa25c7c173d3aba0ce433d1b2f5332e04f77f0fc66f"
+    },
+    {
+      "path": "tests/experience.test.mjs",
+      "status": "added",
+      "beforeSha256": null,
+      "afterSha256": "10d32ec4678d5837d27b8bb9f7ad069f3275603b18a3577e990df18d09d51084"
+    },
+    {
+      "path": "tests/juan-component.test.mjs",
+      "status": "modified",
+      "beforeSha256": "3bc7d38fa0f6b1787521560e0f5d3dd0e446cfdddb9abc821c27c0acd566b4a4",
+      "afterSha256": "ed6e78962320bfcc0e172ac8825ad16f677153c8f88d0c9f3ae6ba6dad7ee3b4"
+    },
+    {
+      "path": "tests/repair-c.test.mjs",
+      "status": "modified",
+      "beforeSha256": "82a982719cd6652b0386abfe57062626065335f34ce33a3f9045626e63a62974",
+      "afterSha256": "e71a8480078a2b0641c3636a99c92d70e16a95eea38f70fa2a3a5781b2e09fd8"
+    },
+    {
+      "path": "tests/repair-d.test.mjs",
+      "status": "modified",
+      "beforeSha256": "736bc7b41ef8328dd42dc6c14f1cc1a3d7189be2df948bb3ea825ba3d97404e6",
+      "afterSha256": "d14ad952a0a9a6bfe29d3e71ab867fa5f089e77104f863369ce162d6149a6597"
+    },
+    {
+      "path": "tests/startup.test.mjs",
+      "status": "modified",
+      "beforeSha256": "aefbe51ae2b0bfb7a286d28b44fcf10805592982dba4dd3fc3d581a74230207b",
+      "afterSha256": "10edbc981adb61e6cb6ff3066d7b648fe64cbcaef5d077b4f3772de9310d93dc"
+    },
+    {
+      "path": "vite.config.js",
+      "status": "modified",
+      "beforeSha256": "d133e67b16e6d33e9ea70e72535b29344cf686ac6a8c648760570cda7efd5fbb",
+      "afterSha256": "ae0dfd963dc5e1a08e10764dabcde0e15ecd7b669d3a1616fed226fc4c1277f7"
+    },
+    {
+      "path": "package-lock.json",
+      "status": "added",
+      "beforeSha256": null,
+      "afterSha256": "85fcca9eb3c24764ae8ead346c800f6e556da1eab9dbc24d884806a5d920f8e5"
+    },
+    {
+      "path": "LEEME-JUAN.md",
+      "status": "modified",
+      "beforeSha256": "52f169fed058f85dad9d84342a55834a7cabfcd2f92a2b92f1c29b34cf6b7352",
+      "afterSha256": "a9cef9bc36e4d6c9eac4e4843a8b12db23009e860aea109b972f9483d389abff"
+    },
+    {
+      "path": "INICIAR-DEMO.ps1",
+      "status": "added",
+      "beforeSha256": null,
+      "afterSha256": "c2ce4191079ddb054ef7ad68979e92cba125656fd5d6be3131e9d6ba5aae866c"
+    }
+  ],
+  "removed": [],
+  "localProductsVerified": 131,
+  "targets": [
+    {
+      "key": "barnard",
+      "name": "Estrella de Barnard",
+      "products": 47
+    },
+    {
+      "key": "rw-aurigae",
+      "name": "RW Aurigae",
+      "products": 28
+    },
+    {
+      "key": "m31",
+      "name": "M31 · Andrómeda (núcleo)",
+      "products": 3
+    },
+    {
+      "key": "m101",
+      "name": "M101 · Molinete (núcleo)",
+      "products": 53
+    }
+  ],
+  "pairs": [
+    {
+      "key": "barnard",
+      "days": 217.41239199999836,
+      "dates": [
+        "2025-08-15",
+        "2026-03-21"
+      ],
+      "band": "SPHEREx-D6",
+      "valid": [
+        10,
+        8
+      ],
+      "total": [
+        14,
+        14
+      ]
+    },
+    {
+      "key": "rw-aurigae",
+      "days": 370.90881850000005,
+      "dates": [
+        "2025-09-03",
+        "2026-09-09"
+      ],
+      "band": "SPHEREx-D1",
+      "valid": [
+        9,
+        11
+      ],
+      "total": [
+        11,
+        12
+      ]
+    },
+    {
+      "key": "m101",
+      "days": 186.64422300000297,
+      "dates": [
+        "2025-12-13",
+        "2026-06-18"
+      ],
+      "band": "SPHEREx-D3",
+      "valid": [
+        48,
+        51
+      ],
+      "total": [
+        48,
+        51
+      ]
+    }
+  ],
+  "stellarSystems": 80,
+  "regionalSystems": 56,
+  "galaxies": 11
+}

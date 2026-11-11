@@ -1,0 +1,3 @@
+import fs from 'node:fs';
+const outcomes=await Promise.all([5173,5174].map(async port=>{try{const url='http://127.0.0.1:'+port+'/api/spherex?action=search&ra=269.446312&dec=4.767646&radius=0.12&progressive=1&deep=1&cursor=0';const response=await fetch(url,{signal:AbortSignal.timeout(35000)}),data=await response.json();return {port,status:response.status,page:data.page,pageCount:data.pageCount,nextCursor:data.nextCursor,partial:data.partial,products:data.records?.length,error:data.error};}catch(e){return {port,error:e.message};}}));
+fs.writeFileSync('docs/experience-repair/server-verification.json',JSON.stringify({checkedAt:new Date().toISOString(),outcomes},null,2));console.log(JSON.stringify(outcomes,null,2));

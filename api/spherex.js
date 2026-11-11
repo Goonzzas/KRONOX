@@ -1,5 +1,9 @@
+import {parseCsvTable,buildSearchPlan} from './lib/archivePlan.js';
+import {cachedIrsaBytes} from './lib/irsaCache.js';
+export {parseCsv,buildSearchPlan} from './lib/archivePlan.js';
+import {parseFitsCardValue} from '../src/utils/fitsCard.js';
 const IRSA_SIA = 'https://irsa.ipac.caltech.edu/SIA';
-const MAX_SEARCH_RESULTS = 1000;
+
 
 /**
  * Official NASA SPHEREx detector bandpass definitions (in microns).
@@ -18,7 +22,7 @@ function sendError(res, status, message) {
   return res.status(status).json({ error: message });
 }
 
-async function fetchWithRetry(url, options = {}, attempts = 4) {
+export async function fetchWithRetry(url, options = {}, attempts = 4) {
   const { timeoutMs = 0, ...fetchOptions } = options;
   let lastResponse;
   let lastError;
@@ -42,34 +46,6 @@ async function fetchWithRetry(url, options = {}, attempts = 4) {
   throw lastError || new Error('Network request failed');
 }
 
-function parseCsv(text) {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
-  const cells = (line) => {
-    const out = [];
-    let value = '',
-      quoted = false;
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"' && line[i + 1] === '"' && quoted) {
-        value += '"';
-        i++;
-      } else if (char === '"') quoted = !quoted;
-      else if (char === ',' && !quoted) {
-        out.push(value);
-        value = '';
-      } else value += char;
-    }
-    out.push(value);
-    return out;
-  };
-  const keys = cells(lines[0]);
-  return lines.slice(1).map((line) => {
-    const values = cells(line);
-    return Object.fromEntries(keys.map((key, index) => [key, values[index] || '']));
-  });
-}
-
 /**
  * Extracts the L2B pipeline version and retry flag from an IRSA SPHEREx access_url.
  * Example: ".../l2b-v27-2026-268/3/level2_2026W39_1A_0276_2D3_spx_l2b_retry-v27-2026-269.fits"
@@ -83,7 +59,7 @@ export function parsePipelineMetadata(accessUrl = '', collection = 'spherex_qr2'
   const pipelineVersion = match
     ? `v${versionMajor}-${versionYear}-${String(versionDoy).padStart(3, '0')}${isRetry ? '-retry' : ''}`
     : 'unknown';
-  const releaseRank = collection === 'spherex_qr3' ? 3 : 2;
+  const releaseRank = collection.startsWith('spherex_qr3') ? 3 : 2;
   // Rank higher pipeline versions, retry re-reductions, and newer releases first
   const priorityScore =
     releaseRank * 1e9 +
@@ -138,7 +114,7 @@ export function extractScientificFits(buffer, includePsf = false) {
     for (const card of cards) {
       const key = card.slice(0, 8).trim();
       if (card[8] === '=' && key)
-        values[key] = card.slice(10).split('/')[0].trim().replace(/^'|'$/g, '').trim();
+        values[key] = parseFitsCardValue(card);
     }
 
     const axes = Number(values.NAXIS || 0);
@@ -176,31 +152,34 @@ export function extractScientificFits(buffer, includePsf = false) {
   return keptSlices.length === 1 ? keptSlices[0] : Buffer.concat(keptSlices);
 }
 
-async function querySiaCollection(collection, ra, dec, radius) {
+export async function querySiaCollection(collection, ra, dec, radius, options = {}) {
   const url = new URL(IRSA_SIA);
   url.searchParams.set('COLLECTION', collection);
   url.searchParams.set('POS', `circle ${ra} ${dec} ${radius}`);
   url.searchParams.set('RESPONSEFORMAT', 'CSV');
-  url.searchParams.set('MAXREC', String(MAX_SEARCH_RESULTS));
-  const archiveResponse = await fetchWithRetry(url, { timeoutMs: 25000 });
-  if (!archiveResponse.ok) {
-    throw new Error(`El archivo IRSA (${collection}) no respondió a la búsqueda.`);
-  }
-  const rows = parseCsv(await archiveResponse.text());
+  // IRSA documents an unlimited default. Do not invent OFFSET/paging or silently cap the archive.
+  if(options.time)url.searchParams.set('TIME',options.time);
+  const result=await cachedIrsaBytes(url,{force:options.force,timeoutMs:18000,maxBytes:12*1024*1024,attempts:2});
+  const table=parseCsvTable(result.bytes.toString('utf8'));
+  if(!table.headers.includes('access_url'))throw Error('Respuesta IRSA inválida o incompleta; intenta la consulta segmentada.');
+  const rows=table.rows;
   const mapped = rows
-    .filter((row) => row.access_url && row.t_min)
+    .filter((row) => row.access_url?.startsWith('https://irsa.ipac.caltech.edu/ibe/data/spherex/'))
     .map((row) => {
-      const tMin = Number(row.t_min);
-      const tMax = Number(row.t_max || row.t_min);
+      const tMin = Number.parseFloat(row.t_min);
+      const tMax = Number.parseFloat(row.t_max || row.t_min);
       const tAvg = Number.isFinite(tMin) && Number.isFinite(tMax) ? (tMin + tMax) * 0.5 : tMin;
       const band = row.energy_bandpassname || 'Banda infrarroja';
       const bandMeta = SPHEREX_DETECTOR_BANDS[band] || null;
       const pipe = parsePipelineMetadata(row.access_url, collection);
       return {
-        id: row.obs_id,
-        date: row.t_min,
+        id: row.obs_id || row.obs_publisher_did || row.access_url,
+        productId:row.obs_publisher_did||row.access_url,facility:row.facility_name||'SPHEREx',instrument:row.instrument_name||'SPHEREx',
+        queryCenter:{ra,dec},footprint:row.s_region||null,
+        accessFormat:row.access_format,estimatedSizeKb:Number(row.access_estsize)||null,
+        date: row.t_min || null,
         dateEnd: row.t_max || row.t_min,
-        dateAvg: Number.isFinite(tAvg) ? tAvg.toFixed(9) : row.t_min,
+        dateAvg: Number.isFinite(tAvg) ? tAvg.toFixed(9) : null,
         band,
         detector: bandMeta?.detector || null,
         detectorRangeUm: bandMeta ? `${bandMeta.minUm.toFixed(2)}–${bandMeta.maxUm.toFixed(2)}` : null,
@@ -215,7 +194,7 @@ async function querySiaCollection(collection, ra, dec, radius) {
     });
   return {
     records: mapped,
-    truncated: mapped.length >= MAX_SEARCH_RESULTS,
+    truncated: false, queryUrl:url.href, cached:result.cached, rawCount:rows.length, droppedRows:rows.length-mapped.length,
   };
 }
 
@@ -233,7 +212,7 @@ export default async function handler(request, response) {
     const radius = Math.min(0.1, Math.max(0.005, Number(query.get('radius')) || 0.03));
     const releaseParam = String(query.get('release') || 'all').toLowerCase();
     if (
-      !Number.isFinite(ra) ||
+      !query.has('ra') || !query.has('dec') || !Number.isFinite(ra) ||
       ra < 0 ||
       ra >= 360 ||
       !Number.isFinite(dec) ||
@@ -242,6 +221,12 @@ export default async function handler(request, response) {
     )
       return sendError(response, 400, 'Coordenadas fuera de rango. RA: 0–360°, Dec: −90–90°.');
 
+    if(query.get('progressive')==='1'){
+      const plan=buildSearchPlan({release:releaseParam,deep:query.get('deep')==='1',segmented:query.get('segmented')==='1'}),cursor=Number(query.get('cursor')||0);
+      if(!Number.isInteger(cursor)||cursor<0||cursor>=plan.length)return sendError(response,400,'Cursor de consulta inválido.');
+      const task=plan[cursor];try{const result=await querySiaCollection(task.collection,ra,dec,radius,{time:task.time,force:query.get('refresh')==='1'});return response.status(200).json({...result,collection:task.collection,page:cursor+1,pageCount:plan.length,nextCursor:cursor+1<plan.length?cursor+1:null,partial:false,failedCollections:[],queriedAt:new Date().toISOString()});}
+      catch(error){return response.status(200).json({records:[],collection:task.collection,page:cursor+1,pageCount:plan.length,nextCursor:cursor+1<plan.length?cursor+1:null,partial:true,failedCollections:[task.collection],error:error.message,queriedAt:new Date().toISOString()});}
+    }
     const collectionsToQuery =
       releaseParam === 'qr2'
         ? ['spherex_qr2']
@@ -267,7 +252,8 @@ export default async function handler(request, response) {
         throw new Error(`IRSA no respondió para: ${failedCollections.join(', ')}`);
       }
       return response.status(200).json({
-        records: deduplicated,
+        records: [...new Map(rawRecords.map(r=>[r.url,r])).values()],
+        preferredRecords:deduplicated,observationCount:new Set(rawRecords.map(r=>r.id)).size,
         collection: collectionsToQuery.join('+'),
         rawCount: rawRecords.length,
         deduplicatedCount: deduplicated.length,
@@ -306,14 +292,13 @@ export default async function handler(request, response) {
       cutoutUrl.searchParams.set('center', `${ra},${dec}`);
       // A half-degree field gives the viewer enough detector pixels and
       // surrounding reference stars to compare observations over time.
-      cutoutUrl.searchParams.set('size', '0.5');
-      const imageResponse = await fetchWithRetry(cutoutUrl, { timeoutMs: 30000 });
-      if (!imageResponse.ok)
-        return sendError(response, 502, 'IRSA no pudo generar el recorte de esta observación.');
+      const size=Math.max(0.01,Math.min(0.5,Number(query.get('size'))||0.12));
+      cutoutUrl.searchParams.set('size',String(size));
+      const imageResponse = await cachedIrsaBytes(cutoutUrl,{timeoutMs:22000,ttlMs:7*86400000,force:query.get('refresh')==='1'});
       response.setHeader('Content-Type', 'application/fits');
       response.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
       const includePsf = query.get('psf') === '1' || query.get('psf') === 'true';
-      const product = Buffer.from(await imageResponse.arrayBuffer());
+      const product = imageResponse.bytes;
       return response.status(200).send(extractScientificFits(product, includePsf));
     } catch (error) {
       console.error('SPHEREx FITS cutout failed:', error);

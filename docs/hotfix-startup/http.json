@@ -1,0 +1,32 @@
+{
+  "checkedAt": "2026-11-07T21:10:38.721Z",
+  "checks": [
+    {
+      "path": "/KRONOX/",
+      "status": 200,
+      "bytes": 1398
+    },
+    {
+      "path": "/KRONOX/src/main.jsx",
+      "status": 200,
+      "bytes": 1811,
+      "bootBoundary": true
+    },
+    {
+      "path": "/KRONOX/src/scene/createScene.js",
+      "status": 200,
+      "bytes": 526930,
+      "helperRestored": true
+    },
+    {
+      "path": "/KRONOX/src/scene/sceneLabels.js",
+      "status": 200,
+      "bytes": 2769
+    },
+    {
+      "path": "/KRONOX/src/components/BootErrorBoundary.jsx",
+      "status": 200,
+      "bytes": 7395
+    }
+  ]
+}

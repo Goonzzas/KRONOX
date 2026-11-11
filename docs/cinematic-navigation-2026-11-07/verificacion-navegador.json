@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-07",
+  "timezone": "America/Bogota",
+  "browser": "Microsoft Edge",
+  "url": "http://127.0.0.1:5174/KRONOX/?welcome=false&voice=false",
+  "observed": [
+    "Prólogo Astral Sentinels / KRONOX con texto original",
+    "Continuación de la secuencia existente de despegue y abordaje",
+    "Omisión del prólogo y regreso a los controles de cabina",
+    "Cronos y cabina existentes disponibles",
+    "Salto exterior a Barnard y llegada con estrella al frente",
+    "Salto exterior a M31 y llegada con galaxia al frente",
+    "Salto a RW Aurigae desde cabina en primera y tercera persona",
+    "Fases de aceleración, entrada, crucero, salida y llegada",
+    "Paneles abiertos simultáneamente a 1366×768 y 1920×1080",
+    "Cierre de ajustes disponible sin obstrucción del diálogo flotante",
+    "Viewport temporal restaurado al terminar"
+  ],
+  "console": {
+    "checkedLevels": [
+      "error",
+      "warn"
+    ],
+    "returnedEntries": [],
+    "description": "Sin entradas en las lecturas de consola realizadas durante la sesión; no es una garantía sobre sesiones futuras."
+  },
+  "scope": "Comprobaciones manuales mediante automatización de la interfaz real; no se instrumentó el estado interno del navegador ni se midieron FPS."
+}

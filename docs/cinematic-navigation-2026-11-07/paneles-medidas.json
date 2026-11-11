@@ -1,0 +1,43 @@
+{
+  "at": "2026-11-08T01:16:42.443Z",
+  "viewport1366x768": {
+    ".kronoxBridgeTopBar": {
+      "height": 91,
+      "width": 683,
+      "x": 341.5,
+      "y": 12
+    },
+    ".kronoxSecondarySettingsModal": {
+      "height": 635,
+      "width": 300,
+      "x": 1050,
+      "y": 117
+    },
+    ".navigationDock": {
+      "height": 583.78125,
+      "width": 326,
+      "x": 16,
+      "y": 117
+    }
+  },
+  "viewport1920x1080": {
+    ".kronoxBridgeTopBar": {
+      "height": 54,
+      "width": 924.703125,
+      "x": 497.6484375,
+      "y": 12
+    },
+    ".kronoxSecondarySettingsModal": {
+      "height": 978,
+      "width": 300,
+      "x": 1604,
+      "y": 86
+    },
+    ".navigationDock": {
+      "height": 583.78125,
+      "width": 326,
+      "x": 16,
+      "y": 86
+    }
+  }
+}

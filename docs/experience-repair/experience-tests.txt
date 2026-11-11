@@ -1,0 +1,93 @@
+✔ Date navigation covers the full interval, deduplicates processing versions, and balances spectral detectors (3.9325ms)
+✔ Curated temporal pairs reproduce native FITS measurements, hashes, date spans and local wavelength compatibility (140.2344ms)
+✔ Temporal screening rejects sparse apertures, same numeric dates and incompatible units without discarding real spectral samples (0.3371ms)
+✔ Local and regional atlases contain named catalog systems at their radial distances and preserve provenance (22.3228ms)
+✔ Galaxy symbols have bounded nonoverlapping world radii; projected labels avoid panels and one another (6.2531ms)
+✔ Labels keep a bounded pixel footprint during a trip regardless of legacy scale, distance or parent scale (1.3488ms)
+✔ Elliptical galaxies use a thick ellipsoidal volume and spirals a disk, without duplicate group galaxies (8.7657ms)
+✔ React gallery exposes nine images per page and all products; catalog-star inspector does not offer undefined planet travel (1739.6232ms)
+✔ Reported black screen is reproduced by the prior startup source: lab is not defined (1768.0551ms)
+✔ Complete scene starts, draws labels, advances the entry sequence and reenters without losing its position (CPU integration) (4705.1153ms)
+✔ A startup exception produces a visible retry screen instead of an empty React root (581.5748ms)
+Warning: Do not call Hooks inside useEffect(...), useMemo(...), or other built-in Hooks. You can only call Hooks at the top level of your React function. For more information, see https://reactjs.org/link/rules-of-hooks
+    at App (C:/Users/OPPENHEIMER/Desktop/kronox-juan/src/App.jsx:62:45)
+    at BootErrorBoundary (C:/Users/OPPENHEIMER/Desktop/kronox-juan/src/components/BootErrorBoundary.jsx:11:1)
+Warning: Do not call Hooks inside useEffect(...), useMemo(...), or other built-in Hooks. You can only call Hooks at the top level of your React function. For more information, see https://reactjs.org/link/rules-of-hooks
+    at App (C:/Users/OPPENHEIMER/Desktop/kronox-juan/src/App.jsx:62:45)
+    at BootErrorBoundary (C:/Users/OPPENHEIMER/Desktop/kronox-juan/src/components/BootErrorBoundary.jsx:11:1)
+Warning: React has detected a change in the order of Hooks called by App. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://reactjs.org/link/rules-of-hooks
+
+   Previous render            Next render
+   ------------------------------------------------------
+1. useRef                     useRef
+2. useRef                     useRef
+3. useRef                     useRef
+4. useRef                     useRef
+5. useRef                     useRef
+6. useRef                     useRef
+7. useState                   useState
+8. useState                   useState
+9. useState                   useState
+10. useState                  useState
+11. useState                  useState
+12. useState                  useState
+13. useState                  useState
+14. useState                  useState
+15. useState                  useState
+16. useState                  useState
+17. useState                  useState
+18. useState                  useState
+19. useState                  useState
+20. useState                  useState
+21. useState                  useState
+22. useState                  useState
+23. useState                  useState
+24. useState                  useState
+25. useState                  useState
+26. useState                  useState
+27. useState                  useState
+28. useState                  useState
+29. useState                  useState
+30. useState                  useState
+31. useState                  useState
+32. useState                  useState
+33. useState                  useState
+34. useRef                    useState
+   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    at App (C:/Users/OPPENHEIMER/Desktop/kronox-juan/src/App.jsx:62:45)
+    at BootErrorBoundary (C:/Users/OPPENHEIMER/Desktop/kronox-juan/src/components/BootErrorBoundary.jsx:11:1)
+The above error occurred in the <App> component:
+
+    at App (C:/Users/OPPENHEIMER/Desktop/kronox-juan/src/App.jsx:62:45)
+    at BootErrorBoundary (C:/Users/OPPENHEIMER/Desktop/kronox-juan/src/components/BootErrorBoundary.jsx:11:1)
+
+React will try to recreate this component tree from scratch using the error boundary you provided, BootErrorBoundary.
+✖ The real App mounts its welcome screen and full scene without an uncaught startup error (CPU integration) (3044.411ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 11
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10546.6014
+
+✖ failing tests:
+
+test at tests\startup.test.mjs:101:1
+✖ The real App mounts its welcome screen and full scene without an uncaught startup error (CPU integration) (3044.411ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(output.includes('INICIAR EXPEDICIÓN'))
+  
+      at TestContext.<anonymous> (file:///C:/Users/OPPENHEIMER/Desktop/kronox-juan/tests/startup.test.mjs:116:12)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

@@ -1,0 +1,9 @@
+src/App.jsx 408ms
+src/components/NavigationDock.jsx 18ms
+src/components/CinematicOpening.jsx 5ms (unchanged)
+src/scene/jumpSequence.js 21ms (unchanged)
+src/scene/hyperspaceEffect.js 14ms (unchanged)
+src/utils/flightPanelLayout.js 4ms (unchanged)
+src/styles/cinematicNavigation.css 70ms
+tests/cinematic.test.mjs 23ms
+scripts/test-support/sceneHarness.mjs 27ms
