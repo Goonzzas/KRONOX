@@ -1,0 +1,561 @@
+{
+  "at": "2026-11-08T03:51:01.860Z",
+  "origin": "http://127.0.0.1:5174",
+  "passed": true,
+  "modules": 79,
+  "checks": [
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/main.jsx",
+      "status": 200,
+      "ms": 63,
+      "bytes": 1816,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/.cache/vite/runtime-15244/deps/react.js?v=5f6c8ded",
+      "status": 200,
+      "ms": 10,
+      "bytes": 489,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/.cache/vite/runtime-15244/deps/react-dom_client.js?v=5f6c8ded",
+      "status": 200,
+      "ms": 12,
+      "bytes": 2459,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/App.jsx?t=1794109642449",
+      "status": 200,
+      "ms": 17,
+      "bytes": 264100,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/BootErrorBoundary.jsx",
+      "status": 200,
+      "ms": 96,
+      "bytes": 7393,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/.cache/vite/runtime-15244/deps/react_jsx-dev-runtime.js?v=5f6c8ded",
+      "status": 200,
+      "ms": 96,
+      "bytes": 105982,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/.cache/vite/runtime-15244/deps/react-b63GqVvb.js?v=096ce4fc",
+      "status": 200,
+      "ms": 92,
+      "bytes": 221877,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/@vite/client",
+      "status": 200,
+      "ms": 94,
+      "bytes": 224192,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/.cache/vite/runtime-15244/deps/react-dom-Dfo3lRuF.js?v=096ce4fc",
+      "status": 200,
+      "ms": 124,
+      "bytes": 2591056,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/node_modules/vite/dist/client/env.mjs",
+      "status": 200,
+      "ms": 44,
+      "bytes": 3478,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/CinematicOpening.jsx",
+      "status": 200,
+      "ms": 139,
+      "bytes": 7170,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/flightPanelLayout.js",
+      "status": 200,
+      "ms": 117,
+      "bytes": 4033,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/StellarCatalogPanel.jsx",
+      "status": 200,
+      "ms": 108,
+      "bytes": 7063,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/NavigationDock.jsx",
+      "status": 200,
+      "ms": 108,
+      "bytes": 14567,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/styles/navigationExperience.css",
+      "status": 200,
+      "ms": 108,
+      "bytes": 7827,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/navigationScale.js",
+      "status": 200,
+      "ms": 109,
+      "bytes": 6343,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/voiceProvider.js",
+      "status": 200,
+      "ms": 110,
+      "bytes": 2297,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/data/planetData.js",
+      "status": 200,
+      "ms": 111,
+      "bytes": 34137,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/createScene.js",
+      "status": 200,
+      "ms": 113,
+      "bytes": 530844,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/KronoxWidget.tsx",
+      "status": 200,
+      "ms": 130,
+      "bytes": 46070,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/ToastNotification.jsx",
+      "status": 200,
+      "ms": 133,
+      "bytes": 4366,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/PlanetInfoModal.jsx",
+      "status": 200,
+      "ms": 133,
+      "bytes": 17122,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/QuickTravelMenu.jsx",
+      "status": 200,
+      "ms": 134,
+      "bytes": 9528,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/NearbyGalaxies.jsx",
+      "status": 200,
+      "ms": 129,
+      "bytes": 27637,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/data/nearbyGalaxies.js",
+      "status": 200,
+      "ms": 132,
+      "bytes": 39224,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/MobileFlightControls.jsx",
+      "status": 200,
+      "ms": 133,
+      "bytes": 13139,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/styles/evidenceLab.css",
+      "status": 200,
+      "ms": 134,
+      "bytes": 5874,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/SpherexMissionSelector.jsx",
+      "status": 200,
+      "ms": 134,
+      "bytes": 28352,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/SpaceshipCockpit.jsx",
+      "status": 200,
+      "ms": 134,
+      "bytes": 125327,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/data/spherexTargets.js",
+      "status": 200,
+      "ms": 136,
+      "bytes": 47397,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/kronoxAI.js",
+      "status": 200,
+      "ms": 138,
+      "bytes": 82040,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/findingsStorage.js",
+      "status": 200,
+      "ms": 142,
+      "bytes": 24578,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/i18n.js",
+      "status": 200,
+      "ms": 143,
+      "bytes": 97843,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/gameAudio.js",
+      "status": 200,
+      "ms": 144,
+      "bytes": 8396,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/floatingOverlayLayout.js",
+      "status": 200,
+      "ms": 145,
+      "bytes": 19070,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/state/kronoxMessages.ts",
+      "status": 200,
+      "ms": 146,
+      "bytes": 9667,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/styles.css",
+      "status": 200,
+      "ms": 147,
+      "bytes": 162188,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/styles/cinematicNavigation.css",
+      "status": 200,
+      "ms": 149,
+      "bytes": 6437,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/@react-refresh",
+      "status": 200,
+      "ms": 150,
+      "bytes": 118102,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/navigationAtlas.js",
+      "status": 200,
+      "ms": 66,
+      "bytes": 20176,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/jumpSequence.js",
+      "status": 200,
+      "ms": 61,
+      "bytes": 14418,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/hyperspaceEffect.js",
+      "status": 200,
+      "ms": 63,
+      "bytes": 15172,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/galaxyVisuals.js",
+      "status": 200,
+      "ms": 61,
+      "bytes": 9143,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/.cache/vite/runtime-15244/deps/three.js?v=5f6c8ded",
+      "status": 200,
+      "ms": 92,
+      "bytes": 3432437,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/mapLayout.js",
+      "status": 200,
+      "ms": 125,
+      "bytes": 18948,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/sceneLabels.js",
+      "status": 200,
+      "ms": 123,
+      "bytes": 5800,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/astronomicalPositions.js",
+      "status": 200,
+      "ms": 123,
+      "bytes": 3694,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/disposeResources.js",
+      "status": 200,
+      "ms": 124,
+      "bytes": 3537,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/originRebase.js",
+      "status": 200,
+      "ms": 124,
+      "bytes": 3451,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/flightDynamics.js",
+      "status": 200,
+      "ms": 125,
+      "bytes": 3273,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/destinationVisuals.js",
+      "status": 200,
+      "ms": 124,
+      "bytes": 21441,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/.cache/vite/runtime-15244/deps/three_examples_jsm_controls_OrbitControls__js.js?v=5f6c8ded",
+      "status": 200,
+      "ms": 126,
+      "bytes": 77800,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/habitableShipWorld.js",
+      "status": 200,
+      "ms": 128,
+      "bytes": 122809,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/scene/kronoxSceneDirector.js",
+      "status": 200,
+      "ms": 131,
+      "bytes": 60904,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/data/researchCatalog.js",
+      "status": 200,
+      "ms": 115,
+      "bytes": 143174,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/styles/expedition.css",
+      "status": 200,
+      "ms": 114,
+      "bytes": 48463,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/data/navigationCatalog.js",
+      "status": 200,
+      "ms": 115,
+      "bytes": 218089,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/data/verifiedObservations.js",
+      "status": 200,
+      "ms": 115,
+      "bytes": 4777,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/contextualScienceHelp.js",
+      "status": 200,
+      "ms": 115,
+      "bytes": 9814,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/data/localObservations.js",
+      "status": 200,
+      "ms": 16,
+      "bytes": 59941,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/data/m101Observations.js",
+      "status": 200,
+      "ms": 17,
+      "bytes": 46226,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/data/temporalObservationsData.js",
+      "status": 200,
+      "ms": 21,
+      "bytes": 935404,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/SpherexMission.jsx",
+      "status": 200,
+      "ms": 5,
+      "bytes": 337217,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/ObservationGallery.jsx",
+      "status": 200,
+      "ms": 3,
+      "bytes": 26723,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/temporalObservations.js",
+      "status": 200,
+      "ms": 4,
+      "bytes": 17177,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/sharedFrameLoads.js",
+      "status": 200,
+      "ms": 4,
+      "bytes": 8121,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/fitsDecode.js",
+      "status": 200,
+      "ms": 5,
+      "bytes": 6250,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/EvidenceLab.jsx",
+      "status": 200,
+      "ms": 7,
+      "bytes": 84583,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/archiveClient.js",
+      "status": 200,
+      "ms": 9,
+      "bytes": 17507,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/scientificEvidence.js",
+      "status": 200,
+      "ms": 10,
+      "bytes": 20327,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/fitsImage.js",
+      "status": 200,
+      "ms": 13,
+      "bytes": 151376,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/differentialImaging.js",
+      "status": 200,
+      "ms": 17,
+      "bytes": 223837,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/styles/observatory.css",
+      "status": 200,
+      "ms": 20,
+      "bytes": 9396,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/fitsTransport.js",
+      "status": 200,
+      "ms": 17,
+      "bytes": 12397,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/rgbComposite.js",
+      "status": 200,
+      "ms": 15,
+      "bytes": 9519,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/useObservationSamples.js",
+      "status": 200,
+      "ms": 15,
+      "bytes": 13381,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/components/SpectrumPlot.jsx",
+      "status": 200,
+      "ms": 16,
+      "bytes": 19988,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/utils/fitsCard.js",
+      "status": 200,
+      "ms": 11,
+      "bytes": 1610,
+      "type": "text/javascript"
+    },
+    {
+      "url": "http://127.0.0.1:5174/KRONOX/src/bootstrap.js",
+      "status": 200,
+      "ms": 2,
+      "bytes": 822,
+      "type": "text/javascript"
+    }
+  ]
+}

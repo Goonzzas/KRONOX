@@ -1,0 +1,38 @@
+[
+  {
+    "port": 5173,
+    "path": "/KRONOX/node_modules/.vite/deps/react.js?v=1f33a705",
+    "status": 200,
+    "type": "text/javascript"
+  },
+  {
+    "port": 5173,
+    "path": "/KRONOX/node_modules/.vite/deps/react-dom_client.js?v=f0df3f6d",
+    "status": 504,
+    "type": null
+  },
+  {
+    "port": 5173,
+    "path": "/KRONOX/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=1f33a705",
+    "status": 200,
+    "type": "text/javascript"
+  },
+  {
+    "port": 5174,
+    "path": "/KRONOX/node_modules/.vite/deps/react.js?v=1f33a705",
+    "status": 200,
+    "type": "text/javascript"
+  },
+  {
+    "port": 5174,
+    "path": "/KRONOX/node_modules/.vite/deps/react-dom_client.js?v=f0df3f6d",
+    "status": 504,
+    "type": null
+  },
+  {
+    "port": 5174,
+    "path": "/KRONOX/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=1f33a705",
+    "status": 200,
+    "type": "text/javascript"
+  }
+]

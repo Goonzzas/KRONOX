@@ -1,0 +1,32 @@
+✖ React mission component: real local observation, inspect, justify, save, closure and restore without Internet (1444.3178ms)
+✔ Reported black screen is reproduced by the prior startup source: lab is not defined (1456.2775ms)
+✔ Complete scene starts, draws labels, advances the entry sequence and reenters without losing its position (CPU integration) (4054.2347ms)
+✔ A startup exception produces a visible retry screen instead of an empty React root (547.9449ms)
+✔ The real App mounts its welcome screen and full scene without an uncaught startup error (CPU integration) (2821.9119ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9393.9007
+
+✖ failing tests:
+
+test at tests\juan-component.test.mjs:8:1
+✖ React mission component: real local observation, inspect, justify, save, closure and restore without Internet (1444.3178ms)
+  AssertionError [ERR_ASSERTION]: button Exploración
+      at button (file:///C:/Users/OPPENHEIMER/Desktop/kronox-juan/tests/juan-component.test.mjs:20:119)
+      at file:///C:/Users/OPPENHEIMER/Desktop/kronox-juan/tests/juan-component.test.mjs:21:23
+      at act (C:\Users\OPPENHEIMER\Desktop\kronox-juan\node_modules\react\cjs\react.development.js:2512:16)
+      at TestContext.<anonymous> (file:///C:/Users/OPPENHEIMER/Desktop/kronox-juan/tests/juan-component.test.mjs:21:9)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

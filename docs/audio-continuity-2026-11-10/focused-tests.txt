@@ -1,0 +1,23 @@
+✔ Page load automatically shows the prologue and boards the cabin: normal URL (13300.0029ms)
+✔ Page load automatically shows the prologue and boards the cabin: ?welcome=false&voice=false (7869.463ms)
+✔ Automatic prologue can be skipped and runs again on a fresh page mount (6859.4325ms)
+✔ An explicit intro=false link opens the cabin directly (5375.1987ms)
+✔ 5-scene SPHEREx intro, 1st-person cabin, orientation coherence, and orbit line visibility rules (6402.0565ms)
+✔ One score continues across scene changes, ducks under voice and stops/resets on completion or skip (6.8083ms)
+✔ An autoplay block can be retried by a gesture without holding the camera or stacking tracks (19.0527ms)
+✔ A late play promise from a skipped intro cannot alter its immediate replay (0.4012ms)
+✔ Fish uses the requested voice and a documented model and latency; credentials stay server-side (1.4077ms)
+✔ Production intro timings finish without audio; first satellite framing blends from the preceding pose (12933.7287ms)
+✔ 1. Prueba H — Fish Audio TTS (8150d8bf74d245cd84a154b785aa7fab), backend synthesis test & sequential queue (79.4531ms)
+✔ 2. Astrometric coordinate transforms (ICRS <-> Galactic <-> 3D Cartesian pc) and parallax uncertainty rules (0.7225ms)
+✔ 3. Pruebas A, B, C y D — Reconstrucción morfológica de galaxias (Vía Láctea, M31, SagDEG), estrellas (Barnard, Sol, Sirio/Rígel) y manifiesto de procedencia (54.1063ms)
+✔ 4. Prueba E — Firmamento desde la nave: paralelaje 3D, gradiente por latitud galáctica y Modo Científico vs Cinematográfico (3.3712ms)
+✔ 5. Pruebas A–G en escena 3D real: sin esferas amarillas opacas, sin nave gigante en el Sistema Solar y transición limpia entre escalas (11005.4891ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 43001.226

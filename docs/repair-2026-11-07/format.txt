@@ -1,0 +1,17 @@
+src/scene/astronomicalPositions.js 224ms
+src/scene/navigationScale.js 26ms
+src/scene/originRebase.js 26ms
+src/scene/disposeResources.js 15ms
+src/utils/fitsTransport.js 59ms
+src/utils/fitsDecode.js 11ms
+src/utils/sharedFrameLoads.js 27ms
+src/utils/archiveClient.js 42ms
+src/utils/rgbComposite.js 15ms
+src/utils/voiceProvider.js 5ms
+src/components/useObservationSamples.js 55ms
+src/components/SpectrumPlot.jsx 43ms
+src/components/EvidenceLab.jsx 159ms
+src/workers/fitsWorker.js 4ms
+src/workers/rgbWorker.js 2ms
+api/lib/archivePlan.js 19ms
+api/lib/irsaCache.js 15ms

@@ -1,3 +1,4 @@
+import {resolveScienceHelp} from './contextualScienceHelp.js';
 import { SPHEREX_TARGETS, SPHEREX_MISSION_TYPES } from '../data/spherexTargets.js';
 import { P, INFO } from '../data/planetData.js';
 import { NEARBY_GALAXIES } from '../data/nearbyGalaxies.js';
@@ -19,6 +20,8 @@ export function normalizeText(str = '') {
 export function matchSpherexTarget(query = '') {
   const q = normalizeText(query);
   if (!q) return null;
+  const additional=SPHEREX_TARGETS.find(t=>t.key==='m31'&&(q.includes('m31')||q.includes('andromeda'))||t.key!=='barnard'&&q.includes(normalizeText(t.name)));
+  if(additional)return additional;
   if (q.includes('barnard') && !q.includes('galaxia') && !q.includes('ngc')) {
     return SPHEREX_TARGETS.find((t) => t.key === 'barnard');
   }
@@ -139,9 +142,36 @@ export function processKronoxQuery(userQuery = '', context = {}) {
 
   const currentTarget =
     SPHEREX_TARGETS.find((t) => t.key === activeTargetKey) || SPHEREX_TARGETS[0];
+  const scienceHelp=resolveScienceHelp(q,context,currentTarget);
+  if(scienceHelp)return scienceHelp;
   const matchedTarget = matchSpherexTarget(q);
   const matchedPlanet = matchPlanet(q);
   const matchedGalaxy = matchNearbyGalaxy(q);
+
+  // =========================================================================
+  // DOCUMENTAL INTERACTIVO HISTÓRICO SPHEREx (NASA · JPL · CALTECH)
+  // =========================================================================
+  if (
+    q.includes('que es spherex') ||
+    q.includes('historia de spherex') ||
+    q.includes('documental spherex') ||
+    q.includes('cuentame sobre spherex') ||
+    q.includes('quien creo spherex') ||
+    q.includes('quien construyo spherex') ||
+    q.includes('como se construyo spherex') ||
+    q.includes('que hace spherex') ||
+    (q.includes('spherex') && (q.includes('documental') || q.includes('historia') || q.includes('origen') || q.includes('construccion') || q.includes('equipo') || q.includes('caltech')))
+  ) {
+    return {
+      reply:
+        'Iniciando documental interactivo de la misión SPHEREx de NASA y Caltech: desde su concepción en 102 bandas espectrales y pruebas criogénicas, hasta su despegue a bordo del Falcon 9 y sus tres pilares cosmológicos.',
+      action: { type: 'PLAY_SPHEREX_DOCUMENTARY' },
+      role: 'Cronos · Asistente Científico',
+      avatarState: 'EXPLAINING',
+      pointDirection: 'left',
+      epistemicCategory: 'Documental Histórico SPHEREx',
+    };
+  }
 
   // =========================================================================
   // FUNCIÓN A — BIENVENIDA Y REPRODUCCIÓN DE INTRODUCCIÓN CINEMATOGRÁFICA
@@ -316,7 +346,7 @@ export function processKronoxQuery(userQuery = '', context = {}) {
   // Direct travel to a SPHEREx target
   if (matchedTarget && (isNavVerb || q.startsWith(normalizeText(matchedTarget.name)))) {
     return {
-      reply: `Rumbo fijado hacia ${matchedTarget.name} (${matchedTarget.distanceLabel}, RA ${matchedTarget.ra.toFixed(4)}°, Dec ${matchedTarget.dec.toFixed(4)}°). Nota física: realizamos un desplazamiento acelerado de visualización en el motor 3D hacia su posición real en el vecindario solar.`,
+      reply: `Rumbo fijado hacia ${matchedTarget.name}, a ${matchedTarget.distanceLabel} en el vecindario solar. Nota física: realizamos un desplazamiento acelerado de visualización en el motor 3D hacia su posición real.`,
       action: { type: 'TRAVEL_SPHEREX', targetKey: matchedTarget.key, target: matchedTarget },
       role: 'Navegadora',
       avatarState: 'NAVIGATING',
@@ -618,6 +648,10 @@ export function processKronoxQuery(userQuery = '', context = {}) {
 }
 
 export const KRONOX_QUICK_PROMPTS = [
+  { label: '¿Qué es SPHEREx?', query: '¿Qué es SPHEREx?' },
+  { label: '¿Qué es una banda infrarroja?', query: '¿Qué es una banda infrarroja?' },
+  {label:'¿Qué representa este eje?',query:'¿Qué representa este eje?'},
+  {label:'¿Qué puedo concluir de este pico?',query:'¿Qué puedo concluir de este pico?'},
   { label: '¿Qué estoy viendo?', query: '¿Qué estoy viendo?' },
   { label: 'Destinos disponibles', query: 'Muéstrame los destinos disponibles' },
   { label: 'Llévame a Barnard', query: 'Llévame a la estrella de Barnard' },

@@ -1,0 +1,3 @@
+import fs from 'node:fs';import {querySiaCollection} from '../api/spherex.js';
+const output={target:'M101 nucleus',ra:210.80227,dec:54.34895,coordinateSource:'https://irsa.ipac.caltech.edu/onlinehelp/irsaviewer/help.pdf',coordinateNote:'NED-resolved M101 coordinate shown in the official IRSAViewer manual',queriedAt:new Date().toISOString(),collections:{}};
+for(const name of ['spherex_qr2','spherex_qr3']){try{const result=await querySiaCollection(name,output.ra,output.dec,.03);output.collections[name]=result;console.log(name,result.records.length);}catch(e){output.collections[name]={error:e.message};console.log(name,e.message);}fs.writeFileSync('docs/repair-2026-11-07/m101-search.json',JSON.stringify(output,null,2));}

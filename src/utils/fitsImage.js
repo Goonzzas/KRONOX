@@ -1,3 +1,4 @@
+import {parseFitsCardValue} from './fitsCard.js';
 const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 180 / Math.PI;
 
@@ -567,8 +568,9 @@ export function parseWcsWaveTable(
 
   const evaluateAtCutoutPixel = (xFits, yFits) => {
     if (!Number.isFinite(xFits) || !Number.isFinite(yFits)) return null;
-    const detX = crpix1w !== 0 ? xFits - crpix1w : xFits;
-    const detY = crpix2w !== 0 ? yFits - crpix2w : yFits;
+    const detX = Number(imageHeaderValues.CRVAL1W ?? 1) + Number(imageHeaderValues.CDELT1W ?? 1) * (xFits - crpix1w);
+    const detY = Number(imageHeaderValues.CRVAL2W ?? 1) + Number(imageHeaderValues.CDELT2W ?? 1) * (yFits - crpix2w);
+    if(detX < xGrid[0] || detX > xGrid[nx-1] || detY < yGrid[0] || detY > yGrid[ny-1]) return null;
     const bx = findBracket(xGrid, detX);
     const by = findBracket(yGrid, detY);
     const i00 = by.i * nx + bx.i;
@@ -596,6 +598,7 @@ export function parseWcsWaveTable(
   return {
     nx,
     ny,
+    waveGrid, bandGrid,
     xGrid: Array.from(xGrid),
     yGrid: Array.from(yGrid),
     minWaveUm: Number(minWave.toFixed(4)),
@@ -915,14 +918,18 @@ export function assessPhotometricComparability(frameA, frameB) {
     deltaLambdaUm !== null && meanBw > 0 ? deltaLambdaUm / meanBw : null;
 
   let regime = 'comparable';
-  let reasonEs = 'Misma región espectral LVF; el brillo es directamente comparable.';
+  let reasonEs = 'Mismo detector y centros λ próximos; verificar campo, PSF y calidad antes de atribuir cambios al tiempo.';
   let reasonEn = 'Same LVF spectral region; brightness is directly comparable.';
 
-  if (!sameDetector) {
+  if (!Number.isFinite(lamA) || !Number.isFinite(lamB) || !sameDetector && !detA && !detB) {
+    regime = 'unknown';
+    reasonEs = 'Falta calibración espectral: no se puede afirmar comparabilidad temporal.';
+    reasonEn = 'Spectral calibration is missing; temporal comparability cannot be asserted.';
+  } else if (!sameDetector) {
     regime = 'different-detector';
     reasonEs = `Detectores distintos (${detA} vs ${detB}); diferencia dominada por la distribución espectral (SED), no por variabilidad temporal.`;
     reasonEn = `Different detectors (${detA} vs ${detB}); difference is dominated by the spectral energy distribution (SED), not temporal variability.`;
-  } else if (deltaLambdaInBandwidths !== null && deltaLambdaInBandwidths > 1.0) {
+  } else if (deltaLambdaInBandwidths !== null && deltaLambdaInBandwidths > 0.25) {
     regime = 'shifted-wavelength';
     reasonEs = `Mismo detector pero longitud de onda LVF desplazada (Δλ = ${deltaLambdaUm.toFixed(3)} μm = ${deltaLambdaInBandwidths.toFixed(1)}×Δλ); los cambios de intensidad pueden reflejar rasgos espectrales además de variabilidad.`;
     reasonEn = `Same detector but shifted LVF wavelength (Δλ = ${deltaLambdaUm.toFixed(3)} μm = ${deltaLambdaInBandwidths.toFixed(1)}×Δλ); intensity changes may reflect spectral features as well as variability.`;
@@ -972,7 +979,7 @@ export function parseFits(buffer, fixedRange = null, targetCenter = null, option
     for (const card of cards) {
       const key = card.slice(0, 8).trim();
       if (card[8] === '=' && key)
-        values[key] = card.slice(10).split('/')[0].trim().replace(/^'|'$/g, '').trim();
+        values[key] = parseFitsCardValue(card);
     }
     const bitpix = Number(values.BITPIX || 8);
     const naxis = Number(values.NAXIS || 0);
@@ -1186,8 +1193,9 @@ export function parseFits(buffer, fixedRange = null, targetCenter = null, option
     }
     return max;
   };
-  const low = fixedRange?.low ?? percentile(0.03),
-    high = fixedRange?.high ?? percentile(0.997),
+  const safeFixedRange=Number.isFinite(fixedRange?.low)&&Number.isFinite(fixedRange?.high)&&fixedRange.high>fixedRange.low?fixedRange:null;
+  const low = safeFixedRange?.low ?? (validCount?percentile(0.03):0),
+    high = safeFixedRange?.high ?? (validCount?percentile(0.997):1),
     stretch = Math.max(1e-20, high - low);
 
   const wcs = parseWcs(values);
@@ -1217,8 +1225,8 @@ export function parseFits(buffer, fixedRange = null, targetCenter = null, option
 
   if (wcs && center) {
     reprojected = reprojectToCommonSkyGrid(workingPixels, rawWidth, rawHeight, wcs, center, {
-      gridSize: 300,
-      fovDeg: 0.5,
+      gridSize: options.gridSize || 300,
+      fovDeg: options.fovDeg || 0.5,
       variancePixels: rawVariancePixels,
       flagsPixels: rawFlagsPixels,
       badMask: applyFlagsMask ? badMask : 0,
@@ -1251,7 +1259,7 @@ export function parseFits(buffer, fixedRange = null, targetCenter = null, option
     psfExtensionName: psfHdu?.extName || null,
     psfDimensions: psfHdu?.dimensions || null,
     psfFwhmArcsec: values.PSF_FWHM ? Number(Number(values.PSF_FWHM).toFixed(3)) : null,
-    imageUnit: image.bunit || 'MJy / sr',
+    imageUnit: image.bunit || null,
     varianceUnit: hdus.VARIANCE?.bunit || (rawVariancePixels ? 'MJy2 / sr2' : null),
     zodiUnit: hdus.ZODI?.bunit || (rawZodiPixels ? 'MJy / sr' : null),
     zodiMode,
@@ -1279,7 +1287,8 @@ export function parseFits(buffer, fixedRange = null, targetCenter = null, option
   if (typeof document === 'undefined') {
     return {
       src: '',
-      range: fixedRange || { low, high },
+      range: safeFixedRange || { low, high },
+      displayHasData: validCount>0,
       width,
       height,
       rawWidth,
@@ -1347,7 +1356,7 @@ export function parseFits(buffer, fixedRange = null, targetCenter = null, option
       }
     }
   }
-  for (let y = 0; y < height; y++) {
+  if(options.decorativeGlow === true) for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const val = renderPixels[y * width + x];
       if (!Number.isFinite(val)) continue;
@@ -1363,7 +1372,8 @@ export function parseFits(buffer, fixedRange = null, targetCenter = null, option
   }
   return {
     src: canvas.toDataURL('image/png'),
-    range: fixedRange || { low, high },
+    range: safeFixedRange || { low, high },
+      displayHasData: validCount>0,
     width,
     height,
     rawWidth,

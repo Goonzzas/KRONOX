@@ -104,6 +104,9 @@ export function normalizeFindingRecord(raw, fallbackIndex = 0) {
     targetName,
     createdAt,
     description,
+    conclusion: raw.conclusion ? String(raw.conclusion) : null,
+    question: raw.question ? String(raw.question) : null,
+    evidence: raw.evidence && typeof raw.evidence === 'object' ? raw.evidence : null,
     viewMode,
     band,
     frameId1,
@@ -138,6 +141,7 @@ export function createFindingRecord({
   viewMode,
   diagnostics,
   timeDeltaDays,
+  conclusion = null, question = null, evidence = null,
 }) {
   const noteClean = String(description || '').trim();
   if (!noteClean) {
@@ -199,6 +203,7 @@ export function createFindingRecord({
     targetName,
     createdAt,
     description: noteClean,
+    conclusion, question, evidence,
     viewMode: viewMode || 'sideBySide',
     band,
     frameId1,

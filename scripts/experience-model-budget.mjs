@@ -1,0 +1,3 @@
+import fs from 'node:fs';
+const galaxy='src/scene/galaxyVisuals.js';let s=fs.readFileSync(galaxy,'utf8');s=s.replace('radius, color, softMap })','radius, color, softMap, pointCount=1600 })').replace('i < 1600','i < pointCount').replace('i < 220','i < Math.round(pointCount * 220 / 1600)');fs.writeFileSync(galaxy,s);
+const destination='src/scene/destinationVisuals.js';s=fs.readFileSync(destination,'utf8').replace('  sphereWidth: 24,','  galaxyPoints: 256,\n  sphereWidth: 24,').replace('          radius,','          radius,\n          pointCount:VISUAL_BUDGET.galaxyPoints,');fs.writeFileSync(destination,s);

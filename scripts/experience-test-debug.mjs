@@ -1,0 +1,1 @@
+import fs from 'node:fs';const file='tests/juan-component.test.mjs';let s=fs.readFileSync(file,'utf8');s=s.replace('    assert.equal(mainImages().length, 1);',"    fs.writeFileSync('docs/experience-repair/frame-test-debug.json',JSON.stringify(renderer.toJSON(),null,2));\n    assert.equal(mainImages().length, 1);");fs.writeFileSync(file,s);

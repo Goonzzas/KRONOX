@@ -1,0 +1,29 @@
+{
+  "at": "2026-11-08T03:52:03.398Z",
+  "changedExistingFiles": [
+    "src/App.jsx",
+    "tests/startup.test.mjs",
+    "LEEME-JUAN.md"
+  ],
+  "newTest": "tests/intro-autostart.test.mjs",
+  "previousPackageFiles": 531,
+  "otherPreviousFilesUnchanged": 528,
+  "originalFilesUnchanged": 129,
+  "tests": {
+    "total": 158,
+    "passed": 158,
+    "failed": 0,
+    "typecheck": true,
+    "build": true,
+    "clientModules": 79
+  },
+  "browser": {
+    "name": "ChatGPT in-app browser",
+    "automaticOpeningObserved": true,
+    "reportedUrl": "http://127.0.0.1:5174/KRONOX/?welcome=false&voice=false",
+    "normalUrl": "http://127.0.0.1:5174/KRONOX/",
+    "automaticCabinAfterOpening": true,
+    "skipTested": true,
+    "consoleErrorsAndWarnings": []
+  }
+}

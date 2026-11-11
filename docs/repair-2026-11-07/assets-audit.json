@@ -1,0 +1,70 @@
+{
+  "assets": [
+    {
+      "asset": "2k_earth_clouds.jpg",
+      "presentInCopy": true,
+      "inOriginalZip": true
+    },
+    {
+      "asset": "2k_earth_daymap.jpg",
+      "presentInCopy": true,
+      "inOriginalZip": true
+    },
+    {
+      "asset": "2k_earth_normal_map.jpg",
+      "presentInCopy": true,
+      "inOriginalZip": true
+    },
+    {
+      "asset": "2k_jupiter.jpg",
+      "presentInCopy": true,
+      "inOriginalZip": true
+    },
+    {
+      "asset": "2k_mars.jpg",
+      "presentInCopy": true,
+      "inOriginalZip": true
+    },
+    {
+      "asset": "2k_mercury.jpg",
+      "presentInCopy": true,
+      "inOriginalZip": true
+    },
+    {
+      "asset": "2k_moon.jpg",
+      "presentInCopy": true,
+      "inOriginalZip": true
+    },
+    {
+      "asset": "2k_neptune.jpg",
+      "presentInCopy": true,
+      "inOriginalZip": true
+    },
+    {
+      "asset": "2k_saturn.jpg",
+      "presentInCopy": true,
+      "inOriginalZip": true
+    },
+    {
+      "asset": "2k_uranus.jpg",
+      "presentInCopy": true,
+      "inOriginalZip": true
+    },
+    {
+      "asset": "2k_venus.jpg",
+      "presentInCopy": true,
+      "inOriginalZip": true
+    },
+    {
+      "asset": "2k_venus_atmosphere.jpg",
+      "presentInCopy": true,
+      "inOriginalZip": true
+    }
+  ],
+  "ignoredPatterns": "node_modules/\ndist/\n.DS_Store\n.vscode/\n",
+  "gitHistoryAvailable": false,
+  "versionsCompared": [
+    "KRONOX-main source",
+    "pre-repair kronox-juan backup"
+  ]
+}

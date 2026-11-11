@@ -1,0 +1,631 @@
+.cinematicOpening {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: grid;
+  place-items: center;
+  background: #01030a;
+  color: #e4f5ff;
+  overflow: hidden;
+  animation: kronoxOpeningBackdrop var(--opening-duration) linear both;
+  pointer-events: auto;
+  font-family: system-ui, sans-serif;
+}
+.cinematicOpeningStars {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  animation: kronoxOpeningStars var(--opening-duration) ease-out both;
+}
+.cinematicOpeningStars i {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #b6e8ff;
+  box-shadow: 0 0 6px #8ed6ff;
+}
+.cinematicOpeningTitles {
+  text-align: center;
+  position: relative;
+  padding: 28px;
+  perspective: 900px;
+}
+.cinematicOpeningStudio {
+  font-size: clamp(11px, 1.4vw, 17px);
+  letter-spacing: 0.5em;
+  color: #8acde5;
+  animation: kronoxStudio var(--opening-duration) ease both;
+}
+.cinematicOpening h1 {
+  font-size: clamp(46px, 9vw, 112px);
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  margin: 18px 0 18px 0.2em;
+  animation: kronoxTitle var(--opening-duration) cubic-bezier(0.16, 0.8, 0.3, 1) both;
+  text-shadow: 0 0 32px #56b4d533;
+}
+.cinematicOpeningRule {
+  display: block;
+  width: 160px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #85c9db, transparent);
+  margin: 24px auto;
+}
+.cinematicOpeningStory {
+  font-size: clamp(14px, 1.7vw, 20px);
+  line-height: 1.9;
+  letter-spacing: 0.08em;
+  color: #a9c5d5;
+  animation: kronoxStory var(--opening-duration) ease both;
+}
+.cinematicOpeningSub {
+  display: block;
+  margin-top: 8px;
+  font-size: clamp(10px, 1.1vw, 13px);
+  letter-spacing: 0.28em;
+  color: #7bc7e6cc;
+}
+.cinematicOpeningControls,
+.kronoxRealTimeIntroActions {
+  position: absolute;
+  bottom: 28px;
+  right: 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.kronoxRealTimeIntroHud .kronoxRealTimeIntroActions {
+  position: static;
+  margin-top: 8px;
+  justify-content: center;
+}
+.cinematicOpening button {
+  position: static;
+  border: 1px solid #6891a366;
+  border-radius: 8px;
+  background: #0a1b2ad9;
+  color: #cce4ef;
+  font: 12px system-ui;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+.cinematicActivateAudioBtn {
+  border: 1px solid #59d8ffaa !important;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0d3552ee, #092238ee) !important;
+  color: #e8fbff !important;
+  font: 600 12px system-ui !important;
+  letter-spacing: 0.05em;
+  padding: 10px 16px;
+  cursor: pointer;
+  box-shadow: 0 0 18px #38bdf844;
+}
+@keyframes kronoxOpeningBackdrop {
+  0% {
+    background: #01030a;
+  }
+  12% {
+    background: #01030acc;
+  }
+  30% {
+    background: #01030a55;
+  }
+  55%,
+  100% {
+    background: #01030a00;
+  }
+}
+@keyframes kronoxOpeningStars {
+  0%,
+  6% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  65% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+}
+@keyframes kronoxStudio {
+  0%,
+  5% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  20%,
+  62% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@keyframes kronoxTitle {
+  0%,
+  22% {
+    opacity: 0;
+    transform: translateZ(-55px);
+  }
+  40%,
+  70% {
+    opacity: 1;
+    transform: translateZ(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateZ(12px);
+  }
+}
+@keyframes kronoxStory {
+  0%,
+  43% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  60%,
+  76% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.cinematicOpening.reduced,
+.cinematicOpening.reduced * {
+  animation: none !important;
+}
+.cinematicOpening.reduced .cinematicOpeningStars {
+  opacity: 0.5;
+}
+.app .kronoxBridgeTopBar {
+  z-index: 86;
+}
+.app .navigationDock {
+  top: var(--flight-hud-bottom, 86px);
+  max-height: calc(100dvh - var(--flight-hud-bottom, 86px) - 16px);
+}
+.app .kronoxSecondarySettingsModal {
+  position: fixed;
+  left: auto;
+  right: 16px;
+  top: var(--flight-hud-bottom, 86px);
+  bottom: 16px;
+  width: min(420px, calc(100vw - 380px));
+  height: auto;
+  max-height: calc(100dvh - var(--flight-hud-bottom, 86px) - 16px);
+  margin: 0;
+  transform: none;
+  box-sizing: border-box;
+  overflow: auto;
+}
+.app .nearbyGalaxyControls,
+.app .kronoxObjectInspector,
+.app .stellarCatalogPanel {
+  top: var(--flight-hud-bottom, 86px);
+  max-height: calc(100dvh - var(--flight-hud-bottom, 86px) - 16px);
+}
+.app:has(.kronoxSecondarySettingsModal) .nearbyGalaxyControls,
+.app:has(.kronoxSecondarySettingsModal) .kronoxObjectInspector,
+.app:has(.kronoxSecondarySettingsModal) .stellarCatalogPanel {
+  visibility: hidden;
+}
+.app .guideObjectiveHud,
+.app .kronoxNotice,
+.app .navigationGuide {
+  top: var(--flight-hud-bottom, 86px);
+}
+.navigationDock button:disabled,
+.navigationDock select:disabled,
+.kronoxBridgeTopBar button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+@media (max-width: 1100px) and (min-width: 601px) {
+  .app .navigationDock {
+    width: 240px;
+    box-sizing: border-box;
+  }
+  .app .kronoxSecondarySettingsModal {
+    width: min(370px, calc(100vw - 290px));
+  }
+}
+@media (max-width: 600px) {
+  .app .navigationDock {
+    top: auto;
+    max-height: 55dvh;
+  }
+  .app .kronoxSecondarySettingsModal {
+    left: 8px;
+    right: 8px;
+    top: var(--flight-hud-bottom, 100px);
+    bottom: 90px;
+    width: auto;
+    max-height: calc(100dvh - var(--flight-hud-bottom, 100px) - 90px);
+  }
+  .app .guideObjectiveHud,
+  .app .navigationGuide {
+    top: auto;
+    bottom: 88px;
+  }
+  .cinematicOpening button {
+    right: 16px;
+    bottom: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cinematicOpening,
+  .cinematicOpening * {
+    animation: none !important;
+  }
+  .cinematicOpeningStars {
+    opacity: 0.5;
+  }
+}
+
+.app.cinematicActive .kronoxNotice {
+  visibility: hidden;
+}
+.app .missionArrivalOverlay {
+  inset: auto;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(440px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 14px 18px;
+  border: 1px solid #69cce455;
+  border-radius: 12px;
+  background: #081626dd;
+  gap: 5px;
+}
+.app .missionArrivalOverlay b {
+  font-size: 22px;
+}
+.app .missionArrivalOverlay small {
+  font-size: 11px;
+}
+.app .kronoxDialogueCard {
+  top: var(--flight-hud-bottom, 86px);
+}
+.app:has(.kronoxSecondarySettingsModal) .kronoxDialogueCard {
+  visibility: hidden;
+}
+@media (min-width: 1101px) {
+  .app:has(.navigationDock.expanded) .missionLaunchWindow {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+/* =========================================================================
+   DOCUMENTAL INTERACTIVO HISTÓRICO SPHEREx (NASA · JPL · CALTECH)
+   ========================================================================= */
+.spherexDocumentaryOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(3, 8, 18, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: spherexDocFadeIn 0.35s ease-out;
+}
+
+@keyframes spherexDocFadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.spherexDocModal {
+  width: min(940px, 96vw);
+  max-height: min(860px, 92vh);
+  background: linear-gradient(145deg, rgba(10, 24, 44, 0.96) 0%, rgba(4, 12, 24, 0.98) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 16px;
+  box-shadow: 0 0 50px rgba(0, 200, 255, 0.18), 0 20px 40px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #e2e8f0;
+}
+
+.spherexDocHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px;
+  background: rgba(6, 18, 36, 0.75);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.spherexDocBadge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #38bdf8;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  margin-bottom: 4px;
+}
+
+.spherexDocTitleGroup h2 {
+  margin: 0;
+  font-size: 1.22rem;
+  letter-spacing: 0.08em;
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.spherexDocCloseBtn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+  font-size: 1.1rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.spherexDocCloseBtn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fff;
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.spherexDocBody {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  flex: 1;
+  min-height: 380px;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .spherexDocBody {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+}
+
+.spherexDocVisualPane {
+  position: relative;
+  background: #020610;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  min-height: 280px;
+}
+
+.spherexDocMediaWrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+}
+
+.spherexDocImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.spherexDocOverlayGrad {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(2, 6, 16, 0.2) 0%, rgba(2, 6, 16, 0.75) 100%);
+  pointer-events: none;
+}
+
+.spherexDocDateBadge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  background: rgba(2, 6, 16, 0.8);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: #7dd3fc;
+  backdrop-filter: blur(6px);
+}
+
+.spherexDocCaption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 14px 18px;
+  font-size: 0.8rem;
+  color: #cbd5e1;
+  background: linear-gradient(0deg, rgba(2, 6, 16, 0.95) 0%, rgba(2, 6, 16, 0) 100%);
+  line-height: 1.4;
+}
+
+.spherexDocCaption strong {
+  color: #38bdf8;
+}
+
+.spherexDocTextPane {
+  padding: 24px 26px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: rgba(8, 20, 38, 0.4);
+  overflow-y: auto;
+}
+
+.spherexDocNarrativeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.spherexDocNarrativeTag {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+.spherexDocNarratorStatus {
+  font-size: 0.74rem;
+  color: #34d399;
+  font-weight: 500;
+}
+
+.spherexDocNarrative {
+  font-size: 1.05rem;
+  line-height: 1.62;
+  color: #f1f5f9;
+  margin: 0 0 18px;
+  font-weight: 400;
+}
+
+.spherexDocKeyFact {
+  padding: 12px 16px;
+  background: rgba(56, 189, 248, 0.08);
+  border-left: 3px solid #38bdf8;
+  border-radius: 0 8px 8px 0;
+  font-size: 0.84rem;
+  color: #bae6fd;
+  line-height: 1.48;
+  margin-top: auto;
+}
+
+.spherexDocFinalChoices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.spherexDocChoiceBtn {
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.22s;
+}
+
+.spherexDocChoiceBtn.primary {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  border: 1px solid #38bdf8;
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(2, 132, 199, 0.35);
+}
+
+.spherexDocChoiceBtn.primary:hover {
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+  box-shadow: 0 6px 20px rgba(56, 189, 248, 0.5);
+  transform: translateY(-1px);
+}
+
+.spherexDocChoiceBtn.secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #cbd5e1;
+}
+
+.spherexDocChoiceBtn.secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.spherexDocFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 22px;
+  background: rgba(6, 18, 36, 0.85);
+  border-top: 1px solid rgba(56, 189, 248, 0.18);
+}
+
+.spherexDocTimelineDots {
+  display: flex;
+  gap: 8px;
+}
+
+.spherexDocTimelineDot {
+  width: 24px;
+  height: 7px;
+  border-radius: 4px;
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.spherexDocTimelineDot.active {
+  background: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+  width: 34px;
+}
+
+.spherexDocTimelineDot.passed {
+  background: rgba(56, 189, 248, 0.45);
+}
+
+.spherexDocControls {
+  display: flex;
+  gap: 8px;
+}
+
+.spherexDocBtn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #e2e8f0;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.spherexDocBtn:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: #38bdf8;
+  color: #fff;
+}
+
+.spherexDocBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.spherexDocBtn.primary {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  font-weight: 600;
+}

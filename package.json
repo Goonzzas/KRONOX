@@ -9,7 +9,13 @@
     "test": "node --test",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:juan": "node --test tests/juan-science.test.mjs tests/juan-integration.test.mjs tests/juan-component.test.mjs tests/juan-wcs-reference.test.mjs",
+    "test:juan:mission": "node --test tests/juan-science.test.mjs tests/juan-component.test.mjs tests/juan-wcs-reference.test.mjs",
+    "test:juan:3d": "node --test --test-name-pattern=\"Destinations|Frame timing\" tests/juan-integration.test.mjs",
+    "test:juan:cronos": "node --test --test-name-pattern=\"Cronos\" tests/juan-integration.test.mjs",
+    "test:repair": "node --test tests/repair-a.test.mjs tests/repair-b.test.mjs tests/repair-c.test.mjs tests/repair-d.test.mjs tests/repair-e.test.mjs",
+    "test:startup": "node --test tests/startup.test.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -21,6 +27,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "prettier": "^3.9.10",
+    "react-test-renderer": "^18.3.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.5"
   }

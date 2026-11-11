@@ -1,5 +1,6 @@
 import React from 'react';
 import { NEARBY_GALAXIES } from '../data/nearbyGalaxies.js';
+import { getCanonicalGalaxy, getObjectProvenance } from '../scene/astronomicalUniverse.js';
 
 const text = (value, language) =>
   typeof value === 'string' ? value : value?.[language] || value?.es || '';
@@ -23,7 +24,7 @@ export function NearbyGalaxyControls({
       <div className="nearbyGalaxyEyebrow">
         {en ? 'DEEP SPACE ATLAS' : 'ATLAS DEL ESPACIO PROFUNDO'}
       </div>
-      <h2>{en ? 'Galactic neighborhood' : 'Vecindario galáctico'}</h2>
+      <h2>{en ? 'Extragalactic neighborhood' : 'Entorno extragaláctico'}</h2>
       <label className="nearbyGalaxySelectLabel" htmlFor="nearby-galaxy-select">
         {en ? 'Galaxy or group' : 'Galaxia o grupo'}
       </label>
@@ -64,10 +65,28 @@ export function NearbyGalaxyControls({
           {en ? 'Object details' : 'Ficha del objeto'}
         </button>
       </div>
+      <div className="nearbyGalaxyCatalogList" aria-label="Galaxias y distancias">
+        {NEARBY_GALAXIES.map((item) => (
+          <button
+            key={item.key}
+            aria-pressed={item.key === selected.key}
+            onClick={() => onSelect(item.key)}
+          >
+            <b>{text(item.name, language)}</b>
+            <span>
+              {item.distanceMly
+                ? item.distanceMly + ' Mly'
+                : item.kind === 'group'
+                  ? 'Grupo'
+                  : 'Origen'}
+            </span>
+          </button>
+        ))}
+      </div>
       <p className="nearbyGalaxyDisclaimer">
-        {en
-          ? 'Schematic map. Marker directions are approximate and visual distances are compressed; real distance estimates are shown in object details. The Milky Way and Solar System marker rotate together; that map-only rotation is accelerated so it is visible. Miniature planets use the current simulation clock. This is not a complete physical model of the Sun’s galactic orbit.'
-          : 'Mapa esquemático. Las direcciones son aproximadas y las distancias visuales están comprimidas; las estimaciones reales aparecen en cada ficha. La Vía Láctea y el indicador del Sistema Solar giran juntos; este giro solo del mapa está acelerado para que se note. Los planetas en miniatura usan el reloj actual. No es un modelo físico completo de la órbita del Sol por la galaxia.'}
+        {selected.key === 'milky-way'
+          ? 'Vía Láctea (SBbc): Modelo exterior reconstruido a partir de observaciones internas (Spitzer GLIMPSE sig05-010a / R. Hurt / Gaia DR3). Posiciones de catálogo con distancias comprimidas logarítmicamente.'
+          : 'Posiciones de catálogo; distancias comprimidas con una escala logarítmica. Los radios son simbólicos y se reducen en pares próximos para evitar solapamiento. Los grupos se señalan sin duplicar sus galaxias.'}
       </p>
       <button type="button" className="nearbyGalaxyReturn" onClick={onReturn}>
         {en ? 'Return to the Milky Way / Solar System' : 'Volver a la Vía Láctea / sistema solar'}
@@ -79,6 +98,8 @@ export function NearbyGalaxyControls({
 export function NearbyGalaxyInfoModal({ galaxy, language = 'es', onClose, onFocus }) {
   if (!galaxy) return null;
   const en = language === 'en';
+  const canonical = getCanonicalGalaxy(galaxy.key);
+  const provenance = getObjectProvenance(galaxy.key);
   return (
     <div className="modalShade" onClick={onClose}>
       <article
@@ -126,8 +147,26 @@ export function NearbyGalaxyInfoModal({ galaxy, language = 'es', onClose, onFocu
               </b>
             </div>
           )}
+          {canonical?.morphologicalType && galaxy.kind !== 'group' && (
+            <div>
+              <small>{en ? 'MORPHOLOGY & 3D GEOMETRY' : 'MORFOLOGÍA Y GEOMETRÍA 3D'}</small>
+              <b>
+                {canonical.morphologicalType} · D ≈ {canonical.diameterKly} kly · i{' '}
+                {canonical.inclinationDeg}° · PA {canonical.positionAngleDeg}°
+              </b>
+            </div>
+          )}
         </div>
         <p className="nearbyGalaxyDescription">{text(galaxy.description, language)}</p>
+        {canonical?.scientificNote && (
+          <p className="nearbyGalaxyDisclaimer">{canonical.scientificNote}</p>
+        )}
+        {provenance && (
+          <p className="nearbyGalaxyDisclaimer">
+            <strong>{en ? 'Scientific Provenance:' : 'Procedencia científica:'}</strong>{' '}
+            {provenance.catalogSource} · {provenance.reconstructionMethod}
+          </p>
+        )}
         <p className="nearbyGalaxyDisclaimer">
           {en
             ? 'Map positions and separations are schematic. Distances are approximate catalog or literature values.'

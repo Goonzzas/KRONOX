@@ -1,0 +1,17 @@
+{
+  "checkedAt": "2026-11-07T20:19:57.533Z",
+  "checks": [
+    {
+      "endpoint": "existing-local-voice",
+      "status": 200,
+      "type": "audio/mpeg",
+      "bytes": 11712
+    },
+    {
+      "endpoint": "same-upstream-q-parameter",
+      "status": 200,
+      "type": "audio/mpeg",
+      "bytes": 11712
+    }
+  ]
+}

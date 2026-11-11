@@ -1,0 +1,92 @@
+{
+  "date": "2026-11-07T18:55:33.853Z",
+  "scope": "Actual HTTP delivery on loopback, not browser UI or GPU validation",
+  "requests": [
+    {
+      "url": "http://127.0.0.1:5173/KRONOX/",
+      "status": 200
+    },
+    {
+      "file": "barnard/D6.fits",
+      "status": 200,
+      "bytes": 115200,
+      "sha256": "4f82f806a64307f2a30a4ad6594a9336935706e423bc9e67f63379473b9768e9"
+    },
+    {
+      "file": "barnard/D2.fits",
+      "status": 200,
+      "bytes": 115200,
+      "sha256": "a87291d60f000b3bd04a8368d3ace3f77ff96d42261d248c66e2e3218e919bba"
+    },
+    {
+      "file": "barnard/D3.fits",
+      "status": 200,
+      "bytes": 115200,
+      "sha256": "9ef71f05a991ebdced84359517136f6da7f29a1cc7abeaa6788cc2cd8bcbc5ad"
+    },
+    {
+      "file": "barnard/D5.fits",
+      "status": 200,
+      "bytes": 115200,
+      "sha256": "05be243021d252781d58f39bf5ff3f484a3d326e049e589661ea3fbfb4c4c54c"
+    },
+    {
+      "file": "m31/D1.fits",
+      "status": 200,
+      "bytes": 115200,
+      "sha256": "39a585af04b13cb4da133c19615b06147d1799e0e34551855c9ca110f173af80"
+    },
+    {
+      "file": "m31/D5.fits",
+      "status": 200,
+      "bytes": 115200,
+      "sha256": "df58b653e22193a6643a8d447d6b664f910372df6edf6b9824e4ce0f6b0b319a"
+    },
+    {
+      "file": "m31/D6.fits",
+      "status": 200,
+      "bytes": 115200,
+      "sha256": "4b8245306c3b465a6fe5a4c0c2bfa591d679e379e674997d02272c9ad81d9411"
+    },
+    {
+      "file": "rw-aurigae/D1.fits",
+      "status": 200,
+      "bytes": 115200,
+      "sha256": "f5f03e14e88f40606faf11190a2358abe2836549e47620811204e6b431a4708a"
+    },
+    {
+      "file": "rw-aurigae/D2.fits",
+      "status": 200,
+      "bytes": 112320,
+      "sha256": "6f4a76952b59427b56aa8e62cd4cb9ae14bd36fcbb8b0853628faf7b748945ef"
+    },
+    {
+      "file": "rw-aurigae/D3.fits",
+      "status": 200,
+      "bytes": 115200,
+      "sha256": "8d1cd335cf44077a75e2b3d4d5e95d8934ec0d4c12868fc37717ff581e155d6a"
+    },
+    {
+      "file": "rw-aurigae/D5.fits",
+      "status": 200,
+      "bytes": 112320,
+      "sha256": "538ea09df96c5312d7ac0cce055852eaef6a841053956482ab043d9f954af9a3"
+    },
+    {
+      "file": "rw-aurigae/D6.fits",
+      "status": 200,
+      "bytes": 115200,
+      "sha256": "cf6687225cf6fa75cd03be4cf9a5e3cbd63fae45ea0f6b3b63d898797a538032"
+    },
+    {
+      "file": "rw-aurigae/D4.fits",
+      "status": 200,
+      "bytes": 115200,
+      "sha256": "45a14be1345b62bd45da4b47dda4eec873c4d5d1c590fc4af22ec271ae74110f"
+    },
+    {
+      "check": "invalid-coordinates",
+      "status": 400
+    }
+  ]
+}

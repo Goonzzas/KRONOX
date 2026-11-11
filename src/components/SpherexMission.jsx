@@ -1,3 +1,21 @@
+import ObservationGallery from './ObservationGallery.jsx';
+import {
+  temporalPair,
+  chronologicalShowcase,
+  findCalibratedTemporalPair,
+} from '../utils/temporalObservations.js';
+import { SharedFrameLoads } from '../utils/sharedFrameLoads.js';
+import { decodeFits } from '../utils/fitsDecode.js';
+import EvidenceLab from './EvidenceLab.jsx';
+import {
+  fetchResource,
+  archiveStatus,
+  collectArchive,
+  observationStats,
+  FrameLru,
+  fitsCacheKey,
+} from '../utils/archiveClient.js';
+import { researchState, sampleAperture, compareEpochs } from '../utils/scientificEvidence.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   assessPhotometricComparability,
@@ -23,50 +41,128 @@ import {
 } from '../utils/findingsStorage.js';
 import { t } from '../i18n.js';
 import '../styles/expedition.css';
+import '../styles/observatory.css';
 
 // Icons tailored to expedition/fieldwork aesthetics
 const Icons = {
   Compass: (props) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <circle cx="12" cy="12" r="10" />
       <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
     </svg>
   ),
   Eye: (props) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
   ),
   Layers: (props) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.9a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
       <path d="m22 12.5-8.58 3.9a2 2 0 0 1-1.66 0L2 12.5" />
       <path d="m22 17.5-8.58 3.9a2 2 0 0 1-1.66 0L2 17.5" />
     </svg>
   ),
   Feather: (props) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" />
       <line x1="16" y1="8" x2="2" y2="22" />
       <line x1="17.5" y1="15" x2="9" y2="15" />
     </svg>
   ),
   Lightbulb: (props) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <line x1="9" y1="18" x2="15" y2="18" />
       <line x1="10" y1="22" x2="14" y2="22" />
       <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
     </svg>
   ),
   Award: (props) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <circle cx="12" cy="8" r="6" />
       <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
     </svg>
   ),
   ZoomIn: (props) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <circle cx="11" cy="11" r="8" />
       <line x1="21" y1="21" x2="16.65" y2="16.65" />
       <line x1="11" y1="8" x2="11" y2="14" />
@@ -74,79 +170,222 @@ const Icons = {
     </svg>
   ),
   ZoomOut: (props) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <circle cx="11" cy="11" r="8" />
       <line x1="21" y1="21" x2="16.65" y2="16.65" />
       <line x1="8" y1="11" x2="14" y2="11" />
     </svg>
   ),
   ZoomReset: (props) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
       <path d="M3 3v5h5" />
     </svg>
   ),
   Close: (props) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   ),
   ChevronRight: (props) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <polyline points="9 18 15 12 9 6" />
     </svg>
   ),
   ChevronLeft: (props) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <polyline points="15 18 9 12 15 6" />
     </svg>
   ),
   Play: (props) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <polygon points="5 3 19 12 5 21 5 3" />
     </svg>
   ),
   Pause: (props) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <rect x="6" y="4" width="4" height="16" />
       <rect x="14" y="4" width="4" height="16" />
     </svg>
   ),
   Bookmark: (props) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
     </svg>
   ),
   Trash: (props) => (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <polyline points="3 6 5 6 21 6" />
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     </svg>
   ),
   Download: (props) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
     </svg>
   ),
   Info: (props) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <circle cx="12" cy="12" r="10" />
       <line x1="12" y1="16" x2="12" y2="12" />
       <line x1="12" y1="8" x2="12.01" y2="8" />
     </svg>
   ),
   Warning: (props) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
       <line x1="12" y1="9" x2="12" y2="13" />
       <line x1="12" y1="17" x2="12.01" y2="17" />
     </svg>
   ),
   Check: (props) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
       <polyline points="20 6 9 17 4 12" />
     </svg>
   ),
@@ -154,14 +393,16 @@ const Icons = {
 
 const STAGES = [
   { id: 'arrival', label: 'Llegada', icon: Icons.Compass },
-  { id: 'explore', label: 'Exploración', icon: Icons.Eye },
-  { id: 'compare', label: 'Observación temporal', icon: Icons.Layers },
+  { id: 'explore', label: 'Imágenes', icon: Icons.Eye },
+  { id: 'compare', label: 'Comparar épocas', icon: Icons.Layers },
+  { id: 'analysis', label: 'Análisis espectral', icon: Icons.Layers },
   { id: 'investigate', label: 'Investigación', icon: Icons.Feather },
   { id: 'learn', label: 'Cuaderno de campo', icon: Icons.Lightbulb },
   { id: 'summary', label: 'Cierre de misión', icon: Icons.Award },
 ];
 
 function formatDate(mjd, language = 'es') {
+  if (mjd === null || mjd === undefined || String(mjd).trim() === '') return 'Fecha desconocida';
   const date = new Date((Number(mjd) - 40587) * 86400000);
   return Number.isNaN(date.getTime())
     ? 'Fecha desconocida'
@@ -202,6 +443,7 @@ export default function SpherexMission({
   onClose,
   initialTargetKey = 'barnard',
   initialStage = 'arrival',
+  initialDataSource = 'archive',
   language = 'es',
   onStateSync,
   onAskKronox,
@@ -222,6 +464,25 @@ export default function SpherexMission({
   );
   const [selectedTargetIndex, setSelectedTargetIndex] = useState(initialTargetIndex);
   const target = TARGETS[selectedTargetIndex];
+  const recommendedBand =
+    target.key === 'barnard'
+      ? 'SPHEREx-D6'
+      : target.type === 'galaxia'
+        ? 'SPHEREx-D3'
+        : target.preferredBand?.startsWith('SPHEREx-D')
+          ? target.preferredBand
+          : 'SPHEREx-D1';
+  const [temporalBand, setTemporalBand] = useState(recommendedBand),
+    [minimumDays, setMinimumDays] = useState(90),
+    [temporalMessage, setTemporalMessage] = useState(''),
+    [temporalBusy, setTemporalBusy] = useState(false),
+    [sequencePlaying, setSequencePlaying] = useState(false);
+  const [fieldSize, setFieldSize] = useState(target.type === 'galaxia' ? 0.3 : 0.12),
+    [analysisOpened, setAnalysisOpened] = useState(initialStage === 'analysis');
+  const fieldSizeRef = useRef(fieldSize);
+  fieldSizeRef.current = fieldSize;
+  const temporalController = useRef(null),
+    userSelection = useRef(false);
 
   // Progressive mission stage
   const [stage, setStage] = useState(initialStage || 'arrival');
@@ -231,6 +492,11 @@ export default function SpherexMission({
     const idx = TARGETS.findIndex((t) => t.key === initialTargetKey);
     if (idx >= 0 && idx !== selectedTargetIndex) {
       setSelectedTargetIndex(idx);
+      setDataSource(
+        navParams?.get('data') === 'local' || initialDataSource === 'local' ? 'local' : 'archive',
+      );
+      frameCacheRef.current.clear();
+      stretchByBandRef.current.clear();
     }
   }, [initialTargetKey]);
 
@@ -247,8 +513,30 @@ export default function SpherexMission({
 
   // Observations from real SPHEREx IRSA API
   const [records, setRecords] = useState([]);
+  const [dataSource, setDataSource] = useState(() =>
+    navParams?.get('data') === 'local' || initialDataSource === 'local' ? 'local' : 'archive',
+  );
+  const [archiveNotice, setArchiveNotice] = useState('');
+  const [reloadToken, setReloadToken] = useState(0);
+  const [segmented, setSegmented] = useState(false),
+    [deepSearch, setDeepSearch] = useState(true),
+    [galleryPage, setGalleryPage] = useState(0);
+  const selectedProducts = useRef({ a: null, b: null });
+  const [scienceContext, setScienceContext] = useState(null);
   const [loadingRecords, setLoadingRecords] = useState(false);
   const [recordError, setRecordError] = useState('');
+  useEffect(() => {
+    if (stage === 'analysis') setAnalysisOpened(true);
+  }, [stage]);
+  useEffect(() => {
+    setTemporalBand(recommendedBand);
+    setFieldSize(target.type === 'galaxia' ? 0.3 : 0.12);
+    setTemporalMessage('');
+    setSequencePlaying(false);
+    setAnalysisOpened(initialStage === 'analysis');
+    userSelection.current = false;
+    return () => temporalController.current?.abort();
+  }, [target.key, dataSource]);
   const [frameIndex, setFrameIndex] = useState(0);
   const [compareIndex, setCompareIndex] = useState(1);
 
@@ -290,7 +578,9 @@ export default function SpherexMission({
 
   // Ref caches for data queries and FITS decodes
   const searchTokenRef = useRef(0);
-  const frameCacheRef = useRef(new Map());
+  const frameCacheRef = useRef(new FrameLru(20));
+  const frameLoadsRef = useRef(new SharedFrameLoads(2));
+  useEffect(() => () => frameLoadsRef.current.clear(), []);
   const stretchByBandRef = useRef(new Map());
 
   // Save findings whenever updated
@@ -305,8 +595,9 @@ export default function SpherexMission({
       stage,
       records,
       findings,
+      scienceContext,
     });
-  }, [target.key, stage, records, findings]);
+  }, [target.key, stage, records, findings, scienceContext]);
 
   // Available years and bands in real SPHEREx records (Bloque 4.2)
   const availableYears = useMemo(() => {
@@ -329,7 +620,9 @@ export default function SpherexMission({
   const filteredRecordEntries = useMemo(() => {
     return records
       .map((r, originalIndex) => {
-        const y = String(new Date((Number(r.dateAvg || r.date) - 40587) * 86400000).getUTCFullYear());
+        const y = String(
+          new Date((Number(r.dateAvg || r.date) - 40587) * 86400000).getUTCFullYear(),
+        );
         return { record: r, originalIndex, year: y };
       })
       .filter((entry) => {
@@ -342,10 +635,17 @@ export default function SpherexMission({
   // Load observations when target changes
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     const fetchTargetObservations = async () => {
       const searchToken = ++searchTokenRef.current;
+      setScienceContext(null);
       setLoadingRecords(true);
       setRecordError('');
+      userSelection.current = false;
+      selectedProducts.current = { a: null, b: null };
+      setGalleryPage(0);
+      setFilterBand('ALL');
+      setFilterYear('ALL');
       setRecords([]);
       setFrameA(null);
       setFrameB(null);
@@ -353,30 +653,69 @@ export default function SpherexMission({
       setCompareIndex(1);
       setActiveMarker(null);
       setMarkingActive(false);
-
+      if (dataSource === 'local') {
+        const local = target.localRecords || [];
+        setRecords(local);
+        const suggested =
+          target.temporalPair?.a && local.some((r) => r.url === target.temporalPair.a)
+            ? target.temporalPair
+            : temporalPair(local, { band: recommendedBand, minDays: 30 });
+        if (suggested) {
+          setFrameIndex(local.findIndex((r) => r.url === (suggested.a.url || suggested.a)));
+          setCompareIndex(local.findIndex((r) => r.url === (suggested.b.url || suggested.b)));
+          setTemporalMessage(
+            `Par de referencia: ${suggested.days.toFixed(0)} días · mismo detector${suggested.calibrated ? ' y λ local compatible' : ''}.`,
+          );
+        } else setCompareIndex(Math.max(0, local.length - 1));
+        setArchiveNotice(
+          local.length
+            ? 'Conjunto local versionado: productos reales QR2/QR3. No es el archivo completo ni un cubo espectral.'
+            : 'Este destino no tiene productos locales verificados.',
+        );
+        setLoadingRecords(false);
+        return;
+      }
       try {
-        const res = await fetch(
-          `/api/spherex?action=search&ra=${encodeURIComponent(target.ra)}&dec=${encodeURIComponent(target.dec)}&release=all`,
-        );
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'No se pudieron recuperar las observaciones.');
-        if (!active || searchToken !== searchTokenRef.current) return;
-
-        const unique = new Map();
-        for (const r of data.records || []) {
-          const key = `${r.id}|${r.band}`;
-          const prev = unique.get(key);
-          if (!prev || Number(r.priorityScore || 0) >= Number(prev.priorityScore || 0)) {
-            unique.set(key, r);
-          }
-        }
-        const sorted = [...unique.values()].sort(
-          (a, b) => Number(a.dateAvg || a.date) - Number(b.dateAvg || b.date),
-        );
-        setRecords(sorted);
-        if (sorted.length > 1) {
-          setCompareIndex(sorted.length - 1);
-        }
+        await collectArchive({
+          ra: target.ra,
+          dec: target.dec,
+          signal: controller.signal,
+          segmented,
+          deep: deepSearch,
+          refresh: reloadToken > 0,
+          onPage: (data) => {
+            if (!active || searchToken !== searchTokenRef.current) return;
+            const stats = data.stats;
+            setArchiveNotice(
+              `${data.page}/${data.pageCount} consultas · ${stats.products} productos · ${stats.exposures} exposiciones · ${stats.epochs} instantes MJD · ${stats.bands} detectores. ${archiveStatus(data).text}`,
+            );
+            const incoming = data.records.map((r) => ({
+              ...r,
+              cutoutSizeDeg: fieldSizeRef.current,
+            }));
+            setRecords(incoming);
+            const a = data.records.findIndex((r) => r.url === selectedProducts.current.a),
+              b = data.records.findIndex((r) => r.url === selectedProducts.current.b);
+            const known = target.temporalPair,
+              ideal =
+                known &&
+                incoming.some((r) => r.url === known.a) &&
+                incoming.some((r) => r.url === known.b)
+                  ? known
+                  : temporalPair(incoming, { band: recommendedBand, minDays: 30 });
+            if (!userSelection.current && ideal) {
+              setFrameIndex(incoming.findIndex((r) => r.url === (ideal.a.url || ideal.a)));
+              setCompareIndex(incoming.findIndex((r) => r.url === (ideal.b.url || ideal.b)));
+              setTemporalMessage(
+                `Épocas separadas por ${ideal.days.toFixed(0)} días · ${ideal.band}${ideal.calibrated ? ' · λ local verificada' : ' · verificar λ y calidad antes de interpretar cambios'}.`,
+              );
+            } else {
+              setFrameIndex(a < 0 ? 0 : a);
+              setCompareIndex(b < 0 ? Math.max(0, incoming.length - 1) : b);
+            }
+          },
+        });
+        setFilterBand('ALL');
       } catch (err) {
         if (active && searchToken === searchTokenRef.current) {
           setRecordError(err.message || 'Error de conexión con el archivo astronómico.');
@@ -391,51 +730,186 @@ export default function SpherexMission({
     fetchTargetObservations();
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [selectedTargetIndex]);
+  }, [selectedTargetIndex, dataSource, reloadToken, segmented, deepSearch]);
 
+  useEffect(() => {
+    if (dataSource === 'archive')
+      setRecords((previous) => previous.map((r) => ({ ...r, cutoutSizeDeg: fieldSize })));
+  }, [fieldSize]);
   // Helper to load parsed FITS frame
-  const loadFits = async (record) => {
+  const loadFits = async (record, signal) => {
     if (!record) return null;
-    const cacheKey = `${record.url}|${target.ra},${target.dec}|subtracted|measurement`;
+    const cacheKey = fitsCacheKey(record, target);
     if (frameCacheRef.current.has(cacheKey)) {
       return frameCacheRef.current.get(cacheKey);
     }
-    const params = new URLSearchParams({
-      action: 'frame',
-      url: record.url,
-      center: `${target.ra},${target.dec}`,
-    });
-    const res = await fetch(`/api/spherex?${params}`);
-    if (!res.ok) {
-      const b = await res.json().catch(() => ({}));
-      throw new Error(b.error || 'No se pudo decodificar el recorte FITS.');
-    }
-    const buffer = await res.arrayBuffer();
-    const fixedRange = stretchByBandRef.current.get(record.band) || null;
-    const parsed = parseFits(buffer, fixedRange, { ra: target.ra, dec: target.dec }, {
-      zodiMode: 'subtracted',
-      flagPolicy: 'measurement',
-    });
-    if (!stretchByBandRef.current.has(record.band)) {
-      stretchByBandRef.current.set(record.band, parsed.range);
-    }
-    frameCacheRef.current.set(cacheKey, parsed);
-    return parsed;
+    return frameLoadsRef.current.get(
+      cacheKey,
+      async (sharedSignal) => {
+        const params = new URLSearchParams({
+          action: 'frame',
+          url: record.url,
+          center: `${target.ra},${target.dec}`,
+        });
+        params.set('size', String(record.cutoutSizeDeg || 0.12));
+        const localUrl = record.localFile
+          ? import.meta.env.BASE_URL + 'demo/' + record.localFile
+          : null;
+        const buffer = await fetchResource(localUrl || `/api/spherex?${params}`, {
+          kind: 'buffer',
+          timeoutMs: 40000,
+          signal: sharedSignal,
+        });
+        if (record.localSha256 && globalThis.crypto?.subtle) {
+          const actual = Array.from(
+            new Uint8Array(await crypto.subtle.digest('SHA-256', buffer)),
+            (b) => b.toString(16).padStart(2, '0'),
+          ).join('');
+          if (actual !== record.localSha256)
+            throw Error('El FITS local no coincide con su hash de procedencia.');
+        }
+        const fixedRange = stretchByBandRef.current.get(record.band) || null;
+        const parsed = await decodeFits(
+          buffer,
+          fixedRange,
+          { ra: target.ra, dec: target.dec },
+          {
+            zodiMode: 'subtracted',
+            flagPolicy: 'measurement',
+            gridSize: 96,
+            fovDeg: record.cutoutSizeDeg || 0.12,
+          },
+          { signal: sharedSignal },
+        );
+        parsed.center = { ra: target.ra, dec: target.dec };
+        parsed.targetKey = target.key;
+        if (
+          !stretchByBandRef.current.has(record.band) &&
+          parsed.displayHasData &&
+          Number.isFinite(parsed.range?.low) &&
+          Number.isFinite(parsed.range?.high) &&
+          parsed.range.high > parsed.range.low
+        ) {
+          stretchByBandRef.current.set(record.band, parsed.range);
+        }
+        frameCacheRef.current.set(cacheKey, parsed);
+        return parsed;
+      },
+      signal,
+    );
   };
 
+  const primaryRecord = records[Math.min(frameIndex, records.length - 1)],
+    comparisonRecord = records[Math.min(compareIndex, records.length - 1)];
+  const primaryUrl = primaryRecord?.url,
+    comparisonUrl = comparisonRecord?.url;
+  const primaryLoadKey = primaryRecord ? fitsCacheKey(primaryRecord, target) : null,
+    comparisonLoadKey = comparisonRecord ? fitsCacheKey(comparisonRecord, target) : null;
+  useEffect(() => {
+    selectedProducts.current = { a: primaryUrl, b: comparisonUrl };
+  }, [primaryUrl, comparisonUrl]);
+  useEffect(() => {
+    setGalleryPage(0);
+  }, [filterYear, filterBand, target.key]);
+  const galleryPages = Math.max(1, Math.ceil(filteredRecordEntries.length / 24));
+  const visibleEntries = filteredRecordEntries.slice(
+    Math.min(galleryPage, galleryPages - 1) * 24,
+    (Math.min(galleryPage, galleryPages - 1) + 1) * 24,
+  );
+  const productStats = observationStats(records);
+  const chooseRecord = (url, slot = 'A') => {
+    userSelection.current = true;
+    const i = records.findIndex((r) => r.url === url);
+    if (i < 0) return;
+    if (slot === 'B') setCompareIndex(i);
+    else setFrameIndex(i);
+  };
+  const chooseWidePair = (band = temporalBand) => {
+    setSequencePlaying(false);
+    const pair = temporalPair(records, { band, minDays: minimumDays });
+    if (!pair) {
+      setTemporalMessage('No hay dos fechas con la separación solicitada en ese detector.');
+      return;
+    }
+    chooseRecord(pair.a.url, 'A');
+    chooseRecord(pair.b.url, 'B');
+    setTemporalMessage(
+      `Máxima separación disponible en ${band}: ${pair.days.toFixed(1)} días. La compatibilidad LVF se comprueba al cargar.`,
+    );
+  };
+  const searchTemporal = async () => {
+    temporalController.current?.abort();
+    const controller = new AbortController();
+    temporalController.current = controller;
+    setTemporalBusy(true);
+    try {
+      const pair = await findCalibratedTemporalPair({
+        records,
+        target,
+        loadFits,
+        band: temporalBand,
+        minDays: minimumDays,
+        maxProducts: 40,
+        signal: controller.signal,
+        onProgress: (p) =>
+          setTemporalMessage(
+            `Verificando λ y apertura: ${p.done}/${p.total} productos · ${p.valid} válidos${p.best ? ' · par hallado de ' + p.best.days.toFixed(0) + ' días' : ''}`,
+          ),
+      });
+      if (controller.signal.aborted) return;
+      if (pair.a) {
+        chooseRecord(pair.a.url, 'A');
+        chooseRecord(pair.b.url, 'B');
+        setCompareStyle('sideBySide');
+        setTemporalMessage(
+          `Par verificado: ${pair.days.toFixed(1)} días · ${pair.band} · Δλ=${pair.waveDifference.toFixed(4)} μm. PSF y calibración siguen siendo límites de la comparación.`,
+        );
+      } else setTemporalMessage(pair.reason);
+    } catch (e) {
+      if (!controller.signal.aborted) setTemporalMessage(e.message);
+    } finally {
+      if (!controller.signal.aborted) setTemporalBusy(false);
+    }
+  };
+  const sequence = useMemo(
+    () => chronologicalShowcase(records, { count: 60, band: temporalBand }),
+    [records, temporalBand],
+  );
+  const sequenceIndex = sequence.findIndex((r) => r.url === primaryUrl);
+  useEffect(() => {
+    if (
+      !sequencePlaying ||
+      stage !== 'explore' ||
+      loadingFrameA ||
+      frameA?.record.url !== primaryUrl
+    )
+      return;
+    const next = sequenceIndex < 0 ? 0 : sequenceIndex + 1;
+    if (next >= sequence.length) {
+      setSequencePlaying(false);
+      return;
+    }
+    const timer = setTimeout(() => chooseRecord(sequence[next].url), 1600);
+    return () => clearTimeout(timer);
+  }, [sequencePlaying, stage, loadingFrameA, primaryUrl, frameA, sequenceIndex, sequence]);
   // Load Primary Frame (Frame A)
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     if (!records.length) {
+      setLoadingFrameA(false);
       setFrameA(null);
       return;
     }
     const rec = records[Math.min(frameIndex, records.length - 1)];
     if (!rec) return;
 
+    setFrameA(null);
+    setRecordError('');
     setLoadingFrameA(true);
-    loadFits(rec)
+    loadFits(rec, controller.signal)
       .then((parsed) => {
         if (!cancelled && parsed) {
           setFrameA({
@@ -445,7 +919,10 @@ export default function SpherexMission({
         }
       })
       .catch((err) => {
-        if (!cancelled) setRecordError(err.message);
+        if (!cancelled) {
+          setRecordError(err.message);
+          setSequencePlaying(false);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingFrameA(false);
@@ -453,21 +930,25 @@ export default function SpherexMission({
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [records, frameIndex]);
+  }, [primaryLoadKey, target.key, reloadToken]);
 
   // Load Compare Frame (Frame B)
   useEffect(() => {
     let cancelled = false;
-    if (records.length < 2) {
+    const controller = new AbortController();
+    if (records.length < 2 || stage !== 'compare') {
+      setLoadingFrameB(false);
       setFrameB(null);
       return;
     }
     const rec = records[Math.min(compareIndex, records.length - 1)];
     if (!rec) return;
 
+    setFrameB(null);
     setLoadingFrameB(true);
-    loadFits(rec)
+    loadFits(rec, controller.signal)
       .then((parsed) => {
         if (!cancelled && parsed) {
           setFrameB({
@@ -477,7 +958,7 @@ export default function SpherexMission({
         }
       })
       .catch((err) => {
-        if (!cancelled) console.warn('Could not load compare frame:', err);
+        if (!cancelled) setRecordError('Segunda observación: ' + err.message);
       })
       .finally(() => {
         if (!cancelled) setLoadingFrameB(false);
@@ -485,8 +966,9 @@ export default function SpherexMission({
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [records, compareIndex]);
+  }, [comparisonLoadKey, target.key, stage, reloadToken]);
 
   // Blink timer
   useEffect(() => {
@@ -499,23 +981,40 @@ export default function SpherexMission({
 
   // Difference map computation
   const diffImage = useMemo(() => {
-    if (stage !== 'compare' || compareStyle !== 'diff' || !frameA?.scientificPixels || !frameB?.scientificPixels) {
+    if (
+      stage !== 'compare' ||
+      compareStyle !== 'diff' ||
+      !frameA?.scientificPixels ||
+      !frameB?.scientificPixels
+    ) {
       return null;
     }
     try {
-      const res = computeDifferentialImage(frameA, frameB, { manualAlpha: 1.0, manualBackground: 0.0 });
-      const dataUrl = renderDivergingColormap(res.diffPixels, res.width, res.height, { threshold: 4.0 });
+      const compatibility = assessPhotometricComparability(frameA, frameB);
+      if (compatibility?.regime !== 'comparable') return null;
+      const res = computeDifferentialImage(frameA, frameB);
+      const dataUrl = renderDivergingColormap(res.diffPixels, res.width, res.height, {
+        threshold: 4.0,
+      });
       return { ...res, dataUrl };
     } catch (e) {
       return null;
     }
   }, [stage, compareStyle, frameA, frameB]);
 
+  const temporalAssessment = useMemo(() => {
+    if (stage !== 'compare' || !frameA || !frameB) return null;
+    const options = { radiusArcsec: target.type === 'galaxia' ? 24.6 : 12.3 };
+    const a = sampleAperture(frameA, target, options),
+      b = sampleAperture(frameB, target, options);
+    return { ...compareEpochs(a, b), a, b };
+  }, [stage, frameA, frameB, target]);
+
   // Astrometric coordinate propagation for current frames
   const predictedMarkerA = useMemo(() => {
-    if (!target.astrometry || !frameA?.record || !frameA?.reprojected) return null;
+    if (!frameA?.record || !frameA?.reprojected) return null;
     const mjd = Number(frameA.record.dateAvg || frameA.record.date);
-    const prop = propagateCoordinates(target.astrometry, mjd);
+    const prop = propagateCoordinates(target.astrometry, mjd) || { ra: target.ra, dec: target.dec };
     if (!prop) return null;
     const grid = frameA.reprojected.worldToGrid(prop.ra, prop.dec);
     if (!grid || grid.xPercent < 0 || grid.xPercent > 100) return null;
@@ -523,9 +1022,9 @@ export default function SpherexMission({
   }, [target, frameA]);
 
   const predictedMarkerB = useMemo(() => {
-    if (!target.astrometry || !frameB?.record || !frameB?.reprojected) return null;
+    if (!frameB?.record || !frameB?.reprojected) return null;
     const mjd = Number(frameB.record.dateAvg || frameB.record.date);
-    const prop = propagateCoordinates(target.astrometry, mjd);
+    const prop = propagateCoordinates(target.astrometry, mjd) || { ra: target.ra, dec: target.dec };
     if (!prop) return null;
     const grid = frameB.reprojected.worldToGrid(prop.ra, prop.dec);
     if (!grid || grid.xPercent < 0 || grid.xPercent > 100) return null;
@@ -554,11 +1053,12 @@ export default function SpherexMission({
 
   // Zoom controls
   const handleZoomIn = () => setZoom((z) => Math.min(4.0, z * 1.3));
-  const handleZoomOut = () => setZoom((z) => {
-    const next = Math.max(1.0, z / 1.3);
-    if (next === 1.0) setPan({ x: 0, y: 0 });
-    return next;
-  });
+  const handleZoomOut = () =>
+    setZoom((z) => {
+      const next = Math.max(1.0, z / 1.3);
+      if (next === 1.0) setPan({ x: 0, y: 0 });
+      return next;
+    });
   const handleZoomReset = () => {
     setZoom(1.0);
     setPan({ x: 0, y: 0 });
@@ -605,8 +1105,13 @@ export default function SpherexMission({
 
     // Bloque 4.1: Verificación honesta contra coordenadas propagadas del catálogo (Gaia/CatWISE)
     if (ra !== null && dec !== null) {
-      const mjd = Number((pane === 'B' ? frameB : frameA)?.record?.dateAvg || target.referenceEpoch);
-      const prop = propagateCoordinates(target.astrometry, mjd) || { ra: target.ra, dec: target.dec };
+      const mjd = Number(
+        (pane === 'B' ? frameB : frameA)?.record?.dateAvg || target.referenceEpoch,
+      );
+      const prop = propagateCoordinates(target.astrometry, mjd) || {
+        ra: target.ra,
+        dec: target.dec,
+      };
       const dRa = (ra - prop.ra) * Math.cos(((dec + prop.dec) * 0.5 * Math.PI) / 180) * 3600;
       const dDec = (dec - prop.dec) * 3600;
       const angularSepArcsec = Math.hypot(dRa, dDec);
@@ -639,7 +1144,8 @@ export default function SpherexMission({
         compareFrame: frameB?.record || null,
         marker: activeMarker,
         description: findingText,
-        viewMode: stage === 'compare' ? (compareStyle === 'sideBySide' ? 'sideBySide' : 'blink') : 'single',
+        viewMode:
+          stage === 'compare' ? (compareStyle === 'sideBySide' ? 'sideBySide' : 'blink') : 'single',
         diagnostics: activeMarker?.pane === 'B' ? frameB : frameA,
         timeDeltaDays,
       });
@@ -656,7 +1162,11 @@ export default function SpherexMission({
   };
 
   const handleDeleteFinding = (id) => {
-    if (typeof window !== 'undefined' && window.confirm && !window.confirm('¿Deseas eliminar este registro de tu cuaderno?')) {
+    if (
+      typeof window !== 'undefined' &&
+      window.confirm &&
+      !window.confirm('¿Deseas eliminar este registro de tu cuaderno?')
+    ) {
       return;
     }
     const updated = deleteFindingFromStorage(id);
@@ -668,7 +1178,27 @@ export default function SpherexMission({
   const handleExportCSV = () => {
     if (!findings.length) return;
     const quote = (val) => `"${String(val ?? '').replaceAll('"', '""')}"`;
-    const headers = ['ID', 'Estrella', 'Fecha Creación', 'Anotación', 'Modo', 'Banda', 'Obs 1', 'Fecha Obs 1', 'Obs 2', 'Fecha Obs 2', 'Delta t (días)', 'Pixel X', 'Pixel Y', 'RA (deg)', 'Dec (deg)'];
+    const headers = [
+      'ID',
+      'Estrella',
+      'Fecha Creación',
+      'Anotación',
+      'Modo',
+      'Banda',
+      'Obs 1',
+      'Fecha Obs 1',
+      'Obs 2',
+      'Fecha Obs 2',
+      'Delta t (días)',
+      'Pixel X',
+      'Pixel Y',
+      'RA (deg)',
+      'Dec (deg)',
+      'Conclusión',
+      'Pregunta',
+      'Unidades',
+      'Evidencia JSON',
+    ];
     const rows = findings.map((f) => [
       quote(f.id),
       quote(f.targetName),
@@ -685,6 +1215,10 @@ export default function SpherexMission({
       quote(f.marker?.pixelY ?? ''),
       quote(f.marker?.ra ?? ''),
       quote(f.marker?.dec ?? ''),
+      quote(f.conclusion || ''),
+      quote(f.question || ''),
+      quote(f.evidence?.measurements?.[0]?.unit || ''),
+      quote(f.evidence ? JSON.stringify(f.evidence) : ''),
     ]);
     const csv = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -710,6 +1244,12 @@ export default function SpherexMission({
   // Change target
   const handleSwitchTarget = (newIdx) => {
     setSelectedTargetIndex(newIdx);
+    setDataSource(
+      navParams?.get('data') === 'local' || initialDataSource === 'local' ? 'local' : 'archive',
+    );
+    setScienceContext(null);
+    frameCacheRef.current.clear();
+    stretchByBandRef.current.clear();
     setStage('arrival');
     setZoom(1.0);
     setPan({ x: 0, y: 0 });
@@ -721,7 +1261,9 @@ export default function SpherexMission({
         {/* EXPEDITION HEADER */}
         <header className="kronoxExpeditionHeader">
           <div className="kronoxHeaderBadge">
-            <span className="kronoxCompassIcon"><Icons.Compass /></span>
+            <span className="kronoxCompassIcon">
+              <Icons.Compass />
+            </span>
             <div className="kronoxHeaderText">
               <span className="kronoxHeaderSub">EXPEDICIÓN CIENTÍFICA SPHEREx</span>
               <h2 className="kronoxHeaderTitle">{t(target.name, language)}</h2>
@@ -730,7 +1272,9 @@ export default function SpherexMission({
 
           {/* Quick Target Switcher */}
           <div className="kronoxTargetSelector">
-            <label htmlFor="target-select" className="sr-only">Seleccionar estrella</label>
+            <label htmlFor="target-select" className="sr-only">
+              Seleccionar objeto
+            </label>
             <select
               id="target-select"
               value={selectedTargetIndex}
@@ -757,13 +1301,59 @@ export default function SpherexMission({
           </button>
         </header>
 
+        <div className="juanArchiveBanner observatorySource" role="status">
+          <b>
+            {dataSource === 'local'
+              ? 'DATOS REALES GUARDADOS · DEMO SIN RED'
+              : 'CONSULTA EN VIVO · IRSA'}
+          </b>
+          <p>
+            {archiveNotice || 'Preparando consulta…'} {loadingRecords ? 'Buscando productos…' : ''}
+          </p>
+          <details className="archiveSourceOptions">
+            <summary>Origen de datos y opciones de consulta</summary>
+            <button
+              onClick={() => {
+                setRecordError('');
+                frameCacheRef.current.clear();
+                setReloadToken((v) => v + 1);
+              }}
+            >
+              Reintentar
+            </button>
+            <button disabled={!target.localRecords?.length} onClick={() => setDataSource('local')}>
+              Usar productos locales verificados
+            </button>
+            <button onClick={() => setDataSource('archive')}>Consultar archivo en vivo</button>
+            <label>
+              <input
+                type="checkbox"
+                checked={segmented}
+                onChange={(e) => setSegmented(e.target.checked)}
+              />{' '}
+              Consultar por intervalos mensuales (recuperación de consultas grandes)
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={deepSearch}
+                onChange={(e) => setDeepSearch(e.target.checked)}
+              />{' '}
+              Incluir campos profundos QR2/QR3
+            </label>
+          </details>
+          {recordError && <p>{recordError}</p>}
+        </div>
         {/* PROGRESSIVE JOURNEY ROADMAP */}
         <nav className="kronoxExpeditionStages" aria-label="Etapas de la expedición">
           {STAGES.map((s, idx) => {
             const IconComponent = s.icon;
             const isActive = stage === s.id;
             const stageIndex = STAGES.findIndex((item) => item.id === stage);
-            const isCompleted = idx < stageIndex;
+            const isCompleted =
+              s.id === 'summary'
+                ? researchState(findings, target.key) === 'investigation-completed'
+                : idx < stageIndex;
 
             return (
               <button
@@ -773,7 +1363,9 @@ export default function SpherexMission({
                 onClick={() => setStage(s.id)}
               >
                 <span className="kronoxStageStep">{idx + 1}</span>
-                <span className="kronoxStageIcon"><IconComponent /></span>
+                <span className="kronoxStageIcon">
+                  <IconComponent />
+                </span>
                 <span className="kronoxStageName">{s.label}</span>
               </button>
             );
@@ -788,7 +1380,9 @@ export default function SpherexMission({
           {stage === 'arrival' && (
             <div className="kronoxArrivalCard">
               <div className="kronoxArrivalPlaque">
-                <span className="kronoxPlaqueEmblem"><Icons.Compass /></span>
+                <span className="kronoxPlaqueEmblem">
+                  <Icons.Compass />
+                </span>
                 <span className="kronoxPlaqueSubtitle">DESTINO ALCANZADO TRAS EL SALTO</span>
                 <h1 className="kronoxPlaqueTitle">{t(target.name, language)}</h1>
                 <div className="kronoxPlaqueCoordinates">
@@ -805,22 +1399,23 @@ export default function SpherexMission({
                 <p className="kronoxBriefingGoal">
                   {target.mission === 'motion'
                     ? 'Tu objetivo es observar y comprobar si esta estrella presenta desplazamiento o movimiento propio en el cielo entre diferentes épocas.'
-                    : 'Tu objetivo es examinar las variaciones temporales en el brillo y flujo infrarrojo de esta estrella variable.'}
+                    : 'Examina el brillo, las longitudes de onda y sus límites; una diferencia de color no demuestra variación temporal.'}
                 </p>
 
                 <div className="kronoxBriefingDetails">
                   <div className="kronoxBriefingItem">
                     <strong>¿Qué observarás?</strong>
-                    <span>Imágenes infrarrojas tomadas por el telescopio espacial SPHEREx de la NASA en distintas fechas.</span>
+                    <span>
+                      Imágenes infrarrojas tomadas por el telescopio espacial SPHEREx de la NASA en
+                      distintas fechas.
+                    </span>
                   </div>
                   <div className="kronoxBriefingItem">
                     <strong>Estado científico:</strong>
                     <span>
-                      {target.scientificStatus === 'WARNING'
-                        ? '⚠ Advertencia científica: objeto sub-umbral que exige análisis riguroso de ruido.'
-                        : target.scientificStatus === 'SENSIBLE'
-                        ? 'Binaria no resuelta espacialmente; consistencia condicionada al jitter instrumental.'
-                        : 'Astrometría confirmada y calibrada con Gaia.'}
+                      {target.archiveVerified
+                        ? 'Productos reales guardados y verificados; no es una detección científica automática.'
+                        : 'Objetivo de catálogo; esta sesión debe verificar sus productos y calidad.'}
                     </span>
                   </div>
                 </div>
@@ -849,17 +1444,22 @@ export default function SpherexMission({
                 <div className="kronoxRibbonText">
                   {stage === 'explore' && (
                     <>
-                      <strong>Etapa de Exploración:</strong> Examina la imagen astronómica real. Usa los controles de zoom para acercarte o arrastra con el ratón.
+                      <strong>Etapa de Exploración:</strong> Examina la imagen astronómica real. Usa
+                      los controles de zoom para acercarte o arrastra con el ratón.
                     </>
                   )}
                   {stage === 'compare' && (
                     <>
-                      <strong>Observación Temporal:</strong> {timeDeltaDays !== null ? `Comparando observaciones separadas por ${(timeDeltaDays / 365.25).toFixed(1)} años (${timeDeltaDays.toFixed(0)} días).` : 'Cargando segunda época...'}
+                      <strong>Observación Temporal:</strong>{' '}
+                      {timeDeltaDays !== null
+                        ? `Comparando observaciones separadas por ${(timeDeltaDays / 365.25).toFixed(1)} años (${timeDeltaDays.toFixed(0)} días).`
+                        : 'Cargando segunda época...'}
                     </>
                   )}
                   {stage === 'investigate' && (
                     <>
-                      <strong>Investigación Directa:</strong> Haz clic sobre la imagen para fijar un punto de interés o anota lo que descubres.
+                      <strong>Investigación Directa:</strong> Haz clic sobre la imagen para fijar un
+                      punto de interés o anota lo que descubres.
                     </>
                   )}
                 </div>
@@ -919,13 +1519,163 @@ export default function SpherexMission({
                       onClick={() => setMarkingActive((prev) => !prev)}
                     >
                       <Icons.Bookmark />
-                      <span>{markingActive ? 'Modo marcado activado (haz clic)' : 'Marcar punto en la imagen'}</span>
+                      <span>
+                        {markingActive
+                          ? 'Modo marcado activado (haz clic)'
+                          : 'Marcar punto en la imagen'}
+                      </span>
                     </button>
                   )}
                 </div>
               </div>
 
               {/* ASTRONOMICAL STAGE CONTAINER */}
+              <div className="observatoryImageToolbar">
+                <label>
+                  Campo angular
+                  <select
+                    value={
+                      dataSource === 'local'
+                        ? String(primaryRecord?.cutoutSizeDeg || 0.08)
+                        : String(fieldSize)
+                    }
+                    disabled={dataSource === 'local'}
+                    onChange={(e) => {
+                      setSequencePlaying(false);
+                      setFieldSize(+e.target.value);
+                    }}
+                  >
+                    {dataSource === 'local' ? (
+                      <option value={String(primaryRecord?.cutoutSizeDeg || 0.08)}>
+                        Recorte local {primaryRecord?.cutoutSizeDeg || 0.08}°
+                      </option>
+                    ) : (
+                      <>
+                        <option value="0.03">0.03° · detalle</option>
+                        <option value="0.12">0.12° · campo estelar</option>
+                        <option value="0.3">0.3° · campo amplio</option>
+                        <option value="0.5">0.5° · contexto galáctico</option>
+                      </>
+                    )}
+                  </select>
+                </label>
+                <label>
+                  Detector de la secuencia
+                  <select
+                    value={temporalBand}
+                    onChange={(e) => {
+                      setTemporalBand(e.target.value);
+                      setSequencePlaying(false);
+                      if (stage === 'compare') chooseWidePair(e.target.value);
+                    }}
+                  >
+                    {availableBands.map((b) => (
+                      <option key={b}>{b}</option>
+                    ))}
+                  </select>
+                </label>
+                {stage === 'explore' && (
+                  <>
+                    <button
+                      disabled={!sequence.length}
+                      onClick={() => chooseRecord(sequence[Math.max(0, sequenceIndex - 1)]?.url)}
+                    >
+                      Época anterior
+                    </button>
+                    <button
+                      disabled={!sequence.length}
+                      onClick={() => {
+                        if (!sequencePlaying && sequenceIndex < 0 && sequence[0])
+                          chooseRecord(sequence[0].url);
+                        setSequencePlaying((v) => !v);
+                      }}
+                    >
+                      {sequencePlaying ? 'Detener secuencia' : 'Recorrer fechas'}
+                    </button>
+                    <button
+                      disabled={!sequence.length}
+                      onClick={() =>
+                        chooseRecord(
+                          sequence[Math.min(sequence.length - 1, sequenceIndex + 1)]?.url,
+                        )
+                      }
+                    >
+                      Época siguiente
+                    </button>
+                    <span>
+                      {sequence.length} fechas representativas · el detector puede tener distinta λ
+                      LVF
+                    </span>
+                    <button onClick={() => setStage('analysis')}>
+                      Pasar al análisis espectral
+                    </button>
+                  </>
+                )}
+              </div>
+              {stage === 'compare' && (
+                <section
+                  className="temporalPairControls"
+                  aria-label="Selección de épocas temporales"
+                >
+                  <div>
+                    {['A', 'B'].map((slot) => (
+                      <label key={slot}>
+                        Época {slot}
+                        <select
+                          value={slot === 'A' ? primaryUrl || '' : comparisonUrl || ''}
+                          onChange={(e) => chooseRecord(e.target.value, slot)}
+                        >
+                          {records.map((r) => (
+                            <option key={r.url} value={r.url}>
+                              {formatDate(r.dateAvg || r.date, language)} · {r.band}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ))}
+                    <label>
+                      Separación mínima
+                      <select value={minimumDays} onChange={(e) => setMinimumDays(+e.target.value)}>
+                        <option value="30">30 días</option>
+                        <option value="90">90 días</option>
+                        <option value="180">180 días</option>
+                        <option value="300">300 días</option>
+                      </select>
+                    </label>
+                  </div>
+                  <button onClick={() => chooseWidePair()}>Elegir fechas más separadas</button>
+                  <button disabled={temporalBusy} onClick={searchTemporal}>
+                    {temporalBusy
+                      ? 'Comprobando productos…'
+                      : 'Buscar par con λ y apertura compatibles'}
+                  </button>
+                  {temporalBusy && (
+                    <button
+                      onClick={() => {
+                        temporalController.current?.abort();
+                        setTemporalBusy(false);
+                        setTemporalMessage('Búsqueda cancelada.');
+                      }}
+                    >
+                      Cancelar búsqueda
+                    </button>
+                  )}
+                  <p role="status">{temporalMessage}</p>
+                  {temporalAssessment && (
+                    <p>
+                      {temporalAssessment.reason} Píxeles válidos A: {temporalAssessment.a.valid}/
+                      {temporalAssessment.a.total}; B: {temporalAssessment.b.valid}/
+                      {temporalAssessment.b.total}. Una apertura parcial puede sesgar el brillo.
+                    </p>
+                  )}
+                  {target.type === 'galaxia' && (
+                    <p>
+                      En este intervalo no se espera ver evolucionar la estructura de una galaxia.
+                      Una diferencia de brillo requiere descartar PSF, banda, fondo y calibración.
+                    </p>
+                  )}
+                </section>
+              )}
               <div className="kronoxCanvasArea">
                 {/* Visual Canvas */}
                 {/* Sección 5: Indicación visual de la IA sobre el campo estelar (visible incluso mientras carga el FITS) */}
@@ -954,7 +1704,7 @@ export default function SpherexMission({
                     <span className="kronoxSpinner" />
                     <span>Cargando producto FITS real de SPHEREx...</span>
                   </div>
-                ) : recordError ? (
+                ) : recordError && !frameA ? (
                   <div className="kronoxErrorPlate">
                     <Icons.Warning />
                     <span>{recordError}</span>
@@ -968,7 +1718,9 @@ export default function SpherexMission({
                         onMouseDown={handleMouseDown}
                         onMouseMove={handleMouseMove}
                         onMouseUp={handleMouseUp}
-                        style={{ cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+                        style={{
+                          cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                        }}
                       >
                         {activeImageSrc && (
                           <div
@@ -983,7 +1735,12 @@ export default function SpherexMission({
                                 src={activeImageSrc}
                                 alt="Observación astronómica SPHEREx"
                                 className={`kronoxFitsImage ${markingActive ? 'markable' : ''}`}
-                                onClick={(e) => handleImageClick(e, stage === 'compare' && blinkToggle ? 'B' : 'A')}
+                                onClick={(e) =>
+                                  handleImageClick(
+                                    e,
+                                    stage === 'compare' && blinkToggle ? 'B' : 'A',
+                                  )
+                                }
                               />
                               {/* Central Reticle */}
                               <div className="kronoxReticle">
@@ -1028,15 +1785,20 @@ export default function SpherexMission({
                         <div className="kronoxDateStamp">
                           <span className="kronoxDateStampLabel">
                             {stage === 'compare' && compareStyle === 'blink'
-                              ? (blinkToggle ? 'Época B' : 'Época A')
+                              ? blinkToggle
+                                ? 'Época B'
+                                : 'Época A'
                               : 'Observación actual'}
                           </span>
                           <b>
-                            {stage === 'compare' && compareStyle === 'blink' && blinkToggle && frameB
+                            {stage === 'compare' &&
+                            compareStyle === 'blink' &&
+                            blinkToggle &&
+                            frameB
                               ? formatDate(frameB.record.dateAvg || frameB.record.date, language)
                               : frameA
-                              ? formatDate(frameA.record.dateAvg || frameA.record.date, language)
-                              : '---'}
+                                ? formatDate(frameA.record.dateAvg || frameA.record.date, language)
+                                : '---'}
                           </b>
                           {stage === 'compare' && compareStyle === 'blink' && (
                             <button
@@ -1057,7 +1819,12 @@ export default function SpherexMission({
                       <div className="kronoxSideBySideStage">
                         <div className="kronoxDualPane">
                           <div className="kronoxPaneHeader">
-                            <span>Época A: {frameA ? formatDate(frameA.record.dateAvg || frameA.record.date, language) : ''}</span>
+                            <span>
+                              Época A:{' '}
+                              {frameA
+                                ? formatDate(frameA.record.dateAvg || frameA.record.date, language)
+                                : ''}
+                            </span>
                           </div>
                           <div
                             className="kronoxPaneCanvas"
@@ -1068,7 +1835,9 @@ export default function SpherexMission({
                             {frameA && (
                               <div
                                 className="kronoxTransformWrapper"
-                                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
+                                style={{
+                                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                                }}
                               >
                                 <div className="kronoxImageFrame">
                                   <img
@@ -1080,13 +1849,19 @@ export default function SpherexMission({
                                   {predictedMarkerA && (
                                     <span
                                       className="kronoxPredictedTarget"
-                                      style={{ left: `${predictedMarkerA.xPercent}%`, top: `${predictedMarkerA.yPercent}%` }}
+                                      style={{
+                                        left: `${predictedMarkerA.xPercent}%`,
+                                        top: `${predictedMarkerA.yPercent}%`,
+                                      }}
                                     />
                                   )}
                                   {activeMarker && (
                                     <div
                                       className="kronoxUserPin"
-                                      style={{ left: `${activeMarker.xPercent}%`, top: `${activeMarker.yPercent}%` }}
+                                      style={{
+                                        left: `${activeMarker.xPercent}%`,
+                                        top: `${activeMarker.yPercent}%`,
+                                      }}
                                     >
                                       <span className="kronoxPinPulse" />
                                       <span className="kronoxPinDot" />
@@ -1100,7 +1875,12 @@ export default function SpherexMission({
 
                         <div className="kronoxDualPane">
                           <div className="kronoxPaneHeader">
-                            <span>Época B: {frameB ? formatDate(frameB.record.dateAvg || frameB.record.date, language) : ''}</span>
+                            <span>
+                              Época B:{' '}
+                              {frameB
+                                ? formatDate(frameB.record.dateAvg || frameB.record.date, language)
+                                : ''}
+                            </span>
                           </div>
                           <div
                             className="kronoxPaneCanvas"
@@ -1111,7 +1891,9 @@ export default function SpherexMission({
                             {frameB && (
                               <div
                                 className="kronoxTransformWrapper"
-                                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
+                                style={{
+                                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                                }}
                               >
                                 <div className="kronoxImageFrame">
                                   <img
@@ -1123,13 +1905,19 @@ export default function SpherexMission({
                                   {predictedMarkerB && (
                                     <span
                                       className="kronoxPredictedTarget"
-                                      style={{ left: `${predictedMarkerB.xPercent}%`, top: `${predictedMarkerB.yPercent}%` }}
+                                      style={{
+                                        left: `${predictedMarkerB.xPercent}%`,
+                                        top: `${predictedMarkerB.yPercent}%`,
+                                      }}
                                     />
                                   )}
                                   {activeMarker && (
                                     <div
                                       className="kronoxUserPin"
-                                      style={{ left: `${activeMarker.xPercent}%`, top: `${activeMarker.yPercent}%` }}
+                                      style={{
+                                        left: `${activeMarker.xPercent}%`,
+                                        top: `${activeMarker.yPercent}%`,
+                                      }}
                                     >
                                       <span className="kronoxPinPulse" />
                                       <span className="kronoxPinDot" />
@@ -1149,7 +1937,9 @@ export default function SpherexMission({
                         {diffImage?.dataUrl ? (
                           <div
                             className="kronoxTransformWrapper"
-                            style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
+                            style={{
+                              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                            }}
                           >
                             <div className="kronoxImageFrame">
                               <img src={diffImage.dataUrl} alt="Mapa de sustracción diferencial" />
@@ -1158,7 +1948,11 @@ export default function SpherexMission({
                         ) : (
                           <div className="kronoxLoadingPlate">
                             <span className="kronoxSpinner" />
-                            <span>Calculando sustracción de imágenes...</span>
+                            <span>
+                              {assessPhotometricComparability(frameA, frameB)?.reasonEs ||
+                                'Faltan dos FITS válidos; reintenta la carga.'}{' '}
+                              No se calcula una diferencia temporal sin compatibilidad.
+                            </span>
                           </div>
                         )}
                         <div className="kronoxDiffLegend">
@@ -1186,65 +1980,145 @@ export default function SpherexMission({
                 </div>
               </div>
 
+              <div className="juanViewMeta">
+                {(() => {
+                  const f =
+                    stage === 'compare' && compareStyle === 'blink' && blinkToggle
+                      ? frameB
+                      : frameA;
+                  return f ? (
+                    <>
+                      <b>{target.name}</b> ·{' '}
+                      {f.temporal?.dateAvg ||
+                        f.temporal?.dateObs ||
+                        formatDate(f.record.dateAvg || f.record.date)}{' '}
+                      · {f.record.band} · λ centro {f.spectral?.wavelengthUm ?? 'sin calibración'}{' '}
+                      μm (variable espacialmente) ·{' '}
+                      {f.extensions?.imageUnit || 'unidad no disponible'} ·{' '}
+                      {f.extensions?.zodiSubtracted ? 'IMAGE − ZODI' : 'IMAGE'}
+                      <br />
+                      <a href={f.record.url} target="_blank" rel="noreferrer">
+                        {f.record.productId || f.record.id}
+                      </a>
+                      <br />
+                      Reproyección TAN/SIP para visualización. Posición de catálogo ≠ detección
+                      independiente.
+                    </>
+                  ) : null;
+                })()}
+              </div>
+              {stage === 'compare' && (
+                <p className="juanArchiveBanner">
+                  {assessPhotometricComparability(frameA, frameB)?.reasonEs ||
+                    'Faltan dos observaciones comparables.'}{' '}
+                  Aun con λ próxima, se requiere comprobar PSF, épocas y calidad. Escala visual
+                  común solo dentro de la misma banda.
+                </p>
+              )}
               {/* BLOQUE 4.2: ARCHIVO TEMPORAL SPHEREx CON FILTROS POR INTERVALO Y BANDA */}
-              <div className="kronoxTimelineBar">
-                <div className="kronoxTimelineHeaderRow">
-                  <span className="kronoxTimelineLabel">
-                    Archivo Temporal SPHEREx ({filteredRecordEntries.length} de {records.length} observaciones reales):
-                  </span>
-                  <div className="kronoxArchiveFilters">
-                    <label className="kronoxArchiveFilterLabel">
-                      <span>Año:</span>
-                      <select
-                        value={filterYear}
-                        onChange={(e) => setFilterYear(e.target.value)}
-                        aria-label="Filtrar observaciones por año"
+              <ObservationGallery
+                key={target.key + '|' + dataSource + '|' + fieldSize}
+                records={filteredRecordEntries.map((e) => e.record)}
+                loadFits={loadFits}
+                selectedUrl={primaryUrl}
+                onSelect={(url) => chooseRecord(url)}
+                onCompareA={stage === 'compare' ? (url) => chooseRecord(url, 'A') : null}
+                onCompareB={stage === 'compare' ? (url) => chooseRecord(url, 'B') : null}
+                band={filterBand}
+                onBandChange={setFilterBand}
+                bands={availableBands}
+                year={filterYear}
+                onYearChange={setFilterYear}
+                years={availableYears}
+              />
+              <details className="archiveIndex">
+                <summary>Índice detallado de productos, versiones y filtros</summary>
+                <div className="kronoxTimelineBar">
+                  <div className="kronoxTimelineHeaderRow">
+                    <span className="kronoxTimelineLabel">
+                      Archivo SPHEREx ({filteredRecordEntries.length} de {records.length} productos
+                      reales; {productStats.exposures} exposiciones):
+                    </span>
+                    <div className="kronoxArchiveFilters">
+                      <label className="kronoxArchiveFilterLabel">
+                        <span>Año:</span>
+                        <select
+                          value={filterYear}
+                          onChange={(e) => setFilterYear(e.target.value)}
+                          aria-label="Filtrar observaciones por año"
+                        >
+                          <option value="ALL">Todos ({records.length})</option>
+                          {availableYears.map((yr) => (
+                            <option key={yr} value={yr}>
+                              {yr}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="kronoxArchiveFilterLabel">
+                        <span>Banda:</span>
+                        <select
+                          value={filterBand}
+                          onChange={(e) => setFilterBand(e.target.value)}
+                          aria-label="Filtrar observaciones por banda infrarroja"
+                        >
+                          <option value="ALL">Todas ({availableBands.length})</option>
+                          {availableBands.map((bd) => (
+                            <option key={bd} value={bd}>
+                              {bd}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="juanGalleryPager">
+                    <button
+                      disabled={galleryPage === 0}
+                      onClick={() => setGalleryPage((p) => p - 1)}
+                    >
+                      Página anterior
+                    </button>
+                    <span>
+                      Página {Math.min(galleryPage, galleryPages - 1) + 1} / {galleryPages} · 24
+                      productos por página
+                    </span>
+                    <button
+                      disabled={galleryPage >= galleryPages - 1}
+                      onClick={() => setGalleryPage((p) => p + 1)}
+                    >
+                      Página siguiente
+                    </button>
+                  </div>
+                  <p className="juanScienceNote">
+                    Un producto corresponde a un detector, una exposición y una versión de
+                    procesamiento. Varias versiones o detectores de la misma exposición no son
+                    épocas independientes. El solapamiento SIA indica cobertura, no una detección
+                    del objeto.
+                  </p>
+                  <div className="kronoxTimelineChips">
+                    {visibleEntries.map(({ record: r, originalIndex: idx }) => (
+                      <button
+                        key={r.url || idx}
+                        type="button"
+                        className={`kronoxDateChip ${idx === frameIndex ? 'primary' : ''} ${idx === compareIndex && stage === 'compare' ? 'secondary' : ''}`}
+                        onClick={() => {
+                          if (stage === 'compare' && idx !== frameIndex) {
+                            setCompareIndex(idx);
+                          } else {
+                            setFrameIndex(idx);
+                          }
+                        }}
                       >
-                        <option value="ALL">Todos ({records.length})</option>
-                        {availableYears.map((yr) => (
-                          <option key={yr} value={yr}>
-                            {yr}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="kronoxArchiveFilterLabel">
-                      <span>Banda:</span>
-                      <select
-                        value={filterBand}
-                        onChange={(e) => setFilterBand(e.target.value)}
-                        aria-label="Filtrar observaciones por banda infrarroja"
-                      >
-                        <option value="ALL">Todas ({availableBands.length})</option>
-                        {availableBands.map((bd) => (
-                          <option key={bd} value={bd}>
-                            {bd}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                        <span>{formatDate(r.dateAvg || r.date, language)}</span>
+                        <small className="kronoxChipBand">
+                          {r.band} · {r.release} · {r.pipelineVersion}
+                        </small>
+                      </button>
+                    ))}
                   </div>
                 </div>
-                <div className="kronoxTimelineChips">
-                  {filteredRecordEntries.map(({ record: r, originalIndex: idx }) => (
-                    <button
-                      key={r.id || idx}
-                      type="button"
-                      className={`kronoxDateChip ${idx === frameIndex ? 'primary' : ''} ${idx === compareIndex && stage === 'compare' ? 'secondary' : ''}`}
-                      onClick={() => {
-                        if (stage === 'compare' && idx !== frameIndex) {
-                          setCompareIndex(idx);
-                        } else {
-                          setFrameIndex(idx);
-                        }
-                      }}
-                    >
-                      <span>{formatDate(r.dateAvg || r.date, language)}</span>
-                      <small className="kronoxChipBand">{r.band}</small>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              </details>
 
               {/* BLOQUE 4.1: RETO DE DESCUBRIMIENTO PROGRESIVO + REGISTRAR HALLAZGO */}
               {stage === 'investigate' && (
@@ -1334,11 +2208,7 @@ export default function SpherexMission({
                       }}
                       maxLength={300}
                     />
-                    <button
-                      type="button"
-                      className="kronoxSaveBtn"
-                      onClick={handleSaveFinding}
-                    >
+                    <button type="button" className="kronoxSaveBtn" onClick={handleSaveFinding}>
                       Guardar hallazgo
                     </button>
                   </div>
@@ -1354,6 +2224,50 @@ export default function SpherexMission({
             </div>
           )}
 
+          {analysisOpened && (
+            <div className="observatoryAnalysis" hidden={stage !== 'analysis'}>
+              <EvidenceLab
+                key={target.key + '|' + dataSource + '|' + fieldSize}
+                autoLoad={stage === 'analysis'}
+                onShowImage={() => setStage('explore')}
+                target={target}
+                frame={frameA}
+                records={records}
+                loadFits={loadFits}
+                marker={activeMarker}
+                onSelectRecord={(url) => {
+                  const i = records.findIndex((r) => r.url === url);
+                  if (i >= 0) {
+                    setFrameIndex(i);
+                    setGalleryPage(Math.floor(i / 24));
+                  }
+                }}
+                onContext={setScienceContext}
+                onSave={({ conclusion, description, question, evidence }) => {
+                  const record = createFindingRecord({
+                    target,
+                    frame: frameA?.record,
+                    compareFrame: frameB?.record,
+                    marker: activeMarker,
+                    description,
+                    conclusion,
+                    question,
+                    evidence,
+                    viewMode: 'scientific-evidence',
+                    diagnostics: frameA,
+                    timeDeltaDays,
+                  });
+                  const next = [record, ...findings];
+                  if (!saveFindingsToStorage(next))
+                    throw Error(
+                      'No se pudo persistir el cuaderno. Exporta la evidencia antes de cerrar.',
+                    );
+                  setFindings(next);
+                  setToastMessage('Investigación registrada: conclusión y evidencia guardadas.');
+                }}
+              />
+            </div>
+          )}
           {/* ========================================================= */}
           {/* ETAPA E: CUADERNO DE APRENDIZAJE */}
           {/* ========================================================= */}
@@ -1371,7 +2285,11 @@ export default function SpherexMission({
                   <div className="kronoxNoteContent">
                     <h3>¿Por qué parpadean o se mueven los objetos?</h3>
                     <p>
-                      Las estrellas más cercanas al Sistema Solar, como la <strong>Estrella de Barnard</strong> o <strong>Epsilon Indi</strong>, poseen una velocidad tangencial apreciable en la esfera celeste. Al comparar observaciones separadas por uno o dos años, su posición cambia varios píxeles respecto a las estrellas de fondo, que están a miles de años luz.
+                      Las estrellas más cercanas al Sistema Solar, como la{' '}
+                      <strong>Estrella de Barnard</strong> o <strong>Epsilon Indi</strong>, poseen
+                      una velocidad tangencial apreciable en la esfera celeste. Al comparar
+                      observaciones separadas por uno o dos años, su posición cambia varios píxeles
+                      respecto a las estrellas de fondo, que están a miles de años luz.
                     </p>
                   </div>
                 </article>
@@ -1381,7 +2299,11 @@ export default function SpherexMission({
                   <div className="kronoxNoteContent">
                     <h3>¿Qué revelan los cambios de brillo?</h3>
                     <p>
-                      Estrellas como <strong>RW Aurigae</strong> (T Tauri joven) o <strong>R Draconis</strong> (variable pulsante Mira) cambian de temperatura y tamaño periódicamente. En el infrarrojo de SPHEREx, la cantidad de fotones captados por el detector varía notablemente, permitiendo rastrear su ciclo de luminosidad.
+                      Estrellas como <strong>RW Aurigae</strong> (T Tauri joven) o{' '}
+                      <strong>R Draconis</strong> (variable pulsante Mira) cambian de temperatura y
+                      tamaño periódicamente. En el infrarrojo de SPHEREx, la cantidad de fotones
+                      captados por el detector varía notablemente, permitiendo rastrear su ciclo de
+                      luminosidad.
                     </p>
                   </div>
                 </article>
@@ -1391,7 +2313,10 @@ export default function SpherexMission({
                   <div className="kronoxNoteContent">
                     <h3>Diferencia entre ver y confirmar científicamente</h3>
                     <p>
-                      Una fluctuación en una imagen puede deberse a ruido instrumental o radiación zodiacal. Para confirmar un descubrimiento, los astrónomos contrastan la detección con modelos astrométricos de referencia (como Gaia DR3) y calculan la probabilidad de falsa alarma.
+                      Una fluctuación en una imagen puede deberse a ruido instrumental o radiación
+                      zodiacal. Para confirmar un descubrimiento, los astrónomos contrastan la
+                      detección con modelos astrométricos de referencia (como Gaia DR3) y calculan
+                      la probabilidad de falsa alarma.
                     </p>
                   </div>
                 </article>
@@ -1417,7 +2342,12 @@ export default function SpherexMission({
             <div className="kronoxSummaryView">
               <div className="kronoxSummaryBadge">
                 <Icons.Award />
-                <h2>Expedición Completada: {t(target.name, language)}</h2>
+                <h2>
+                  {researchState(findings, target.key) === 'investigation-completed'
+                    ? 'Investigación completada'
+                    : 'Recorrido libre finalizado'}
+                  : {t(target.name, language)}
+                </h2>
                 <p>Registro de actividad y hallazgos guardados en esta misión.</p>
               </div>
 
@@ -1425,20 +2355,23 @@ export default function SpherexMission({
               <div className="kronoxSummaryStatusBox">
                 <div className="kronoxStatusCol">
                   <small>ESTADO DE LA ACTIVIDAD</small>
-                  <b>Misión exploratoria completada con éxito</b>
+                  <b>
+                    {researchState(findings, target.key) === 'investigation-completed'
+                      ? 'Observación y conclusión registradas'
+                      : 'Exploración libre; falta conclusión con evidencia'}
+                  </b>
                 </div>
                 <div className="kronoxStatusCol">
                   <small>OBSERVACIONES CONSULTADAS</small>
-                  <b>{records.length} productos FITS reales de SPHEREx</b>
+                  <b>
+                    {records.length} productos encontrados; {frameA ? 1 : 0} vista principal abierta
+                  </b>
                 </div>
                 <div className="kronoxStatusCol">
-                  <small>VALIDACIÓN CIENTÍFICA OFICIAL</small>
+                  <small>ALCANCE DE LA EVIDENCIA</small>
                   <b>
-                    {target.scientificStatus === 'VALIDADO'
-                      ? 'Confirmado por Gaia DR3'
-                      : target.scientificStatus === 'SENSIBLE'
-                      ? 'Binaria condicional'
-                      : 'Sub-umbral (WARNING)'}
+                    El catálogo identifica el objetivo; la conclusión del jugador requiere
+                    evidencia.
                   </b>
                 </div>
               </div>
@@ -1446,13 +2379,12 @@ export default function SpherexMission({
               {/* Saved findings section */}
               <div className="kronoxSummaryFindingsSection">
                 <div className="kronoxSummaryFindingsHeader">
-                  <h3>Tus Hallazgos Anotados ({findings.filter((f) => f.targetKey === target.key).length} en esta estrella)</h3>
+                  <h3>
+                    Tus Hallazgos Anotados (
+                    {findings.filter((f) => f.targetKey === target.key).length} en esta estrella)
+                  </h3>
                   {findings.length > 0 && (
-                    <button
-                      type="button"
-                      className="kronoxExportBtn"
-                      onClick={handleExportCSV}
-                    >
+                    <button type="button" className="kronoxExportBtn" onClick={handleExportCSV}>
                       <Icons.Download />
                       <span>Exportar cuaderno (.CSV)</span>
                     </button>
@@ -1462,7 +2394,10 @@ export default function SpherexMission({
                 <div className="kronoxFindingsList">
                   {findings.length === 0 ? (
                     <div className="kronoxNoFindings">
-                      <p>No guardaste anotaciones manuales en esta misión. Puedes volver a la etapa de Investigación para marcar cualquier punto de interés.</p>
+                      <p>
+                        No guardaste anotaciones manuales en esta misión. Puedes volver a la etapa
+                        de Investigación para marcar cualquier punto de interés.
+                      </p>
                     </div>
                   ) : (
                     findings.map((f) => (
@@ -1476,7 +2411,17 @@ export default function SpherexMission({
                             </span>
                           )}
                         </div>
-                        <p className="kronoxFindingDesc">{f.description}</p>
+                        <p className="kronoxFindingDesc">
+                          {f.conclusion && <b>{f.conclusion}: </b>}
+                          {f.description}
+                          {f.evidence && (
+                            <small>
+                              {' '}
+                              · Evidencia: {f.evidence.measurements?.length || 0} muestras; producto{' '}
+                              {f.frameId1}
+                            </small>
+                          )}
+                        </p>
                         <button
                           type="button"
                           className="kronoxDeleteBtn"
@@ -1499,11 +2444,7 @@ export default function SpherexMission({
                 >
                   Volver a observar este objetivo
                 </button>
-                <button
-                  type="button"
-                  className="kronoxPrimaryActionBtn"
-                  onClick={onClose}
-                >
+                <button type="button" className="kronoxPrimaryActionBtn" onClick={onClose}>
                   <span>Finalizar y volver al universo 3D</span>
                   <Icons.ChevronRight />
                 </button>

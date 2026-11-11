@@ -1,0 +1,95 @@
+{
+  "checkedAt": "2026-11-07T22:40:19.110Z",
+  "checks": [
+    {
+      "port": 5173,
+      "path": "/KRONOX/",
+      "status": 200,
+      "expectedSource": true
+    },
+    {
+      "port": 5173,
+      "path": "/KRONOX/src/App.jsx",
+      "status": 200,
+      "expectedSource": true
+    },
+    {
+      "port": 5173,
+      "path": "/KRONOX/src/components/SpherexMission.jsx",
+      "status": 200,
+      "expectedSource": true
+    },
+    {
+      "port": 5173,
+      "path": "/KRONOX/src/components/ObservationGallery.jsx",
+      "status": 200,
+      "expectedSource": true
+    },
+    {
+      "port": 5173,
+      "path": "/KRONOX/src/scene/sceneLabels.js",
+      "status": 200,
+      "expectedSource": true
+    },
+    {
+      "port": 5173,
+      "path": "/KRONOX/src/scene/navigationAtlas.js",
+      "status": 200,
+      "expectedSource": true
+    },
+    {
+      "port": 5174,
+      "path": "/KRONOX/",
+      "status": 200,
+      "expectedSource": true
+    },
+    {
+      "port": 5174,
+      "path": "/KRONOX/src/App.jsx",
+      "status": 200,
+      "expectedSource": true
+    },
+    {
+      "port": 5174,
+      "path": "/KRONOX/src/components/SpherexMission.jsx",
+      "status": 200,
+      "expectedSource": true
+    },
+    {
+      "port": 5174,
+      "path": "/KRONOX/src/components/ObservationGallery.jsx",
+      "status": 200,
+      "expectedSource": true
+    },
+    {
+      "port": 5174,
+      "path": "/KRONOX/src/scene/sceneLabels.js",
+      "status": 200,
+      "expectedSource": true
+    },
+    {
+      "port": 5174,
+      "path": "/KRONOX/src/scene/navigationAtlas.js",
+      "status": 200,
+      "expectedSource": true
+    },
+    {
+      "target": "barnard",
+      "status": 200,
+      "bytes": 146880,
+      "hashMatches": true
+    },
+    {
+      "target": "rw-aurigae",
+      "status": 200,
+      "bytes": 146880,
+      "hashMatches": true
+    },
+    {
+      "target": "m101",
+      "status": 200,
+      "bytes": 146880,
+      "hashMatches": true
+    }
+  ]
+}

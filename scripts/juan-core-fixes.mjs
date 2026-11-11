@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+let s=fs.readFileSync('src/utils/differentialImaging.js','utf8');
+s=s.replace('  classifyPixelFlags,','  classifyPixelFlags,\n  estimateEmpiricalBackground,');
+s=s.replace('  const skyDiffVals = [];','  // Each input has its own background scale; never compare input intensities to a residual median.\n  const skyMask = CATEGORY_A_INSTRUMENTAL_MASK | CATEGORY_B_QUALITY_WARNING_MASK | CATEGORY_C_CANDIDATE_ANOMALY_MASK | SPHEREX_FLAG_BITS.MP_SOURCE;\n  const sky1 = estimateEmpiricalBackground(pixels1, flags1, skyMask);\n  const sky2 = estimateEmpiricalBackground(pixels2, flags2, skyMask);\n  const skyPairs = [];\n  const skyDiffVals = [];');
+s=s.replace('if (v1 <= medianDiff + 1.5 && v2 <= medianDiff + 1.5) {','if (((flags1?.[idx] || 0) & skyMask) === 0 && ((flags2?.[idx] || 0) & skyMask) === 0 &&\n          v1 <= sky1.medianMjySr + 2.5 * sky1.nmadMjySr &&\n          v2 <= sky2.medianMjySr + 2.5 * sky2.nmadMjySr) {');
+s=s.replace('        skyDiffVals.push(d);','        skyPairs.push([d,s]);\n        skyDiffVals.push(d);');
+s=s.replace('const d = skyDiffVals[i];\n      const s = skyTheoSigVals[i] * etaSky;','const d = skyPairs[i][0];\n      const s = skyPairs[i][1] * etaSky;');
+s=s.replace('      skyControlCount: skyDiffVals.length,','      skyControlCount: skyDiffVals.length,\n      background1: sky1, background2: sky2, selectionMethod: \'input-specific median + 2.5 NMAD; paired residual/sigma\',');
+fs.writeFileSync('src/utils/differentialImaging.js',s);
+s=fs.readFileSync('src/utils/findingsStorage.js','utf8');
+s=s.replace('    description,\n    viewMode,','    description,\n    conclusion: raw.conclusion ? String(raw.conclusion) : null,\n    question: raw.question ? String(raw.question) : null,\n    evidence: raw.evidence && typeof raw.evidence === \'object\' ? raw.evidence : null,\n    viewMode,');
+s=s.replace('  timeDeltaDays,\n}) {','  timeDeltaDays,\n  conclusion = null, question = null, evidence = null,\n}) {');
+s=s.replace('    description: noteClean,','    description: noteClean,\n    conclusion, question, evidence,');
+fs.writeFileSync('src/utils/findingsStorage.js',s);

@@ -1,0 +1,12 @@
+✔ Reported black screen is reproduced by the prior startup source: lab is not defined (1882.8831ms)
+✔ Complete scene starts, draws labels, advances the entry sequence and reenters without losing its position (CPU integration) (5121.146ms)
+✔ A startup exception produces a visible retry screen instead of an empty React root (985.8798ms)
+✔ The real App mounts its welcome screen and full scene without an uncaught startup error (CPU integration) (3676.2252ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12458.7753

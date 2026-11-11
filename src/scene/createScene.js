@@ -1,3 +1,15 @@
+import {createJumpSequence,advanceJump,JUMP_DURATIONS} from './jumpSequence.js';
+import {createHyperspaceEffect} from './hyperspaceEffect.js';
+import {buildStellarAtlas} from './navigationAtlas.js';
+import {makeAtlasGalaxy} from './galaxyVisuals.js';
+import {galaxyMapPosition,galaxySymbolRadii,fitAtlasCamera,placeAtlasLabels,makeLabelLeader} from './mapLayout.js';
+import {createSceneLabel as lab} from './sceneLabels.js';
+import {heliocentricMapPosition,SOLAR_GALACTIC_ANCHOR} from './astronomicalPositions.js';
+import {disposeSceneResources} from './disposeResources.js';
+import {scaleContext,scaleForTarget,macroGalacticVisible} from './navigationScale.js';
+import {renderWithOriginRebase} from './originRebase.js';
+import {integrateFlightVelocity} from './flightDynamics.js';
+import {createDestinationResources,summarizeFrameTimes} from './destinationVisuals.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { P, D2R, TAU, T0, kep, pos } from '../data/planetData.js';
@@ -16,21 +28,24 @@ import {
   buildCabinMachineSystems3D,
   createKronoxSceneDirector,
 } from './kronoxSceneDirector.js';
+import { createSpherexObservatory3D, SPHEREX_ORBIT_SPEC } from './spherexObservatory3D.js';
+import {
+  COSMIC_HIERARCHY,
+  CANONICAL_STARS_BY_ID,
+  CANONICAL_GALAXIES_BY_ID,
+  GALAXY_MORPHOLOGY_METADATA,
+  ASTRONOMICAL_PROVENANCE_MANIFEST,
+  getObjectProvenance,
+  getCanonicalStar,
+  getCanonicalGalaxy,
+  upgradeSceneGalaxiesWithMorphology,
+} from './astronomicalUniverse.js';
+import {
+  createObserverAwareFirmament,
+  updateCrossScaleContinuity,
+} from './observerSkyAndUnification.js';
+import { createAstronomicalHologramSystem } from './astronomicalHologram.js';
 
-// A single scale cannot show both the Milky Way and nearby star systems
-// clearly. Expand only the inner 25 light-years to 1,000 map units per
-// light-year, then return to the galaxy-wide scale beyond that neighborhood.
-const GALACTIC_MAP_UNITS_PER_LIGHT_YEAR = 3;
-const LOCAL_NEIGHBORHOOD_EXTRA_UNITS_PER_LIGHT_YEAR = 997;
-const LOCAL_NEIGHBORHOOD_RADIUS_LY = 25;
-// Visual parameters only; mission astrometry and target coordinates remain untouched.
-const SPHEREX_VISUALS = {
-  barnard: { type: 'red-dwarf', radiusSolar: 0.196, color: '#d96c42', seed: 17 },
-  'epsilon-indi-b': { type: 'brown-binary', radiusSolar: 0.093, color: '#b77a50', seed: 29 },
-  'wise-0855': { type: 'ultracool', radiusSolar: 0.1, color: '#8f9fc9', seed: 41 },
-  'rw-aurigae': { type: 'young-variable', radiusSolar: 1.5, color: '#ffc071', seed: 53 },
-  'r-draconis': { type: 'mira-variable', radiusSolar: 100, color: '#e86b48', seed: 67 },
-};
 const PLANET_TEXTURE_FILES = {
   Mercurio: '2k_mercury.jpg',
   Venus: '2k_venus.jpg',
@@ -50,60 +65,6 @@ const SHIP_MODEL_LENGTH = 2.5;
 // accelerated day clock does not make them race around the Earth.
 const SATELLITE_VISUAL_TIME_SCALE = 0.0001;
 
-function visualDistanceInMapUnits(distanceLy) {
-  return (
-    distanceLy * GALACTIC_MAP_UNITS_PER_LIGHT_YEAR +
-    Math.min(distanceLy, LOCAL_NEIGHBORHOOD_RADIUS_LY) *
-      LOCAL_NEIGHBORHOOD_EXTRA_UNITS_PER_LIGHT_YEAR
-  );
-}
-
-function localGalacticPosition(target) {
-  const ra = (target.ra * Math.PI) / 180;
-  const dec = (target.dec * Math.PI) / 180;
-  const x = Math.cos(dec) * Math.cos(ra);
-  const y = Math.cos(dec) * Math.sin(ra);
-  const z = Math.sin(dec);
-  const towardCenter = -0.0548755604 * x - 0.8734370902 * y - 0.4838350155 * z;
-  const towardLongitude90 = 0.4941094279 * x - 0.44482963 * y + 0.7469822445 * z;
-  const north = -0.867666149 * x - 0.1980763734 * y + 0.4559837762 * z;
-  // Put the Sun at the map's existing Orion-arm marker, then offset each
-  // named star by its approximate heliocentric distance (the map uses ly).
-  // Directions remain based on the real coordinates. The nearby-neighborhood
-  // expansion is a cartographic aid, not a claim about literal map scale.
-  const distance = visualDistanceInMapUnits(target.distanceLy);
-  return new THREE.Vector3(
-    24500 + distance * (-0.989 * towardCenter + 0.141 * towardLongitude90),
-    distance * north,
-    -3500 + distance * (0.141 * towardCenter + 0.989 * towardLongitude90),
-  );
-}
-
-function lab(text, scale = 0.4, fontSize = 30) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 64;
-  const context = canvas.getContext('2d');
-  context.font = `${fontSize}px Segoe UI, sans-serif`;
-  context.textAlign = 'center';
-  context.fillStyle = '#fff';
-  context.shadowColor = '#000';
-  context.shadowBlur = 6;
-  context.fillText(text, 256, 40);
-
-  const sprite = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: new THREE.CanvasTexture(canvas),
-      depthTest: false,
-      transparent: true,
-      sizeAttenuation: false,
-    }),
-  );
-  sprite.scale.set(scale, scale * 0.125, 1);
-  sprite.center.set(0.5, -0.3);
-  sprite.renderOrder = 9;
-  return sprite;
-}
 
 const hs = (a, b, Q) => {
   const s = Math.sin((((a % Q) + Q) % Q) * 127.1 + b * 311.7) * 43758.5453;
@@ -149,7 +110,9 @@ function sunTexture(p) {
         v = j / H;
       let c;
       const n = fbm(u, v, 10);
-      c = [255, 170 + n * 85, 40 + n * 90];
+      // Luz integrada del Sol (estrella G2V, Teff ≈ 5772 K) en el espacio exterior:
+      // prácticamente blanca (#fffaf2) con granulación fotosférica cálida sutil, evitando una esfera naranja artificial.
+      c = [255, Math.min(255, Math.round(244 + n * 11)), Math.min(255, Math.round(226 + n * 28))];
       const o = (j * W + i) * 4;
       d[o] = c[0];
       d[o + 1] = c[1];
@@ -160,6 +123,7 @@ function sunTexture(p) {
   return new THREE.CanvasTexture(cv);
 }
 const gs = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+let sharedPointMap=null;
 function pts(pos, col, size, op) {
   const G = new THREE.BufferGeometry();
   G.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
@@ -168,6 +132,7 @@ function pts(pos, col, size, op) {
     G,
     new THREE.PointsMaterial({
       size,
+      map:sharedPointMap,alphaTest:0.01,
       vertexColors: true,
       sizeAttenuation: false,
       transparent: true,
@@ -300,6 +265,8 @@ function makeNebulaBackdropTexture({ seed = 1, color = '#a88cff' } = {}) {
 }
 
 export function setupScene(el, S) {
+  const destinationResources=createDestinationResources();
+  sharedPointMap=destinationResources.softMap;
   let qualityMode = S.quality || 'auto';
   const isMobileDevice = () =>
     window.matchMedia?.('(max-width: 760px), (pointer: coarse)')?.matches;
@@ -533,6 +500,7 @@ export function setupScene(el, S) {
   });
   sc.add(deepGalaxyBackdrop);
   const LB = [];
+  const macroGalacticGroup=new THREE.Group();macroGalacticGroup.name='Milky Way macro structure including Orion spur';
   const gal = new THREE.Group(),
     RG = 22500,
     GU = {
@@ -621,7 +589,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     Rr.push(rr);
     Z.push(0);
   }
-  gal.add(gp(a, c, Rr, Z, 2.2, 1));
+  macroGalacticGroup.add(gp(a, c, Rr, Z, 2.2, 1));
   // nebulosas: nubes de gas (rosa/azul/violeta/ámbar) a lo largo de los brazos, spur de Orión y brillo del núcleo
   a = [];
   c = [];
@@ -660,7 +628,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     Rr.push(RG);
     Z.push(3000 + Math.random() * 5000);
   }
-  gal.add(gp(a, c, Rr, Z, 0, 0.08));
+  macroGalacticGroup.add(gp(a, c, Rr, Z, 0, 0.08));
   a = [];
   c = [];
   Rr = [];
@@ -676,7 +644,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     Rr.push(r);
     Z.push(0);
   }
-  gal.add(gp(a, c, Rr, Z, 1.6, 0.9));
+  macroGalacticGroup.add(gp(a, c, Rr, Z, 1.6, 0.9));
   a = [];
   c = [];
   Rr = [];
@@ -692,7 +660,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     Rr.push(r);
     Z.push(2500 + Math.random() * 4000);
   }
-  gal.add(gp(a, c, Rr, Z, 0, 0.05));
+  macroGalacticGroup.add(gp(a, c, Rr, Z, 0, 0.05));
   a = [];
   c = [];
   Rr = [];
@@ -704,12 +672,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     Rr.push(RG);
     Z.push(0);
   }
-  gal.add(gp(a, c, Rr, Z, 3, 1));
+  macroGalacticGroup.add(gp(a, c, Rr, Z, 3, 1));
   {
     const q = [];
     for (let i = 0; i < 256; i++)
       q.push(Math.cos((i / 256) * TAU) * 22500, 0, -Math.sin((i / 256) * TAU) * 22500);
-    gal.add(
+    macroGalacticGroup.add(
       new THREE.LineLoop(
         new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(q, 3)),
         new THREE.LineBasicMaterial({ color: 0xf2b45a, transparent: true, opacity: 0.6 }),
@@ -720,7 +688,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const q = (t, x, z) => {
       const l = lab(t);
       l.position.set(x, 0, z);
-      gal.add(l);
+      macroGalacticGroup.add(l);
       LB.push(l);
     };
     q('Centro galáctico (barra)', 0, 0);
@@ -734,516 +702,68 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       new THREE.Vector3(0.4935, 0.8618, 0.1166),
     ),
   );
+  gal.add(macroGalacticGroup);
+  gal.quaternion.normalize();
   sc.add(gal);
   // Separate, schematic overview layer. It is shown only while the nearby-
   // galaxies map is active and never participates in astronomical navigation.
-  const nearbyGalaxyGroup = new THREE.Group();
-  nearbyGalaxyGroup.visible = false;
-  const nearbyNebulaColors = ['#9675ff', '#ff789f', '#54d7c5', '#ffb662', '#7489ff'];
-  nearbyNebulaColors.forEach((color, index) => {
-    const direction = new THREE.Vector3(
-      Math.sin(index * 2.4 + 0.6),
-      Math.cos(index * 1.7) * 0.58,
-      Math.cos(index * 2.4 + 0.6),
-    ).normalize();
-    const sprite = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: makeNebulaBackdropTexture({ seed: 401 + index * 17, color }),
-        transparent: true,
-        opacity: 0.58,
-        depthTest: false,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-      }),
-    );
-    sprite.position.copy(direction.multiplyScalar(440 + (index % 3) * 75));
-    sprite.scale.set(560 + (index % 2) * 90, 370 + (index % 2) * 60, 1);
-    sprite.renderOrder = -3;
-    nearbyGalaxyGroup.add(sprite);
+  const nearbyGalaxyGroup=new THREE.Group();nearbyGalaxyGroup.name='Catalog galaxies with compressed distances';nearbyGalaxyGroup.visible=false;
+  const atlasRadii=galaxySymbolRadii(NEARBY_GALAXIES),atlasCamera=fitAtlasCamera(NEARBY_GALAXIES,innerWidth/innerHeight),nearbyGalaxyMarkers=new Map(),galaxyLabelEntries=[];
+  const nearbyMarkerGeometry=new THREE.SphereGeometry(1,10,8),atlasPickMaterial=new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false});
+  let galacticMapDisk;
+  NEARBY_GALAXIES.forEach(entry=>{const group=new THREE.Group();group.userData.nearbyGalaxyKey=entry.key;const radius=atlasRadii.get(entry.key)||4,color=entry.key==='milky-way'?'#82bfff':entry.key==='m31'?'#e5cba8':'#b1d4e8';
+    if(entry.kind!=='group'){const model=makeAtlasGalaxy({key:entry.key,type:entry.type?.en||entry.type?.es,radius,color,softMap:sharedPointMap});group.add(model);if(entry.key==='milky-way')galacticMapDisk=model;}
+    else {const ring=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(Array.from({length:65},(_,i)=>new THREE.Vector3(Math.cos(i/64*TAU)*18,0,Math.sin(i/64*TAU)*18))),new THREE.LineBasicMaterial({color:0x7eafc4,transparent:true,opacity:.35}));group.add(ring);}
+    const pick=new THREE.Mesh(nearbyMarkerGeometry,atlasPickMaterial);pick.scale.setScalar(Math.max(radius,4));group.add(pick);
+    const label=lab(entry.name.es+(entry.distanceMly?' · '+entry.distanceMly+' Mly':entry.kind==='group'?' · grupo':''),.24,30),leader=makeLabelLeader();group.add(label,leader);group.userData.label=label;group.userData.symbolRadius=radius;
+    let position=galaxyMapPosition(entry);if(entry.anchorKey){const anchor=NEARBY_GALAXIES.find(e=>e.key===entry.anchorKey);if(anchor)position=galaxyMapPosition(anchor);}group.position.copy(position);group.traverse(n=>n.userData.nearbyGalaxyKey=entry.key);nearbyGalaxyGroup.add(group);nearbyGalaxyMarkers.set(entry.key,group);galaxyLabelEntries.push({key:entry.key,marker:group,label,leader});
   });
-  // Cartographic Milky Way frame used only by the neighborhood overview.
-  // The small solar-system marker is parented here so it shares one absolute
-  // galactic rotation transform without changing the live planetary scene.
-  const galacticMapFrame = new THREE.Group();
-  nearbyGalaxyGroup.add(galacticMapFrame);
-  const galacticMapDisk = new THREE.Group();
-  galacticMapFrame.add(galacticMapDisk);
-  // Build a stable, textured spiral from individual stars rather than smooth
-  // lines. The small random offsets create dust lanes and bright star-forming
-  // knots while preserving four clearly legible arms.
-  const makeGalaxyParticles = ({
-    seed = 1,
-    count = 2200,
-    arms = 4,
-    radius = 40,
-    color = '#80c9ff',
-    irregular = false,
-    pointSize = 1.25,
-  } = {}) => {
-    let state = seed >>> 0;
-    const random = () => {
-      state = (1664525 * state + 1013904223) >>> 0;
-      return state / 4294967296;
-    };
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
-    const baseColor = new THREE.Color(color);
-    const warm = new THREE.Color('#ffd39b');
-    const hot = new THREE.Color('#fff4db');
-    for (let i = 0; i < count; i++) {
-      const core = random() < 0.2;
-      const arm = Math.floor(random() * arms);
-      const progress = core ? Math.pow(random(), 1.8) * 0.36 : 0.16 + random() * 0.84;
-      const r = (core ? 0.04 + progress * 0.48 : 0.12 + progress * 0.88) * radius;
-      const twist = irregular ? 1.5 : 5.15;
-      const theta =
-        arm * (TAU / arms) + progress * twist + (random() - 0.5) * (irregular ? 2.2 : 0.42);
-      const spread = irregular ? 0.2 : 0.055 + progress * 0.12;
-      const jitter = (random() + random() + random() - 1.5) * radius * spread;
-      const x = Math.cos(theta) * r + Math.cos(theta + Math.PI / 2) * jitter;
-      const z = Math.sin(theta) * r + Math.sin(theta + Math.PI / 2) * jitter;
-      const y = (random() + random() - 1) * radius * (irregular ? 0.15 : 0.025 + progress * 0.035);
-      positions[i * 3] = x;
-      positions[i * 3 + 1] = y;
-      positions[i * 3 + 2] = z;
-      const knot = random() > 0.93;
-      const tint = core ? warm : knot ? hot : baseColor;
-      const brightness = core ? 0.72 + random() * 0.48 : 0.48 + random() * 0.72;
-      colors[i * 3] = tint.r * brightness;
-      colors[i * 3 + 1] = tint.g * brightness;
-      colors[i * 3 + 2] = tint.b * brightness;
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    const points = new THREE.Points(
-      geometry,
-      new THREE.PointsMaterial({
-        size: pointSize,
-        sizeAttenuation: true,
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.9,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
-    points.frustumCulled = false;
-    return points;
-  };
-  galacticMapDisk.add(
-    makeGalaxyParticles({
-      seed: 2048,
-      count: 10500,
-      arms: 4,
-      radius: 84,
-      color: '#75bfff',
-      pointSize: 1.05,
-    }),
-  );
-  const galacticMapCore = makeGalaxyCoreGlow('#ffd39b', 13);
-  galacticMapDisk.add(galacticMapCore);
-  const solarSystemMapMarker = new THREE.Group();
-  solarSystemMapMarker.position.x = 54;
-  galacticMapDisk.add(solarSystemMapMarker);
-  const solarMapSun = new THREE.Mesh(
-    new THREE.SphereGeometry(1.45, 16, 12),
-    new THREE.MeshBasicMaterial({ color: 0xffd76c }),
-  );
-  solarSystemMapMarker.add(solarMapSun);
-  const solarMapPlanets = [];
-  const miniPlanetColors = {
-    Mercurio: 0xb4aa9a,
-    Venus: 0xe7c887,
-    Tierra: 0x55adff,
-    Marte: 0xe47658,
-    Júpiter: 0xd9ae83,
-    Saturno: 0xe5d09b,
-    Urano: 0x7bd5d6,
-    Neptuno: 0x5986ef,
-  };
-  P.filter((planet) => planet.au).forEach((planet) => {
-    // The overview compresses the real orbital radii while retaining each
-    // planet's orbital phase from the existing simulation clock.
-    const visualOrbitRadius = Math.log1p(planet.au) * 2.8;
-    const orbitPoints = [];
-    for (let step = 0; step < 64; step++) {
-      const angle = (step / 64) * TAU;
-      orbitPoints.push(
-        new THREE.Vector3(
-          Math.cos(angle) * visualOrbitRadius,
-          0,
-          Math.sin(angle) * visualOrbitRadius,
-        ),
-      );
-    }
-    solarSystemMapMarker.add(
-      new THREE.LineLoop(
-        new THREE.BufferGeometry().setFromPoints(orbitPoints),
-        new THREE.LineBasicMaterial({ color: 0xb4cee9, transparent: true, opacity: 0.24 }),
-      ),
-    );
-    const marker = new THREE.Mesh(
-      new THREE.SphereGeometry(planet.au > 4 ? 0.82 : 0.64, 10, 8),
-      new THREE.MeshBasicMaterial({ color: miniPlanetColors[planet.n] || 0xc6d4e4 }),
-    );
-    solarSystemMapMarker.add(marker);
-    solarMapPlanets.push({ planet, marker, visualOrbitRadius });
-  });
-  const solarSystemLabel = lab('Sistema Solar · Sol', 82, 22);
-  solarSystemLabel.position.set(0, 7, 0);
-  solarSystemMapMarker.add(solarSystemLabel);
-  const overviewStarPositions = [];
-  const overviewStarColors = [];
-  for (let index = 0; index < 1800; index++) {
-    const direction = new THREE.Vector3(gs(), gs(), gs()).normalize();
-    const radius = 520 + Math.random() * 980;
-    overviewStarPositions.push(direction.x * radius, direction.y * radius, direction.z * radius);
-    const tint = Math.random();
-    overviewStarColors.push(0.56 + tint * 0.36, 0.68 + tint * 0.26, 0.82 + tint * 0.18);
-  }
-  nearbyGalaxyGroup.add(pts(overviewStarPositions, overviewStarColors, 1.15, 0.3));
-  const nearbyGalaxyMarkers = new Map();
-  const nearbyMarkerGeometry = new THREE.SphereGeometry(1, 12, 10);
-  const galaxyDistance = (entry) => Math.sqrt(Math.max(0, entry.distanceMly || 0)) * 76;
-  // Schematic map radii scaled to relative galaxy sizes. Major spirals should
-  // read as peers of the Milky Way; dwarf galaxies and groups remain smaller.
-  const galaxyVisualRadii = {
-    'milky-way': 84,
-    m31: 120,
-    m33: 54,
-    'ngc-253': 78,
-    m81: 82,
-    m82: 38,
-    lmc: 26,
-    smc: 18,
-    'sagittarius-dwarf': 17,
-    'ngc-6822': 23,
-  };
-  const galaxyDirection = (entry) => {
-    if (!Number.isFinite(entry.raDeg) || !Number.isFinite(entry.decDeg)) return new THREE.Vector3();
-    const ra = (entry.raDeg * Math.PI) / 180;
-    const dec = (entry.decDeg * Math.PI) / 180;
-    return new THREE.Vector3(
-      Math.cos(dec) * Math.cos(ra),
-      Math.sin(dec),
-      Math.cos(dec) * Math.sin(ra),
-    );
-  };
-  NEARBY_GALAXIES.forEach((entry) => {
-    const group = new THREE.Group();
-    group.userData.nearbyGalaxyKey = entry.key;
-    const isGroup = entry.kind === 'group';
-    const galaxyPalette = {
-      'milky-way': '#8acdf2',
-      'sagittarius-dwarf': '#c69aff',
-      lmc: '#ffad78',
-      smc: '#9daeff',
-      m31: '#edc18b',
-      m33: '#78d9c9',
-      'ngc-6822': '#d39aee',
-      'ngc-253': '#ff9270',
-      m81: '#edc97f',
-      m82: '#f07879',
-    };
-    const color = new THREE.Color(
-      isGroup ? '#ffc27d' : galaxyPalette[entry.key] || '#a9b8ff',
-    ).getHex();
-    const visualRadius = isGroup ? 25 : galaxyVisualRadii[entry.key] || 28;
-    const marker = new THREE.Mesh(
-      nearbyMarkerGeometry,
-      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
-    );
-    // Keep the Milky Way's pick target compact so it does not cover the
-    // larger spiral-disk illustration drawn behind it.
-    const radius = entry.key === 'milky-way' ? 5 : isGroup ? 10 : Math.max(7, visualRadius * 0.1);
-    marker.scale.setScalar(radius);
-    marker.userData.nearbyGalaxyKey = entry.key;
-    group.add(marker);
-    if (entry.key !== 'milky-way') {
-      const irregular = entry.type?.en?.includes('Irregular') || isGroup;
-      group.add(
-        makeGalaxyParticles({
-          seed: entry.key.split('').reduce((acc, char) => acc + char.charCodeAt(0), 31),
-          count: isGroup ? 2100 : Math.round(2400 * Math.min(3, Math.pow(visualRadius / 20, 1.2))),
-          arms: irregular ? 5 : entry.key.includes('andromeda') ? 2 : 3,
-          radius: visualRadius,
-          color: isGroup ? '#ffc27d' : galaxyPalette[entry.key] || '#a9b8ff',
-          irregular,
-          pointSize: 0.62,
-        }),
-      );
-      group.add(
-        makeGalaxyCoreGlow(
-          isGroup ? '#ffc27d' : galaxyPalette[entry.key] || '#d9edff',
-          Math.min(13, radius * 0.9),
-        ),
-      );
-    }
-    if (isGroup) {
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(radius * 1.6, 0.7, 4, 32),
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55 }),
-      );
-      ring.rotation.x = Math.PI / 2.8;
-      group.add(ring);
-    }
-    const label = lab(entry.name.es, 52, 22);
-    label.visible = false;
-    label.position.set(0, radius + 7, 0);
-    group.add(label);
-    group.userData.label = label;
-    const offset =
-      entry.key === 'milky-way'
-        ? new THREE.Vector3()
-        : galaxyDirection(entry).multiplyScalar(galaxyDistance(entry));
-    if (entry.anchorKey) {
-      const anchor = NEARBY_GALAXIES.find((item) => item.key === entry.anchorKey);
-      if (anchor) offset.copy(galaxyDirection(anchor).multiplyScalar(galaxyDistance(anchor)));
-    }
-    if (entry.key === 'local-group') offset.set(0, 0, 28);
-    group.position.copy(offset);
-    nearbyGalaxyGroup.add(group);
-    nearbyGalaxyMarkers.set(entry.key, group);
-  });
+  const solarSystemMapMarker=new THREE.Group();solarSystemMapMarker.position.x=(atlasRadii.get('milky-way')||22)*.56;galacticMapDisk.add(solarSystemMapMarker);
+  const solarMapSun=new THREE.Mesh(new THREE.SphereGeometry(.35,12,8),new THREE.MeshBasicMaterial({color:0xffdc93}));solarSystemMapMarker.add(solarMapSun);
+  const solarMapPlanets=[];const solarSystemLabel=lab('Sistema Solar · Sol',.24,30);solarSystemMapMarker.add(solarSystemLabel);const solarLeader=makeLabelLeader();solarSystemMapMarker.add(solarLeader);galaxyLabelEntries.push({key:'solar-location',marker:solarSystemMapMarker,label:solarSystemLabel,leader:solarLeader});
   sc.add(nearbyGalaxyGroup);
-  const glowCanvas = document.createElement('canvas');
-  glowCanvas.width = glowCanvas.height = 128;
-  const glowContext = glowCanvas.getContext('2d');
-  const glowGradient = glowContext.createRadialGradient(64, 64, 2, 64, 64, 64);
-  glowGradient.addColorStop(0, 'rgba(255,255,255,1)');
-  glowGradient.addColorStop(0.12, 'rgba(255,255,255,.72)');
-  glowGradient.addColorStop(0.38, 'rgba(255,255,255,.18)');
-  glowGradient.addColorStop(1, 'rgba(255,255,255,0)');
-  glowContext.fillStyle = glowGradient;
-  glowContext.fillRect(0, 0, 128, 128);
-  const missionGlowMap = new THREE.CanvasTexture(glowCanvas);
-  const makeMissionStarTexture = (visual, seedOffset = 0) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 256;
-    const context = canvas.getContext('2d');
-    context.fillStyle = visual.color;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    const palette = {
-      'red-dwarf': ['rgba(255,196,124,.34)', 'rgba(73,24,29,.35)', 'rgba(236,113,66,.28)'],
-      'brown-binary': ['rgba(255,202,139,.24)', 'rgba(58,33,46,.46)', 'rgba(208,121,71,.28)'],
-      ultracool: ['rgba(208,218,255,.2)', 'rgba(35,43,77,.46)', 'rgba(162,117,148,.25)'],
-      'young-variable': ['rgba(255,245,190,.38)', 'rgba(112,46,25,.24)', 'rgba(255,149,70,.26)'],
-      'mira-variable': ['rgba(255,187,112,.28)', 'rgba(89,25,32,.4)', 'rgba(229,84,60,.25)'],
-    }[visual.type];
-    let seed = visual.seed + seedOffset;
-    const random = () => {
-      seed = (seed * 1664525 + 1013904223) >>> 0;
-      return seed / 4294967296;
-    };
-    const bands = visual.type === 'brown-binary' || visual.type === 'ultracool' ? 18 : 8;
-    for (let band = 0; band < bands; band++) {
-      const y = (band / bands) * canvas.height + (random() - 0.5) * 18;
-      context.beginPath();
-      context.moveTo(0, y);
-      context.bezierCurveTo(
-        canvas.width * 0.28,
-        y + (random() - 0.5) * 34,
-        canvas.width * 0.68,
-        y + (random() - 0.5) * 34,
-        canvas.width,
-        y + (random() - 0.5) * 18,
-      );
-      context.strokeStyle = palette[band % palette.length];
-      context.lineWidth = 4 + random() * (visual.type === 'mira-variable' ? 26 : 15);
-      context.stroke();
-    }
-    const cells = visual.type === 'mira-variable' ? 38 : 74;
-    for (let index = 0; index < cells; index++) {
-      const x = random() * canvas.width;
-      const y = random() * canvas.height;
-      const rx = (visual.type === 'mira-variable' ? 14 : 5) + random() * 29;
-      const ry = rx * (0.4 + random() * 0.8);
-      context.beginPath();
-      context.ellipse(x, y, rx, ry, random() * Math.PI, 0, TAU);
-      context.fillStyle = palette[index % palette.length];
-      context.fill();
-    }
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.encoding = THREE.sRGBEncoding;
-    texture.anisotropy = Math.min(8, R.capabilities.getMaxAnisotropy());
-    return texture;
-  };
+  const stellarAtlas=buildStellarAtlas('stellar',{softMap:sharedPointMap,missionTargets:SPHEREX_TARGETS,orientation:gal.quaternion}),regionalAtlas=buildStellarAtlas('regional',{softMap:sharedPointMap,missionTargets:SPHEREX_TARGETS,orientation:gal.quaternion});sc.add(stellarAtlas.group,regionalAtlas.group);
+
+  const missionDestinationGroup=new THREE.Group();missionDestinationGroup.name='ICRS destinations relative to Solar origin';missionDestinationGroup.quaternion.copy(gal.quaternion);sc.add(missionDestinationGroup);
   const missionMarkers = new Map();
   const missionMarkerEffects = [];
-  SPHEREX_TARGETS.forEach((target) => {
-    const visual = SPHEREX_VISUALS[target.key];
-    const color = new THREE.Color(visual.color);
-    const markerRadius = Math.max(0.07, Math.min(0.82, 0.08 * Math.sqrt(visual.radiusSolar)));
-    const marker = new THREE.Group();
-    marker.position.copy(localGalacticPosition(target));
-    // A quiet, softly scattered dust pocket gives the destination a sense of
-    // place without obscuring the neighboring stars or the navigation marker.
-    const dustPositions = [];
-    const dustColors = [];
-    const baseColor = new THREE.Color(color);
-    for (let i = 0; i < 180; i++) {
-      const angle = Math.random() * TAU;
-      const radius = 2 + Math.random() ** 1.7 * 10;
-      dustPositions.push(Math.cos(angle) * radius, gs() * radius * 0.36, Math.sin(angle) * radius);
-      const tint = 0.35 + Math.random() * 0.6;
-      dustColors.push(baseColor.r * tint, baseColor.g * tint, baseColor.b * tint);
-    }
-    const dustGeometry = new THREE.BufferGeometry();
-    dustGeometry.setAttribute('position', new THREE.Float32BufferAttribute(dustPositions, 3));
-    dustGeometry.setAttribute('color', new THREE.Float32BufferAttribute(dustColors, 3));
-    const dust = new THREE.Points(
-      dustGeometry,
-      new THREE.PointsMaterial({
-        size: 2.8,
-        sizeAttenuation: true,
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.3,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-      }),
-    );
-    marker.add(dust);
-    const nebula = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: missionGlowMap,
-        color,
-        transparent: true,
-        opacity: 0.2,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
-    nebula.scale.set(markerRadius * 9, markerRadius * 5.6, 1);
-    marker.add(nebula);
-    const corona = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: missionGlowMap,
-        color: color.clone().lerp(new THREE.Color(0xffffff), 0.55),
-        transparent: true,
-        opacity: 0.34,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
-    corona.scale.setScalar(markerRadius * 4.8);
-    marker.add(corona);
-    const glow = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: missionGlowMap,
-        color,
-        transparent: true,
-        opacity: 0.9,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
-    glow.scale.setScalar(markerRadius * 2.7);
-    marker.add(glow);
-    const starTexture = makeMissionStarTexture(visual);
-    const star = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 48, 32),
-      new THREE.MeshStandardMaterial({
-        map: starTexture,
-        emissive: 0xffffff,
-        emissiveMap: starTexture,
-        emissiveIntensity: 0.38,
-        roughness: 0.92,
-        metalness: 0,
-      }),
-    );
-    star.scale.setScalar(markerRadius);
-    marker.add(star);
-    let companion = null;
-    if (target.key === 'epsilon-indi-b') {
-      const companionTexture = makeMissionStarTexture(visual, 7);
-      companion = new THREE.Mesh(
-        new THREE.SphereGeometry(1, 40, 28),
-        new THREE.MeshStandardMaterial({
-          map: companionTexture,
-          emissive: 0xffffff,
-          emissiveMap: companionTexture,
-          emissiveIntensity: 0.32,
-          roughness: 0.94,
-        }),
-      );
-      companion.scale.setScalar(markerRadius * 0.94);
-      marker.add(companion);
-      const binaryTrack = new THREE.Mesh(
-        new THREE.TorusGeometry(0.66, 0.012, 5, 80),
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.24 }),
-      );
-      binaryTrack.rotation.x = Math.PI / 2.5;
-      marker.add(binaryTrack);
-    }
-    if (target.key === 'rw-aurigae') {
-      const diskMaterial = new THREE.MeshBasicMaterial({
-        color: 0xc68e56,
-        transparent: true,
-        opacity: 0.16,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-      });
-      const disk = new THREE.Mesh(new THREE.RingGeometry(0.48, 2.2, 112), diskMaterial);
-      disk.rotation.set(Math.PI / 2, 0.18, 0.26);
-      marker.add(disk);
-      const innerDisk = new THREE.Mesh(
-        new THREE.RingGeometry(0.38, 0.56, 96),
-        new THREE.MeshBasicMaterial({
-          color: 0xffc477,
-          transparent: true,
-          opacity: 0.2,
-          side: THREE.DoubleSide,
-          depthWrite: false,
-        }),
-      );
-      innerDisk.rotation.copy(disk.rotation);
-      marker.add(innerDisk);
-    }
-    const starGlow = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: missionGlowMap,
-        color,
-        transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
-    starGlow.scale.setScalar(markerRadius * 3.2);
-    marker.add(starGlow);
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(1, 0.035, 6, 48),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.34 }),
-    );
-    ring.scale.setScalar(markerRadius * 2.25);
-    ring.rotation.x = Math.PI / 2;
-    marker.add(ring);
-    const label = lab(target.name);
-    label.position.set(0, markerRadius * 2.5 + 0.6, 0);
-    label.visible = false;
-    marker.add(label);
-    LB.push(label);
-    marker.userData.spherexTargetKey = target.key;
-    marker.traverse((child) => {
-      child.userData.spherexTargetKey = target.key;
-    });
-    gal.add(marker);
-    missionMarkers.set(target.key, { target, marker, label });
-    missionMarkerEffects.push({
-      star,
-      companion,
-      markerRadius,
-      visual,
-      glow,
-      corona,
-      ring,
-      starGlow,
-      phase: Math.random() * TAU,
-    });
+  SPHEREX_TARGETS.forEach(target=>{
+    const effect=destinationResources.build(target),marker=effect.marker;
+    marker.position.fromArray(heliocentricMapPosition(target));
+    const label=lab(target.name,target.type==='galaxia'?5:1.2,22);
+    label.position.set(0,effect.radius*1.3,0);label.visible=false;marker.add(label);LB.push(label);
+    marker.traverse(child=>{child.userData.spherexTargetKey=target.key;});
+    missionDestinationGroup.add(marker);missionMarkers.set(target.key,{target,marker,label});missionMarkerEffects.push(effect);
   });
+  upgradeSceneGalaxiesWithMorphology({
+    nearbyGalaxyMarkers,
+    missionMarkers,
+    missionMarkerEffects,
+    stellarAtlas,
+    regionalAtlas,
+    macroGalacticGroup,
+    atlasRadii,
+    glowTexture: sharedPointMap,
+  });
+  const observerFirmament = createObserverAwareFirmament({
+    scene: sc,
+    galaxyOrientationQuat: gal.quaternion,
+    glowTexture: sharedPointMap,
+  });
+  let observerPosPc = { x: 0, y: 0, z: 0 };
+  let observerHostGalaxyKey = 'milky-way';
+  let crossScaleState = {
+    solarRevealBlend: 1,
+    showDetailedSolarSystem: true,
+    milkyWayInternalBlend: 0,
+    cameraDistanceToOrigin: 0,
+  };
+  function syncObserverFirmament({ extragalacticMap = !!nearbyMapState } = {}) {
+    return observerFirmament.rebuildSkyForObserver(observerPosPc, {
+      hostGalaxyKey: observerHostGalaxyKey,
+      extragalacticMap,
+    });
+  }
   // cuerpos
   const B = [];
   let earth;
@@ -1769,6 +1289,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         }
         b.satellites.push({ ...orbit, plane, objects });
       });
+
+      // Observatorio Espacial SPHEREx (NASA/JPL) reconstruido en 3D en órbita polar heliosíncrona (~650 km, ~98 min)
+      const spherex = createSpherexObservatory3D();
+      spherex.root.scale.setScalar(0.052);
+      const spherexLabel = lab('SPHEREx · NASA (Órbita polar ~650 km)', 0.16, 18);
+      spherexLabel.position.set(0, 2.35, 0);
+      spherexLabel.visible = false;
+      spherex.root.add(spherexLabel);
+      LB.push(spherexLabel);
+      system.add(spherex.root);
+      spherex.update({ simDays: 0, elapsedTime: 0, earthRadius: 1, orbitRadius: 1.95, scanning: false });
+      b.spherex = spherex;
     }
     if (p.n === 'Júpiter') {
       // The Galilean moons and their tracks are drawn at an expanded visual
@@ -1891,9 +1423,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       cv.width = cv.height = 128;
       const g = cv.getContext('2d'),
         gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-      gr.addColorStop(0, 'rgba(255,220,140,1)');
-      gr.addColorStop(0.25, 'rgba(255,170,60,.45)');
-      gr.addColorStop(1, 'rgba(255,120,20,0)');
+      gr.addColorStop(0, 'rgba(255,250,242,1)');
+      gr.addColorStop(0.28, 'rgba(255,235,200,.44)');
+      gr.addColorStop(1, 'rgba(255,195,125,0)');
       g.fillStyle = gr;
       g.fillRect(0, 0, 128, 128);
       b.glow = new THREE.Sprite(
@@ -2069,9 +1601,31 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     updateAsteroids(sim);
     ct.minDistance = 0.0005;
   }
+  let navigationContext=scaleContext('solar'),originRebaseState={rebased:false,origin:[0,0,0]},contextOverview=false,selectedContextStar=null;
+  function publishScale(id,target=null){navigationContext=scaleContext(id,target);S.onNavigationScale?.(navigationContext);}
+  function setNavigationScale(id){
+    if(realTimeIntro||launchSequence||launchCameraBlend||cabinReentryBlend||nav)return false;
+    releaseInputs();vel.set(0,0,0);nav=null;activeMissionKey=null;selectedContextStar=null;S.onObjectSelect?.(null);
+    if(id==='extragalactic'){nearbyMap();return true;}
+    if(nearbyMapState)returnFromNearbyMap();
+    contextOverview=id==='stellar'||id==='regional';
+    if(id==='solar'){
+      observerPosPc={x:0,y:0,z:0};
+      observerHostGalaxyKey='milky-way';
+    }
+    syncObserverFirmament({extragalacticMap:false});
+    if(contextOverview){if(free){setFree(false);S.fr(false);}localCabinWorld.visible=false;ship.visible=false;sceneDirector.skipActiveSequence();foc=null;ct.enabled=true;ct.minDistance=1;ct.maxDistance=90000;fly(id==='stellar'?[14000,11000,24000]:[19000,16000,33000]);}
+    else if(id==='solar'){localCabinWorld.visible=false;ship.visible=false;lvl(1);}else if(id==='milkyway'){localCabinWorld.visible=false;ship.visible=false;lvl(3);}else return false;
+    publishScale(id);return true;
+  }
+  function focusContextStar(key){const atlas=navigationContext.id==='stellar'?stellarAtlas:regionalAtlas,entry=atlas.markers.get(key);if(!entry)return false;selectedContextStar=key;const canonical=getCanonicalStar(key);if(canonical){observerPosPc={...canonical.positionPc};observerHostGalaxyKey='milky-way';syncObserverFirmament({extragalacticMap:false});}const position=entry.marker.getWorldPosition(new V()),direction=cam.position.clone().sub(ct.target).normalize();if(!direction.lengthSq())direction.set(.3,.3,1).normalize();ct.minDistance=entry.radius*1.5;ct.maxDistance=90000;tw={p0:cam.position.clone(),t0:ct.target.clone(),p1:position.clone().addScaledVector(direction,entry.radius*7),t1:position,k:0};publishScale(navigationContext.id,entry.target);S.onObjectSelect?.(key==='sun'?{kind:'planet',key:'Sol'}:entry.target.missionKey?{kind:'spherex',key:entry.target.missionKey}:{kind:'catalog-star',key});return true;}
   let foc = null,
     tw = null,
     nav = null,
+    hyperspace = null,
+    jumpDurations = {...JUMP_DURATIONS,...S.jumpDurations},
+    lastJump = null,
+    arrivalTarget = null,
     nearKey = null,
     activeMissionKey = null,
     nearbyMapState = null,
@@ -2206,7 +1760,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     ct.enabled = saved.controlsEnabled;
   }
 
+  function userCameraAvailable(){return !(realTimeIntro||launchSequence||launchCameraBlend||cabinReentryBlend||nav);}
   function enterExteriorCamera() {
+    if(!userCameraAvailable())return false;
     if (!exteriorCameraMode) {
       exteriorCameraMode = true;
       exteriorCameraSavedState = {
@@ -2216,13 +1772,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       };
       exteriorLastShipPosition.copy(sp);
     }
+    localCabinWorld.visible = false;
     ship.visible = true;
     ship.position.copy(sp);
     ship.scale.setScalar(shipSz);
   }
   function nearbyMap() {
+    if(!userCameraAvailable())return false;
     if (nearbyMapState) return;
+    const previousScale=navigationContext.id,previousContext=contextOverview;contextOverview=false;publishScale('extragalactic');S.onObjectSelect?.(null);S.onNearbyMapChange?.(true);
     nearbyMapState = {
+      scale:previousScale,contextOverview:previousContext,
       camera: cam.position.clone(),
       target: ct.target.clone(),
       enabled: ct.enabled,
@@ -2236,6 +1796,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     tw = null;
     free = false;
     spectator = false;
+    localCabinWorld.visible = false;
+    ship.visible = false;
     ct.enabled = true;
     S.fr(false);
     S.intro(false);
@@ -2245,22 +1807,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     });
     nearbyGalaxyGroup.visible = true;
     nearbyGalaxyGroup.position.set(0, 0, 0);
-    nearbyGalaxyGroup.quaternion.copy(gal.quaternion);
-    ct.minDistance = 90;
-    ct.maxDistance = 2400;
+    nearbyGalaxyGroup.quaternion.identity();
+    syncObserverFirmament({ extragalacticMap: true });
+    ct.minDistance = 2;
+    ct.maxDistance = 6000;
     const center = new THREE.Vector3();
     tw = {
       p0: cam.position.clone(),
       t0: ct.target.clone(),
-      p1: center.clone().add(new THREE.Vector3(0, 270, 650)),
+      p1: new THREE.Vector3(...atlasCamera.position),
       t1: center,
       k: 0,
     };
   }
   function returnFromNearbyMap() {
     if (!nearbyMapState) return;
-    const saved = nearbyMapState;
+    const saved = nearbyMapState;contextOverview=!!saved.contextOverview;publishScale(saved.scale||'stellar');S.onNearbyMapChange?.(false);
     nearbyMapState = null;
+    syncObserverFirmament({ extragalacticMap: false });
     tw = {
       p0: cam.position.clone(),
       t0: ct.target.clone(),
@@ -2288,7 +1852,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const direction = cam.position.clone().sub(ct.target);
     if (direction.lengthSq() < 1e-8) direction.set(0.18, 0.32, 1);
     direction.normalize();
-    const distance = key === 'milky-way' ? 360 : 150;
+    const distance = Math.max(25,(marker.userData.symbolRadius||12)*5);
     tw = {
       p0: cam.position.clone(),
       t0: ct.target.clone(),
@@ -2297,66 +1861,32 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       k: 0,
     };
   }
-  function focusSolarSystemMap() {
-    if (!nearbyMapState) nearbyMap();
-    nearbySelectedKey = 'milky-way';
-    solarSystemLabel.visible = true;
-    const target = solarSystemMapMarker.getWorldPosition(new THREE.Vector3());
-    const direction = cam.position.clone().sub(ct.target);
-    if (direction.lengthSq() < 1e-8) direction.set(0.18, 0.32, 1);
-    direction.normalize();
-    tw = {
-      p0: cam.position.clone(),
-      t0: ct.target.clone(),
-      p1: target.clone().addScaledVector(direction, 58),
-      t1: target,
-      k: 0,
-    };
+  function focusSolarSystemMap() {return setNavigationScale('solar');}
+  function cabinOccludes(target){
+    if(!target||!localCabinWorld.visible)return false;localCabinWorld.updateMatrixWorld(true);
+    const direction=target.clone().sub(cam.position),distance=direction.length(),ray=new THREE.Raycaster(cam.position,direction.normalize(),cam.near,distance);
+    const meshes=[];localCabinWorld.traverse(object=>{if(object.isMesh)meshes.push(object);});
+    return ray.intersectObjects(meshes,false).some(hit=>{let object=hit.object;while(object){if(!object.visible)return false;object=object.parent;}const material=Array.isArray(hit.object.material)?hit.object.material[hit.face?.materialIndex||0]:hit.object.material;return material&&material.visible!==false&&(!material.transparent||(!material.isShaderMaterial&&material.opacity>=.6));});
   }
-  function tripTo(target, clearance, name, b, onArrive, respectSpeed = false) {
-    // A route must always use the controllable chase camera, even if the user
-    // started it while inspecting the ship from the outside.
-    if (exteriorCameraMode) leaveExteriorCamera(true);
-    // Navigation owns its camera for the duration of the route. Clear any
-    // unrelated director cinematic that could switch into the cabin mid-flight.
-    sceneDirector.skipActiveSequence();
-    const motionFactor = S.reducedMotion?.() ? 0.45 : 1;
-    const from = sp.clone(),
-      away = from.clone().sub(target);
-    if (away.lengthSq() < 1e-10) away.set(0, 0.25, 1);
-    away.normalize();
-    const to = target.clone().addScaledVector(away, clearance),
-      look = new THREE.PerspectiveCamera();
-    look.position.copy(to);
-    look.lookAt(target);
-    const distance = from.distanceTo(to),
-      speed = Math.max(fs, 0.01),
-      long = distance > speed * 18;
-    nav = {
-      b,
-      from,
-      to,
-      q: look.quaternion.clone(),
-      elapsed: 0,
-      phase: 'align',
-      align: Math.min(1.7, Math.max(0.7, 0.8 + distance / (speed * 10))) * motionFactor,
-      duration: respectSpeed
-        ? Math.min(16, Math.max(2, distance / speed)) * motionFactor
-        : Math.min(
-            16,
-            Math.max(2, distance / (speed * (long ? Math.max(1, distance / (speed * 8)) : 1))),
-          ) * motionFactor,
-      motionFactor,
-      distance,
-      long,
-      respectSpeed,
-      oldFs: fs,
-      onArrive,
-    };
-    if (long && !respectSpeed) S.fv(Math.min(5e4, Math.max(fs, distance / nav.duration)));
-    S.f(name);
+  function disposeTravelEffect(){hyperspace?.dispose();hyperspace=null;}
+  function cancelTravel(){
+    if(nav){const e=new THREE.Euler().setFromQuaternion(nav.currentQuaternion,'YXZ');fy=e.y;fp=e.x;}
+    nav=null;disposeTravelEffect();vel.set(0,0,0);releaseInputs();S.onNavigation?.(null);
+  }
+  function tripTo(target, clearance, name, b, onArrive, respectSpeed = false, arrivedTarget = null) {
+    if(nav||realTimeIntro||launchSequence||launchCameraBlend||cabinReentryBlend)return false;
+    if(exteriorCameraMode)leaveExteriorCamera(true);
+    sceneDirector.skipActiveSequence();releaseInputs();tw=null;vel.set(0,0,0);bk=0;ti=9;
+    activeCabinStation=null;freeHelmMode=false;S.onFreeHelmChange?.(false);arrivalTarget=null;
+    astronomicalHologram?.clearHologram();
+    const distance=sp.distanceTo(target),long=distance>Math.max(clearance*3,shipSz*24);
+    nav={...createJumpSequence({from:sp,target,startQuaternion:ship.quaternion,clearance,durations:jumpDurations,reducedMotion:!!S.reducedMotion?.(),long}),b,name,onArrive,respectSpeed,oldFs:fs,objectKey:activeMissionKey,arrivedTarget:arrivedTarget || (b ? { name, key: b.p?.n || name, type: b.p?.sun ? 'estrella' : 'planeta' } : null),cabinStart:astronautPos.clone(),cabinLookout:new V(-3.2,0,-10.2),cameraStartPosition:cam.position.clone(),cameraStartQuaternion:cam.quaternion.clone(),cameraStartLocalOffset:cam.position.clone().sub(sp).applyQuaternion(ship.quaternion.clone().invert()),cameraStartLocalQuaternion:ship.quaternion.clone().invert().multiply(cam.quaternion)};
+    if(long){disposeTravelEffect();hyperspace=createHyperspaceEffect({count:qualityMode==='performance'?440:720});sc.add(hyperspace.group);}
+    S.f(name);S.onNavigation?.({phase:nav.phase,progress:0,label:name});return true;
   }
   function focus(n, k) {
+    if(!userCameraAvailable())return false;
+    publishScale('solar');
     tw = null;
     const b = B.find((x) => x.p.n == n);
     if (free) {
@@ -2388,10 +1918,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     S.f(n);
   }
   function mode(m) {
+    if(!userCameraAvailable())return false;
     if (free) {
       setFree(false);
       S.fr(false);
     }
+    localCabinWorld.visible = false;
+    ship.visible = false;
     real = m;
     layout();
     ct.target.set(0, 0, 0);
@@ -2404,16 +1937,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       cam.position.set(0, 90, 230);
     }
   }
-  function fly(p) {
+  function fly(p, t = new THREE.Vector3()) {
     tw = {
       p0: cam.position.clone(),
       t0: ct.target.clone(),
       p1: new THREE.Vector3(...p),
-      t1: new THREE.Vector3(),
+      t1: t instanceof THREE.Vector3 ? t.clone() : new THREE.Vector3(...t),
       k: 0,
     };
   }
   function quick(k) {
+    if(!userCameraAvailable())return false;
     if (!free) {
       setFree(true);
       S.fr(true);
@@ -2421,9 +1955,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.intro(false);
     }
     if (k === 'orion') {
+      publishScale('milkyway');
       gal.updateMatrixWorld(true);
       tripTo(gal.localToWorld(new V(24500, 0, -3500)), 4000, 'Brazo de Orión');
     } else if (k === 'core') {
+      publishScale('milkyway');
       tripTo(gal.position.clone(), 6000, 'Centro galáctico');
     } else if (k === 'sunOrbit') {
       tripTo(
@@ -2438,6 +1974,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
   }
   function missionTarget(key, onArrive) {
+    if(realTimeIntro||launchSequence||launchCameraBlend||nav)return false;
+    if(nearbyMapState)returnFromNearbyMap();
+    contextOverview=false;selectedContextStar=null;
     const found = missionMarkers.get(key);
     if (!found) return;
     if (!free) {
@@ -2448,24 +1987,43 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     gal.updateMatrixWorld(true);
     const destination = found.marker.getWorldPosition(new V());
-    activeMissionKey = key;
+    activeMissionKey = key;publishScale(scaleForTarget(found.target),found.target);
+    const canonicalStar = getCanonicalStar(key);
+    if (canonicalStar) {
+      observerPosPc = { ...canonicalStar.positionPc };
+      observerHostGalaxyKey = 'milky-way';
+      syncObserverFirmament({ extragalacticMap: false });
+    } else if (GALAXY_MORPHOLOGY_METADATA[key]) {
+      observerHostGalaxyKey = key;
+      syncObserverFirmament({ extragalacticMap: false });
+    }
+    const isGalaxy = found.target?.type === 'galaxia';
+    const travelClearance = Math.max(found.marker.userData.inspectionClearance || 16, isGalaxy ? 24 : 18);
     tripTo(
       destination,
-      Math.max(22, Math.min(60, visualDistanceInMapUnits(found.target.distanceLy) * 0.04)),
+      travelClearance,
       found.target.name,
       null,
       () => {
         found.label.visible = true;
+        vel.set(0,0,0);fs=1.0;S.fv(fs);
         if (onArrive) onArrive();
       },
       true,
+      found.target,
     );
   }
   function lvl(k) {
+    cabinReentryBlend = null;
+    if(!userCameraAvailable())return false;
+    publishScale(k>=3?'milkyway':k===2?'stellar':'solar');
+    ct.maxDistance=4e5;
     if (free) {
       setFree(false);
       S.fr(false);
     }
+    localCabinWorld.visible = false;
+    ship.visible = false;
     if (real) mode(false);
     ct.minDistance = 0.0005;
     if (k == 0) {
@@ -2474,6 +2032,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     foc = null;
     S.f(null);
+    if (k === 3) {
+      const galCenter = new V().fromArray(SOLAR_GALACTIC_ANCHOR).applyQuaternion(gal.quaternion).negate();
+      const galCamPos = galCenter.clone().add(new V(0, 62000, 34000).applyQuaternion(gal.quaternion));
+      fly(galCamPos.toArray(), galCenter);
+      return;
+    }
     fly(
       [
         [0, 90, 230],
@@ -2690,7 +2254,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const cabinSystem = buildHabitableCabin3D();
   localCabinWorld.add(cabinSystem.cabinRoot);
 
+  const astronomicalHologram = createAstronomicalHologramSystem({
+    cabinRoot: cabinSystem.cabinRoot,
+  });
+
   const astronaut3D = createAstronautModel3D();
+  // Experiencia principal exclusivamente en primera persona (1.65 m):
+  // el cuerpo humano en 3ª persona y brazos flotantes permanecen ocultos para no bloquear la cámara.
+  astronaut3D.root.visible = false;
+  astronaut3D.firstPersonHands.visible = false;
   localCabinWorld.add(astronaut3D.root);
   localCabinWorld.add(astronaut3D.firstPersonHands);
 
@@ -2701,8 +2273,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
   // Machine-Driven 3D Holograms, Projector Cone, Sensor Sweep & Scene Director (Sections 2 & 3)
   const machineSystems = buildCabinMachineSystems3D();
+  if (machineSystems.sensorSweepGroup) {
+    machineSystems.sensorSweepGroup.visible = false;
+    // Ocultar los anillos verdes flotantes grandes sobre la consola científica según requerimiento del usuario
+    machineSystems.sensorSweepGroup.clear();
+  }
   localCabinWorld.add(machineSystems.systemsRoot);
 
+  let suppressDirectorNarrative = false;
   const sceneDirector = createKronoxSceneDirector({
     cabinSystem,
     machineSystems,
@@ -2711,6 +2289,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.onSceneDirectorEvent?.(eventName, payload, directorState);
     },
     onNarrativeCallback: (text, aiState, stationId, directorState) => {
+      if (suppressDirectorNarrative) return;
       S.onAiTourNarrative?.(text, aiState, stationId, directorState);
     },
     onControlModeChange: (controlMode, directorState) => {
@@ -2725,8 +2304,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let astronautPitch = 0;
   let targetYaw = 0;
   let targetPitch = 0;
-  let cabinFirstPerson = true; // true = 1st-person eye height (1.65 m), false = 3rd-person over-shoulder
+  let cabinFirstPerson = true; // Exclusivamente en 1ª persona (altura ocular 1.65 m)
   let activeCabinStation = null;
+  let shipPoseKnown=false,cabinReentryBlend=null;
   let freeHelmMode = false;
   let freeHelmBlend = 0;
   let nearestCabinStation = null;
@@ -2735,6 +2315,60 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let aiSpeakingState = false;
   let aiAudioLevelState = 0.08;
   let lastScreenProjectionTime = 0;
+
+  /**
+   * Alinea de forma coherente la posición y orientación de la nave exterior (120 m)
+   * y de la cabina interior en primera persona en el plano orbital horizontal de la Tierra.
+   * Garantiza fp = 0 (horizonte nivelado sin inclinación de 90°) y dirección frontal (-Z) idéntica.
+   */
+  function alignShipInEarthOrbit() {
+    shipSz = shipScale();
+    const earthPos = earth?.pivot ? earth.pivot.position.clone() : new V(Dd(1), 0, 0);
+    const radial = new V(earthPos.x, 0, earthPos.z);
+    if (radial.lengthSq() < 1e-6) radial.set(1, 0, 0);
+    else radial.normalize();
+    const tangent = new V(-radial.z, 0, radial.x).normalize();
+    // Stand-off orbital seguro: mantiene la Tierra fuera de la cabina humana (largo 22 m)
+    // para que sea visible majestuosamente en el exterior por los ventanales sin penetrar el habitáculo.
+    const standOff = earth ? Math.max(earth.r * 3.5 + 28, Dm() * 1.35) : 36;
+
+    sp.copy(earthPos)
+      .addScaledVector(radial, standOff * 0.85)
+      .addScaledVector(tangent, -standOff * 0.72);
+    sp.y = earthPos.y;
+
+    const forward = earthPos
+      .clone()
+      .addScaledVector(radial, standOff * 0.22)
+      .addScaledVector(tangent, standOff * 0.95)
+      .sub(sp);
+    forward.y = 0;
+    if (forward.lengthSq() < 1e-6) forward.set(0, 0, -1);
+    else forward.normalize();
+
+    fy = Math.atan2(-forward.x, -forward.z);
+    fp = 0;
+    bk = 0;
+
+    const qLevel = new THREE.Quaternion().setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
+    ship.position.copy(sp);
+    ship.scale.setScalar(shipSz);
+    ship.quaternion.copy(qLevel);
+    localCabinWorld.position.copy(sp);
+    localCabinWorld.quaternion.copy(qLevel);
+
+    astronautPos.set(0, 0, -1.8);
+    astronautVel.set(0, 0, 0);
+    astronautYaw = 0;
+    astronautPitch = 0;
+    targetYaw = 0;
+    targetPitch = 0;
+    cabinFirstPerson = true;
+    astronaut3D.root.visible = false;
+    astronaut3D.firstPersonHands.visible = false;
+    shipPoseKnown = true;
+    return qLevel;
+  }
 
   function occupyNavigationSeat() {
     const station = PHYSICAL_CABIN_STATIONS.find((item) => item.id === 'nav');
@@ -2745,6 +2379,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     pv = 1;
     cabinFirstPerson = true;
+    astronaut3D.root.visible = false;
+    astronaut3D.firstPersonHands.visible = false;
     ship.visible = false;
     localCabinWorld.visible = true;
     astronautPos.copy(station.position);
@@ -2760,6 +2396,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
   // Real-time 3D Cinematic Intro Spline State (Section 2)
   let realTimeIntro = null;
+  let introCompletedNaturally = false;
   // Guided In-World Tour State (Section 6)
   let guidedTourState = null;
   const tourNarratives = {
@@ -2832,74 +2469,138 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
 
   function startRealTimeIntroSequence(onCompleteCallback) {
+    cancelTravel();if(nearbyMapState)returnFromNearbyMap();contextOverview=false;
+    publishScale('solar');
     // Cancel any incompatible active sequences so two sequences never run simultaneously (Section 4)
     sceneDirector.skipActiveSequence();
     nav = null;
     launchSequence = null;
     launchCameraBlend = null;
     guidedTourState = null;
+    introCompletedNaturally = false;
 
-    // Start with the Earth launch, then continue into the exterior-to-cabin
-    // cinematic sequence.
-    setFree(true, true);
+    releaseInputs();vel.set(0,0,0);activeCabinStation=null;freeHelmMode=false;
+    spectator = false;
+    free = true;
+    ct.enabled = false;
+    foc = null;
+    S.f?.(null);
+    tw = null;
+    alignShipInEarthOrbit();
+    fs = Math.max(0.05, earth ? earth.r * 0.45 : 0.2);
+    S.fv?.(fs);
     S.fr?.(true);
-    pv = 3;
-    ship.visible = true;
-    localCabinWorld.visible = false;
-    astronautPos.set(0, 0, -1.8);
-    astronautVel.set(0, 0, 0);
-    astronautYaw = 0;
-    astronautPitch = 0;
-    targetYaw = 0;
-    targetPitch = 0;
+    S.intro?.(true);
+    ti = 0;
+    TB.fill(-99);
+    tr.visible = false;
 
+    pv = 3;
+    cabinFirstPerson = true;
+    astronaut3D.root.visible = false;
+    astronaut3D.firstPersonHands.visible = false;
+    ship.visible = false;
+    localCabinWorld.visible = false;
+    cam.near = 0.001;
+    cam.fov = fovBase;
+    cam.updateProjectionMatrix();
+
+    cabinReentryBlend=null;
+    const isReduced = Boolean(S.reducedMotion?.());
+    const isTestHarness = Boolean(globalThis.__KRONOX_SCENE_HARNESS__);
     realTimeIntro = {
-      phase: 'launch',
+      phase: 'opening',
+      openingDuration: isReduced ? 0.8 : isTestHarness ? 4.4 : 6.5,
       elapsed: 0,
-      duration: 11.5,
-      stageNotified: -1,
+      stageElapsed: 0,
+      duration: isReduced ? 2.0 : isTestHarness ? 22.6 : 30.0,
+      stageNotified: 0,
       cameraHandoff: null,
+      boardingFrom: null,
+      boardingQuaternion: null,
       onComplete: onCompleteCallback,
     };
-    S.onIntroStageChange?.('despegue', 'Despegue desde la Tierra: los propulsores ponen en marcha la nave KRONOX.');
+    S.onIntroStageChange?.(
+      'opening',
+      'Durante siglos, contemplamos el universo desde un pequeño mundo, buscando respuestas entre las estrellas.',
+    );
   }
 
   function skipRealTimeIntroSequence() {
+    cancelTravel();
+    const wasInIntro = Boolean(realTimeIntro);
     const cb = realTimeIntro?.onComplete;
+    releaseInputs();vel.set(0,0,0);activeCabinStation=null;freeHelmMode=false;
     realTimeIntro = null;
     launchSequence = null;
     launchCameraBlend = null;
     sceneDirector.skipActiveSequence();
+    if (earth?.spherex) {
+      earth.spherex.spectralScanGroup.visible = false;
+      earth.spherex.root.scale.setScalar(0.052);
+    }
     if (!free) {
       setFree(true, false);
       S.fr?.(true);
     }
+    if (wasInIntro || !shipPoseKnown || Math.abs(fp) > 1.15) {
+      alignShipInEarthOrbit();
+    } else {
+      astronautPos.set(0, 0, -1.8);
+      astronautVel.set(0, 0, 0);
+      astronautYaw = 0;
+      astronautPitch = 0;
+      targetYaw = 0;
+      targetPitch = 0;
+    }
     pv = 1;
+    cabinFirstPerson = true;
+    astronaut3D.root.visible = false;
+    astronaut3D.firstPersonHands.visible = false;
     ship.visible = false;
     localCabinWorld.visible = true;
-    astronautPos.set(0, 0, -1.8);
-    astronautVel.set(0, 0, 0);
-    astronautYaw = 0;
-    astronautPitch = 0;
-    targetYaw = 0;
-    targetPitch = 0;
+    cam.near = 0.05;
+    cam.fov = Math.min(fovBase, 42);
+    cam.updateProjectionMatrix();
+
+    const qNow = new THREE.Quaternion().setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
+    ship.position.copy(sp);
+    ship.quaternion.copy(qNow);
+    localCabinWorld.position.copy(sp);
+    localCabinWorld.quaternion.copy(qNow);
+    cam.position.copy(
+      new V(astronautPos.x, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, astronautPos.z)
+        .applyQuaternion(qNow)
+        .add(sp),
+    );
+    cam.quaternion.copy(qNow);
+
+    suppressDirectorNarrative = true;
     sceneDirector.dispatchEvent('CABIN_ENTERED', {});
     sceneDirector.dispatchEvent('AI_ACTIVATED', {});
+    suppressDirectorNarrative = false;
     if (cb) cb();
+    introCompletedNaturally = false;
     startGuidedCabinTour();
   }
 
   function startGuidedCabinTour() {
     guidedTourState = {
-      step: 'welcome',
+      step: introCompletedNaturally ? 'bridge' : 'welcome',
       focus: null,
       proximityAnnounced: false,
       scienceInteracted: false,
     };
     aiFollowAstronaut = false;
+    if (introCompletedNaturally) {
+      introCompletedNaturally = false;
+      S.onGuideStateChange?.({ step: 'bridge', stationId: null, active: true });
+      S.onGuideObjective?.('OBJETIVO: Explora el puente de mando. Muévete libremente con WASD.');
+      return;
+    }
     S.onGuideStateChange?.({ step: 'welcome', stationId: null, active: true });
     guidedTourState.welcomeMessageId = S.onAiTourNarrative?.(
-      'Bienvenido a bordo de la nave KRONOX. Soy tu asistente de exploración. Te acompañaré durante esta misión y te ayudaré a descubrir los instrumentos de la nave.',
+      'Bienvenido a Kronox. Soy Cronos, tu asistente de exploración. Nuestro viaje comienza ahora.',
       'Bienvenida',
       null,
     );
@@ -2924,49 +2625,23 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       launchCameraBlend = null;
       if (launchFromEarth) nav = null;
       if (launchFromEarth && earth) {
-        const radial = new V(0, 1, 0);
-        if (sp.lengthSq()) radial.copy(sp).sub(earth.pivot.position);
-        if (radial.lengthSq() < 1e-10) radial.set(0, 1, 0);
-        radial.normalize();
-        const tangent = new V(0, 0, 1).cross(radial);
-        if (tangent.lengthSq() < 1e-10) tangent.set(1, 0, 0).cross(radial);
-        tangent.normalize();
-        const launchQ = new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), radial);
-        shipSz = shipScale();
-        sp.copy(earth.pivot.position).addScaledVector(radial, earth.r * 1.005);
-        launchSequence = {
-          elapsed: 0,
-          duration: 5.5,
-          radial,
-          cameraOffset: radial
-            .clone()
-            .add(tangent)
-            .multiplyScalar(shipSz * 220),
-          startRadius: earth.r * 1.005,
-          endRadius: earth.r * 6,
-        };
-        cam.position.copy(sp).add(launchSequence.cameraOffset);
-        cam.lookAt(sp);
-        fy = new THREE.Euler().setFromQuaternion(launchQ, 'YXZ').y;
-        fp = new THREE.Euler().setFromQuaternion(launchQ, 'YXZ').x;
-      } else if (earth && cam.position.length() > Dd(earth.p.au) * 3) {
-        // Position ship at a natural orbital standoff from Earth (3.5 planet radii)
-        // so both the 120m vessel and Earth's planetary limb are well-composed in exterior view
-        const standOff = Math.max(earth.r * 3.5, Dm());
-        sp.copy(earth.pivot.position).add(new V(standOff, earth.r * 0.4, standOff * 0.5));
-        cam.position.copy(sp).add(new V(0, 0.4, 1.2).multiplyScalar(shipScale() * 18));
-        cam.lookAt(sp);
+        const qLevel = alignShipInEarthOrbit();
+        cam.position.copy(sp).add(new V(0, 0.3, 1).multiplyScalar(shipOffset()).applyQuaternion(qLevel));
+        cam.quaternion.copy(qLevel);
+      } else if (earth && !shipPoseKnown && cam.position.length() > Dd(earth.p.au) * 2.5) {
+        const qLevel = alignShipInEarthOrbit();
+        cam.position.copy(sp).add(new V(0, 0.3, 1).multiplyScalar(shipOffset()).applyQuaternion(qLevel));
+        cam.quaternion.copy(qLevel);
       } else {
         sp.copy(cam.position);
-      }
-      if (!launchSequence) {
         const e = new THREE.Euler().setFromQuaternion(cam.quaternion, 'YXZ');
         fy = e.y;
         fp = e.x;
       }
+      shipPoseKnown=true;
       shipSz = shipScale();
-      fs = launchSequence
-        ? Math.max(0.01, earth.r * 0.5)
+      fs = launchFromEarth
+        ? Math.max(0.05, earth ? earth.r * 0.45 : 0.2)
         : Math.max(0.01, Math.min(5e4, cam.position.distanceTo(ct.target) * 0.4));
       S.fv(fs);
       ti = 0;
@@ -2977,6 +2652,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     } else {
       launchSequence = null;
       launchCameraBlend = null;
+      localCabinWorld.visible = false;
       ship.visible = false;
       tr.visible = false;
       S.intro(false);
@@ -2986,6 +2662,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
   }
   function spectate() {
+    if(!userCameraAvailable())return false;
     leaveExteriorCamera(false);
     let q;
     if (free) q = ship.quaternion.clone();
@@ -3003,6 +2680,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     S.f(null);
     S.fr(false);
     S.intro(false);
+    localCabinWorld.visible = false;
     tr.visible = false;
     ship.position.copy(sp);
     ship.scale.setScalar(shipSz);
@@ -3034,6 +2712,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     ti = 9;
     tr.visible = true;
     ship.visible = pv == 3;
+    localCabinWorld.visible = pv == 1;
     cam.quaternion.copy(q);
     cam.position
       .copy(sp)
@@ -3043,6 +2722,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (!spectator) return;
     spectator = false;
     free = false;
+    localCabinWorld.visible = false;
     ship.visible = false;
     ct.enabled = true;
     ct.target.copy(sp);
@@ -3078,6 +2758,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     S.fv(fs);
   }
   function inspectExterior() {
+    if(!userCameraAvailable())return false;
     if (!free) {
       setFree(true, false);
       S.fr(true);
@@ -3130,6 +2811,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
       return;
     }
+    if(contextOverview&&clickMoved<6){const rect=dom.getBoundingClientRect();nearbyPointer.set((e.clientX-rect.left)/rect.width*2-1,1-(e.clientY-rect.top)/rect.height*2);nearbyRaycaster.setFromCamera(nearbyPointer,cam);const atlas=navigationContext.id==='stellar'?stellarAtlas:regionalAtlas;const hit=nearbyRaycaster.intersectObjects([...atlas.markers.values()].map(e=>e.marker),true).find(h=>h.object.userData.catalogStarKey);if(hit)focusContextStar(hit.object.userData.catalogStarKey);return;}
     // Interacción con consolas físicas 3D dentro de la cabina habitable (Sección 4)
     if (clickMoved < 6 && !nearbyMapState && free && pv == 1 && !realTimeIntro) {
       const rect = dom.getBoundingClientRect();
@@ -3194,7 +2876,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
   };
   const onPointerMove = (e) => {
-    if (free && !exteriorCameraMode && drag && !launchSequence && !launchCameraBlend && !realTimeIntro) {
+    if (free && !nav && !exteriorCameraMode && drag && !launchSequence && !launchCameraBlend && !realTimeIntro) {
       if (pv == 1) {
         // Suavizado cinemático de rotación de cabeza/casco de astronauta
         targetYaw -= e.movementX * 0.0024;
@@ -3220,6 +2902,33 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
     }
   };
+  const releaseInputs=()=>{for(const k of Object.keys(keys))delete keys[k];drag=0;};
+  let backgroundIntroTimer = null;
+  const onVisibilityChange = () => {
+    if (document.hidden) {
+      releaseInputs();
+      // Si el usuario cambia de pestaña durante el prólogo, mantener la cinemática
+      // y la voz de Cronos avanzando en tiempo real al son de la música.
+      if (realTimeIntro && !backgroundIntroTimer) {
+        backgroundIntroTimer = setInterval(() => {
+          if (!realTimeIntro || disposed) {
+            if (backgroundIntroTimer) clearInterval(backgroundIntroTimer);
+            backgroundIntroTimer = null;
+            return;
+          }
+          if (document.hidden) {
+            tick();
+          }
+        }, 100);
+      }
+    } else {
+      if (backgroundIntroTimer) {
+        clearInterval(backgroundIntroTimer);
+        backgroundIntroTimer = null;
+      }
+    }
+  };
+  const onInputFocus=e=>{if(e.target?.matches?.('input,textarea,select,[contenteditable="true"]'))releaseInputs();};
   const onKeyDown = (e) => {
     const tag = e.target?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -3264,8 +2973,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   dom.addEventListener('wheel', onWheel, { passive: false });
   addEventListener('keydown', onKeyDown);
   addEventListener('keyup', onKeyUp);
+  addEventListener('blur',releaseInputs);document.addEventListener('visibilitychange',onVisibilityChange);document.addEventListener('focusin',onInputFocus);dom.addEventListener('pointercancel',releaseInputs);
   addEventListener('resize', onResize);
+  const frameTiming={active:false,last:null,values:[],metadata:null};
   function tick() {
+    const introOwnedThisFrame=!!realTimeIntro;
+    const frameNow=performance.now();
+    if(frameTiming.active&&frameTiming.last!==null){frameTiming.values.push(frameNow-frameTiming.last);if(frameTiming.values.length>=600)frameTiming.active=false;}
+    frameTiming.last=frameNow;
     if (disposed) return;
     rafId = requestAnimationFrame(tick);
     const dt = Math.min(clk.getDelta(), 0.1),
@@ -3296,23 +3011,21 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         S.onNavigation(null);
       } else if (nav) {
         lastNavigationHadNav = true;
-        const progress =
-          nav.phase === 'align'
-            ? Math.min(0.15, (nav.elapsed / nav.align) * 0.15)
-            : nav.phase === 'transit'
-              ? 0.15 + Math.min(0.68, (nav.elapsed / nav.duration) * 0.68)
-              : nav.phase === 'jumpin'
-                ? 0.88 + Math.min(0.08, (nav.elapsed / (0.38 * nav.motionFactor)) * 0.08)
-                : nav.phase === 'arrival'
-                  ? 0.96 + Math.min(0.04, (nav.elapsed / (0.9 * nav.motionFactor)) * 0.04)
-                  : 0.1;
-        S.onNavigation({ phase: nav.phase, progress });
+        const progress = nav.progress;
+        S.onNavigation({ phase: nav.phase, progress,label:nav.name });
       }
     }
     const fl = S.fl.current,
-      solarOrbitVisibility = fl.orb
-        ? 1 - THREE.MathUtils.smoothstep(cam.position.length(), 150, 240)
-        : 0;
+      inCinematicVisualMode = Boolean(
+        realTimeIntro || launchSequence || launchCameraBlend || sceneDirector.getState().activeSequence,
+      ),
+      inFirstPersonCabinVisualMode = Boolean(free && pv == 1 && !inCinematicVisualMode),
+      allowReferenceGuides = !contextOverview && !nearbyMapState && !inCinematicVisualMode && !inFirstPersonCabinVisualMode,
+      solarOrbitVisibility =
+        allowReferenceGuides && fl.orb
+          ? 1 - THREE.MathUtils.smoothstep(cam.position.length(), 150, 240)
+          : 0;
+    const isCabinActive = pv == 1 && !realTimeIntro;
     B.forEach((b) => {
       const p = b.p;
       if (p.au) {
@@ -3332,14 +3045,29 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         b.spin.rotation.y = an + Math.PI / 2;
         b.ar.setDirection(new THREE.Vector3(-Math.sin(an), 0, -Math.cos(an)));
       }
+      if (b.pivot) {
+        // En cabina 1P (escala humana 1 u = 1 m, semilargo = 11 m), solo prevenir que el astro penetre físicamente el habitáculo
+        const distToShip = b.pivot.position.distanceTo(sp);
+        b.pivot.visible = !(isCabinActive && distToShip < 12.0);
+      }
       if (b.satellites) {
         b.satellites.forEach((plane) => {
+          plane.plane.visible = !realTimeIntro;
           const orbitAngle = ((sim * SATELLITE_VISUAL_TIME_SCALE) / plane.period) * TAU;
           plane.objects.forEach(({ object, phase }) => {
             const angle = orbitAngle + phase;
             object.position.set(Math.cos(angle) * plane.radius, 0, Math.sin(angle) * plane.radius);
             object.rotation.y = -angle;
           });
+        });
+      }
+      if (b.spherex && !realTimeIntro) {
+        b.spherex.update({
+          simDays: sim,
+          elapsedTime: clk.elapsedTime,
+          earthRadius: 1,
+          orbitRadius: 1.95,
+          scanning: false,
         });
       }
       if (b.jupiterMoons) {
@@ -3358,14 +3086,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         const rate = ((TAU * 24) / p.rot) * spd;
         b.spin.rotation.y += rate * dt;
       }
-      b.lab.visible = !!fl.lab;
-      b.ax.visible = !!fl.ax;
+      b.lab.visible = allowReferenceGuides && !!fl.lab;
+      b.ax.visible = allowReferenceGuides && !!fl.ax;
       if (b.orbit) {
         b.orbit.material.opacity = 0.5 * solarOrbitVisibility;
         b.orbit.visible = solarOrbitVisibility > 0.01;
       }
       if (b.ar) {
-        b.ar.visible = !!fl.vel;
+        b.ar.visible = allowReferenceGuides && !!fl.vel;
         const L = cam.position.distanceTo(b.pivot.position) * 0.12;
         b.ar.setLength(L, L * 0.25, L * 0.12);
       }
@@ -3408,23 +3136,31 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       ti += dt;
       if (ti > 3.6 && ti - dt <= 3.6) S.intro(false);
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
+      const routeForFrame=nav;
       const inHabitableCabin = pv == 1 && !realTimeIntro && !launchSequence && !launchCameraBlend;
       const pilotingFromCabin = inHabitableCabin && activeCabinStation === 'nav';
       freeHelmBlend += ((freeHelmMode ? 1 : 0) - freeHelmBlend) * Math.min(1, dt * 3.2);
-      if (pilotingFromCabin) {
+      if (pilotingFromCabin && !nav) {
         fy += ((keys.d ? 1 : 0) - (keys.a ? 1 : 0)) * dt * 0.72;
         q.setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
       }
-      const ok = ti >= 5 && (!inHabitableCabin || pilotingFromCabin),
+      const ok = !nav && ti >= 5 && (!inHabitableCabin || pilotingFromCabin),
         mx = ok && !exteriorCameraMode ? mv.x || (O.au ? 1 : 0) : 0,
         f = new V(0, 0, -1).applyQuaternion(q),
         r = new V(1, 0, 0).applyQuaternion(q),
         bs = fs * (keys.shift ? 5 : 1);
       pvl.copy(vel);
-      if (realTimeIntro && realTimeIntro.phase !== 'launch') {
-        // Avance suave de la nave de 120 m durante la secuencia cinematográfica 3D en tiempo real
-        vel.copy(f).multiplyScalar(shipSz * 1.4);
-        sp.addScaledVector(vel, dt);
+      if(nav){vel.set(0,0,0);}
+      else if(realTimeIntro?.phase==='opening'){vel.set(0,0,0);}
+      else if (realTimeIntro && realTimeIntro.phase !== 'launch') {
+        const uNow = realTimeIntro.elapsed / Math.max(0.1, realTimeIntro.duration);
+        if (uNow >= 0.68 && uNow < 0.88) {
+          // Avance suave de la nave de 120 m en órbita durante la Escena 5 (KRONOX)
+          vel.copy(f).multiplyScalar(shipSz * 0.85);
+          sp.addScaledVector(vel, dt);
+        } else {
+          vel.set(0, 0, 0);
+        }
       } else if (launchSequence) {
         const launch = launchSequence;
         launch.elapsed = Math.min(launch.duration, launch.elapsed + dt);
@@ -3436,222 +3172,379 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         vel.copy(sp).sub(previous).divideScalar(Math.max(dt, 1e-4));
         if (progress >= 1) {
           launchSequence = null;
-          launchCameraBlend = {
-            elapsed: 0,
-            duration: 0.9,
-            fromPosition: cam.position.clone(),
-            fromQuaternion: cam.quaternion.clone(),
-          };
           vel.set(0, 0, 0);
           ti = 4.1;
           S.intro(false);
-          if (realTimeIntro?.phase === 'launch') {
-            realTimeIntro.phase = 'cinematic';
-            realTimeIntro.elapsed = 0;
-            realTimeIntro.stageNotified = -1;
-            realTimeIntro.cameraHandoff = {
-              elapsed: 0,
-              duration: 0.9,
-              fromPosition: cam.position.clone(),
-              fromTarget: sp.clone(),
-            };
-            launchCameraBlend = null;
-            S.onIntroStageChange?.(
-              'apertura',
-              'Apertura cósmica: la nave KRONOX de 120 m avanza hacia el espacio profundo.',
-            );
-          }
         }
       } else if ((!inHabitableCabin || pilotingFromCabin) && !exteriorCameraMode) {
-        vel.lerp(
-          f
-            .multiplyScalar(mx * bs)
-            .addScaledVector(cam.up, (ok ? mv.y : 0) * bs)
-            .addScaledVector(r, (ok && !pilotingFromCabin ? mv.z : 0) * bs),
-          1 - Math.exp(-dt * (O.in ? 1.2 : 14)),
-        );
-        sp.addScaledVector(vel, dt);
+        const inputTarget=f.multiplyScalar(mx*bs).addScaledVector(cam.up,(ok?mv.y:0)*bs).addScaledVector(r,(ok&&!pilotingFromCabin?mv.z:0)*bs);
+        if(inputTarget.length()>Math.abs(bs))inputTarget.setLength(Math.abs(bs));
+        const step=integrateFlightVelocity(vel.toArray(),inputTarget.toArray(),dt,{inertia:!!O.in,automatic:!!O.au,activeInput:ok&&mv.lengthSq()>0,speed:bs});
+        vel.fromArray(step.velocity);sp.add(new V().fromArray(step.displacement));
       } else if (exteriorCameraMode && !nav) {
         vel.multiplyScalar(Math.exp(-dt * 8));
       } else if (!nav) {
         vel.multiplyScalar(Math.exp(-dt * 8));
       }
       ac += (vel.distanceTo(pvl) / Math.max(dt, 1e-4) - ac) * Math.min(1, dt * 8);
-      if (nav) {
-        nav.elapsed += dt;
-        if (nav.phase === 'arrival') {
-          sp.copy(nav.to);
-          vel.multiplyScalar(Math.exp(-dt * 7));
-          q.copy(nav.q);
-          if (nav.elapsed >= 0.9 * nav.motionFactor) {
-            const oldFs = nav.oldFs;
-            const restoreAutoSpeed = !nav.respectSpeed;
-            const onArrive = nav.onArrive;
-            nav = null;
-            sceneDirector.dispatchEvent('ARRIVAL_DETECTED', {});
-            if (restoreAutoSpeed) S.fv(oldFs);
-            if (onArrive) onArrive();
+      if(nav){
+        const previous=sp.clone(),oldPhase=nav.phase;advanceJump(nav,dt);sp.copy(nav.position);q.copy(nav.currentQuaternion);
+        vel.copy(sp).sub(previous).divideScalar(Math.max(dt,1e-4));
+        const heading=new THREE.Euler().setFromQuaternion(q,'YXZ');fy=heading.y;fp=heading.x;bk=0;
+        if(oldPhase!==nav.phase&&nav.phase==='HYPERSPACE_ENTRY')sceneDirector.dispatchEvent('JUMP_INITIATED',{targetName:nav.name});
+        if(nav.done){
+          const completed=nav;arrivalTarget=completed.target.clone();lastJump={name:completed.name,objectKey:completed.objectKey,target:completed.target.toArray(),position:completed.to.toArray(),quaternion:completed.q.toArray(),phases:[...completed.history]};
+          nav=null;disposeTravelEffect();vel.set(0,0,0);releaseInputs();
+          sceneDirector.dispatchEvent('ARRIVAL_DETECTED',{targetName:completed.name});
+          if (machineSystems.sensorSweepGroup) machineSystems.sensorSweepGroup.clear();
+          if (completed.arrivedTarget) {
+            astronomicalHologram.setArrivedTarget(completed.arrivedTarget);
           }
-        } else if (nav.phase === 'jumpout') {
-          if (!nav.directorJumpNotified) {
-            nav.directorJumpNotified = true;
-            sceneDirector.dispatchEvent('JUMP_INITIATED', {});
-          }
-          q.copy(nav.q);
-          if (nav.elapsed >= 0.3 * nav.motionFactor) {
-            nav.phase = 'transit';
-            nav.elapsed = 0;
-          }
-        } else if (nav.phase === 'jumpin') {
-          sp.copy(nav.to);
-          vel.set(0, 0, 0);
-          q.copy(nav.q);
-          if (nav.elapsed >= 0.38 * nav.motionFactor) {
-            nav.phase = 'arrival';
-            nav.elapsed = 0;
-          }
-        } else if (nav.phase === 'align') {
-          if (nav.elapsed < nav.align) q.slerp(nav.q, Math.min(1, nav.elapsed / nav.align));
-          else {
-            nav.phase = nav.long ? 'jumpout' : 'transit';
-            nav.elapsed = 0;
-            q.copy(nav.q);
-          }
-        } else {
-          const u = Math.min(1, nav.elapsed / nav.duration),
-            ease = u * u * (3 - 2 * u),
-            prev = sp.clone();
-          sp.lerpVectors(nav.from, nav.to, ease);
-          vel.copy(sp).sub(prev).divideScalar(Math.max(dt, 1e-4));
-          q.copy(nav.q);
-          if (u >= 1) {
-            sp.copy(nav.to);
-            vel.set(0, 0, 0);
-            nav.phase = nav.long ? 'jumpin' : 'arrival';
-            nav.elapsed = 0;
-          }
+          if(!completed.respectSpeed)S.fv(completed.oldFs);
+          if(completed.onArrive)completed.onArrive();
         }
       }
       const sz = shipSz,
         kk = Math.min(1, Math.max(0, (ti - 2.6) / 2.4)),
         e = 1 - Math.pow(1 - kk, 3);
-      bk += (-(ti >= 5 && !inHabitableCabin ? mv.z : 0) * 0.5 - bk) * Math.min(1, dt * 5);
+      bk += (-(!nav && ti >= 5 && !inHabitableCabin ? mv.z : 0) * 0.5 - bk) * Math.min(1, dt * 5);
 
-      if (realTimeIntro && realTimeIntro.phase !== 'launch') {
+      if (realTimeIntro?.phase === 'opening') {
         // =========================================================================
-        // SECCIÓN 2: SECUENCIA CINEMATOGRÁFICA CONTINUA EN TIEMPO REAL EN EL MOTOR 3D
+        // ESCENA 1 — EL UNIVERSO: Campo estelar profundo y revelación de la Tierra
         // =========================================================================
         realTimeIntro.elapsed += dt;
-        const u = Math.min(1, realTimeIntro.elapsed / realTimeIntro.duration);
-        ship.visible = u < 0.78;
-        localCabinWorld.visible = u >= 0.74;
-        localCabinWorld.position.copy(sp);
-        localCabinWorld.quaternion.copy(q);
+        realTimeIntro.stageElapsed = (realTimeIntro.stageElapsed || 0) + dt;
+        ship.visible = false;
+        localCabinWorld.visible = false;
 
-        if (u < 0.34) {
-          // 1. Apertura: Plano general del cosmos y la nave KRONOX de 120m avanzando
-          if (realTimeIntro.stageNotified !== 0) {
-            realTimeIntro.stageNotified = 0;
-            S.onIntroStageChange?.(
-              'apertura',
-              'Plano cósmico en tiempo real: la nave científica KRONOX (120 m) navega entre estrellas reales.',
-            );
-          }
-          const t = u / 0.34;
-          const ease = t * t * (3 - 2 * t);
-          const camOff = new V(
-            THREE.MathUtils.lerp(sz * 6.5, sz * 2.8, ease),
-            THREE.MathUtils.lerp(sz * 2.4, sz * 0.9, ease),
-            THREE.MathUtils.lerp(-sz * 5.2, sz * 2.2, ease),
-          ).applyQuaternion(q);
-          const targetPosition = sp.clone().add(camOff);
-          const targetLook = sp
-            .clone()
-            .add(new V(0, sz * 0.12, -sz * 0.4).applyQuaternion(q));
-          if (realTimeIntro.cameraHandoff) {
-            const handoff = realTimeIntro.cameraHandoff;
-            handoff.elapsed = Math.min(handoff.duration, handoff.elapsed + dt);
-            const amount = handoff.elapsed / handoff.duration;
-            const eased = amount * amount * (3 - 2 * amount);
-            cam.position.lerpVectors(handoff.fromPosition, targetPosition, eased);
-            cam.lookAt(handoff.fromTarget.clone().lerp(targetLook, eased));
-            if (amount >= 1) realTimeIntro.cameraHandoff = null;
+        const earthPos = earth?.pivot ? earth.pivot.position.clone() : new V(Dd(1), 0, 0);
+        const er = earth?.r || 0.35;
+        const t1 = Math.min(1, realTimeIntro.elapsed / Math.max(0.1, realTimeIntro.openingDuration));
+        const ease1 = t1 * t1 * (3 - 2 * t1);
+
+        const radial = new V(earthPos.x, 0, earthPos.z);
+        if (radial.lengthSq() < 1e-6) radial.set(1, 0, 0);
+        else radial.normalize();
+        const tangent = new V(-radial.z, 0, radial.x).normalize();
+
+        const startPos = earthPos
+          .clone()
+          .addScaledVector(radial, er * 6.8)
+          .addScaledVector(tangent, -er * 5.4)
+          .add(new V(0, er * 2.2, 0));
+        const endPos = earthPos
+          .clone()
+          .addScaledVector(radial, er * 2.85)
+          .addScaledVector(tangent, -er * 2.1)
+          .add(new V(0, er * 0.95, 0));
+        cam.position.lerpVectors(startPos, endPos, ease1);
+
+        const deepStarLook = earthPos
+          .clone()
+          .addScaledVector(tangent, er * 6.5)
+          .add(new V(0, er * 2.4, 0));
+        const earthLimbLook = earthPos.clone().add(new V(0, er * 0.25, 0));
+        cam.lookAt(deepStarLook.lerp(earthLimbLook, ease1));
+
+        if (realTimeIntro.elapsed >= realTimeIntro.openingDuration) {
+          if (S.reducedMotion?.()) {
+            skipRealTimeIntroSequence();
+          } else if (S.shouldHoldIntroStage?.('opening', realTimeIntro.stageElapsed)) {
+            realTimeIntro.elapsed = realTimeIntro.openingDuration - 0.01;
           } else {
-            cam.position.copy(targetPosition);
-            cam.lookAt(targetLook);
+            realTimeIntro.phase = 'cinematic';
+            realTimeIntro.elapsed = 0;
+            realTimeIntro.stageElapsed = 0;
+            realTimeIntro.stageNotified = 0;
           }
-        } else if (u < 0.68) {
-          // 2. Movimiento de cámara: Aproximación continua al casco y propulsores
-          if (realTimeIntro.stageNotified !== 1) {
+        }
+      } else if (realTimeIntro && realTimeIntro.phase !== 'launch') {
+        // =========================================================================
+        // SECCIÓN 5: CINEMÁTICA 3D EN TIEMPO REAL — 6 ESCENAS ("EL UNIVERSO QUE APRENDIMOS A VER")
+        // =========================================================================
+        realTimeIntro.elapsed += dt;
+        realTimeIntro.stageElapsed = (realTimeIntro.stageElapsed || 0) + dt;
+        let u = Math.min(1, realTimeIntro.elapsed / Math.max(0.1, realTimeIntro.duration));
+        const earthPos = earth?.pivot ? earth.pivot.position.clone() : new V(Dd(1), 0, 0);
+        const er = earth?.r || 0.35;
+
+        const nextStage = u < 0.24 ? 1 : u < 0.46 ? 2 : u < 0.68 ? 3 : u < 0.86 ? 4 : 5;
+        if (nextStage !== realTimeIntro.stageNotified && nextStage <= 3) {
+          realTimeIntro.cameraHandoff = {
+            fromPosition: cam.position.clone(), fromQuaternion: cam.quaternion.clone(),
+            elapsed: 0, duration: 0.85,
+          };
+        }
+        if (u < 0.24) {
+          // ESCENA 2 — EL OBSERVADOR (`escena2_spherex`):
+          // Aproximación a la órbita polar terrestre y recorrido alrededor del observatorio SPHEREx 3D
+          if (realTimeIntro.stageNotified < 1) {
             realTimeIntro.stageNotified = 1;
+            realTimeIntro.stageElapsed = 0;
             S.onIntroStageChange?.(
-              'aproximacion',
-              'Aproximación continua en el motor 3D: rodeando el fuselaje y los propulsores iónicos hacia la esclusa de popa.',
+              'escena2_spherex',
+              'Ahora, nuestros instrumentos nos permiten observar aquello que nuestros ojos no pueden alcanzar.',
             );
           }
-          const t = (u - 0.34) / 0.34;
-          const ease = t * t * (3 - 2 * t);
+          if (u >= 0.232 && S.shouldHoldIntroStage?.('escena2_spherex', realTimeIntro.stageElapsed)) {
+            realTimeIntro.elapsed = 0.232 * realTimeIntro.duration;
+            u = 0.232;
+          }
+          ship.visible = false;
+          localCabinWorld.visible = false;
+
+          const t2 = Math.min(1, u / 0.24);
+          const ease2 = t2 * t2 * (3 - 2 * t2);
+          if (earth?.spherex) {
+            earth.spherex.root.scale.setScalar(0.068);
+            earth.spherex.update({
+              simDays: sim,
+              elapsedTime: clk.elapsedTime,
+              earthRadius: 1,
+              orbitRadius: 1.95,
+              scanning: true,
+              cinematicAngleOverride: 0.72 + ease2 * 0.22 + realTimeIntro.stageElapsed * 0.015,
+            });
+            earth.pivot.updateMatrixWorld(true);
+            const spherexPos = earth.spherex.root.getWorldPosition(new V());
+            const spherexQuat = earth.spherex.root.getWorldQuaternion(new THREE.Quaternion());
+            const orbitSweep = -0.75 + ease2 * 1.65 + realTimeIntro.stageElapsed * 0.06;
+            const camDist = er * THREE.MathUtils.lerp(0.46, 0.24, ease2);
+            const localOff = new V(
+              Math.cos(orbitSweep) * camDist,
+              er * THREE.MathUtils.lerp(0.14, 0.06, ease2),
+              Math.sin(orbitSweep) * camDist,
+            ).applyQuaternion(spherexQuat);
+            cam.position.copy(spherexPos).add(localOff);
+            const lookTarget = spherexPos
+              .clone()
+              .add(new V(0, er * 0.02, 0).applyQuaternion(spherexQuat));
+            cam.lookAt(lookTarget);
+          } else {
+            cam.position.copy(earthPos).add(new V(er * 2.1, er * 1.1, er * 1.8));
+            cam.lookAt(earthPos);
+          }
+        } else if (u < 0.46) {
+          // ESCENA 3 — LA INFORMACIÓN DEL UNIVERSO (`escena3_conocimiento`):
+          // Conexión entre SPHEREx y las observaciones científicas reales en diferentes longitudes de onda
+          if (realTimeIntro.stageNotified < 2) {
+            realTimeIntro.stageNotified = 2;
+            realTimeIntro.stageElapsed = 0;
+            S.onIntroStageChange?.(
+              'escena3_conocimiento',
+              'En cada longitud de onda, el cosmos revela una historia diferente.',
+            );
+          }
+          if (
+            u >= 0.452 &&
+            S.shouldHoldIntroStage?.('escena3_conocimiento', realTimeIntro.stageElapsed)
+          ) {
+            realTimeIntro.elapsed = 0.452 * realTimeIntro.duration;
+            u = 0.452;
+          }
+          const t3 = Math.min(1, (u - 0.24) / 0.22);
+          const ease3 = t3 * t3 * (3 - 2 * t3);
+          ship.visible = false;
+          localCabinWorld.visible = false;
+
+          let fromPos = earthPos.clone().add(new V(er * 1.5, er * 1.2, er * 1.5));
+          let fromLook = earthPos.clone();
+          if (earth?.spherex) {
+            earth.spherex.root.scale.setScalar(THREE.MathUtils.lerp(0.068, 0.052, ease3));
+            earth.spherex.update({
+              simDays: sim,
+              elapsedTime: clk.elapsedTime,
+              earthRadius: 1,
+              orbitRadius: 1.95,
+              scanning: true,
+              cinematicAngleOverride: 0.94 + ease3 * 0.14,
+            });
+            earth.pivot.updateMatrixWorld(true);
+            const spherexPos = earth.spherex.root.getWorldPosition(new V());
+            const spherexQuat = earth.spherex.root.getWorldQuaternion(new THREE.Quaternion());
+            fromPos = spherexPos
+              .clone()
+              .add(new V(Math.cos(0.9) * er * 0.26, er * 0.08, Math.sin(0.9) * er * 0.26).applyQuaternion(spherexQuat));
+            fromLook = spherexPos
+              .clone()
+              .add(new V(0, er * 2.2, -er * 3.5).applyQuaternion(spherexQuat));
+          }
+
+          const deepCosmosPos = earthPos.clone().add(new V(er * 18, er * 11, er * 24));
+          const deepCosmosLook = new V().fromArray(SOLAR_GALACTIC_ANCHOR).applyQuaternion(gal.quaternion).negate();
+          cam.position.lerpVectors(fromPos, deepCosmosPos, ease3);
+          cam.lookAt(fromLook.clone().lerp(deepCosmosLook, ease3));
+        } else if (u < 0.68) {
+          // ESCENA 4 — NUESTRA GALAXIA (`escena4_galaxia`):
+          // Vista exterior reconstruida de la Vía Láctea como galaxia espiral barrada (Hurt/Spitzer) y transición al vecindario
+          if (realTimeIntro.stageNotified < 3) {
+            realTimeIntro.stageNotified = 3;
+            realTimeIntro.stageElapsed = 0;
+            if (earth?.spherex) {
+              earth.spherex.spectralScanGroup.visible = false;
+              earth.spherex.root.scale.setScalar(0.052);
+            }
+            S.onIntroStageChange?.(
+              'escena4_galaxia',
+              'Estrellas, mundos y galaxias guardan los rastros de una historia que todavía estamos aprendiendo a interpretar.',
+            );
+          }
+          if (
+            u >= 0.672 &&
+            S.shouldHoldIntroStage?.('escena4_galaxia', realTimeIntro.stageElapsed)
+          ) {
+            realTimeIntro.elapsed = 0.672 * realTimeIntro.duration;
+            u = 0.672;
+          }
+          const tGal = Math.min(1, (u - 0.46) / 0.22);
+          ship.visible = tGal > 0.85;
+          localCabinWorld.visible = false;
+
+          const galCenter = new V().fromArray(SOLAR_GALACTIC_ANCHOR).applyQuaternion(gal.quaternion).negate();
+          const galVantage1 = galCenter.clone().add(new V(-8000, 62000, 36000).applyQuaternion(gal.quaternion));
+          const galVantage2 = galCenter.clone().add(new V(12000, 44000, 26000).applyQuaternion(gal.quaternion));
+          const shipApproachStart = sp
+            .clone()
+            .add(new V(sz * 4.2, sz * 1.25, -sz * 3.2).applyQuaternion(q));
+          const shipLookStart = sp
+            .clone()
+            .add(new V(0, sz * 0.16, -sz * 0.6).applyQuaternion(q));
+
+          if (tGal < 0.72) {
+            // Paneo majestuoso sobre la Vía Láctea espiral barrada reconstruida
+            const s = tGal / 0.72;
+            const easeGal = s * s * (3 - 2 * s);
+            cam.position.lerpVectors(galVantage1, galVantage2, easeGal);
+            cam.lookAt(galCenter.clone().lerp(sp, easeGal * 0.18));
+          } else {
+            // Transición continua desde la estructura galáctica hacia el vecindario solar y la nave Kronox
+            const s = (tGal - 0.72) / 0.28;
+            const easeDive = s * s * (3 - 2 * s);
+            cam.position.lerpVectors(galVantage2, shipApproachStart, easeDive);
+            cam.lookAt(galCenter.clone().lerp(shipLookStart, easeDive));
+          }
+        } else if (u < 0.86) {
+          // ESCENA 5 — KRONOX (`escena5_nave`):
+          // Aparición de la nave de 120 m en el espacio iluminada por el firmamento y aproximación al puente de mando
+          if (realTimeIntro.stageNotified < 4) {
+            realTimeIntro.stageNotified = 4;
+            realTimeIntro.stageElapsed = 0;
+            if (earth?.spherex) {
+              earth.spherex.spectralScanGroup.visible = false;
+              earth.spherex.root.scale.setScalar(0.052);
+            }
+            S.onIntroStageChange?.(
+              'escena5_nave',
+              'Para continuar ese descubrimiento, hemos construido una nueva forma de explorar.',
+            );
+          }
+          if (u >= 0.852 && S.shouldHoldIntroStage?.('escena5_nave', realTimeIntro.stageElapsed)) {
+            realTimeIntro.elapsed = 0.852 * realTimeIntro.duration;
+            u = 0.852;
+          }
+          const t5 = Math.min(1, (u - 0.68) / 0.18);
+          const ease5 = t5 * t5 * (3 - 2 * t5);
+          ship.visible = true;
+          localCabinWorld.visible = t5 > 0.82;
+          localCabinWorld.position.copy(sp);
+          localCabinWorld.quaternion.copy(q);
+
           const camOff = new V(
-            THREE.MathUtils.lerp(sz * 2.8, 0, ease),
-            THREE.MathUtils.lerp(sz * 0.9, sz * 0.22, ease),
-            THREE.MathUtils.lerp(sz * 2.2, sz * 1.15, ease),
+            THREE.MathUtils.lerp(sz * 4.2, 0, ease5),
+            THREE.MathUtils.lerp(sz * 1.25, sz * 0.22, ease5),
+            THREE.MathUtils.lerp(-sz * 3.2, sz * 1.12, ease5),
           ).applyQuaternion(q);
           cam.position.copy(sp).add(camOff);
           cam.lookAt(sp.clone().add(new V(0, sz * 0.14, -sz * 0.9).applyQuaternion(q)));
-        } else if (u < 0.86) {
-          // 3. Transición hacia el interior: Entrada por la esclusa al puente habitable 3D
-          if (realTimeIntro.stageNotified !== 2) {
-            realTimeIntro.stageNotified = 2;
-            S.onIntroStageChange?.(
-              'transicion',
-              'Ingreso directo al puente habitable 3D (escala 1 unidad = 1 metro) hacia la posición del astronauta.',
-            );
-          }
-          const t = (u - 0.68) / 0.18;
-          const ease = t * t * (3 - 2 * t);
-          const localCamPos = new V(
-            0,
-            THREE.MathUtils.lerp(2.4, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, ease),
-            THREE.MathUtils.lerp(9.5, astronautPos.z, ease),
-          );
-          const worldCamPos = localCamPos.clone().applyQuaternion(q).add(sp);
-          const worldLook = new V(0, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, -6.5)
-            .applyQuaternion(q)
-            .add(sp);
-          cam.position.copy(worldCamPos);
-          cam.lookAt(worldLook);
-          luminousAI.setTargetPosition(new V(0, 1.78, -5.8), 'Desplazamiento');
-          luminousAI.update(dt, clk.elapsedTime, false, 0.12);
         } else {
-          // 4 & 5. Llegada a la cabina + Activación de Kronox IA acercándose al astronauta
-          if (realTimeIntro.stageNotified !== 3) {
-            realTimeIntro.stageNotified = 3;
-            luminousAI.setTargetPosition(new V(0.85, 1.68, -3.8), 'Comunicación');
+          // ESCENA 6 — BIENVENIDO A BORDO (`escena6_cabina`):
+          // Ingreso continuo a la cabina en primera persona, activación progresiva de consolas y bienvenida de Cronos
+          if (realTimeIntro.stageNotified < 5) {
+            realTimeIntro.stageNotified = 5;
+            realTimeIntro.stageElapsed = 0;
+            realTimeIntro.boardingFrom = cam.position.clone();
+            realTimeIntro.boardingQuaternion = cam.quaternion.clone();
+            luminousAI.setTargetPosition(new V(0.95, 1.62, -3.35), 'Acompañamiento');
             S.onIntroStageChange?.(
-              'activacion',
-              'Ya estás en la cabina. Kronox IA se acerca para comenzar la expedición contigo.',
+              'escena6_cabina',
+              'Soy Cronos, tu asistente de exploración. Bienvenido a bordo. El universo nos espera.',
             );
           }
-          const eyeLocal = new V(
+          if (u >= 0.992 && S.shouldHoldIntroStage?.('escena6_cabina', realTimeIntro.stageElapsed)) {
+            realTimeIntro.elapsed = 0.992 * realTimeIntro.duration;
+            u = 0.992;
+          }
+          const t6 = Math.min(1, (u - 0.86) / 0.14);
+          const ease6 = t6 * t6 * (3 - 2 * t6);
+          ship.visible = t6 < 0.22;
+          localCabinWorld.visible = true;
+          localCabinWorld.position.copy(sp);
+          localCabinWorld.quaternion.copy(q);
+
+          astronautPos.set(0, 0, -1.8);
+          astronautVel.set(0, 0, 0);
+          astronautYaw = 0;
+          astronautPitch = 0;
+          targetYaw = 0;
+          targetPitch = 0;
+
+          const pilotEyeWorld = new V(
             astronautPos.x,
             SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
             astronautPos.z,
-          );
-          cam.position.copy(eyeLocal.applyQuaternion(q).add(sp));
-          const lookTarget = new V(0.35, 1.66, -5.2).applyQuaternion(q).add(sp);
-          cam.lookAt(lookTarget);
-          luminousAI.update(dt, clk.elapsedTime, true, 0.65);
+          )
+            .applyQuaternion(q)
+            .add(sp);
+          const entryStartWorld =
+            realTimeIntro.boardingFrom || new V(0, 2.1, 6.5).applyQuaternion(q).add(sp);
+          cam.position.lerpVectors(entryStartWorld, pilotEyeWorld, ease6);
+          cam.quaternion.copy(realTimeIntro.boardingQuaternion || q).slerp(q, ease6);
+          cam.fov = THREE.MathUtils.lerp(fovBase, Math.min(fovBase, 42), ease6);
+          cam.near = THREE.MathUtils.lerp(0.001, 0.05, ease6);
+          cam.updateProjectionMatrix();
+          luminousAI.update(dt, clk.elapsedTime, aiSpeakingState, aiAudioLevelState);
         }
 
+        if (realTimeIntro.cameraHandoff) {
+          const handoff = realTimeIntro.cameraHandoff;
+          handoff.elapsed = Math.min(handoff.duration, handoff.elapsed + dt);
+          const blend = THREE.MathUtils.smoothstep(handoff.elapsed / handoff.duration, 0, 1);
+          const desiredPosition = cam.position.clone(), desiredQuaternion = cam.quaternion.clone();
+          cam.position.lerpVectors(handoff.fromPosition, desiredPosition, blend);
+          cam.quaternion.copy(handoff.fromQuaternion).slerp(desiredQuaternion, blend);
+          if (handoff.elapsed >= handoff.duration) realTimeIntro.cameraHandoff = null;
+        }
         if (u >= 1) {
           const cb = realTimeIntro.onComplete;
           realTimeIntro = null;
+          releaseInputs();vel.set(0,0,0);activeCabinStation=null;freeHelmMode=false;
           pv = 1;
+          cabinFirstPerson = true;
+          astronaut3D.root.visible = false;
+          astronaut3D.firstPersonHands.visible = false;
           ship.visible = false;
           localCabinWorld.visible = true;
+          cam.near = 0.05;
+          cam.fov = Math.min(fovBase, 42);
+          cam.updateProjectionMatrix();
+
+          const pilotEyeWorld = new V(
+            astronautPos.x,
+            SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
+            astronautPos.z,
+          )
+            .applyQuaternion(q)
+            .add(sp);
+          cam.position.copy(pilotEyeWorld);
+          cam.quaternion.copy(q);
+
+          suppressDirectorNarrative = true;
           sceneDirector.dispatchEvent('CABIN_ENTERED', {});
           sceneDirector.dispatchEvent('AI_ACTIVATED', {});
+          suppressDirectorNarrative = false;
           if (cb) cb();
+          introCompletedNaturally = true;
           startGuidedCabinTour();
         }
       } else {
@@ -3706,7 +3599,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           luminousAI.update(dt, clk.elapsedTime, aiSpeakingState, aiAudioLevelState);
         } else if (inHabitableCabin) {
         // =========================================================================
-        // SECCIÓN 3, 4 y 5: CABINA HABITABLE 3D (`1 u = 1 m`), ASTRONAUTA Y KRONOX IA 3D
+        // SECCIÓN 3, 4 y 5: CABINA HABITABLE 3D (`1 u = 1 m`) EN PRIMERA PERSONA Y CRONOS 3D
         // =========================================================================
         localCabinWorld.visible = true;
         localCabinWorld.position.copy(sp);
@@ -3718,11 +3611,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           navigationHelm.rotation.z += (helmSteer - navigationHelm.rotation.z) * Math.min(1, dt * 7);
         }
 
-        // 1. Interpolación suave de giro de cabeza (casco de astronauta)
+        // 1. Interpolación suave de giro de vista del piloto en primera persona
         astronautYaw += (targetYaw - astronautYaw) * Math.min(1, dt * 14);
         astronautPitch += (targetPitch - astronautPitch) * Math.min(1, dt * 14);
 
-        // 2. Locomoción humana natural (1.4 m/s normal, 3.5 m/s carrera con Shift)
+        // 2. Locomoción fluida en cabina (1.4 m/s normal, 3.5 m/s carrera con Shift)
         const targetSpeed = keys.shift ? SHIP_WORLD_UNITS.SPRINT_SPEED_MPS : SHIP_WORLD_UNITS.WALK_SPEED_MPS;
         const forwardInput = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0);
         const strafeInput = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
@@ -3740,7 +3633,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           }
         }
 
-        // Aceleración de caminata humana suave (2.2 m/s²) y frenado progresivo (3.0 m/s²)
+        // Aceleración suave (2.2 m/s²) y frenado progresivo (3.0 m/s²)
         const accelRate = hasInput ? 2.2 : 3.0;
         astronautVel.lerp(desiredVel, Math.min(1, dt * accelRate));
 
@@ -3752,48 +3645,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           cabinSystem.clampAstronautPosition(astronautPos);
         }
 
-        // Actualizar modelo 3D del astronauta (1.75m cuerpo completo en 3ª persona, manos en 1ª persona)
+        // Eliminar renderizado del cuerpo humano en tercera persona y brazos que bloqueen la cámara
+        cabinFirstPerson = true;
         astronaut3D.root.position.copy(astronautPos);
         astronaut3D.root.rotation.y = astronautYaw;
-        astronaut3D.updateAnimation(dt, isWalking, currentSpeed, cabinFirstPerson);
+        astronaut3D.root.visible = false;
+        astronaut3D.firstPersonHands.visible = false;
 
-        // Calcular cámara en 1ª persona (ojos a 1.65 m) o 3ª persona dentro de la cabina (detrás del astronauta de 1.75 m)
+        // Cámara exclusivamente en primera persona (ojos del piloto a 1.65 m)
         const localLookQuat = new THREE.Quaternion().setFromEuler(
           new THREE.Euler(astronautPitch, astronautYaw, 0, 'YXZ'),
         );
-        // Oscilación de paso (head bob) sincronizada con la velocidad real de caminata
-        const headBob = isWalking ? Math.sin(clk.elapsedTime * (keys.shift ? 11.5 : 8.2)) * (0.015 * Math.min(1.2, currentSpeed / 1.4)) : 0;
+        const headBob = isWalking ? Math.sin(clk.elapsedTime * (keys.shift ? 11.5 : 8.2)) * (0.012 * Math.min(1.2, currentSpeed / 1.4)) : 0;
 
-        let localCamPos;
-        if (cabinFirstPerson) {
-          localCamPos = new V(
-            astronautPos.x,
-            SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + headBob + freeHelmBlend * 0.42,
-            astronautPos.z + (-10.55 - astronautPos.z) * freeHelmBlend,
-          );
-          astronaut3D.firstPersonHands.position.copy(localCamPos);
-          astronaut3D.firstPersonHands.quaternion.copy(localLookQuat);
-          if (freeHelmMode) astronaut3D.firstPersonHands.visible = false;
-        } else {
-          // 3rd Person Camera Tracking:
-          // Positioned slightly above and behind the astronaut (+1.85 m back, +0.32 m up)
-          // with clean geometric boundary damping so it never clips through walls or inside the suit
-          const lookDir = new V(0, 0, -1).applyQuaternion(localLookQuat);
-          const rightDir = new V(1, 0, 0).applyQuaternion(localLookQuat);
-          const thirdPersonOffset = lookDir
-            .clone()
-            .multiplyScalar(-1.85)
-            .add(new V(0, 0.32, 0))
-            .add(rightDir.clone().multiplyScalar(0.24));
-
-          localCamPos = new V(
-            astronautPos.x,
-            SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
-            astronautPos.z,
-          ).add(thirdPersonOffset);
-          cabinSystem.clampAstronautPosition(localCamPos);
-          localCamPos.y = Math.max(1.35, Math.min(3.85, localCamPos.y));
-        }
+        const localCamPos = new V(
+          astronautPos.x,
+          SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + headBob + freeHelmBlend * 0.42,
+          astronautPos.z + (-10.55 - astronautPos.z) * freeHelmBlend,
+        );
 
         cam.position.copy(localCamPos.clone().applyQuaternion(q).add(sp));
         cam.quaternion.copy(q).multiply(localLookQuat);
@@ -3983,6 +3852,38 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         }
         }
       }
+      // Navigation owns this pose until the last arriving frame; ordinary controls inherit the same heading.
+      if(routeForFrame){
+        const route=routeForFrame,u=THREE.MathUtils.smoothstep(route.phaseProgress,0,1);
+        if(pv===1){
+          if(route.phase==='PREPARING'){astronautPos.lerpVectors(route.cabinStart,route.cabinLookout,u);astronautPos.x-=Math.sin(u*Math.PI)*1.2;astronautVel.set(0,0,0);}
+          localCabinWorld.visible=true;localCabinWorld.position.copy(sp);localCabinWorld.quaternion.copy(q);
+          cam.position.copy(new V(astronautPos.x,SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,astronautPos.z).applyQuaternion(q).add(sp));
+        }else{
+          localCabinWorld.visible=false;
+          cam.position.copy(sp).add(new V(.24,.3,1).multiplyScalar(shipOffset()).applyQuaternion(q));
+        }
+        cam.lookAt(route.target);
+        if(pv===1&&!cabinFirstPerson){
+          // Converge the same over-shoulder pose used by ordinary cabin controls.
+          // This keeps third-person arrivals continuous when camera ownership returns.
+          for(let i=0;i<6;i++){
+            const localLook=q.clone().invert().multiply(cam.quaternion),
+              offset=new V(0,0,-1).applyQuaternion(localLook).multiplyScalar(-1.85).add(new V(0,.32,0)).add(new V(1,0,0).applyQuaternion(localLook).multiplyScalar(.55)),
+              eye=new V(astronautPos.x,SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,astronautPos.z).add(offset);
+            cabinSystem.clampAstronautPosition(eye);eye.y=Math.max(1.35,Math.min(3.85,eye.y));
+            cam.position.copy(eye.applyQuaternion(q).add(sp));cam.lookAt(route.target);
+          }
+        }
+        if(route.phase==='PREPARING'){
+          const localOffset=pv===1?new V(astronautPos.x,SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,astronautPos.z):new V(.24,.3,1).multiplyScalar(shipOffset());
+          localOffset.lerpVectors(route.cameraStartLocalOffset,localOffset,u);
+          cam.position.copy(sp).add(localOffset.applyQuaternion(q));
+          const localLook=route.cameraStartLocalQuaternion.clone().slerp(new THREE.Quaternion(),u);
+          cam.quaternion.copy(q).multiply(localLook);
+        }
+        if(pv===1){const head=new THREE.Euler().setFromQuaternion(q.clone().invert().multiply(cam.quaternion),'YXZ');astronautYaw=targetYaw=head.y;astronautPitch=targetPitch=head.x;}
+      }
       const tt =
         ti < 5
           ? 1.2 * (1 - Math.min(1, Math.max(0, (ti - 3.2) / 1.8))) + 0.3
@@ -3992,7 +3893,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         ship.visible =
           !!launchSequence ||
           (!!launchCameraBlend && pv == 1) ||
-          (pv == 3 && (exteriorCameraMode || (kk > 0.02 && !(nav && nav.long && nav.phase === 'transit'))));
+          (pv == 3 && (exteriorCameraMode || kk > 0.02));
       }
       ship.position.copy(sp);
       ship.scale.setScalar(sz);
@@ -4030,27 +3931,38 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       const wc = document.getElementById('warp'),
         wg = wc && wc.getContext('2d');
       if (wg) {
-        const w = (wc.width = innerWidth * R.getPixelRatio()),
-          h = (wc.height = innerHeight * R.getPixelRatio()),
+        const targetWidth=Math.round(innerWidth*R.getPixelRatio()),targetHeight=Math.round(innerHeight*R.getPixelRatio());
+        if(wc.width!==targetWidth)wc.width=targetWidth;if(wc.height!==targetHeight)wc.height=targetHeight;
+        const w = wc.width,
+          h = wc.height,
           cx = w * 0.5,
-          cy = h * 0.5,
-          amount = Math.max(
-            nav && nav.long
-              ? nav.phase === 'arrival'
-                ? 0.92 * (1 - Math.min(1, nav.elapsed / 0.9))
-                : nav.phase === 'align'
-                  ? 0.82 * Math.min(1, Math.max(0, (nav.elapsed - (nav.align - 0.35)) / 0.35))
-                  : 0.92
-              : 0,
-            Math.max(0, Math.min(1, (Math.log10(Math.max(fs, 0.01)) - 1.4) / 3.1)) *
-              Math.min(1, vel.length() / Math.max(fs, 0.01)),
-          );
+          cy = h * 0.5;
+        const navActive = Boolean(nav && nav.long && (
+          nav.phase === 'ACCELERATING' ||
+          nav.phase === 'HYPERSPACE_ENTRY' ||
+          nav.phase === 'HYPERSPACE_CRUISE' ||
+          nav.phase === 'HYPERSPACE_EXIT' ||
+          nav.phase === 'DECELERATING'
+        ));
+        const navWarpAmount = navActive ? (
+          nav.phase === 'HYPERSPACE_CRUISE' ? 1.0 :
+          nav.phase === 'HYPERSPACE_ENTRY' ? (0.3 + 0.7 * THREE.MathUtils.smoothstep(nav.phaseProgress, 0, 1)) :
+          nav.phase === 'HYPERSPACE_EXIT' ? (1.0 - 0.7 * THREE.MathUtils.smoothstep(nav.phaseProgress, 0, 1)) :
+          nav.phase === 'ACCELERATING' ? (nav.phaseProgress * 0.45) :
+          nav.phase === 'DECELERATING' ? ((1.0 - nav.phaseProgress) * 0.45) : 0
+        ) : 0;
+        const flightWarpAmount = Math.max(
+          0,
+          Math.max(0, Math.min(1, (Math.log10(Math.max(fs, 0.01)) - 1.4) / 3.1)) *
+            Math.min(1, vel.length() / Math.max(fs, 0.01)),
+        );
+        const amount = Math.max(flightWarpAmount, navWarpAmount);
         wg.clearRect(0, 0, w, h);
         wc.style.opacity = amount.toFixed(2);
         if (amount > 0.01) {
           for (let si = 0; si < warpStars.length; si++) {
             const s = warpStars[si];
-            s.p += dt * (0.25 + amount * 2.2);
+            s.p += dt * (0.35 + amount * 3.8);
             if (s.p > 1) {
               s.p = 0;
               s.x = Math.random();
@@ -4061,22 +3973,23 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               dx = x - cx,
               dy = y - cy,
               d = Math.hypot(dx, dy) || 1,
-              len = (3 + amount * (nav && nav.long ? 175 : 95)) * s.r * amount;
+              len = (24 + amount * 360) * s.r * amount;
             wg.beginPath();
             wg.moveTo(x, y);
             wg.lineTo(x + (dx / d) * len, y + (dy / d) * len);
-            wg.strokeStyle = 'rgba(190,225,255,' + (0.18 + amount * 0.65) * s.r + ')';
-            wg.lineWidth = (0.6 + amount * 1.4) * s.r * R.getPixelRatio();
+            const colorTone = si % 8 === 0 ? 'rgba(255,255,255,' : si % 5 === 0 ? 'rgba(251,146,60,' : si % 3 === 0 ? 'rgba(56,189,248,' : 'rgba(0,240,255,';
+            wg.strokeStyle = colorTone + ((0.42 + amount * 0.58) * s.r).toFixed(3) + ')';
+            wg.lineWidth = (1.1 + amount * 2.8) * s.r * R.getPixelRatio();
             wg.stroke();
           }
         }
-        if (nav && nav.long && (nav.phase === 'jumpout' || nav.phase === 'jumpin')) {
-          const span = nav.phase === 'jumpout' ? 0.3 : 0.38,
-            pulse = Math.sin(Math.PI * Math.min(1, nav.elapsed / span)),
-            gr = wg.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.8);
-          gr.addColorStop(0, 'rgba(255,255,255,' + 0.9 * pulse + ')');
-          gr.addColorStop(0.12, 'rgba(150,215,255,' + 0.72 * pulse + ')');
-          gr.addColorStop(0.5, 'rgba(35,105,255,' + 0.28 * pulse + ')');
+        if (nav && nav.long && (nav.phase === 'HYPERSPACE_ENTRY' || nav.phase === 'HYPERSPACE_EXIT')) {
+          const pulse = Math.sin(Math.PI * nav.phaseProgress);
+          const gr = wg.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.85);
+          gr.addColorStop(0, 'rgba(255,255,255,' + (0.95 * pulse).toFixed(3) + ')');
+          gr.addColorStop(0.08, 'rgba(165,243,252,' + (0.85 * pulse).toFixed(3) + ')');
+          gr.addColorStop(0.35, 'rgba(14,165,233,' + (0.45 * pulse).toFixed(3) + ')');
+          gr.addColorStop(0.7, 'rgba(2,132,199,' + (0.15 * pulse).toFixed(3) + ')');
           gr.addColorStop(1, 'rgba(10,35,100,0)');
           wg.fillStyle = gr;
           wg.fillRect(0, 0, w, h);
@@ -4131,55 +4044,54 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         tx('gaugeInertiaValue', nf(ac));
         tx('gaugeHeadingValue', Math.round(heading) + '°');
       }
-    } else if (mv.lengthSq()) {
-      const f = new V();
-      cam.getWorldDirection(f);
-      const r = new V().crossVectors(f, cam.up).normalize(),
-        st = cam.position.distanceTo(ct.target) * 0.02,
-        w = f
-          .multiplyScalar(mv.x)
-          .addScaledVector(cam.up, mv.y)
-          .addScaledVector(r, mv.z)
-          .multiplyScalar(st);
-      cam.position.add(w);
-      ct.target.add(w);
-      if (foc) {
-        foc = null;
-        S.f(null);
+    } else {
+      localCabinWorld.visible = false;
+      if (!spectator && !realTimeIntro) {
+        ship.visible = false;
+      }
+      if (mv.lengthSq()) {
+        const f = new V();
+        cam.getWorldDirection(f);
+        const r = new V().crossVectors(f, cam.up).normalize(),
+          st = cam.position.distanceTo(ct.target) * 0.02,
+          w = f
+            .multiplyScalar(mv.x)
+            .addScaledVector(cam.up, mv.y)
+            .addScaledVector(r, mv.z)
+            .multiplyScalar(st);
+        cam.position.add(w);
+        ct.target.add(w);
+        if (foc) {
+          foc = null;
+          S.f(null);
+        }
       }
     }
     {
       const ph = fl.gal ? (sim / (365.25 * 230)) * TAU : 0;
       GU.uP.value = ph;
-      GU.uT.value += dt * 0.004;
-      gal.position
-        .set(RG * Math.cos(ph), 0, RG * Math.sin(ph))
-        .applyQuaternion(gal.quaternion)
-        .negate();
-      LB.forEach((l) => (l.visible = !!fl.lab));
-      missionMarkerEffects.forEach((effect) => {
-        const pulse = 0.96 + Math.sin(clk.elapsedTime * 1.8 + effect.phase) * 0.055;
-        const radius = effect.markerRadius;
-        effect.star.scale.setScalar(radius * pulse);
-        effect.glow.scale.setScalar(radius * 2.7 * pulse);
-        effect.corona.scale.setScalar(radius * 4.8 * (1.08 - pulse));
-        effect.starGlow.scale.setScalar(radius * 3.2 * pulse);
-        effect.ring.material.opacity = 0.28 + (pulse - 0.96) * 0.9;
-        if (effect.companion) {
-          const orbit = clk.elapsedTime * 0.46 + effect.phase;
-          effect.companion.position.set(Math.cos(orbit) * 0.33, 0, Math.sin(orbit) * 0.33);
-          effect.star.position.set(-Math.cos(orbit) * 0.33, 0, -Math.sin(orbit) * 0.33);
+      if(fl.gal&&navigationContext.id==='milkyway')GU.uT.value += dt * 0.004;
+      gal.position.fromArray(SOLAR_GALACTIC_ANCHOR).applyAxisAngle(new V(0,1,0),-ph).applyQuaternion(gal.quaternion).negate();
+      LB.forEach((l) => (l.visible = (l.parent===macroGalacticGroup||!!fl.lab)&&!nav&&!realTimeIntro&&!contextOverview&&!nearbyMapState));
+      missionMarkerEffects.forEach(effect=>effect.update(cam));
+      // Preservar la visibilidad de la reconstrucción morfológica 3D de las galaxias al observarlas desde la nave
+      missionMarkers.forEach(({ target, marker }) => {
+        if (target?.type === 'galaxia') {
+          const detail = marker.children.find(ch => ch.isGroup && !ch.userData?.isMorphologyLayer);
+          if (detail && cam.position.distanceTo(marker.position) < 4500) {
+            detail.visible = true;
+          }
         }
       });
 
       const activeMissionMarker = activeMissionKey && missionMarkers.get(activeMissionKey);
-      if (activeMissionMarker) activeMissionMarker.label.visible = true;
+      if (activeMissionMarker) activeMissionMarker.label.visible = !nav&&!realTimeIntro&&!contextOverview&&!nearbyMapState;
       B[0].glow.scale.setScalar(Math.max(B[0].r * (real ? 40 : 6), cam.position.length() * 0.012));
       if (foc && S.d) S.d(foc.au || 0);
     }
     if (nearbyMapState) {
       nearbyGalaxyGroup.position.set(0, 0, 0);
-      nearbyGalaxyGroup.quaternion.copy(gal.quaternion);
+      nearbyGalaxyGroup.quaternion.identity();
       const solarGalacticRadius = Math.hypot(24500, 3500);
       // Keep the solar-system marker on the same visible disk rotation as the
       // Milky Way. The additional map-only phase makes that schematic motion
@@ -4189,7 +4101,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         GU.uT.value * (RG / Math.max(solarGalacticRadius, 6000) - 1) +
         nearbyMapRotation
       );
-      nearbyMapRotation = (nearbyMapRotation + dt * 0.12) % TAU;
+      if(fl.gal)nearbyMapRotation = (nearbyMapRotation + dt * 0.12) % TAU;
       solarSystemLabel.visible =
         nearbySelectedKey === 'milky-way' ||
         cam.position.distanceTo(solarSystemMapMarker.getWorldPosition(nearbyMarkerWorld)) < 170;
@@ -4207,23 +4119,114 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           cam.position.distanceTo(marker.getWorldPosition(nearbyMarkerWorld)) < 280;
       });
     }
-    if (tw) {
+    if (tw&&!introOwnedThisFrame&&!realTimeIntro&&!cabinReentryBlend) {
       tw.k = Math.min(1, tw.k + dt / 1.6);
       const e = tw.k * tw.k * (3 - 2 * tw.k);
       cam.position.lerpVectors(tw.p0, tw.p1, e);
       ct.target.lerpVectors(tw.t0, tw.t1, e);
       if (tw.k >= 1) tw = null;
     }
-    if (!free || exteriorCameraMode) ct.update();
-    R.render(sc, cam);
+    if ((!free || exteriorCameraMode)&&!introOwnedThisFrame&&!realTimeIntro&&!cabinReentryBlend) ct.update();
+    if(cabinReentryBlend&&!realTimeIntro){const blend=cabinReentryBlend;blend.elapsed=Math.min(1.1,blend.elapsed+dt);const u=blend.elapsed/1.1,e=u*u*(3-2*u),toPosition=cam.position.clone(),toQuaternion=cam.quaternion.clone();cam.position.lerpVectors(blend.position,toPosition,e);cam.quaternion.copy(blend.quaternion).slerp(toQuaternion,e);if(u>=1)cabinReentryBlend=null;}
+    const inIntroGalaxyScene = Boolean(realTimeIntro && realTimeIntro.phase === 'cinematic' && realTimeIntro.stageNotified === 3);
+    macroGalacticGroup.visible = inIntroGalaxyScene || macroGalacticVisible(navigationContext.id,{cinematic:!!realTimeIntro,nearbyMap:!!nearbyMapState});
+    if (!free || contextOverview || nearbyMapState || spectator || exteriorCameraMode) {
+      localCabinWorld.visible = false;
+    }
+    if ((!free && !spectator && !realTimeIntro) || contextOverview || nearbyMapState) {
+      ship.visible = false;
+    }
+    deepGalaxyBackdrop.visible = false;
+    const showNearbyGalaxies = Boolean(nearbyMapState || navigationContext.id === 'extragalactic' || activeMissionKey === 'm31' || activeMissionKey === 'm82');
+    nearbyGalaxyGroup.visible = showNearbyGalaxies;
+    if (showNearbyGalaxies || inIntroGalaxyScene) {
+      nearbyGalaxyMarkers.forEach((grp) => {
+        const morph = grp.getObjectByName(`kronox-galaxy-morphology-${grp.userData?.nearbyGalaxyKey}`);
+        if (morph) {
+          morph.rotation.z += dt * 0.008;
+        }
+      });
+    }
+    if (isCabinActive) {
+      missionMarkers.forEach(({ marker }) => {
+        if (marker) {
+          marker.visible = true;
+        }
+      });
+    }
+    const inStellarAtlas=contextOverview&&!nearbyMapState&&navigationContext.id==='stellar',inRegionalAtlas=contextOverview&&!nearbyMapState&&navigationContext.id==='regional';
+    stellarAtlas.group.visible=inStellarAtlas;regionalAtlas.group.visible=inRegionalAtlas;missionDestinationGroup.visible=!contextOverview&&!nearbyMapState;
+    for(const b of B){if(b.orbit)b.orbit.visible=solarOrbitVisibility>0.01;}
+    crossScaleState=updateCrossScaleContinuity({
+      navigationContextId:navigationContext.id,
+      contextOverview,
+      nearbyMapState:!!nearbyMapState,
+      cameraPosition:cam.position,
+      solarBodies:B,
+      asteroidBelt:belt,
+      stellarAtlas,
+      regionalAtlas,
+      macroGalacticGroup,
+      nearbyGalaxyMarkers,
+    });
+    observerFirmament.syncDomeToCamera(cam.position);
+    if(nearbyMapState)placeAtlasLabels(galaxyLabelEntries.slice().sort((a,b)=>(b.key===nearbySelectedKey)-(a.key===nearbySelectedKey)),cam,{width:innerWidth,height:innerHeight,left:innerWidth>1100?325:12,right:innerWidth>800?350:12});
+    if(inStellarAtlas||inRegionalAtlas){const atlas=inStellarAtlas?stellarAtlas:regionalAtlas;placeAtlasLabels(atlas.update(cam,selectedContextStar),cam,{width:innerWidth,height:innerHeight,left:innerWidth>1100?325:12,right:innerWidth>800?320:12});}
+    if(hyperspace)hyperspace.update(nav,cam,dt);
+    astronomicalHologram.update(dt, clk.elapsedTime, isCabinActive && localCabinWorld.visible);
+    originRebaseState=renderWithOriginRebase(R,sc,cam);
   }
   tick();
   return {
+    setNavigationScale,
+    focusContextStar,
+    atlasSnapshot:()=>({stellarSystems:stellarAtlas.entries.length,regionalSystems:regionalAtlas.entries.length,contextOverview,selectedContextStar,galaxyRadii:Object.fromEntries(atlasRadii)}),
+    navigationScale:()=>navigationContext,
+    getCosmicHierarchy:()=>COSMIC_HIERARCHY,
+    getCanonicalStar:(key)=>getCanonicalStar(key),
+    getCanonicalGalaxy:(key)=>getCanonicalGalaxy(key),
+    getObjectProvenance:(key)=>getObjectProvenance(key),
+    getProvenanceManifest:()=>ASTRONOMICAL_PROVENANCE_MANIFEST,
+    getObserverSkyState:()=>observerFirmament.getSnapshot(),
+    setObserverPositionPc:(posPc,options={})=>{
+      if(posPc&&typeof posPc==='object'){
+        observerPosPc={x:Number(posPc.x||0),y:Number(posPc.y||0),z:Number(posPc.z||0)};
+      }
+      if(options.hostGalaxyKey!==undefined)observerHostGalaxyKey=options.hostGalaxyKey;
+      return observerFirmament.rebuildSkyForObserver(observerPosPc,{
+        hostGalaxyKey:observerHostGalaxyKey,
+        extragalacticMap:Boolean(options.extragalacticMap??nearbyMapState),
+        visualProfile:options.visualProfile,
+      });
+    },
+    setVisualProfile:(profile)=>observerFirmament.setVisualProfile(profile),
+    getVisualProfile:()=>observerFirmament.getVisualProfile(),
+    getScaleUnificationState:()=>crossScaleState,
+    startPerformanceCapture:()=>{frameTiming.active=true;frameTiming.last=null;frameTiming.values=[];frameTiming.metadata={quality:qualityMode,pixelRatio:R.getPixelRatio(),viewport:[innerWidth,innerHeight],target:activeMissionKey,scale:navigationContext.id};},
+    performanceSnapshot:()=>({...summarizeFrameTimes(frameTiming.values),metadata:frameTiming.metadata,originRebase:originRebaseState,navigationScale:navigationContext,renderer:{calls:R.info.render.calls,triangles:R.info.render.triangles,points:R.info.render.points,textures:R.info.memory.textures,geometries:R.info.memory.geometries}}),
+    reenterCabin:()=>{cancelTravel();const savedPosition=sp.clone(),savedYaw=fy,savedPitch=fp,fromAtlas=contextOverview||!!nearbyMapState;if(nearbyMapState)returnFromNearbyMap();contextOverview=false;const position=cam.position.clone(),quaternion=cam.quaternion.clone();nav=null;tw=null;skipRealTimeIntroSequence();if(fromAtlas&&shipPoseKnown){sp.copy(savedPosition);fy=savedYaw;fp=savedPitch;}cabinReentryBlend={position,quaternion,elapsed:0};S.fr(true);},
+    releaseInputs,
+    stopAndInspect:()=>{if(realTimeIntro||launchSequence||launchCameraBlend)return false;cancelTravel();tw=null;vel.set(0,0,0);for(const key of Object.keys(keys))delete keys[key];ac=0;th=0;S.onNavigation?.(null);leaveExteriorCamera(false);free=false;spectator=false;freeHelmMode=false;localCabinWorld.visible=false;ship.visible=false;tr.visible=false;S.fr(false);ct.enabled=true;const found=missionMarkers.get(activeMissionKey);if(found)ct.target.copy(found.marker.getWorldPosition(new V()));else{const direction=new V();cam.getWorldDirection(direction);ct.target.copy(cam.position).addScaledVector(direction,2);}ct.minDistance=.05;ct.maxDistance=200;cam.lookAt(ct.target);ct.update();},
+    returnToStarMap:()=>setNavigationScale('stellar'),
     nearbyMap,
     returnFromNearbyMap,
     focusNearbyGalaxy,
     focusSolarSystemMap,
     navigationActive: () => !!nav,
+    configureTravelDurations:(durations)=>{if(nav)return false;for(const [key,value]of Object.entries(durations)){if(!(key in JUMP_DURATIONS)||!Number.isFinite(value)||value<=0)return false;}jumpDurations={...jumpDurations,...durations};return true;},
+    navigationSnapshot:()=>{cam.updateMatrixWorld(true);const target=nav?.target||arrivalTarget,ndc=target?.clone().project(cam),forward=new V(0,0,-1).applyQuaternion(ship.quaternion);return {state:nav?.phase||'IDLE',phaseProgress:nav?.phaseProgress||0,progress:nav?.progress||0,shipVisible:ship.visible,cabinVisible:localCabinWorld.visible,view:pv,shipPosition:sp.toArray(),shipQuaternion:ship.quaternion.toArray(),cameraPosition:cam.position.toArray(),cameraQuaternion:cam.quaternion.toArray(),target:target?.toArray()||null,targetNdc:ndc?.toArray()||null,cabinOccluded:cabinOccludes(target),shipNdc:sp.clone().project(cam).toArray(),cameraNear:cam.near,cameraFar:cam.far,forwardDot:target?forward.dot(target.clone().sub(sp).normalize()):null,effect:hyperspace?.snapshot()||null,lastJump};},
+    introSnapshot:()=>({active:!!realTimeIntro,phase:realTimeIntro?.phase||'IDLE',stageNotified:realTimeIntro?.stageNotified??-1,shipVisible:ship.visible,cabinVisible:localCabinWorld.visible}),
+    getOrbitLinesVisible:()=>B.some((b)=>Boolean(b.orbit?.visible)),
+    getSpherexObservatoryState:()=>({
+      present:Boolean(earth?.spherex?.root),
+      visible:Boolean(earth?.spherex?.root?.visible),
+      scanning:Boolean(earth?.spherex?.spectralScanGroup?.visible),
+      worldPosition:earth?.spherex?.root?earth.spherex.root.getWorldPosition(new V()).toArray():null,
+      altitudeKm:SPHEREX_ORBIT_SPEC.nominalAltitudeKm,
+      periodMinutes:SPHEREX_ORBIT_SPEC.orbitalPeriodMinutes,
+      inclinationDeg:SPHEREX_ORBIT_SPEC.inclinationDeg,
+      orbitSpec:SPHEREX_ORBIT_SPEC,
+    }),
     shipScale: () => shipSz,
     shipDimensionsMeters: () => SHIP_LENGTH_METERS,
     selectAstronomicalObject: (kind, key) => {
@@ -4234,6 +4237,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.onObjectSelect?.({ kind, key });
     },
     setCameraPose: (posArr, lookArr, fovVal) => {
+      if(!userCameraAvailable())return false;
       if (Array.isArray(posArr) && posArr.length === 3) {
         cam.position.set(posArr[0], posArr[1], posArr[2]);
       }
@@ -4255,8 +4259,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     onGuidedStationInteraction,
     onGuidedScienceAction,
     endGuidedCabinTour,
-    setCabinFirstPerson: (firstPerson) => {
-      cabinFirstPerson = Boolean(firstPerson);
+    setCabinFirstPerson: () => {
+      // Experiencia en cabina exclusivamente en primera persona
+      cabinFirstPerson = true;
+      astronaut3D.root.visible = false;
+      astronaut3D.firstPersonHands.visible = false;
       if (!free) {
         setFree(true, false);
         S.fr?.(true);
@@ -4269,6 +4276,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       freeHelmMode = Boolean(enabled);
       if (freeHelmMode) {
         cabinFirstPerson = true;
+        astronaut3D.root.visible = false;
+        astronaut3D.firstPersonHands.visible = false;
         pv = 1;
         ship.visible = false;
         localCabinWorld.visible = true;
@@ -4285,7 +4294,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       z: Number(astronautPos.z.toFixed(2)),
       yaw: Number(astronautYaw.toFixed(2)),
       pitch: Number(astronautPitch.toFixed(2)),
-      cabinFirstPerson,
+      cabinFirstPerson: true,
+      thirdPersonAvatarVisible: Boolean(astronaut3D.root.visible),
       nearestStationId: nearestCabinStation ? nearestCabinStation.station.id : null,
       nearestStationDist: nearestCabinStation ? Number(nearestCabinStation.distance.toFixed(2)) : null,
       activeStationId: activeCabinStation,
@@ -4459,15 +4469,36 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       dom.removeEventListener('wheel', onWheel);
       removeEventListener('keydown', onKeyDown);
       removeEventListener('keyup', onKeyUp);
+      removeEventListener('blur',releaseInputs);document.removeEventListener('visibilitychange',onVisibilityChange);document.removeEventListener('focusin',onInputFocus);dom.removeEventListener('pointercancel',releaseInputs);
       removeEventListener('resize', onResize);
+      if (backgroundIntroTimer) {
+        clearInterval(backgroundIntroTimer);
+        backgroundIntroTimer = null;
+      }
+      disposeTravelEffect();
+      astronomicalHologram.dispose();
       ct.dispose();
+      const released=disposeSceneResources(sc);destinationResources.dispose(released);
+      R.renderLists?.dispose();
       R.dispose();
       if (R.domElement.parentNode === el) el.removeChild(R.domElement);
     },
     view: (v) => {
+    if(!userCameraAvailable())return false;
     const wasExteriorInspection = exteriorCameraMode;
     if (wasExteriorInspection) leaveExteriorCamera(true);
     pv = v;
+    if (v == 1) {
+      cabinFirstPerson = true;
+      astronaut3D.root.visible = false;
+      astronaut3D.firstPersonHands.visible = false;
+      if (!nav && !arrivalTarget) {
+        astronautYaw = 0;
+        targetYaw = 0;
+        astronautPitch = 0;
+        targetPitch = 0;
+      }
+    }
     // In the compressed astronomical map the physical 120 m vessel is far
     // smaller than the cabin's default near plane (0.05 units). Keep the
     // chase view close enough to render the ship, then restore cabin clipping.
@@ -4477,11 +4508,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       GU.uH.value = (innerHeight * R.getPixelRatio()) / (2 * Math.tan((cam.fov * Math.PI) / 360));
       if (free && !wasExteriorInspection) {
         ship.visible = v == 3;
+        localCabinWorld.visible = v == 1;
         const q = ship.quaternion.clone();
-        cam.quaternion.copy(q);
-        cam.position
-          .copy(sp)
-          .add(new V(0, 0.3, 1).multiplyScalar(shipOffset() * (v == 3 ? 1 : 0)).applyQuaternion(q));
+        if (v == 1) {
+          const localLookQuat = new THREE.Quaternion().setFromEuler(
+            new THREE.Euler(astronautPitch, astronautYaw, 0, 'YXZ'),
+          );
+          cam.position.copy(
+            new V(astronautPos.x, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, astronautPos.z)
+              .applyQuaternion(q)
+              .add(sp),
+          );
+          cam.quaternion.copy(q).multiply(localLookQuat);
+        } else {
+          cam.quaternion.copy(q);
+          cam.position
+            .copy(sp)
+            .add(new V(0, 0.3, 1).multiplyScalar(shipOffset()).applyQuaternion(q));
+        }
       }
     },
     resetExteriorView: resetExteriorCamera,
@@ -4489,16 +4533,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     isExteriorInspection: () => exteriorCameraMode,
     speed: (v) => {
       fs = Math.max(0.01, Math.min(5e4, v));
-      if (nav?.respectSpeed && nav.phase !== 'arrival') {
-        if (nav.phase === 'transit') {
-          const progress = Math.min(1, nav.elapsed / nav.duration);
-          const eased = progress * progress * (3 - 2 * progress);
-          nav.from.lerp(nav.to, eased);
-          nav.distance = nav.from.distanceTo(nav.to);
-          nav.elapsed = 0;
-        }
-        nav.duration = Math.min(16, Math.max(0.4, nav.distance / fs));
-      }
+      // Speed presets remain available for manual flight; an active cinematic keeps its continuous timeline.
       S.fv(fs);
     },
     opt: (o) => {
@@ -4510,7 +4545,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       cam.updateProjectionMatrix();
       GU.uH.value = (innerHeight * R.getPixelRatio()) / (2 * Math.tan((cam.fov * Math.PI) / 360));
     },
-    free: setFree,
+    free: (on,launchFromEarth=false)=>{if(!userCameraAvailable())return false;if(on&&(contextOverview||nearbyMapState)){if(nearbyMapState)returnFromNearbyMap();contextOverview=false;cam.position.copy(sp);cam.quaternion.copy(ship.quaternion);}setFree(on,launchFromEarth);},
     spectate,
     board,
     exitSpectator,
@@ -4530,6 +4565,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     setDay: (d) => {
       sim = d;
     },
+    setArrivedTarget: (t) => astronomicalHologram.setArrivedTarget(t),
+    getArrivedHologramTarget: () => astronomicalHologram.getActiveTarget(),
+    clearAstronomicalHologram: () => astronomicalHologram.clearHologram(),
   };
 }
 export const CK = `<svg viewBox='0 0 1000 600' preserveAspectRatio='none'><defs><linearGradient id='cg' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#1b2335'/><stop offset='1' stop-color='#05070c'/></linearGradient><radialGradient id='cv' cx='.5' cy='.45' r='.75'><stop offset='.6' stop-color='#000' stop-opacity='0'/><stop offset='1' stop-color='#000' stop-opacity='.55'/></radialGradient></defs><rect width='1000' height='600' fill='url(#cv)'/><path d='M0 0H1000L900 62Q500 92 100 62Z' fill='url(#cg)' stroke='#34415c' stroke-width='2'/><path d='M0 0L130 62L52 380L0 450Z' fill='url(#cg)' stroke='#34415c' stroke-width='2'/><path d='M1000 0L870 62L948 380L1000 450Z' fill='url(#cg)' stroke='#34415c' stroke-width='2'/><path d='M0 600V462Q120 420 330 432Q500 405 670 432Q880 420 1000 462V600Z' fill='url(#cg)' stroke='#3d4d70' stroke-width='3'/><path d='M58 455Q220 432 398 446L380 564Q230 548 78 570Z' fill='#071019' fill-opacity='.72' stroke='#2a8fd0' stroke-opacity='.68' stroke-width='2'/><path d='M942 455Q780 432 602 446L620 564Q770 548 922 570Z' fill='#071019' fill-opacity='.72' stroke='#2a8fd0' stroke-opacity='.68' stroke-width='2'/><g stroke='#6ff0ff' stroke-width='2' fill='none' opacity='.75'><path d='M110 500L170 484L230 494L290 470L350 488'/><circle cx='770' cy='494' r='22'/><path d='M770 494L784 482'/><path d='M830 505H900M830 490H885'/></g><circle cx='460' cy='448' r='5' fill='#ff4040'/><circle cx='480' cy='446' r='5' fill='#ffb030'/><circle cx='520' cy='446' r='5' fill='#40ff80'/><circle cx='540' cy='448' r='5' fill='#40c0ff'/></svg>`,

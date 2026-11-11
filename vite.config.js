@@ -1,18 +1,24 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { pathToFileURL } from 'url';
 
 function apiDevServerPlugin() {
-  const handleApi = async (req, res, next) => {
+  const handleApi = async (req, res, next, loadModule) => {
     const rawUrl = req.url || '';
     const match = rawUrl.match(/(?:\/KRONOX)?\/api\/([a-zA-Z0-9_-]+)(?:\?.*)?$/);
     if (!match) return next();
 
     const endpoint = match[1];
     try {
-      const fullPath = path.resolve(process.cwd(), 'api', `${endpoint}.js`);
-      const { default: handler } = await import(pathToFileURL(fullPath).href);
+      const isFishTts = endpoint === 'fish-tts';
+      const moduleRelPath = isFishTts ? '/src/server/fishAudioTts.js' : `/api/${endpoint}.js`;
+      const fullPath = isFishTts
+        ? path.resolve(process.cwd(), 'src', 'server', 'fishAudioTts.js')
+        : path.resolve(process.cwd(), 'api', `${endpoint}.js`);
+      const { default: handler } = loadModule
+        ? await loadModule(moduleRelPath)
+        : await import(pathToFileURL(fullPath).href);
       if (typeof handler !== 'function') return next();
 
       const parsedUrl = new URL(rawUrl, 'http://localhost');
@@ -58,7 +64,9 @@ function apiDevServerPlugin() {
   return {
     name: 'api-dev-server-plugin',
     configureServer(server) {
-      server.middlewares.use(handleApi);
+      server.middlewares.use((req, res, next) =>
+        handleApi(req, res, next, (id) => server.ssrLoadModule(id)),
+      );
     },
     configurePreviewServer(server) {
       server.middlewares.use(handleApi);
@@ -66,8 +74,31 @@ function apiDevServerPlugin() {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const fishEnv = loadEnv(mode, process.cwd(), '');
+  for (const key of ['FISH_AUDIO_API_KEY', 'FISH_API_KEY', 'KRONOX_FISH_AUDIO_KEY', 'FISH_AUDIO_MODEL']) {
+    if (fishEnv[key] && !process.env[key]) process.env[key] = fishEnv[key];
+  }
+  return {
+  // Concurrent dev servers and Node test workers must never overwrite each other's optimized modules.
+  cacheDir: path.resolve(
+    '.cache',
+    'vite',
+    (process.env.NODE_TEST_CONTEXT ? 'tests-' : 'runtime-') + process.pid,
+  ),
   base: process.env.VERCEL === '1' ? '/' : '/KRONOX/',
+  optimizeDeps: {
+    include: process.env.NODE_TEST_CONTEXT
+      ? []
+      : [
+          'react',
+          'react-dom/client',
+          'react/jsx-runtime',
+          'react/jsx-dev-runtime',
+          'three',
+          'three/examples/jsm/controls/OrbitControls.js',
+        ],
+  },
   plugins: [react(), apiDevServerPlugin()],
   build: {
     rollupOptions: {
@@ -80,4 +111,5 @@ export default defineConfig({
       },
     },
   },
+  };
 });

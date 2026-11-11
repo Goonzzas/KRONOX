@@ -1,0 +1,269 @@
+{
+  "checkedAt": "2026-11-07T20:30:54.486Z",
+  "original": "C:\\Users\\OPPENHEIMER\\Desktop\\KRONOX-main",
+  "workingCopy": "C:\\Users\\OPPENHEIMER\\Desktop\\kronox-juan",
+  "originalFilesChecked": 129,
+  "originalContentUnchanged": true,
+  "changedOriginalFiles": [],
+  "gitPathsInCopyOrAncestors": [],
+  "backup": {
+    "file": "backups/pre-repair-2026-11-07.json.gz",
+    "sha256": "d17d8d49db959affab418afdab821acca5a5f695662aad1aaf00fd08e432367e",
+    "fileCount": 76
+  },
+  "changes": [
+    {
+      "path": ".gitignore",
+      "change": "modified",
+      "beforeSha256": "5cb4e2007cc733d50366b4c67714d320cb4e2d46c704f5a3bb07abb38e616aa2",
+      "afterSha256": "936d42f3d06fbc91440d055501d37ec630fa1f9e52ef5baa28744a3ee5dc32ea"
+    },
+    {
+      "path": "api/lib/archivePlan.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "5c22c153c03a17d49686c94dc681966f2284116026d9eb52a4a530f5b002ae97"
+    },
+    {
+      "path": "api/lib/irsaCache.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "8922e4d85118d04d9bba38b4b7787b7fa12fdc45d174b7817a29d5141dc65adb"
+    },
+    {
+      "path": "api/spherex.js",
+      "change": "modified",
+      "beforeSha256": "f92a10b60112e16f0c6c7c71d4e371358b65657ef8a7e32897ea20a9a8444e8e",
+      "afterSha256": "3dcd58f3c0eb2016bc28aae96ef8c556938a21b56e5a58b468e60262b60ed3c7"
+    },
+    {
+      "path": "INICIAR-DEMO.ps1",
+      "change": "modified",
+      "beforeSha256": "0a951c4ecfe3b30afee2fe0322117cf02eec509e614b0e6d391ebc0b9098f9a6",
+      "afterSha256": "c2ce4191079ddb054ef7ad68979e92cba125656fd5d6be3131e9d6ba5aae866c"
+    },
+    {
+      "path": "LEEME-JUAN.md",
+      "change": "modified",
+      "beforeSha256": "da8a14495228cfcb049f5ef72b5e3c7d344b1f16471a80fb3defe4329297894f",
+      "afterSha256": "5d7c8262ad3bf1ecd697d999c1f3651e33589a6e26097d554f366a963670f1fa"
+    },
+    {
+      "path": "package.json",
+      "change": "modified",
+      "beforeSha256": "0e26a79b19ab060be281b76bf83f32ed5f29502a6f94d03cc7dc715b1e239827",
+      "afterSha256": "21895b2509190e14b13f54e56821eba8361fe6fc12f5258b1b023db1fdab30d8"
+    },
+    {
+      "path": "src/App.jsx",
+      "change": "modified",
+      "beforeSha256": "993a6d21110fa94a7ee05130a1d6645c503a0d0e03dbed084ae442fec56b32a8",
+      "afterSha256": "0e66741594dc2c622cbe2eac0a2ce6141d161a737d14bccb776e64dc60ab610e"
+    },
+    {
+      "path": "src/components/EvidenceLab.jsx",
+      "change": "modified",
+      "beforeSha256": "416fc7523b5a4404fedaf81c6b8bcec1b8fdc4e12c36d7910502e8559321045d",
+      "afterSha256": "75ae56315946d8b50bbca8ebb1b9e3e6250a6210528b8d6d7d1ab156584de2ae"
+    },
+    {
+      "path": "src/components/SpectrumPlot.jsx",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "40b17b2b364d9b5a4f4e56e6e57303cb78706aed93182c203ac2c2be9a682f0c"
+    },
+    {
+      "path": "src/components/SpherexMission.jsx",
+      "change": "modified",
+      "beforeSha256": "8a70b04d3f013b80ecdc4b298908fef74e662a277d784459a418b37cc7ec2502",
+      "afterSha256": "129d456f08186f91c8675e07a9f8862d3417a666a67b8895f041f29c28147426"
+    },
+    {
+      "path": "src/components/SpherexMissionSelector.jsx",
+      "change": "modified",
+      "beforeSha256": "7f92ac31c66ec6fe551583b1c3a895ef523c8321c2d5c5b0041c9cc1e7d787b2",
+      "afterSha256": "88ea03123e1730e2c02a54776843af20338ff896216336b2ee18bd5a456e698c"
+    },
+    {
+      "path": "src/components/useObservationSamples.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "7de79016dc8680714a5236ad99f1ba95b47e3041e9ed0703f94962383dfae182"
+    },
+    {
+      "path": "src/data/m101Observations.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "bccbf795096219280a196800e9f3b508ad1f331f2b526c37d6ae5e96fb031326"
+    },
+    {
+      "path": "src/data/researchCatalog.js",
+      "change": "modified",
+      "beforeSha256": "17e820230029b38d3a0d240b93c3179532474a3f637afa5104be56055cf7649a",
+      "afterSha256": "65081084162a3229e3d6d011367b7e0b4d2b7b9cb7ba137c3a8eebd099e6105e"
+    },
+    {
+      "path": "src/data/spherexTargets.js",
+      "change": "modified",
+      "beforeSha256": "d88c7afbfa3413d08f3b35d6236510563ce90ae3640d044b38c9b0bde5e2a562",
+      "afterSha256": "1d438bc125d241d68d9ac55fd9df54892104c10b361df6300c47a4fd3de0019a"
+    },
+    {
+      "path": "src/data/verifiedObservations.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "aa9ed5b69f41bdafd33032a4f2d5b328ae5a6ce5c284ae1086add5ef5559f7e3"
+    },
+    {
+      "path": "src/scene/astronomicalPositions.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "719d9f45ae4b10d34a7978c53aca4a9d7f5c1a63ca610c439f01bc1ab712be8a"
+    },
+    {
+      "path": "src/scene/createScene.js",
+      "change": "modified",
+      "beforeSha256": "cf444bb8db91fb705b936f0983d3710932eef1e681ed3b5b401d8824f0cd11e9",
+      "afterSha256": "8247eb5f48d7ad1661b04d75e1b86815a876748828cf7a54e715b6a1600b9e0a"
+    },
+    {
+      "path": "src/scene/destinationVisuals.js",
+      "change": "modified",
+      "beforeSha256": "9f679670f5e52a0ca4fe5d2f2df796207143d196a17e7719ed8928cb70403009",
+      "afterSha256": "e6280657f80c0d05029642c4fd471656ad23b5b575c411c04970d3eed11282bc"
+    },
+    {
+      "path": "src/scene/disposeResources.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "439a00e61574e776b507aa33fcb324b1c5c500060f4b70fd4dd99482d15dff7c"
+    },
+    {
+      "path": "src/scene/flightDynamics.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "5f8dfc5e2bded0d93ce4659fabb9a101a15631f5849b47a1f39ef26649aca4dc"
+    },
+    {
+      "path": "src/scene/navigationScale.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "5620cc3032b6be4184334d18455a33d62667994cd61cf60514c2d1e86a708a22"
+    },
+    {
+      "path": "src/scene/originRebase.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "8a9a51bc097531e7ed11312e3d71c53f6f3fd30adc73b931b42a0627ba14faff"
+    },
+    {
+      "path": "src/styles/evidenceLab.css",
+      "change": "modified",
+      "beforeSha256": "035fc2d27fdd1c27f0bf4c3635f57c7067a0a1630ccc15b7a5119aa0f7abceae",
+      "afterSha256": "72a8043bdd11444482f0f012a9dca44418cee2b5b0f7f05af8f97ded98bbe05d"
+    },
+    {
+      "path": "src/utils/archiveClient.js",
+      "change": "modified",
+      "beforeSha256": "f440848a858dd252b3bb81d053684ee098d4fb0a23b7f226e25b58c46d9c8657",
+      "afterSha256": "b520ee93907fb79a45bb8603acdc4c3f27d6857e73b4db5bf1c5432872651952"
+    },
+    {
+      "path": "src/utils/fitsDecode.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "b928886664f99db7ac3ab5a965ab972f582d6789bc07f64ed66e22811335cb60"
+    },
+    {
+      "path": "src/utils/fitsImage.js",
+      "change": "modified",
+      "beforeSha256": "ec8808e056b213c96908f4cc4167bafffb328fe40fd2b2af2622240d802852b4",
+      "afterSha256": "2a931e936ced584100a081e93bfe49ca4626e1d2dc985ccfb949c1d55a43b856"
+    },
+    {
+      "path": "src/utils/fitsTransport.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "1caaed6ff19ba4654fe4a619822bbd19952e590abcbd1a5912760ecf33f88ec2"
+    },
+    {
+      "path": "src/utils/rgbComposite.js",
+      "change": "modified",
+      "beforeSha256": "084bfc00186a4cdfb6724934a414c489fae268f246ec040d7d6d3e4e39d1545f",
+      "afterSha256": "9d845b7cdd4746d634c6838c2df2737a6e47c9c2c280fcf6a447973bc05a0dad"
+    },
+    {
+      "path": "src/utils/scientificEvidence.js",
+      "change": "modified",
+      "beforeSha256": "48386dd68baf00596c8a72ed796cec77571be99febb16feb8673d79f40fad53e",
+      "afterSha256": "6598168efa9057c34de344a5564a2f20d52f34d6bfb0cc223ee7730f953fcd1f"
+    },
+    {
+      "path": "src/utils/sharedFrameLoads.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "ac8becb3f43aaaa13893d1278d9d1a1ec447b2ab6903820d0f920f4e5ba29a12"
+    },
+    {
+      "path": "src/utils/voiceProvider.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "aa8bbda64b8fc3c1508942cd26905ba45f5bc3a1b44913f2595c57bdbf7d6d25"
+    },
+    {
+      "path": "src/workers/fitsWorker.js",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "f9d45f74e3971ff8196d12ae8fd01ea5d3d3282b3bd0cd3ca81e86a828024d5a"
+    },
+    {
+      "path": "src/workers/rgbWorker.js",
+      "change": "modified",
+      "beforeSha256": "b36f1cd8289b52ff2a4cafc8bbb9a7e1a89f7b52073e773e45dfad4335e6a974",
+      "afterSha256": "4f60ed7f385176b502eb765658b163b60671cf6e26043e064ea6f6509efeb38a"
+    },
+    {
+      "path": "tests/juan-component.test.mjs",
+      "change": "modified",
+      "beforeSha256": "d995bdf5f785b92b45591abf3e9ac3ecc85e7ed61459cf5dd7824afa42580354",
+      "afterSha256": "3bc7d38fa0f6b1787521560e0f5d3dd0e446cfdddb9abc821c27c0acd566b4a4"
+    },
+    {
+      "path": "tests/juan-integration.test.mjs",
+      "change": "modified",
+      "beforeSha256": "a55a15bf219ff66657aa85071b2a776eab3afe1491d97c97c857f68c699b59f4",
+      "afterSha256": "abcfb76b48465e010439e5492ed9d1a6e4989e03c2764d5fedbfd9e648cf7877"
+    },
+    {
+      "path": "tests/repair-a.test.mjs",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "4dab3af2c469ee6cd980eb20aa9bf465364ca087bffadd315f1bf8f994082ea4"
+    },
+    {
+      "path": "tests/repair-b.test.mjs",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "c8ecd0b0c9dd75388b88347bf63b0aad669126fdec4fd51c2d45b1be1b5a34d5"
+    },
+    {
+      "path": "tests/repair-c.test.mjs",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "82a982719cd6652b0386abfe57062626065335f34ce33a3f9045626e63a62974"
+    },
+    {
+      "path": "tests/repair-d.test.mjs",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "736bc7b41ef8328dd42dc6c14f1cc1a3d7189be2df948bb3ea825ba3d97404e6"
+    },
+    {
+      "path": "tests/repair-e.test.mjs",
+      "change": "added",
+      "beforeSha256": null,
+      "afterSha256": "2c54e2bcaee291c98169b7350e326675c658557ff00682c9a370ae54dbf1735c"
+    }
+  ],
+  "removedRelevantFiles": []
+}

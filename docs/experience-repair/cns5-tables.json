@@ -1,0 +1,1 @@
+{"contains": "table", "params": {"contains": "params"}, "columns": [{"name": "table_name", "dbtype": "text", "xtype": null, "datatype": "char", "arraysize": "*", "ucd": "", "utype": null, "unit": "", "description": "Fully qualified table name", "id": "table_name", "ref": null}], "data": [["cns5.main"], ["cns5update.main"]]}

@@ -141,10 +141,12 @@ export default function KronoxWidget({
   useEffect(() => {
     if (!narrative || !intervention || typed.length < intervention.length || textPaused || speechPaused) return undefined;
     if (partIndex < interventions.length - 1) {
+      const wordCount = Math.max(1, intervention.trim().split(/\s+/).length);
+      const holdMs = Math.max(1800, Math.min(5500, wordCount * 240));
       const timer = window.setTimeout(() => {
         setPartIndex((index) => index + 1);
         setTyped('');
-      }, 900);
+      }, holdMs);
       return () => window.clearTimeout(timer);
     }
     if (!speaking) {

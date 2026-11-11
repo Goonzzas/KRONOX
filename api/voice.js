@@ -23,6 +23,7 @@ export default async function handler(request, response) {
 
   try {
     const audioResponse = await fetch(url, {
+      signal: AbortSignal.timeout(5000),
       headers: {
         Accept: 'audio/mpeg',
         'User-Agent': 'Mozilla/5.0 KRONOX/1.0',

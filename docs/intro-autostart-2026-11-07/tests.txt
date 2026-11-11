@@ -1,0 +1,62 @@
+✖ Page load automatically shows the prologue and boards the cabin: normal URL (7668.7396ms)
+✖ Page load automatically shows the prologue and boards the cabin: ?welcome=false&voice=false (6951.8066ms)
+✔ Automatic prologue can be skipped and runs again on a fresh page mount (6369.9964ms)
+✖ An explicit intro=false link opens the cabin directly (4398.1244ms)
+✔ Reported black screen is reproduced by the prior startup source: lab is not defined (3377.7814ms)
+✔ Complete scene starts, draws labels, advances the entry sequence and reenters without losing its position (CPU integration) (7063.7148ms)
+✔ A startup exception produces a visible retry screen instead of an empty React root (1864.9789ms)
+✔ The real App preserves the explicitly requested welcome menu and full scene (CPU integration) (5046.2915ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 5
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 26193.5114
+
+✖ failing tests:
+
+test at tests\intro-autostart.test.mjs:8:3
+✖ Page load automatically shows the prologue and boards the cabin: normal URL (7668.7396ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(harness.events.some(event=>event.name==='CABIN_ENTERED'))
+  
+      at TestContext.<anonymous> (file:///C:/Users/OPPENHEIMER/Desktop/kronox-juan/tests/intro-autostart.test.mjs:26:14)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\intro-autostart.test.mjs:8:3
+✖ Page load automatically shows the prologue and boards the cabin: ?welcome=false&voice=false (6951.8066ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(harness.events.some(event=>event.name==='CABIN_ENTERED'))
+  
+      at TestContext.<anonymous> (file:///C:/Users/OPPENHEIMER/Desktop/kronox-juan/tests/intro-autostart.test.mjs:26:14)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\intro-autostart.test.mjs:58:1
+✖ An explicit intro=false link opens the cabin directly (4398.1244ms)
+  Error: Scene stopped scheduling animation frames
+      at Object.stepFrames (file:///C:/Users/OPPENHEIMER/Desktop/kronox-juan/scripts/test-support/sceneHarness.mjs:270:27)
+      at file:///C:/Users/OPPENHEIMER/Desktop/kronox-juan/tests/intro-autostart.test.mjs:63:125
+      at act (C:\Users\OPPENHEIMER\Desktop\kronox-juan\node_modules\react\cjs\react.development.js:2512:16)
+      at TestContext.<anonymous> (file:///C:/Users/OPPENHEIMER/Desktop/kronox-juan/tests/intro-autostart.test.mjs:63:11)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7)

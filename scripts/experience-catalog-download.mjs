@@ -1,0 +1,4 @@
+import fs from 'node:fs';
+async function query(host,q,file){const u=new URL(host);u.search=new URLSearchParams({request:'doQuery',lang:'ADQL',format:'json',query:q});const r=await fetch(u,{signal:AbortSignal.timeout(25000)}),text=await r.text();fs.writeFileSync('docs/experience-repair/'+file,text);console.log(file,r.status,text.slice(0,500));if(!r.ok)throw Error(file+' HTTP '+r.status);return JSON.parse(text);}
+await query('https://dc.zah.uni-heidelberg.de/tap/sync','SELECT TOP 90 cns5_id,ra,dec,parallax,pmra,pmdec,epoch,gj_id,hip_id,primary_flag,g_mag_resulting FROM cns5.main WHERE parallax>100 ORDER BY parallax DESC','cns5-nearby.json');
+for(const [name,lo,hi]of [['near',0,80],['regional',80,300]]){await query('https://exoplanetarchive.ipac.caltech.edu/TAP/sync',`SELECT DISTINCT TOP 32 hostname,ra,dec,sy_dist,sy_pnum,st_teff,st_rad,st_lum FROM pscomppars WHERE sy_dist>${lo} AND sy_dist<${hi} AND sy_vmag<7 ORDER BY sy_dist`,'nasa-system-'+name+'.json');}

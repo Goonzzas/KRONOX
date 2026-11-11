@@ -29,7 +29,8 @@ test('Product Flow - 5 Official SPHEREx Targets Completeness & Differentiated Sc
   const targetKeys = SPHEREX_TARGETS.map((t) => t.key);
   const expectedKeys = ['barnard', 'epsilon-indi-b', 'wise-0855', 'rw-aurigae', 'r-draconis'];
 
-  assert.deepEqual(targetKeys.sort(), expectedKeys.sort(), 'Must have exactly the 5 official targets');
+  assert.ok(expectedKeys.every(key=>targetKeys.includes(key)), 'Preserve the five legacy targets while allowing verified additions');
+  assert.ok(SPHEREX_TARGETS.some(t=>t.key==='m31'&&t.archiveVerified),'Add a verified galaxy');
 
   // 1. Barnard - Validated Astrometry
   const barnard = SPHEREX_TARGETS.find((t) => t.key === 'barnard');
@@ -80,6 +81,7 @@ test('Product Flow - Rigorous Coordinate Space-Motion Propagation across Epochs'
     assert.ok(target.ra >= 0 && target.ra < 360, `RA for ${target.key} must be in [0, 360)`);
     assert.ok(target.dec >= -90 && target.dec <= 90, `Dec for ${target.key} must be in [-90, 90]`);
 
+    if(!target.astrometry){assert.equal(target.type,'galaxia');continue;}
     // Propagate to 2026.5
     const prop2026 = propagateCoordinates(target.astrometry, 2026.5);
     assert.ok(prop2026, `Propagation for ${target.key} must succeed`);
@@ -93,7 +95,7 @@ test('Product Flow - Rigorous Coordinate Space-Motion Propagation across Epochs'
 });
 
 test('Product Flow - Mission Taxonomy & Grouping', () => {
-  assert.equal(SPHEREX_MISSION_TYPES.length, 2, 'Two mission categories: motion and variable');
+  assert.ok(SPHEREX_MISSION_TYPES.some(m=>m.key==='spectral'),'Adds evidence mission while preserving legacy groups');
   const motionMission = SPHEREX_MISSION_TYPES.find((m) => m.key === 'motion');
   const variableMission = SPHEREX_MISSION_TYPES.find((m) => m.key === 'variable');
 

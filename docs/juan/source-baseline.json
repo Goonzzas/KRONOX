@@ -1,0 +1,523 @@
+{
+  "source": "C:/Users/OPPENHEIMER/Desktop/KRONOX-main",
+  "copy": "C:\\Users\\OPPENHEIMER\\Desktop\\kronox-juan",
+  "date": "2026-11-07T18:19:53.024Z",
+  "files": [
+    {
+      "file": ".gitignore",
+      "sha256": "5cb4e2007cc733d50366b4c67714d320cb4e2d46c704f5a3bb07abb38e616aa2"
+    },
+    {
+      "file": ".prettierrc.json",
+      "sha256": "31d5d9df7cf7d423664f0f4836a6b2cec083cc42eaf5ef9440a726e4dfb8fda4"
+    },
+    {
+      "file": "api/locale.js",
+      "sha256": "f114b282e543ad2c0a4ba433a099c25f9dbe890bb405709549cb0f8225d0c5d7"
+    },
+    {
+      "file": "api/spherex.js",
+      "sha256": "7b926a1c9fc0e9f05fac3e8d8aadfecbdbacd714c03e97ab4797fa3ca1ec0d21"
+    },
+    {
+      "file": "api/voice.js",
+      "sha256": "fbd1f80e5a6657134b67af8eec5200ae119e79f8c2c87ad2ffb093cd55df3b2a"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "sha256": "3c6354b4526bace5532fc8f999a445e48db89713ea4eb589b76f867b1ade60e0"
+    },
+    {
+      "file": "docs/ARQUITECTURA.md",
+      "sha256": "f6e4d613f8da4ca68509380aa2c3d429dde1bc56595b5e3675d76c87a2841149"
+    },
+    {
+      "file": "docs/demo-evidence/10_responsivo_1366x768.png",
+      "sha256": "f689c5fe077ee5301e4cd842bb88a10d5720cd250734f444556f109d2722f302"
+    },
+    {
+      "file": "docs/demo-evidence/11_guia_como_explorar.png",
+      "sha256": "fd65c9779bc969edd1cfba5c0c28611a024a853fccd2aa6c6e373ae5ed26a53b"
+    },
+    {
+      "file": "docs/demo-evidence/12_movil_390x844.png",
+      "sha256": "0c2ec251df2c534bbc3fdceb5543a0bbb9f25a026fc83a869581429d8d6ce5a4"
+    },
+    {
+      "file": "docs/demo-evidence/13_tablet_820x1180.png",
+      "sha256": "20883364352b80a1c89b5dfc40dad16bd6e752639a745550672810da422a60fb"
+    },
+    {
+      "file": "docs/demo-evidence/14_fhd_1920x1080.png",
+      "sha256": "1d68658ac3fd3eb8c8b7af0361bb1b4c2f4f7e5d13cc38a110b7a53cdea49107"
+    },
+    {
+      "file": "docs/demo-evidence/1_bienvenida.png",
+      "sha256": "e0293525afea1609ddfa8bb8598bdb5339f104c3519ad0ec3497a4bc704d426a"
+    },
+    {
+      "file": "docs/demo-evidence/1_pantalla_inicial.png",
+      "sha256": "4b28e1fc21630db48e0a1f685292ddf6521260de426295d1643b578af309d88e"
+    },
+    {
+      "file": "docs/demo-evidence/2_bienvenida_voz_activa.png",
+      "sha256": "bdd94ebb1b90304c36a0e69e61df0315e28b8a152bce0146c8d9335c2e7a2a1f"
+    },
+    {
+      "file": "docs/demo-evidence/2_observatorio_spherex.png",
+      "sha256": "efe3be0bc2bc25bce440ee1c57193bd0e027a307a18ff40551120d164a573444"
+    },
+    {
+      "file": "docs/demo-evidence/3_observatorio_esencial.png",
+      "sha256": "cd0f8def1949a5da4245ad58728b82e61ea0dbe45cfbd7a42f420638e5328541"
+    },
+    {
+      "file": "docs/demo-evidence/3_seleccion_cinco_objetivos.png",
+      "sha256": "682218db13104122b0cb0e14d9585d5b2f4db1d6e3a8d0e1aa768030bad23cbb"
+    },
+    {
+      "file": "docs/demo-evidence/4_observatorio_tecnico.png",
+      "sha256": "28b7108172eab434d84d6e8cbe2bd6582b4e0db0eb36da556f713628ed8906f8"
+    },
+    {
+      "file": "docs/demo-evidence/4_wise_0855_advertencia.png",
+      "sha256": "cb925f667c9ee691c332337aab0ba73916bb4448c8226ad4b6ef42768f89c89d"
+    },
+    {
+      "file": "docs/demo-evidence/5_blink_comparator.png",
+      "sha256": "dd042d1e31dcc35738f5dde708a2e08b4199495914dcfc20586d1926b38b7a90"
+    },
+    {
+      "file": "docs/demo-evidence/5_vista_comparada_dual.png",
+      "sha256": "1f5bb24d31f79b61f11e06ffc5fd1aaf4ff5db895028999bfffb7fd364654c65"
+    },
+    {
+      "file": "docs/demo-evidence/6_comparar_epocas_blink.png",
+      "sha256": "7ae63918942018f5aae62aaf279e7956d59dfbfb26207f919f02c4cd98ffcd34"
+    },
+    {
+      "file": "docs/demo-evidence/6_lado_a_lado.png",
+      "sha256": "1b9f083b3cb9d8d7602f71c2651077b990d9e06b1dc7affa9525aa90d467c409"
+    },
+    {
+      "file": "docs/demo-evidence/7_mapa_diferencias.png",
+      "sha256": "1d3044a1b53b8a7c78e3bc046f45ae6da30339da093571560ed6b783a4799859"
+    },
+    {
+      "file": "docs/demo-evidence/7_resta_diferencial.png",
+      "sha256": "0d408ab6fd2eec995e66fee96f9534831c7228daf29766580c73088a9c0d5e3f"
+    },
+    {
+      "file": "docs/demo-evidence/8_panel_candidatos.png",
+      "sha256": "8cd43fa41d3e1983e7d62a9008c02e1c3f857f4430b6be55e2cbf957a183a9dc"
+    },
+    {
+      "file": "docs/demo-evidence/9_auditoria_tecnica_modal.png",
+      "sha256": "d940584dedfceb4092169aaae76ead4e9c243594d768d4b5584952344434a9db"
+    },
+    {
+      "file": "docs/demo-evidence/9_wise_0855_advertencia.png",
+      "sha256": "df06f0977b5a7d62cb4086f876ec8ccd772fa6bf590c66f314d76928050ee499"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/0_bienvenida_produccion.png",
+      "sha256": "ef0d2a6a0e1d9f3ceda6cc36459a4e55cf0a52cab7c2537f9b4177ceee11e657"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/10_mapa_diferencias_final.png",
+      "sha256": "ad1b3752a107df90914d1f98deac4edb4a6f4ce4aca0962d7576d497160f9fcd"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/10_responsivo_1920x1080.png",
+      "sha256": "6b6e6ecaab8fade7d18a6a72b6def4d9bf6b49a9a47ceba069b99aa985327cdd"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/11_objetos_detectados_final.png",
+      "sha256": "58c3ed7c0e914430a83a575fec2f64baaab2f40cd1d9879b28be2b362a74fc60"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/1_bienvenida_final.png",
+      "sha256": "9503e209a97bf54c706fcc92d4e46873e56efd727dadd072fe9bf3945b206471"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/1_pantalla_esencial_ampliada.png",
+      "sha256": "5effa693cf6a0c8d3c806a8e64cc92326783a588457dabc9476031094b42c6ab"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/2_bienvenida_voz_activa_final.png",
+      "sha256": "2fa929f9e4ef55b14cdee478cb8225d6ae2459147e6834a817b73f09e48644da"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/2_vista_comparada_dual_balanceada.png",
+      "sha256": "f9d1d196a7f23aad56ed511eff3eb23d95f0c158caf30909c425814e27cae3dc"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/3_barnard_astrometria_cobertura.png",
+      "sha256": "29f27b43a5ccd47e7e99d215dace91a5ea1791a380e9d0483af78d0e3f1b1fc9"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/3_comparar_epocas_blink_fluido.png",
+      "sha256": "f9306539aaf92db96ef951229b5555dae2d8327ad50d3ffa7e0e9df4e3e19b71"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/4_eps_indi_sensible.png",
+      "sha256": "439ffa20471b28d25b72fc58a5ea49e1138b14435290fd1dcbe72263a5cb60c4"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/4_mapa_diferencias_ampliado.png",
+      "sha256": "27e5acf1d09f93e99ffb9322825121d39bf8311a763d0d4c213faa927e9c3ef7"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/5_catalogo_candidatos_categorizado.png",
+      "sha256": "c9b3186c350967f44d77db634076ff1c0fcb85e4221896326ac27c659726eac6"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/5_wise0855_warning_d6.png",
+      "sha256": "128a3b4adaf7243cec9192cbf05959788e41c3a99a51ea714dabc8f6945c5611"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/6_modo_tecnico_completo.png",
+      "sha256": "c02bf1c897e386998c35a6a73b56584e6545d10a1a997e87630668f7485e4aae"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/6_rw_aurigae_variable.png",
+      "sha256": "c0ed79238b05b61be030ebac661c61c5c52220489be9196a37761c649aee3eb6"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/7_r_draconis_mira.png",
+      "sha256": "1be01b8ba6aa283aa2a06868a18a21dfa34092e6d35edc32512e0c3330e7a9ae"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/7_wise_0855_warning_estricto.png",
+      "sha256": "d5223f4a01a6cb667a49a18a91d15c98ac813c8b5f47b965688a609f7a9faa26"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/8_responsivo_1366x768.png",
+      "sha256": "3a63692fe61ae0c6a08be4cd6a6121694101ebdf391408851b7905830d78760f"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/8_vista_comparada_dual_final.png",
+      "sha256": "6d2a750eb4255ed75f9386de5e0c7c45998521ad365222cac730f859a52fd638"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/9_blink_final.png",
+      "sha256": "c20c6a8bcebc67c4e589bacc16ce1c74072469a5855b896a3335373d96e7caa7"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/9_responsivo_1440x900.png",
+      "sha256": "f1e6c0832827d3d152c2b7c4d82ae90a2b81a490cbe38529e626c9e5a27f0e9e"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/vercel_10_differential.png",
+      "sha256": "79b6f151fcfef8d25e1e93380122bc5663730a82e2f1f8bc3506cec62d591784"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/vercel_11_candidates.png",
+      "sha256": "60417c605b01473ffdcae11477e6823bcc72f0c9076cabf0aee39e48d964f164"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/vercel_1_bienvenida.png",
+      "sha256": "05bdb16cfd5c0b3273aa6631b6acc3d1a9f922277ed801966f45129f71345396"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/vercel_2_bienvenida_voz_activa.png",
+      "sha256": "6c814354bcaca653ce335246f86928c9620677be02f5cbb32972f2bdbe429b50"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/vercel_3_barnard_esencial.png",
+      "sha256": "f05038580cbe9b631cc6bb4a8bf4fbb45d14286831c6f27414bb46b1899b8440"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/vercel_4_eps_indi_esencial.png",
+      "sha256": "32bbd293f027e860d92b3bfd986f2cb503abbaedf00a6090f96cc87090beac72"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/vercel_5_wise0855_warning.png",
+      "sha256": "8845ff1344a10f38077590834c40ab4fac6ef981fb0d57869936c35b13db08dd"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/vercel_6_rw_aurigae.png",
+      "sha256": "c34d62ae1df1c2cf9a38697af85eab1690e567231ae8c002f77ebff832f9f3c4"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/vercel_7_r_draconis.png",
+      "sha256": "21cd4e8a0d995438caca3539fa28b4e6ef7a9c8c9e69a33907860f0a86c70a74"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/vercel_8_side_by_side.png",
+      "sha256": "e8b5988cc5cfbf3b236c26b3341c57989c95dd83bec49be38e5cb8cca8904d57"
+    },
+    {
+      "file": "docs/demo-evidence/vercel-live/vercel_9_blink.png",
+      "sha256": "0f97f2c9469727b37540c2f7d819b4cf0832e2c60ebd567dc57f18369651ead4"
+    },
+    {
+      "file": "docs/FUENTES_Y_LIMITACIONES.md",
+      "sha256": "82b5f420403fa6b2be3df8e7b0f3c22be1a11602063bafc3fde658008bf10feb"
+    },
+    {
+      "file": "docs/GUIA_USUARIO.md",
+      "sha256": "5aaa37fed2971478401dd1d170f67035a2512cd93e0b98a428d591c310fb5975"
+    },
+    {
+      "file": "docs/kronox-badges.svg",
+      "sha256": "6fdc6297d06eafaecc3b87ed1b493515430c2b56eb78cd9d9ee7215ecb41473b"
+    },
+    {
+      "file": "docs/kronox-banner.svg",
+      "sha256": "62702f7071b97ef0c51433cbe31c17afcbfb48528bf315c91671bf78564335de"
+    },
+    {
+      "file": "docs/wiki/Arquitectura.md",
+      "sha256": "438036cc0001aa0174d81872c62f6739e6d1eeefd76f84cad208dc4bf5930121"
+    },
+    {
+      "file": "docs/wiki/Ciencia-y-limitaciones.md",
+      "sha256": "1a0de42de878b8ed5541c358086cd7b3bccaa98c0623bc4b7c5e60fdb76d2a00"
+    },
+    {
+      "file": "docs/wiki/Desarrollo-y-publicacion.md",
+      "sha256": "b081b937b390b52f247c77e32bfa527cbdd3d8dc9c40c7cffe65766c7bebe77b"
+    },
+    {
+      "file": "docs/wiki/Guia-de-uso.md",
+      "sha256": "c89da6cb838ebba9322065f35cccc65670fe40addb2a11d08928b98a02eb7aa4"
+    },
+    {
+      "file": "docs/wiki/Mision-SPHEREx.md",
+      "sha256": "bf1be5f1037e08e78276aa5604545354cf30c7f9501e87fae8937b2d817837b5"
+    },
+    {
+      "file": "docs/wiki/README.md",
+      "sha256": "ed90524bb59db0fb8e1e3d7e40d5e37cffd80eca989931868a6b05b761805261"
+    },
+    {
+      "file": "index.html",
+      "sha256": "270cd804c5df8820673f1440941ccdbac8f96e31912ce19aa3f3f7d9148e9131"
+    },
+    {
+      "file": "package-lock.json",
+      "sha256": "61dfa7075bd0ffddf8910d6a65abda9174f5cc4bb43b19ac6b1a7ef368f3972b"
+    },
+    {
+      "file": "package.json",
+      "sha256": "397aee360aa3645a9914b234d16aebd41331a614100e54b7467f978d9b210379"
+    },
+    {
+      "file": "public/textures/planets/2k_earth_clouds.jpg",
+      "sha256": "fffd7f68d41b37274822150e54a6ef605af1d3ec35624d9f628c3b896bfa42ed"
+    },
+    {
+      "file": "public/textures/planets/2k_earth_daymap.jpg",
+      "sha256": "685bb3159a96e6bf88070d84a0b52a5c1dda03c6d57a0e1cfe9e4bd70accaf55"
+    },
+    {
+      "file": "public/textures/planets/2k_earth_normal_map.jpg",
+      "sha256": "893865a29e76ee0622b3750b4382a2733448f8e7ac8f6934ba8195045791ed23"
+    },
+    {
+      "file": "public/textures/planets/2k_jupiter.jpg",
+      "sha256": "b0f04d005350252636b0e3396fc592548cbd9e9126b269d32d5c6abd4b0e4f2b"
+    },
+    {
+      "file": "public/textures/planets/2k_mars.jpg",
+      "sha256": "2d187f3e77a98eaa8cea5f4cc722f633c122ef170b9e94ace6b5fb6cbc3f8e01"
+    },
+    {
+      "file": "public/textures/planets/2k_mercury.jpg",
+      "sha256": "5a5c80607f643496bac9a631e71957def35ed788895f18b678ac849c2b38e48a"
+    },
+    {
+      "file": "public/textures/planets/2k_moon.jpg",
+      "sha256": "2764ba6535ea0481a062846ee033cc7a909dae05b31a8fd13f3e98f3a7fd92bd"
+    },
+    {
+      "file": "public/textures/planets/2k_neptune.jpg",
+      "sha256": "cb42ea82709741d28b0af44d8b283cbc6dbd0c521a7f0e1e1e010ade00977df6"
+    },
+    {
+      "file": "public/textures/planets/2k_saturn.jpg",
+      "sha256": "54a900ca9bf7ab62e70f862852759abdf342e6d6436a95a2fe9ebdb6bcd3bbac"
+    },
+    {
+      "file": "public/textures/planets/2k_uranus.jpg",
+      "sha256": "d15239d46f82d3ea13d2b260b5b29b2a382f42f2916dae0694d0387b1204a09d"
+    },
+    {
+      "file": "public/textures/planets/2k_venus.jpg",
+      "sha256": "225012ad4911730605c4e189ca2a3bf674fce50cc48aab4102b936b47d6991ac"
+    },
+    {
+      "file": "public/textures/planets/2k_venus_atmosphere.jpg",
+      "sha256": "225012ad4911730605c4e189ca2a3bf674fce50cc48aab4102b936b47d6991ac"
+    },
+    {
+      "file": "public/textures/planets/README.md",
+      "sha256": "e17ebda5ff000a0c7010c9bd2dce862f16de338fe1c6392ca02ad208a9a02d43"
+    },
+    {
+      "file": "README.md",
+      "sha256": "5225cb24b5e0028d319e5b86a9987b2648cdad163000348acf74b8cae5c4ebbf"
+    },
+    {
+      "file": "scripts/audit-pixel-matrices.mjs",
+      "sha256": "4113ca82900d3fa1038ed1454d2e03921b7073fe64189219b388e8caa698b087"
+    },
+    {
+      "file": "scripts/batch_capture.js",
+      "sha256": "fbb7723df0268f19a000df9363323d55be3cb5adf5aee3652c81dfe0133575c7"
+    },
+    {
+      "file": "scripts/batch_capture.mjs",
+      "sha256": "c6728bdd468ae96ab09b9bb485ba3746acf27f61b2a289067ccd708bfeb8ff4b"
+    },
+    {
+      "file": "scripts/capture_real_demo.mjs",
+      "sha256": "b1e05287c826055d4392c434f1392eba4a1d68071ea1d856340ab20ff01c7572"
+    },
+    {
+      "file": "scripts/rehearse-demo.mjs",
+      "sha256": "d014284356e6e26eb93a3fb440a215e539463efbe6789cc9efb748bd916797ee"
+    },
+    {
+      "file": "scripts/verify_refined_prod.mjs",
+      "sha256": "16aba460d85f905655b5cf3c28f641eb8321f0435668e3ee4d8d2e0e54cadd80"
+    },
+    {
+      "file": "src/App.jsx",
+      "sha256": "15c68a23b84b1856927c0b1ec0e2c66dc50c6c8be6684feb38854964783f9254"
+    },
+    {
+      "file": "src/components/KronoxWidget.tsx",
+      "sha256": "e93473ba5312a29c8d66e6910ae48cc895c5b2ccef0e860d11f84ddd037f91be"
+    },
+    {
+      "file": "src/components/MobileFlightControls.jsx",
+      "sha256": "8b6998449b6ad55bb73faf5b0517ccd24341c69f630a696ee34b9c3bf424e2ca"
+    },
+    {
+      "file": "src/components/NearbyGalaxies.jsx",
+      "sha256": "e85b0495edf77341112382c3dd54d0198e2d4ab01fbefadfd48effc26068dcc2"
+    },
+    {
+      "file": "src/components/PlanetInfoModal.jsx",
+      "sha256": "6559834dc9f134ca8a9695feeea218d6e75ac0f8b9aeb225bf05d3f88fe0f918"
+    },
+    {
+      "file": "src/components/QuickTravelMenu.jsx",
+      "sha256": "5d6d09ad676e6a4f08a81a1817102f77ba227607cde78fc78bd6f0478ef1a158"
+    },
+    {
+      "file": "src/components/SpaceshipCockpit.jsx",
+      "sha256": "199c6a1fab21f50cee4cb120eb42e2ebaa5caf45bf507f698dd681526121b587"
+    },
+    {
+      "file": "src/components/SpherexMission.jsx",
+      "sha256": "d7e51dfbd5893670860c837b835792e81265b92a6760f3eef889d305f0979afd"
+    },
+    {
+      "file": "src/components/SpherexMissionSelector.jsx",
+      "sha256": "ead951e1965b1523b2b7b3d7c2263c992ed739d306ea29de1221ae9a8b4fb919"
+    },
+    {
+      "file": "src/components/ToastNotification.jsx",
+      "sha256": "fb3de5118cdd192b1ce79ee5d3e38b68db9ab6ff7b78d36fd4c0dc92a3fafe87"
+    },
+    {
+      "file": "src/data/nearbyGalaxies.js",
+      "sha256": "935ad89e000e5f86b12ab6564b0ac030418ccdc0a67e0915eca74cb32f205eef"
+    },
+    {
+      "file": "src/data/planetData.js",
+      "sha256": "4223dd526fae1947db520563675e65a3f69258238868c02e70bed381858cfe46"
+    },
+    {
+      "file": "src/data/spherexTargets.js",
+      "sha256": "4c1b238927ba3ddd40f987cf44e5e76c31b3e9375802aa47a9ae2772bc9891d4"
+    },
+    {
+      "file": "src/i18n.js",
+      "sha256": "c93abf889cc3c1c32a1ae069467c017cc826673d64893850ec1cd82ea34673d6"
+    },
+    {
+      "file": "src/main.jsx",
+      "sha256": "0175ef8ff0ea8a3e228c5f77a7d117421a63a050126886183943f2f2c574e26b"
+    },
+    {
+      "file": "src/scene/createScene.js",
+      "sha256": "650f5503c311b84d984f8c53dacf5e7405e798f86a6b6053e2f40e2d75a798d0"
+    },
+    {
+      "file": "src/scene/habitableShipWorld.js",
+      "sha256": "8944e9cdb3bd146ae16c16dfa0ff4ec2d055d9f56fa26f80fa543edb82107c2a"
+    },
+    {
+      "file": "src/scene/kronoxSceneDirector.js",
+      "sha256": "f7d36ca1afce44b769088faf2b11b55f24ccb94e8c5bcb585fe9e9a0dbcefb35"
+    },
+    {
+      "file": "src/state/kronoxMessages.ts",
+      "sha256": "d910ac8c9c4ca793b4ac4d02baf0a4144baf4131519de6c1083090c8bc13f47f"
+    },
+    {
+      "file": "src/styles/expedition.css",
+      "sha256": "f17f6247875b422fb8c02d4a1bc058f8354df9cc283a6b2a8fc95f542da6f6cb"
+    },
+    {
+      "file": "src/styles.css",
+      "sha256": "249a8b8121454762b7fff6fcd9201bf7f64d6eef63a29afd4b9f6a9e31f2a51a"
+    },
+    {
+      "file": "src/utils/differentialImaging.js",
+      "sha256": "d61e198e0c54bfba1309191488ed0a25be15a6e2e5a02495fe8dd66f2c872829"
+    },
+    {
+      "file": "src/utils/findingsStorage.js",
+      "sha256": "2f4d2851a2887d90d3ed59ab8983dbc2eb9b90505da8eedb058ea3f377db7c52"
+    },
+    {
+      "file": "src/utils/fitsImage.js",
+      "sha256": "ab5e3defe81115277ca53400497c6f8482957fa33db0d6b7e706c35975dddf1d"
+    },
+    {
+      "file": "src/utils/floatingOverlayLayout.js",
+      "sha256": "d0dc35ff70afdf8e71bf12ec1b1e2f695bc5ddd489d1a4a52ee3520795c0c628"
+    },
+    {
+      "file": "src/utils/gameAudio.js",
+      "sha256": "774479d729ec03d18a1061d663526f9d7ef9cce3b3a441c2bfb3ea351cfbb305"
+    },
+    {
+      "file": "src/utils/kronoxAI.js",
+      "sha256": "c54c1c56513ef2321580857a0fb325ab786cc4eaad5f520484293c331c0b4910"
+    },
+    {
+      "file": "tests/astrometry.test.mjs",
+      "sha256": "c375f5dbb9d15a2b0691074d626a039bedfeaf97d6cff2cf27fced354cb5d654"
+    },
+    {
+      "file": "tests/findings-storage.test.mjs",
+      "sha256": "863d32dfc637424a6e85ea6a26939f827bad794e2bdb442f4189373d0aaf59da"
+    },
+    {
+      "file": "tests/kronox-messages.test.mjs",
+      "sha256": "da3df0ecdde7874f9651615a98b56c3b7ee9ab7dbf68bf3c81c1af06426e538b"
+    },
+    {
+      "file": "tests/product-flow.test.mjs",
+      "sha256": "833857f23a190b6865d88c02bbb72024b6ab56a2fc59d6d5b357afa890dd6639"
+    },
+    {
+      "file": "tsconfig.json",
+      "sha256": "ac610c3669b6f77772e2b9778c27429811ab9009e55ed35a0b9541ca38e46dac"
+    },
+    {
+      "file": "vercel.json",
+      "sha256": "2ad5025f7862096cdb12bbf72a21bc56aaf17b5e404553f16a1bff3142bc6547"
+    },
+    {
+      "file": "vite.config.js",
+      "sha256": "d133e67b16e6d33e9ea70e72535b29344cf686ac6a8c648760570cda7efd5fbb"
+    }
+  ]
+}

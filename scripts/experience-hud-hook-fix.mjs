@@ -1,0 +1,6 @@
+import fs from 'node:fs';const file='src/App.jsx';let s=fs.readFileSync(file,'utf8');const block=`const missionOfferTimer=useRef(null);
+  const clearMissionOffer=()=>{clearTimeout(missionOfferTimer.current);setMissionLaunchTarget(null);setMissionArrival(false);};
+  useEffect(()=>()=>clearTimeout(missionOfferTimer.current),[]);
+`;if(!s.includes(block))throw Error('Timer block not found');s=s.replace(block,'');s=s.replace('  const languageManuallyChosen = useRef(false);','  '+block+'  const languageManuallyChosen = useRef(false);');
+s=s.replace("onObserve:()=>{clearMissionOffer();setMissionTargetKey(selectedObject?.kind==='spherex'?selectedObject.key:missionTargetKey);setMissionInitialStage('explore');setMissionOpen(true);}","onObserve:()=>{clearMissionOffer();const key=selectedObject?.key||(nearbyMapActive?nearbyGalaxyKey:navigationScale.targetKey)||missionTargetKey;if(!SPHEREX_TARGETS.some(t=>t.key===key)){setMissionSelectorOpen(true);return;}setMissionTargetKey(key);setMissionInitialStage('explore');setMissionOpen(true);}");
+s=s.replace("onMap:()=>{A()?.setNavigationScale?.('stellar');setFr(false);setNearbyMapActive(false);setSelectedObject(null);clearMissionOffer();}","onMap:()=>{if(A()?.setNavigationScale?.('stellar')){setFr(false);setNearbyMapActive(false);setSelectedObject(null);clearMissionOffer();}}");fs.writeFileSync(file,s);

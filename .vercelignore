@@ -1,0 +1,13 @@
+.git/
+.vercel/
+.cache/
+node_modules/
+dist/
+.env*
+!.env.example
+docs/
+tests/
+scripts/
+backups/
+*.log
+*.zip

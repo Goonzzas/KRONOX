@@ -1,0 +1,16 @@
+✔ Date navigation covers the full interval, deduplicates processing versions, and balances spectral detectors (2.4797ms)
+✔ Curated temporal pairs reproduce native FITS measurements, hashes, date spans and local wavelength compatibility (128.7122ms)
+✔ Temporal screening rejects sparse apertures, same numeric dates and incompatible units without discarding real spectral samples (0.2692ms)
+✔ Local and regional atlases contain named catalog systems at their radial distances and preserve provenance (20.1313ms)
+✔ Galaxy symbols have bounded nonoverlapping world radii; projected labels avoid panels and one another (6.0447ms)
+✔ Labels keep a bounded pixel footprint during a trip regardless of legacy scale, distance or parent scale (0.9283ms)
+✔ Elliptical galaxies use a thick ellipsoidal volume and spirals a disk, without duplicate group galaxies (7.6812ms)
+✔ React gallery exposes nine images per page and all products; catalog-star inspector does not offer undefined planet travel (1366.3682ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1953.5717

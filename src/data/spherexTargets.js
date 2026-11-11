@@ -1,3 +1,6 @@
+import {NEARBY_GALAXIES} from './nearbyGalaxies.js';
+import { RESEARCH_CATALOG } from './researchCatalog.js';
+import {VERIFIED_OBSERVATIONS as LOCAL_OBSERVATIONS} from './verifiedObservations.js';
 const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 180 / Math.PI;
 const MAS2RAD = DEG2RAD / 3600000;
@@ -290,12 +293,30 @@ const RAW_TARGETS = [
   },
 ];
 
+const m31 = LOCAL_OBSERVATIONS.targets.find(t=>t.key==='m31');
+if(m31?.records.length) RAW_TARGETS.push({key:'m31',mission:'spectral',name:'M31 · Andrómeda (núcleo)',ra:m31.ra,dec:m31.dec,type:'galaxia',distanceLy:m31.distanceLy,distanceLabel:'≈ 2.5 millones de años luz (NASA)',distanceSource:m31.distanceSource,note:'Región central de una galaxia espiral; el recorte no contiene toda M31.',preferredBand:m31.records[0].band,scientificStatus:'ARCHIVO',statusBadge:'FITS LOCALES',scientificLimitations:'Cobertura verificada; no equivale a detección de una línea o variabilidad. Volumen 3D ilustrativo.',observationSummary:'Recortes SPHEREx QR2 identificados; apertura extendida definida.'});
+const m101=LOCAL_OBSERVATIONS.targets.find(t=>t.key==='m101');
+if(m101?.records.length)RAW_TARGETS.push({key:'m101',mission:'spectral',name:m101.name,identifier:m101.identifier,ra:m101.ra,dec:m101.dec,type:'galaxia',morphology:'spiral',distanceLy:m101.distanceLy,distanceLabel:'≈ 25 millones de años luz (NASA; valor aproximado)',distanceSource:m101.distanceSource,coordinateSource:m101.coordinateSource,note:'Recorte del núcleo; no abarca el disco completo de M101.',preferredBand:'ALL',scientificStatus:'ARCHIVO',statusBadge:'FITS LOCALES',scientificLimitations:'Recortes locales con apertura central válida; PSF sin homogeneizar. Geometría 3D ilustrativa.',observationSummary:'375 productos QR2 y 0 QR3 en la consulta verificada; QR3 puede cambiar.'});
+SPHEREX_MISSION_TYPES.push({key:'spectral',title:'Evidencia y espectros',description:'Contrasta brillo, incertidumbres y cobertura de una estrella y una galaxia.',objective:'Identifica el objetivo, inspecciona una medición y justifica una conclusión.',targetKeys:['barnard','rw-aurigae',...(m101?.records.length?['m101']:[]),...(m31?.records.length?['m31']:[])]});
+for(const entry of RESEARCH_CATALOG.targets){if(RAW_TARGETS.some(t=>t.key===entry.key)||entry.verification!=='ARCHIVE_COVERAGE_ONLY')continue;RAW_TARGETS.push({...entry,mission:'catalog',distanceLy:null,distanceLabel:'Distancia pendiente de verificar',note:'Cobertura de archivo QR2 encontrada; calidad de píxeles pendiente.',preferredBand:entry.archiveProduct?.band||'SPHEREx-D2',scientificStatus:'ARCHIVO',statusBadge:'COBERTURA',archiveCoverageOnly:true,scientificLimitations:'Cobertura del archivo no equivale a una detección de la fuente.',observationSummary:'Consultar productos y comprobar la apertura antes de concluir.'});}
+SPHEREX_MISSION_TYPES.push({key:'catalog',title:'Catálogo por tipo · galaxias',description:'Cobertura oficial encontrada; estas extensiones requieren comprobar calidad en vivo.',objective:'Distingue disponibilidad del archivo y medición válida del objeto.',targetKeys:RAW_TARGETS.filter(t=>t.mission==='catalog').map(t=>t.key)});
 export const SPHEREX_TARGETS = RAW_TARGETS.map((target) => {
-  const propagated = propagateCoordinates(target.astrometry, SPHEREX_REFERENCE_EPOCH);
+  const propagated = propagateCoordinates(target.astrometry, SPHEREX_REFERENCE_EPOCH) || {ra:target.ra,dec:target.dec};
+  const local=LOCAL_OBSERVATIONS.targets.find(t=>t.key===target.key);
+  const galaxy=NEARBY_GALAXIES.find(g=>g.key===target.key),knownDistance=Number.isFinite(target.distanceLy)?target.distanceLy:galaxy?.distanceMly?galaxy.distanceMly*1e6:null;
   return {
     ...target,
+    distanceLy:knownDistance,distanceLabel:Number.isFinite(target.distanceLy)?target.distanceLabel:galaxy?.distanceText?.es||target.distanceLabel,distanceSource:target.distanceSource||galaxy?.sources?.[0]?.url||null,
     ra: propagated.ra,
     dec: propagated.dec,
+    morphology: target.morphology || RESEARCH_CATALOG.targets.find(t=>t.key===target.key)?.morphology || null,
+    type: target.type || (target.key==='rw-aurigae'?'estrella joven':'estrella'),
+    identifier: local?.identifier || target.astrometry?.source || target.key,
+    question: local?.question || '¿Qué evidencia permiten realmente estas observaciones?',
+    localRecords: local?.records || [],
+    temporalPair: local?.temporalPair || null,
+    dataProvenance: local || null,
+    archiveVerified: !!local?.records.length,
     referenceEpoch: SPHEREX_REFERENCE_EPOCH,
     propagated,
   };

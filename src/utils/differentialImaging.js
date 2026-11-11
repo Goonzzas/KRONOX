@@ -5,6 +5,7 @@ import {
   SPHEREX_FLAG_BITS,
   assessPhotometricComparability,
   classifyPixelFlags,
+  estimateEmpiricalBackground,
 } from './fitsImage.js';
 import { propagateCoordinates } from '../data/spherexTargets.js';
 
@@ -326,6 +327,8 @@ export function computeDifferentialImage(frame1, frame2, options = {}) {
   const flags1 = frame1.reprojected?.flagsPixels || frame1.rawFlagsPixels;
   const flags2 = frame2.reprojected?.flagsPixels || frame2.rawFlagsPixels;
 
+  if(!var1||!var2)throw new Error('Faltan varianzas; no se inventa una significancia diferencial.');
+
   // Compute or apply photometric scale and residual background
   const scaleNorm =
     options.manualAlpha !== undefined
@@ -435,6 +438,11 @@ export function computeDifferentialImage(frame1, frame2, options = {}) {
   // ---------------------------------------------------------------------------
   // EMPIRICAL NOISE CALIBRATION ON SOURCE-FREE SKY REGIONS
   // ---------------------------------------------------------------------------
+  // Each input has its own background scale; never compare input intensities to a residual median.
+  const skyMask = CATEGORY_A_INSTRUMENTAL_MASK | CATEGORY_B_QUALITY_WARNING_MASK | CATEGORY_C_CANDIDATE_ANOMALY_MASK | SPHEREX_FLAG_BITS.MP_SOURCE;
+  const sky1 = estimateEmpiricalBackground(pixels1, flags1, skyMask);
+  const sky2 = estimateEmpiricalBackground(pixels2, flags2, skyMask);
+  const skyPairs = [];
   const skyDiffVals = [];
   const skyTheoSigVals = [];
   const cx = width * 0.5;
@@ -452,7 +460,10 @@ export function computeDifferentialImage(frame1, frame2, options = {}) {
       if (!Number.isFinite(d) || !Number.isFinite(s) || s <= 0) continue;
 
       // Select source-free background: fluxes below median + 2.5 sigma
-      if (v1 <= medianDiff + 1.5 && v2 <= medianDiff + 1.5) {
+      if (((flags1?.[idx] || 0) & skyMask) === 0 && ((flags2?.[idx] || 0) & skyMask) === 0 &&
+          v1 <= sky1.medianMjySr + 2.5 * sky1.nmadMjySr &&
+          v2 <= sky2.medianMjySr + 2.5 * sky2.nmadMjySr) {
+        skyPairs.push([d,s]);
         skyDiffVals.push(d);
         skyTheoSigVals.push(s);
       }
@@ -505,8 +516,8 @@ export function computeDifferentialImage(frame1, frame2, options = {}) {
   if (skyDiffVals.length >= 100) {
     const calSkySnrs = [];
     for (let i = 0; i < skyDiffVals.length; i++) {
-      const d = skyDiffVals[i];
-      const s = skyTheoSigVals[i] * etaSky;
+      const d = skyPairs[i][0];
+      const s = skyPairs[i][1] * etaSky;
       const sCal = d / s;
       calSkySnrs.push(sCal);
       if (Math.abs(sCal) >= 5.0) falsePositiveCount++;
@@ -542,6 +553,7 @@ export function computeDifferentialImage(frame1, frame2, options = {}) {
       medianTheoSigma: Number(medianTheoSigma.toFixed(4)),
       robustSigmaSkyCal,
       skyControlCount: skyDiffVals.length,
+      background1: sky1, background2: sky2, selectionMethod: 'input-specific median + 2.5 NMAD; paired residual/sigma',
       falsePositiveCount,
     },
     stats: {
