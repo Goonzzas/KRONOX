@@ -1,34 +1,36 @@
-# Preparación de Vercel para esta rama
+# KRONOX en Vercel
 
-Esta rama contiene el estado actual de Kronox: cinemática y escenas de Gemini, música, voz Fish Audio, catálogos, FITS locales y pruebas. No modifica main. La publicación en Vercel se hará por separado.
+Sitio público: **https://kronox-three.vercel.app**.
 
-## Ajustes del proyecto
+- Equipo y proyecto: Astral Sentinels / kronox.
+- Rama: `codex/kronox-actual-voz-musica-2026-11-11` en Goonzzas/KRONOX.
+- Framework: Vite; raíz del repositorio; `npm run build`; salida `dist`.
+- Vite usa `/` cuando `VERCEL=1`.
+- Endpoints: `/api/fish-tts`, `/api/voice`, `/api/spherex` y `/api/locale`. Los auxiliares están en `api/_lib/` y no se publican como funciones.
 
-- Repositorio: Goonzzas/KRONOX.
-- Rama: codex/kronox-actual-voz-musica-2026-11-11.
-- Directorio raíz: la raíz del repositorio.
-- Framework: Vite; instalación: npm ci; build: npm run build; salida: dist.
-- El frontend y las funciones API están incluidos. Vite usa la base / cuando VERCEL=1; Vercel aporta esa variable de sistema.
+## Voz y música
 
-## Variables privadas y públicas
+La voz Fish Audio usa el ID público **8150d8bf74d245cd84a154b785aa7fab**.
 
-| Nombre | Tipo en Vercel | Valor |
+| Variable de producción | Tipo | Configuración |
 |---|---|---|
-| FISH_AUDIO_API_KEY | Secret | Tu clave privada, conservada localmente en .env.local; no está en GitHub |
+| FISH_AUDIO_API_KEY | Secret | Guardada en Vercel y en la configuración local privada; nunca en GitHub |
 | FISH_AUDIO_MODEL | Config | s2.1-pro-free |
 
-La referencia pública de la voz es **8150d8bf74d245cd84a154b785aa7fab**. Está configurada en src/utils/voiceProvider.js y src/server/fishAudioTts.js; no necesita ser un secreto ni otra variable. Nunca añadas el prefijo VITE_ a una clave privada.
+La música proporcionada está en `public/audio/intro-score.mp3`. Se reproduce durante la cinemática y se detiene al finalizar u omitirla. El navegador requiere una primera interacción para permitir sonido; el botón de activación desbloquea música y narración.
 
-En Vercel, abre Settings → Environment Variables y configura esas variables para el entorno que vayas a usar (Preview para una prueba de la rama; Production cuando corresponda). Después genera un nuevo despliegue para que se apliquen. No se configuró ni desplegó Vercel en esta publicación de GitHub.
+No uses el prefijo `VITE_` para claves privadas. `.vercelignore` excluye configuraciones privadas, cachés, dependencias y auditorías de la carga. Los archivos de `public/`, las escenas y los datos de la aplicación sí se despliegan.
 
-## Música y archivos locales
+## Datos científicos y cachés
 
-La música está en public/audio/intro-score.mp3 y conserva el archivo proporcionado. public/audio/README.md identifica su procedencia. La cinemática usa esa ruta y la detiene al finalizar u omitir. Los productos FITS de demostración, texturas y demás recursos están en public/.
+La consulta en vivo usa NASA/IPAC IRSA. Los FITS versionados de `public/demo/` conservan sus hashes de procedencia. La interfaz distingue los productos locales del archivo completo y mantiene las limitaciones de interpretación. Las reconstrucciones ilustrativas conservan sus fuentes; no se presentan como fotografías SPHEREx.
 
-La clave auténtica, node_modules, dist, cachés y ZIP antiguos no se versionan. .env.example documenta la configuración sin incluir credenciales. Para una copia local, crea .env.local a partir de ese ejemplo, añade tu clave y ejecuta npm ci y npm run dev.
+Las cachés de voz y archivo usan el directorio temporal del servidor en Vercel. Un fallo de caché no descarta una respuesta válida de IRSA. No se requiere almacenamiento persistente para esa caché.
 
-## Comprobaciones
+## Verificación y actualizaciones
 
-Se conserva la suite de 169 pruebas de la copia actual. Esta publicación verifica además integridad de los recursos, compilación con la base de Vercel y ausencia de la clave en los archivos versionados. Las modificaciones de empaquetado son .gitignore, el comentario de ID en .env.example, este documento y permitir que INICIAR-DEMO.ps1 se use dentro de un clon Git.
+Se verificaron las 170 pruebas, TypeScript y la compilación de producción. Las comprobaciones HTTP confirmaron la voz con `X-Kronox-TTS-Provider: fish-audio`, la música original, 252 productos de Barnard y un recorte FITS real válido. La auditoría de recursos compara archivos publicados con originales mediante SHA-256. Las capturas y reportes de ejecución se conservan fuera del repositorio.
 
-Referencias oficiales: [variables de entorno](https://vercel.com/docs/environment-variables), [tipos Config y Secret](https://vercel.com/changelog/environment-variables-now-use-config-and-secret-types).
+Para actualizar, despliega esta rama en `astral-sentinels/kronox`, verifica el resultado y promuévelo a la dirección pública. `.vercel/`, los tokens de acceso y `.env.local` no se versionan. Los cambios de variables requieren un nuevo despliegue.
+
+Referencias oficiales: [variables de entorno](https://vercel.com/docs/environment-variables), [auxiliares de API](https://vercel.com/docs/functions/configuring-functions/advanced-configuration), [despliegues](https://vercel.com/docs/deployments).
