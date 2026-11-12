@@ -91,6 +91,9 @@ export default function KronoxWidget({
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
   const [partIndex, setPartIndex] = useState(0);
+  const [listeningMic, setListeningMic] = useState(false);
+  const [micStatus, setMicStatus] = useState('');
+  const recognitionRef = useRef<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const interventions = useMemo(() => splitIntervention(narrative?.text || ''), [narrative?.id, narrative?.text]);
   const intervention = interventions[partIndex] || '';
@@ -169,6 +172,65 @@ export default function KronoxWidget({
     onCommand(query);
   };
 
+  const handleTogglePushToTalk = () => {
+    if (listeningMic && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // ignore
+      }
+      setListeningMic(false);
+      return;
+    }
+
+    const SpeechRecognitionCtor =
+      typeof window !== 'undefined'
+        ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+        : null;
+
+    if (!SpeechRecognitionCtor) {
+      setMicStatus('Reconocimiento de voz no disponible en este navegador.');
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognitionCtor();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = language === 'en' ? 'en-US' : 'es-ES';
+
+      recognition.onstart = () => {
+        setListeningMic(true);
+        setMicStatus('Escuchando orden de voz (se desactiva al terminar frase)...');
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event?.results?.[0]?.[0]?.transcript?.trim() || '';
+        setListeningMic(false);
+        setMicStatus('');
+        if (transcript) {
+          setInputQuery(transcript);
+          onCommand?.(transcript);
+        }
+      };
+
+      recognition.onerror = () => {
+        setListeningMic(false);
+        setMicStatus('No se detectó voz o permiso de micrófono denegado.');
+      };
+
+      recognition.onend = () => {
+        setListeningMic(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch {
+      setListeningMic(false);
+      setMicStatus('No fue posible iniciar el micrófono bajo demanda.');
+    }
+  };
+
   return (
     <>
       {showCornerOrb && (
@@ -194,7 +256,9 @@ export default function KronoxWidget({
       )}
 
       {/* 2. DISCRETE CINEMATIC SUBTITLE BAR LINKED TO KRONOX IA */}
-      {narrative && !dialogueHidden && subtitlesEnabled && Boolean(typed && typed.trim().length > 0) && (
+      {!dialogueHidden &&
+        ((narrative && subtitlesEnabled && Boolean(typed && typed.trim().length > 0)) ||
+          panelOpen) && (
       <div
         className={`kronoxDialogueCard right ${speaking ? 'is-speaking' : ''} ${panelOpen ? 'expanded' : 'compact'}`}
         role="region"
@@ -309,6 +373,15 @@ export default function KronoxWidget({
                 }
                 aria-label={t('Enviar orden o consulta a Kronox', language)}
               />
+              <button
+                type="button"
+                className={`kronoxSubActionBtn ${listeningMic ? 'is-listening' : ''}`}
+                onClick={handleTogglePushToTalk}
+                title="Pulsar para hablar con Kronox IA (Micrófono bajo demanda)"
+                aria-label="Hablar por micrófono con Kronox IA"
+              >
+                {listeningMic ? '⏹ Escuchando' : '🎙️ Voz'}
+              </button>
               <button type="submit" className="kronoxCommandSend">
                 {language === 'en' ? 'Transmit' : 'Transmitir'}
               </button>
@@ -321,6 +394,7 @@ export default function KronoxWidget({
                 ×
               </button>
             </form>
+            {micStatus && <small role="status" className="kronoxMicStatus">{micStatus}</small>}
 
             <div className="kronoxQuickPrompts">
               {KRONOX_QUICK_PROMPTS.map((item) => (

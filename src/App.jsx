@@ -24,9 +24,11 @@ const SpherexMission = React.lazy(() => import('./components/SpherexMission.jsx'
 import './styles/evidenceLab.css';
 import SpherexMissionSelector from './components/SpherexMissionSelector.jsx';
 import SpaceshipCockpit from './components/SpaceshipCockpit.jsx';
+import PauseMenu from './components/PauseMenu.jsx';
 import { SPHEREX_MISSION_TYPES, SPHEREX_TARGETS } from './data/spherexTargets.js';
-import { processKronoxQuery } from './utils/kronoxAI.js';
+import { processKronoxQuery, askKronoxDynamic } from './utils/kronoxAI.js';
 import { loadFindingsFromStorage } from './utils/findingsStorage.js';
+import { recordJournalActivity } from './utils/expeditionJournal.js';
 import { detectLanguage, hasSavedLanguage, LANGUAGES, t, voiceLanguage } from './i18n.js';
 import { createGameAudio } from './utils/gameAudio.js';
 import { createCinematicSoundtrack } from './utils/cinematicSoundtrack.js';
@@ -195,6 +197,16 @@ export default function App() {
     [fv, setFv] = useState(60),
     [visualProfile, setVisualProfile] = useState('cinematic'),
     [introSubtitles, setIntroSubtitles] = useState(true),
+    [pauseMenuOpen, setPauseMenuOpen] = useState(false),
+    [pauseMenuSection, setPauseMenuSection] = useState('save'),
+    [observationModeInfo, setObservationModeInfo] = useState(null),
+    [planetaryTelemetry, setPlanetaryTelemetry] = useState(null),
+    [gameSettings, setGameSettings] = useState({
+      cameraSensitivity: 'normal',
+      showSubtitles: true,
+      showTelescopeTelemetry: true,
+    }),
+    realTimeIntroActiveRef = useRef(false),
     flR = useRef(fl),
     countTimers = useRef([]),
     missionTravelTipTimer = useRef(null),
@@ -350,9 +362,10 @@ export default function App() {
   voiceRef.current = voice;
   voiceAccentRef.current = voiceLanguage(language, voiceAccent);
   speakingRef.current = speaking;
+  realTimeIntroActiveRef.current = realTimeIntroActive;
   const openKronox = () => {
     clearTimeout(kronoxCloseTimer.current);
-    if (!kronoxDialogHiddenRef.current) setKronoxOpen(true);
+    if (!kronoxDialogHiddenRef.current && !realTimeIntroActiveRef.current) setKronoxOpen(true);
   };
   const closeKronoxLater = () => {
     clearTimeout(kronoxCloseTimer.current);
@@ -768,7 +781,16 @@ export default function App() {
       },
       onObjectSelect: (obj) => {
         setSelectedObject(obj);
-        if (obj) clearMissionOffer();
+        if (obj) {
+          clearMissionOffer();
+          recordJournalActivity({
+            type: 'INSPECT_OBJECT',
+            title: `Objeto inspeccionado: ${obj.key}`,
+            detail: `Categoría: ${obj.kind}`,
+            objectKey: obj.key,
+            objectKind: obj.kind,
+          });
+        }
       },
       onNearestStationChange: (st) => {
         setNearestCabinStation(st);
@@ -826,6 +848,19 @@ export default function App() {
       },
       onConsoleScreenProjection: (proj) => {
         setConsoleProjection(proj);
+        if (api.current?.getObservationMode) {
+          const obsInfo = api.current.getObservationMode();
+          setObservationModeInfo(obsInfo);
+          if (obsInfo?.opticalMagnification > 1 && api.current?.getPlanetaryObservationalTelemetry) {
+            setPlanetaryTelemetry(
+              api.current.getPlanetaryObservationalTelemetry(
+                obsInfo.opticalTargetBody || f || near || 'Júpiter',
+              ),
+            );
+          } else {
+            setPlanetaryTelemetry(null);
+          }
+        }
       },
       onSceneDirectorEvent: (eventName, payload, nextState) => {
         if (nextState) setDirectorState({ ...nextState });
@@ -978,6 +1013,55 @@ export default function App() {
     }).catch(() => {});
     return () => {cancelled = true;};
   }, []);
+
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key !== 'Escape') return;
+      const tag = event.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (pauseMenuOpen) {
+        setPauseMenuOpen(false);
+        return;
+      }
+      if (activeCockpitStation) {
+        setActiveCockpitStation(null);
+        api.current?.setActiveCabinStation?.(null);
+        return;
+      }
+      if (selectedObject) {
+        setSelectedObject(null);
+        return;
+      }
+      if (missionSelectorOpen) {
+        setMissionSelectorOpen(false);
+        return;
+      }
+      if (more) {
+        setMore(null);
+        return;
+      }
+      if (open) {
+        setOpen(false);
+        return;
+      }
+      if (!welcomeOpen && !realTimeIntroActive && !missionOpen) {
+        setPauseMenuSection('save');
+        setPauseMenuOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleEscKey);
+    return () => window.removeEventListener('keydown', handleEscKey);
+  }, [
+    pauseMenuOpen,
+    activeCockpitStation,
+    selectedObject,
+    missionSelectorOpen,
+    more,
+    open,
+    welcomeOpen,
+    realTimeIntroActive,
+    missionOpen,
+  ]);
 
   useEffect(() => {
     const target = near || f;
@@ -1145,7 +1229,7 @@ export default function App() {
       speak(instruction);
     },
     handleKronoxCommand = (query) => {
-      const result = processKronoxQuery(query, {
+      const ctx = {
         activeTargetKey: missionTargetKey,
         missionOpen,
         missionStage: missionStageSync,
@@ -1156,7 +1240,12 @@ export default function App() {
         records: missionRecordsSync,
         scienceContext: missionScienceSync,
         cockpitActive: fr && pv == 1,
-      });
+        observationMode: observationModeInfo?.mode?.id || 'naked-eye',
+        observationModeLabel: observationModeInfo?.mode?.label || 'Simple vista (1×)',
+        activeStation: activeCockpitStation || 'Puente de mando',
+        activeObjective: guideObjective || 'Exploración científica libre',
+      };
+      const result = processKronoxQuery(query, ctx);
       if (result.role) setAiRole(result.role);
       if (result.avatarState) setAiAvatarState(result.avatarState);
       if (result.pointDirection) setAiPointDirection(result.pointDirection);
@@ -1207,6 +1296,16 @@ export default function App() {
           }
           setPv(act.view);
           A().view(act.view);
+        } else if (act.type === 'SET_OPTICAL_TELESCOPE') {
+          actionLabel = act.enabled
+            ? `Telescopio Óptico activado (${act.magnification}×)`
+            : 'Observación a simple vista (1×)';
+          const obsRes = A().setOpticalTelescope?.(
+            Boolean(act.enabled),
+            act.magnification || 150,
+            f || near || 'Júpiter',
+          );
+          if (obsRes) setObservationModeInfo(obsRes);
         } else if (act.type === 'OPEN_MISSION_SELECTOR') {
           actionLabel = 'Consola de misiones activa';
           setMissionOpen(false);
@@ -1219,6 +1318,14 @@ export default function App() {
           setSelectedObject(null);
           setMissionTargetKey(act.targetKey);
           A().moveAiToStation?.('nav', 'Desplazamiento');
+          recordJournalActivity({
+            type: 'TRAVEL_SPHEREX',
+            title: `Salto interestelar hacia ${act.target.name}`,
+            detail: `Distancia: ${act.target.distanceLabel} · Banda: ${act.target.preferredBand}`,
+            objectKey: act.targetKey,
+            objectKind: 'spherex',
+            objectLabel: act.target.name,
+          });
           try {
             const prog = { targetKey: act.targetKey, stage: 'arrival', updatedAt: Date.now() };
             localStorage.setItem('kronox-expedition-progress', JSON.stringify(prog));
@@ -1233,6 +1340,14 @@ export default function App() {
           setMissionSelectorOpen(false);
           setSelectedObject(null);
           A().moveAiToStation?.('nav', 'Desplazamiento');
+          recordJournalActivity({
+            type: 'TRAVEL_PLANET',
+            title: `Tránsito planetario hacia ${act.planetName}`,
+            detail: 'Navegación en Sistema Solar (Época J2000.0)',
+            objectKey: act.planetName,
+            objectKind: 'planet',
+            objectLabel: act.planetName,
+          });
           startTravel(() => {
             if (spec) {
               A().board();
@@ -1272,6 +1387,24 @@ export default function App() {
           A().pointAiAtExternalObject?.(act.kind, act.key);
         }
       }
+
+      if (result.isFallback && !act) {
+        askKronoxDynamic(query, ctx).then((dynRes) => {
+          const finalReply = dynRes?.reply || result.reply;
+          if (dynRes?.role) setAiRole(dynRes.role);
+          if (dynRes?.avatarState) setAiAvatarState(dynRes.avatarState);
+          if (dynRes?.epistemicCategory) setAiEpistemicCategory(dynRes.epistemicCategory);
+          setAiHistory((prev) => [...prev.slice(-4), { query, actionLabel }]);
+          kronoxDialogHiddenRef.current = false;
+          setKronoxDialogHidden(false);
+          say(finalReply);
+          setKronoxOpen(true);
+          clearTimeout(kronoxCloseTimer.current);
+          if (voiceRef.current) speak(finalReply, { interrupt: true });
+        });
+        return;
+      }
+
       setAiHistory((prev) => [...prev.slice(-4), { query, actionLabel }]);
       kronoxDialogHiddenRef.current = false;
       setKronoxDialogHidden(false);
@@ -1313,6 +1446,7 @@ export default function App() {
     !welcomeOpen &&
       !missionOpen &&
       !realTimeIntroActive &&
+      !fr &&
       h(NavigationDock, {
         context: navigationScale,
         travelActive: !!navigation && navigation.phase !== 'countdown',
@@ -2076,6 +2210,8 @@ export default function App() {
         ),
       ),
     pi &&
+      !fr &&
+      !selectedObject &&
       h(
         'div',
         { className: 'in' },
@@ -2105,7 +2241,10 @@ export default function App() {
       ),
     h(KronoxWidget, {
       narrative: guide,
-      dialogueHidden: kronoxDialogHidden,
+      dialogueHidden:
+        kronoxDialogHidden ||
+        realTimeIntroActive ||
+        (gameSettings.showSubtitles === false && !kronoxOpen),
       showCornerOrb: fr && pv === 3 && !welcomeOpen && !realTimeIntroActive,
       speaking,
       audioLevels,
@@ -2280,6 +2419,8 @@ export default function App() {
     guideObjective &&
       fr &&
       pv === 1 &&
+      !selectedObject &&
+      !activeCockpitStation &&
       !nearbyMapActive &&
       !missionTraveling &&
       h(
@@ -2775,6 +2916,24 @@ export default function App() {
         findingsCount: missionFindingsSync.length,
         consoleProjection,
         visualProfile,
+        onOpenPauseMenu: () => {
+          setPauseMenuSection('save');
+          setPauseMenuOpen(true);
+        },
+        observationModeInfo,
+        onSetOpticalTelescope: (enabled, magnification = 150, targetBody = null) => {
+          const targetName = targetBody || observationModeInfo?.opticalTargetBody || f || near || 'Júpiter';
+          const obsRes = A()?.setOpticalTelescope?.(enabled, magnification, targetName);
+          if (obsRes) setObservationModeInfo(obsRes);
+          if (enabled && A()?.getPlanetaryObservationalTelemetry) {
+            setPlanetaryTelemetry(A().getPlanetaryObservationalTelemetry(targetName));
+          } else {
+            setPlanetaryTelemetry(null);
+          }
+        },
+        planetaryTelemetry:
+          gameSettings.showTelescopeTelemetry === false ? null : planetaryTelemetry,
+        activeObjectiveText: guideObjective,
         onToggleVisualProfile: () => {
           const next = visualProfile === 'scientific' ? 'cinematic' : 'scientific';
           setVisualProfile(next);
@@ -2787,6 +2946,45 @@ export default function App() {
           );
         },
       }),
+    h(PauseMenu, {
+      open: pauseMenuOpen,
+      initialSection: pauseMenuSection,
+      onClose: () => setPauseMenuOpen(false),
+      onReturnToMainMenu: () => {
+        setPauseMenuOpen(false);
+        setWelcomeOpen(true);
+      },
+      currentBody: f || near || 'Tierra',
+      cameraView: !fr ? 'Mapa Cartográfico' : pv == 1 ? 'Cabina 1P' : 'Exterior Nave 120 m',
+      observationMode: observationModeInfo?.mode?.id || 'naked-eye',
+      opticalMagnification: observationModeInfo?.opticalMagnification || 1,
+      scaleMode: real ? 'real' : 'visual',
+      onToggleScaleMode: () => {
+        const nextReal = !real;
+        setReal(nextReal);
+        A()?.mode?.(nextReal);
+      },
+      activeMissionId: missionTargetKey,
+      activeObjective: guideObjective,
+      voiceMuted: !voice,
+      onToggleVoiceMute: () => {
+        const next = !voice;
+        voiceRef.current = next;
+        setVoice(next);
+        if (!next) stopVoiceAndClearQueue();
+      },
+      onRepeatLastKronoxMessage: () => {
+        const lastMsg = narrativeQueue.repeat();
+        if (lastMsg && voiceRef.current) speak(lastMsg.text);
+      },
+      gameSettings,
+      onUpdateGameSettings: setGameSettings,
+      onOpenMissionTarget: (targetKey) => {
+        setMissionTargetKey(targetKey);
+        setMissionInitialStage('investigate');
+        setMissionOpen(true);
+      },
+    }),
     fr && h('canvas', { id: 'warp', className: 'warp' }),
     fr &&
       pv == 3 &&

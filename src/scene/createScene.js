@@ -45,6 +45,17 @@ import {
   updateCrossScaleContinuity,
 } from './observerSkyAndUnification.js';
 import { createAstronomicalHologramSystem } from './astronomicalHologram.js';
+import {
+  ASTRONOMICAL_REFERENCE_EPOCH,
+  PHYSICAL_CONSTANTS,
+  OBSERVATION_MODES,
+  PLANETARY_PHYSICAL_CATALOG,
+  OPTICAL_MAGNIFICATION_STEPS,
+  computeBodyObservationalMetrics,
+  computeSafeOrbitalClearance,
+  enforcePlanetaryCollisionBoundary,
+  createPlanetaryPointBeaconTexture,
+} from './astronomicalScaleEngine.js';
 
 const PLANET_TEXTURE_FILES = {
   Mercurio: '2k_mercury.jpg',
@@ -279,6 +290,9 @@ export function setupScene(el, S) {
     antialias: qualityMode !== 'performance' && !isMobileDevice(),
     logarithmicDepthBuffer: true,
   });
+  R.toneMapping = THREE.ACESFilmicToneMapping;
+  R.toneMappingExposure = 0.94;
+  R.outputEncoding = THREE.sRGBEncoding;
   R.setPixelRatio(pixelRatioFor(qualityMode));
   R.setSize(innerWidth, innerHeight);
   el.appendChild(R.domElement);
@@ -353,8 +367,9 @@ export function setupScene(el, S) {
   ct.dampingFactor = 0.07;
   ct.maxDistance = 3e5;
   ct.minDistance = 0.0005;
-  sc.add(new THREE.AmbientLight(0xffffff, 0.1));
-  sc.add(new THREE.PointLight(0xfff2dd, 1.7, 0, 0));
+  sc.add(new THREE.AmbientLight(0xffffff, 0.055));
+  sc.add(new THREE.PointLight(0xfff7ec, 1.85, 0, 0));
+  const planetaryBeaconMap = createPlanetaryPointBeaconTexture(globalThis.document);
   // estrellas
   let a = [],
     c = [];
@@ -366,7 +381,7 @@ export function setupScene(el, S) {
     c.push(b * (0.8 + 0.2 * t), b * 0.9, b * (1 - 0.2 * t));
   }
   sc.add(pts(a, c, 1.5, 0.9));
-  // polvo estelar cercano
+  // polvo estelar cercano (moderado para conservar la oscuridad y profundidad del espacio)
   a = [];
   c = [];
   for (let i = 0; i < 9000; i++) {
@@ -374,7 +389,7 @@ export function setupScene(el, S) {
     a.push(v.x, v.y, v.z);
     c.push(0.5 + Math.random() * 0.4, 0.55 + Math.random() * 0.2, 0.8);
   }
-  sc.add(pts(a, c, 1, 0.35));
+  sc.add(pts(a, c, 0.9, 0.14));
   // Decorative deep-sky galaxies sit far beyond the Milky Way starfield.
   // They fade in as the camera pulls back to explore galactic scales and stay
   // subtle near planets, where they would otherwise distract from navigation.
@@ -1390,15 +1405,36 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         uv.setXY(i, (Math.hypot(ps.getX(i), ps.getY(i)) - 1.25) / 1.15, 0.5);
       const rm = new THREE.Mesh(
         rg,
-        new THREE.MeshBasicMaterial({
+        new THREE.MeshStandardMaterial({
           map: new THREE.CanvasTexture(cv),
+          roughness: 0.9,
+          metalness: 0.0,
           transparent: true,
+          alphaTest: 0.02,
           side: THREE.DoubleSide,
-          depthWrite: false,
+          depthWrite: true,
         }),
       );
       rm.rotation.x = Math.PI / 2;
       tilt.add(rm);
+      b.ringMesh = rm;
+    }
+    if (!p.sun && !p.moon) {
+      const catColor = PLANETARY_PHYSICAL_CATALOG[p.n]?.colorHex || 0xfff4dc;
+      const pointBeacon = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: planetaryBeaconMap,
+          color: catColor,
+          transparent: true,
+          opacity: 0.92,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      );
+      pointBeacon.visible = false;
+      pointBeacon.userData.planetName = p.n;
+      pivot.add(pointBeacon);
+      b.pointBeacon = pointBeacon;
     }
     if (p.au) {
       const pp = [];
@@ -1580,12 +1616,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     // and the underlying Keplerian positions remain unchanged.
     Dd = (au) => (real ? au * 149.6 : 14 + 20 * Math.pow(au, 0.68)),
     Dm = () => (real ? 0.3844 : 1.3),
-    shipScale = () => (Rd(P[3]) * (SHIP_LENGTH_METERS / 1000)) / (P[3].km * SHIP_MODEL_LENGTH),
-    // ESCALA FÍSICA INVARIANTE DE LA NAVE (Bloque 2):
-    // Las dimensiones del casco en el mundo 3D son constantes (shipSz = 120 m equivalentes).
-    // La distancia de cámara al barco depende únicamente de su escala local y del zoom de cámara,
-    // sin alterar el tamaño de la malla ni reescalar según cuerpos externos.
-    shipCameraDistance = () => shipSz * 12 * shipZoom,
+    shipScale = () => (real ? 0.0024 : 0.015),
+    // ESCALA FÍSICA INVARIANTE DE LA NAVE (120 m de eslora física):
+    // Mantiene la malla 3D libre de pérdida de precisión Float32 y considerablemente menor que los planetas.
+    shipCameraDistance = () => shipSz * 4.2 * shipZoom,
     shipOffset = () => shipCameraDistance();
   function layout() {
     B.forEach((b) => {
@@ -1724,14 +1758,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       toPosition: pose.position,
       toTarget: pose.target,
       elapsed: 0,
-      duration: 1.4,
+      duration: 0.85,
     };
     const originalFar = exteriorCameraSavedState?.far || cam.far;
-    cam.near = Math.max(0.00001, pose.distance * 0.0001);
-    cam.far = Math.max(originalFar, pose.distance * 12);
+    cam.near = Math.max(1e-6, pose.distance * 0.01);
+    cam.far = Math.max(originalFar, pose.distance * 24);
     cam.updateProjectionMatrix();
-    ct.minDistance = Math.max(0.00001, pose.sphere.radius * 0.6);
-    ct.maxDistance = Math.max(ct.minDistance * 2, pose.sphere.radius * 4);
+    ct.minDistance = Math.max(1e-5, pose.sphere.radius * 1.35);
+    ct.maxDistance = Math.max(ct.minDistance * 3, pose.sphere.radius * 9.5);
     ct.minPolarAngle = 0.12;
     ct.maxPolarAngle = Math.PI - 0.12;
     ct.enabled = false;
@@ -1898,7 +1932,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       foc = null;
       tripTo(
         b.pivot.position.clone(),
-        Math.max(b.r * (b.p.sun ? 1.3 : 1.45), real ? 0.01 : 0.04),
+        computeSafeOrbitalClearance(b, { isCabinActive: pv === 1, realScale: real }),
         n,
         b,
       );
@@ -2315,6 +2349,112 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let aiSpeakingState = false;
   let aiAudioLevelState = 0.08;
   let lastScreenProjectionTime = 0;
+  let opticalTelescopeState = {
+    enabled: false,
+    magnification: 1,
+    targetName: null,
+  };
+
+  function setOpticalTelescope(arg1 = {}, arg2, arg3) {
+    const options =
+      typeof arg1 === 'boolean'
+        ? { enabled: arg1, magnification: arg2, targetName: arg3 }
+        : arg1 || {};
+    const nextEnabled =
+      options.enabled !== undefined ? Boolean(options.enabled) : !opticalTelescopeState.enabled;
+    const requestedMag = Number(options.magnification);
+    const nextMag = nextEnabled
+      ? Number.isFinite(requestedMag) && requestedMag > 1
+        ? requestedMag
+        : opticalTelescopeState.magnification > 1
+          ? opticalTelescopeState.magnification
+          : 50
+      : 1;
+    const nextTarget =
+      options.targetName !== undefined ? options.targetName : opticalTelescopeState.targetName;
+    opticalTelescopeState = {
+      enabled: nextEnabled && nextMag > 1,
+      magnification: nextEnabled ? nextMag : 1,
+      targetName: nextTarget || null,
+    };
+    if (opticalTelescopeState.enabled && opticalTelescopeState.targetName) {
+      const targetBody = B.find((x) => x.p.n === opticalTelescopeState.targetName);
+      if (targetBody?.pivot && free && !nav) {
+        const toTarget = targetBody.pivot.position.clone().sub(sp);
+        if (toTarget.lengthSq() > 1e-6) {
+          toTarget.normalize();
+          if (pv === 1) {
+            const localDir = toTarget.clone().applyQuaternion(ship.quaternion.clone().invert());
+            targetYaw = astronautYaw = Math.atan2(-localDir.x, -localDir.z);
+            targetPitch = astronautPitch = Math.asin(Math.max(-0.95, Math.min(0.95, localDir.y)));
+          } else {
+            fy = Math.atan2(-toTarget.x, -toTarget.z);
+            fp = Math.asin(Math.max(-0.95, Math.min(0.95, toTarget.y)));
+          }
+        }
+      }
+    }
+    const baseFov = pv === 1 ? Math.min(fovBase, 42) : fovBase;
+    cam.fov = opticalTelescopeState.enabled
+      ? Math.max(4.5, baseFov / Math.pow(opticalTelescopeState.magnification, 0.36))
+      : baseFov;
+    cam.updateProjectionMatrix();
+    S.onObservationModeChange?.(getObservationMode());
+    return getObservationMode();
+  }
+
+  function getObservationMode() {
+    let modeDescriptor = OBSERVATION_MODES.NAKED_EYE;
+    if (nearbyMapState || contextOverview || (navigationContext.id !== 'solar' && !free)) {
+      modeDescriptor = OBSERVATION_MODES.ASTRONOMICAL_MAP;
+    } else if (!free) {
+      modeDescriptor = OBSERVATION_MODES.SOLAR_NAVIGATION;
+    } else if (opticalTelescopeState.enabled && opticalTelescopeState.magnification > 1) {
+      modeDescriptor = OBSERVATION_MODES.OPTICAL_INSTRUMENT;
+    } else if (nearKey) {
+      modeDescriptor = OBSERVATION_MODES.CLOSE_INSPECTION;
+    }
+    return {
+      ...modeDescriptor,
+      label: modeDescriptor.shortLabel,
+      mode: {
+        ...modeDescriptor,
+        label: modeDescriptor.shortLabel,
+      },
+      opticalMagnification: opticalTelescopeState.enabled ? opticalTelescopeState.magnification : 1,
+      opticalTargetName: opticalTelescopeState.targetName,
+      opticalTargetBody: opticalTelescopeState.targetName,
+      realScaleActive: Boolean(real),
+      epoch: ASTRONOMICAL_REFERENCE_EPOCH,
+      shipLengthMeters: SHIP_LENGTH_METERS,
+      nearBodyName: nearKey || null,
+    };
+  }
+
+  function getPlanetaryObservationalTelemetry(planetName = null) {
+    if (planetName) {
+      const found = B.find((x) => x.p.n === planetName);
+      return found?.observationalMetrics || null;
+    }
+    const result = {};
+    B.forEach((b) => {
+      if (b.observationalMetrics) result[b.p.n] = b.observationalMetrics;
+    });
+    return result;
+  }
+
+  function getShipPhysicalSpecs() {
+    return {
+      lengthMeters: SHIP_LENGTH_METERS,
+      cabinLengthMeters: PHYSICAL_CONSTANTS.CABIN_LENGTH_METERS,
+      modelUnits: SHIP_MODEL_LENGTH,
+      sceneScale: shipSz,
+      shipVisible: ship.visible,
+      cabinVisible: localCabinWorld.visible,
+      exteriorCameraMode,
+      epoch: ASTRONOMICAL_REFERENCE_EPOCH,
+    };
+  }
 
   /**
    * Alinea de forma coherente la posición y orientación de la nave exterior (120 m)
@@ -2644,7 +2784,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         ? Math.max(0.05, earth ? earth.r * 0.45 : 0.2)
         : Math.max(0.01, Math.min(5e4, cam.position.distanceTo(ct.target) * 0.4));
       S.fv(fs);
-      ti = 0;
+      ti = launchFromEarth ? 0 : 9;
       vel.set(0, 0, 0);
       TB.fill(-99);
       tr.visible = true;
@@ -2940,6 +3080,21 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return;
     }
     keys[k] = 1;
+    // Tecla contextual [T] para alternar el Telescopio Óptico de a bordo (1× -> 50× -> 150× -> 300× -> 1×)
+    if (k === 't' && free && !realTimeIntro && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const steps = [1, 50, 150, 300];
+      const cur = opticalTelescopeState.enabled ? opticalTelescopeState.magnification : 1;
+      const idx = steps.indexOf(cur);
+      const nextMag = steps[(idx + 1) % steps.length];
+      setOpticalTelescope({ enabled: nextMag > 1, magnification: nextMag });
+      return;
+    }
+    // Tecla [R] en vista exterior para restablecer el encuadre orbital de la nave de 120 m
+    if (k === 'r' && free && pv == 3 && !realTimeIntro && !e.ctrlKey && !e.metaKey) {
+      if (!exteriorCameraMode) enterExteriorCamera();
+      resetExteriorCamera();
+      return;
+    }
     // Tecla contextual [E] para operar la consola física más cercana en cabina 3D
     if (k === 'e' && free && pv == 1 && !realTimeIntro && nearestCabinStation && activeCabinStation !== 'nav') {
       const stId = nearestCabinStation.station.id;
@@ -3026,10 +3181,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           ? 1 - THREE.MathUtils.smoothstep(cam.position.length(), 150, 240)
           : 0;
     const isCabinActive = pv == 1 && !realTimeIntro;
+    const inPhysicalShipObservation = Boolean(
+      free && !realTimeIntro && !contextOverview && !nearbyMapState,
+    );
+    // Primero actualizamos posiciones heliocéntricas J2000.0 + sim
     B.forEach((b) => {
       const p = b.p;
-      if (p.au) {
+      if (p.sun) {
+        b.heliocentricAu = { x: 0, y: 0, z: 0 };
+      } else if (p.au) {
         const v = pos(p, sim);
+        b.heliocentricAu = { x: v.x, y: v.y, z: v.z };
         b.pivot.position.copy(v).multiplyScalar(Dd(p.au) / p.au);
         b.au = v.length();
         b.ar.setDirection(
@@ -3042,13 +3204,94 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           e = earth.pivot.position,
           d = Dm();
         b.pivot.position.set(e.x + Math.cos(an) * d, 0, e.z - Math.sin(an) * d);
+        const earthAu = earth?.heliocentricAu || { x: 1, y: 0, z: 0 };
+        const moonDistAu = 384400 / PHYSICAL_CONSTANTS.AU_KM;
+        b.heliocentricAu = {
+          x: earthAu.x + Math.cos(an) * moonDistAu,
+          y: earthAu.y,
+          z: earthAu.z - Math.sin(an) * moonDistAu,
+        };
         b.spin.rotation.y = an + Math.PI / 2;
         b.ar.setDirection(new THREE.Vector3(-Math.sin(an), 0, -Math.cos(an)));
       }
+    });
+    // Determinar posición heliocéntrica del observador en UA
+    let observerHeliocentricAu = { x: 1, y: 0, z: 0 };
+    if (earth?.heliocentricAu) {
+      observerHeliocentricAu = { ...earth.heliocentricAu };
+    }
+    if (free) {
+      let closestHost = null;
+      let closestDist = Infinity;
+      for (const b of B) {
+        if (!b.p.au) continue;
+        const d = sp.distanceTo(b.pivot.position);
+        if (d < closestDist) {
+          closestDist = d;
+          closestHost = b;
+        }
+      }
+      if (closestHost && closestDist < Math.max(45, closestHost.r * 12) && closestHost.heliocentricAu) {
+        const offsetScene = sp.clone().sub(closestHost.pivot.position);
+        const kmPerUnit = Math.max(100, closestHost.p.km / Math.max(0.01, closestHost.r));
+        const offsetAu = offsetScene.multiplyScalar(kmPerUnit / PHYSICAL_CONSTANTS.AU_KM);
+        observerHeliocentricAu = {
+          x: closestHost.heliocentricAu.x + offsetAu.x,
+          y: closestHost.heliocentricAu.y + offsetAu.y,
+          z: closestHost.heliocentricAu.z + offsetAu.z,
+        };
+      }
+    }
+    const activeOpticalMag = opticalTelescopeState.enabled ? opticalTelescopeState.magnification : 1;
+    B.forEach((b) => {
+      const p = b.p;
+      b.observationalMetrics = computeBodyObservationalMetrics({
+        bodyName: p.n,
+        radiusKm: p.km,
+        bodyHeliocentricAu: b.heliocentricAu,
+        observerHeliocentricAu,
+        opticalMagnification: activeOpticalMag,
+      });
       if (b.pivot) {
-        // En cabina 1P (escala humana 1 u = 1 m, semilargo = 11 m), solo prevenir que el astro penetre físicamente el habitáculo
         const distToShip = b.pivot.position.distanceTo(sp);
-        b.pivot.visible = !(isCabinActive && distToShip < 12.0);
+        b.pivot.visible = !(isCabinActive && distToShip < 2.2);
+        const distToCam = Math.max(0.05, cam.position.distanceTo(b.pivot.position));
+        const isLocalOrbitedBody =
+          distToShip < Math.max(45, b.r * 10.5) ||
+          (p.moon && earth && earth.pivot.position.distanceTo(sp) < 45);
+        if (inPhysicalShipObservation && !isLocalOrbitedBody && !p.sun) {
+          // Escala angular físicamente exacta θ = 2·arctan(R/D) * M_óptica
+          const halfAngle = Math.min(
+            0.42,
+            (b.observationalMetrics.angularDiameterRad * activeOpticalMag) * 0.5,
+          );
+          const physicalAngularSceneRadius = Math.max(1e-4, distToCam * Math.tan(halfAngle));
+          b.tilt.scale.setScalar(physicalAngularSceneRadius);
+          if (b.moonSystem) {
+            b.moonSystem.visible = activeOpticalMag >= 10;
+            b.moonSystem.scale.setScalar(physicalAngularSceneRadius);
+          }
+          if (b.pointBeacon) {
+            const showPointBeacon = !b.observationalMetrics.resolvedWithInstrument;
+            b.pointBeacon.visible = showPointBeacon;
+            if (showPointBeacon) {
+              const magBoost = Math.max(
+                0.65,
+                Math.min(1.85, 1.25 - b.observationalMetrics.apparentMagnitudeV * 0.14),
+              );
+              b.pointBeacon.scale.setScalar(distToCam * 0.011 * magBoost);
+            }
+          }
+        } else {
+          b.tilt.scale.setScalar(b.r);
+          if (b.moonSystem) {
+            b.moonSystem.visible = true;
+            b.moonSystem.scale.setScalar(b.r);
+          }
+          if (b.pointBeacon) {
+            b.pointBeacon.visible = false;
+          }
+        }
       }
       if (b.satellites) {
         b.satellites.forEach((plane) => {
@@ -3181,6 +3424,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         if(inputTarget.length()>Math.abs(bs))inputTarget.setLength(Math.abs(bs));
         const step=integrateFlightVelocity(vel.toArray(),inputTarget.toArray(),dt,{inertia:!!O.in,automatic:!!O.au,activeInput:ok&&mv.lengthSq()>0,speed:bs});
         vel.fromArray(step.velocity);sp.add(new V().fromArray(step.displacement));
+        enforcePlanetaryCollisionBoundary(sp, B, { isCabinActive: pv === 1 });
       } else if (exteriorCameraMode && !nav) {
         vel.multiplyScalar(Math.exp(-dt * 8));
       } else if (!nav) {
@@ -3945,18 +4189,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           nav.phase === 'DECELERATING'
         ));
         const navWarpAmount = navActive ? (
-          nav.phase === 'HYPERSPACE_CRUISE' ? 1.0 :
-          nav.phase === 'HYPERSPACE_ENTRY' ? (0.3 + 0.7 * THREE.MathUtils.smoothstep(nav.phaseProgress, 0, 1)) :
-          nav.phase === 'HYPERSPACE_EXIT' ? (1.0 - 0.7 * THREE.MathUtils.smoothstep(nav.phaseProgress, 0, 1)) :
-          nav.phase === 'ACCELERATING' ? (nav.phaseProgress * 0.45) :
-          nav.phase === 'DECELERATING' ? ((1.0 - nav.phaseProgress) * 0.45) : 0
+          nav.phase === 'HYPERSPACE_CRUISE' ? 0.55 :
+          nav.phase === 'HYPERSPACE_ENTRY' ? (0.15 + 0.4 * THREE.MathUtils.smoothstep(nav.phaseProgress, 0, 1)) :
+          nav.phase === 'HYPERSPACE_EXIT' ? (0.55 - 0.4 * THREE.MathUtils.smoothstep(nav.phaseProgress, 0, 1)) :
+          0
         ) : 0;
-        const flightWarpAmount = Math.max(
-          0,
-          Math.max(0, Math.min(1, (Math.log10(Math.max(fs, 0.01)) - 1.4) / 3.1)) *
-            Math.min(1, vel.length() / Math.max(fs, 0.01)),
-        );
-        const amount = Math.max(flightWarpAmount, navWarpAmount);
+        const amount = navWarpAmount;
         wg.clearRect(0, 0, w, h);
         wc.style.opacity = amount.toFixed(2);
         if (amount > 0.01) {
@@ -4568,6 +4806,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     setArrivedTarget: (t) => astronomicalHologram.setArrivedTarget(t),
     getArrivedHologramTarget: () => astronomicalHologram.getActiveTarget(),
     clearAstronomicalHologram: () => astronomicalHologram.clearHologram(),
+    getObservationMode,
+    setOpticalTelescope,
+    getPlanetaryObservationalTelemetry,
+    getShipPhysicalSpecs,
   };
 }
 export const CK = `<svg viewBox='0 0 1000 600' preserveAspectRatio='none'><defs><linearGradient id='cg' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#1b2335'/><stop offset='1' stop-color='#05070c'/></linearGradient><radialGradient id='cv' cx='.5' cy='.45' r='.75'><stop offset='.6' stop-color='#000' stop-opacity='0'/><stop offset='1' stop-color='#000' stop-opacity='.55'/></radialGradient></defs><rect width='1000' height='600' fill='url(#cv)'/><path d='M0 0H1000L900 62Q500 92 100 62Z' fill='url(#cg)' stroke='#34415c' stroke-width='2'/><path d='M0 0L130 62L52 380L0 450Z' fill='url(#cg)' stroke='#34415c' stroke-width='2'/><path d='M1000 0L870 62L948 380L1000 450Z' fill='url(#cg)' stroke='#34415c' stroke-width='2'/><path d='M0 600V462Q120 420 330 432Q500 405 670 432Q880 420 1000 462V600Z' fill='url(#cg)' stroke='#3d4d70' stroke-width='3'/><path d='M58 455Q220 432 398 446L380 564Q230 548 78 570Z' fill='#071019' fill-opacity='.72' stroke='#2a8fd0' stroke-opacity='.68' stroke-width='2'/><path d='M942 455Q780 432 602 446L620 564Q770 548 922 570Z' fill='#071019' fill-opacity='.72' stroke='#2a8fd0' stroke-opacity='.68' stroke-width='2'/><g stroke='#6ff0ff' stroke-width='2' fill='none' opacity='.75'><path d='M110 500L170 484L230 494L290 470L350 488'/><circle cx='770' cy='494' r='22'/><path d='M770 494L784 482'/><path d='M830 505H900M830 490H885'/></g><circle cx='460' cy='448' r='5' fill='#ff4040'/><circle cx='480' cy='446' r='5' fill='#ffb030'/><circle cx='520' cy='446' r='5' fill='#40ff80'/><circle cx='540' cy='448' r='5' fill='#40c0ff'/></svg>`,

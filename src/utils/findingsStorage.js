@@ -5,6 +5,13 @@
 
 export const FINDINGS_STORAGE_KEY = 'kronox_findings_v1';
 
+export const OBSERVATION_VALIDATION_STATES = Object.freeze({
+  PERSONAL_ANNOTATION: 'PERSONAL_ANNOTATION', // Anotación del usuario (NO validada científicamente)
+  PEER_REVIEW_PENDING: 'PEER_REVIEW_PENDING',
+  SCIENTIFICALLY_VALIDATED: 'SCIENTIFICALLY_VALIDATED',
+  REJECTED_ARTIFACT: 'REJECTED_ARTIFACT',
+});
+
 /**
  * Carga y valida la lista de hallazgos almacenados en localStorage.
  * Soporta migración de esquemas anteriores y tolera almacenamiento corrupto o deshabilitado.
@@ -60,6 +67,9 @@ export function deleteFindingFromStorage(id) {
   return updated;
 }
 
+export const loadFindings = loadFindingsFromStorage;
+export const deleteFinding = deleteFindingFromStorage;
+
 /**
  * Normaliza y valida un registro de hallazgo contra el esquema canónico de KRONOX.
  * @param {object} raw
@@ -97,11 +107,51 @@ export function normalizeFindingRecord(raw, fallbackIndex = 0) {
   const ra = typeof raw.ra === 'number' && Number.isFinite(raw.ra) ? raw.ra : (typeof rawMarker.ra === 'number' && Number.isFinite(rawMarker.ra) ? rawMarker.ra : null);
   const dec = typeof raw.dec === 'number' && Number.isFinite(raw.dec) ? raw.dec : (typeof rawMarker.dec === 'number' && Number.isFinite(rawMarker.dec) ? rawMarker.dec : null);
   const pane = raw.pane || rawMarker.pane || 'both';
+  const ownerId = String(raw.ownerId || raw.owner || 'local_explorer');
+  const instrument = String(raw.instrument || 'NASA SPHEREx / IPAC IRSA');
+  // Nunca confundir una anotación del usuario con un resultado científico validado (Sección 8.1)
+  const validationStatus =
+    raw.validationStatus === OBSERVATION_VALIDATION_STATES.SCIENTIFICALLY_VALIDATED
+      ? OBSERVATION_VALIDATION_STATES.SCIENTIFICALLY_VALIDATED
+      : raw.validationStatus === OBSERVATION_VALIDATION_STATES.PEER_REVIEW_PENDING
+        ? OBSERVATION_VALIDATION_STATES.PEER_REVIEW_PENDING
+        : OBSERVATION_VALIDATION_STATES.PERSONAL_ANNOTATION;
 
   return {
     id,
+    ownerId,
     targetKey,
     targetName,
+    astronomicalObject: {
+      key: targetKey,
+      name: targetName,
+    },
+    coordinates: {
+      ra,
+      dec,
+      frame: 'ICRS J2000',
+      calibratedWcs: ra !== null && dec !== null,
+    },
+    observationDate: {
+      primary: frameDate1 || null,
+      secondary: frameDate2 || null,
+      mjdPrimary: frameMjd1,
+      mjdSecondary: frameMjd2,
+      timeDeltaDays,
+    },
+    instrument,
+    spectralBand: band,
+    dataReference: {
+      frameId1,
+      frameId2,
+      viewMode,
+    },
+    userNotes: description,
+    validationStatus,
+    epistemicLabel:
+      validationStatus === OBSERVATION_VALIDATION_STATES.SCIENTIFICALLY_VALIDATED
+        ? 'Resultado científico validado'
+        : 'Anotación personal del explorador (no validada científicamente)',
     createdAt,
     description,
     conclusion: raw.conclusion ? String(raw.conclusion) : null,

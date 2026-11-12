@@ -325,6 +325,36 @@ export function processKronoxQuery(userQuery = '', context = {}) {
   }
 
   if (
+    q.includes('telescopio') ||
+    q.includes('aumento optico') ||
+    q.includes('ampliacion optica') ||
+    q.includes('150x') ||
+    q.includes('300x')
+  ) {
+    const mag = q.includes('300') ? 300 : q.includes('150') ? 150 : q.includes('50') ? 50 : 150;
+    return {
+      reply: `Activando instrumento óptico de a bordo con aumento ${mag}×. Ahora podrás resolver el disco planetario real (θ = 2·arctan(R/D)), los anillos de Saturno y las lunas galileanas de Júpiter que a simple vista aparecen como puntos estelares.`,
+      action: { type: 'SET_OPTICAL_TELESCOPE', enabled: true, magnification: mag },
+      role: 'Asistente científico',
+      avatarState: 'POINTING',
+      pointDirection: 'forward',
+      epistemicCategory: 'Instrumento óptico · Resolución angular real (J2000.0)',
+    };
+  }
+
+  if (q.includes('simple vista') || q.includes('desactivar telescopio')) {
+    return {
+      reply:
+        'Restaurando observación a simple vista (1×). Los cuerpos lejanos cuyo tamaño angular es menor a 60 segundos de arco se observan como puntos brillantes reales en la bóveda celeste.',
+      action: { type: 'SET_OPTICAL_TELESCOPE', enabled: false, magnification: 1 },
+      role: 'Asistente científico',
+      avatarState: 'EXPLAINING',
+      pointDirection: 'forward',
+      epistemicCategory: 'Observación a simple vista (1×)',
+    };
+  }
+
+  if (
     q.includes('destinos disponibles') ||
     q.includes('que destinos') ||
     q.includes('que objetos puedo visitar') ||
@@ -644,6 +674,115 @@ export function processKronoxQuery(userQuery = '', context = {}) {
     avatarState: 'TALKING',
     pointDirection: 'forward',
     epistemicCategory: 'Comunicación de puente de mando',
+    isFallback: true,
+  };
+}
+
+const CLIENT_AI_CACHE = new Map();
+const ALLOWED_CLIENT_ACTIONS = new Set([
+  'PLAY_SPHEREX_DOCUMENTARY',
+  'PLAY_CINEMATIC_INTRO',
+  'ENTER_COCKPIT',
+  'SET_VIEW_MODE',
+  'SET_OPTICAL_TELESCOPE',
+  'OPEN_MISSION_SELECTOR',
+  'TRAVEL_SPHEREX',
+  'TRAVEL_PLANET',
+  'TRAVEL_GALAXY',
+  'OPEN_MISSION_STAGE',
+  'OPEN_OBSERVATORY',
+  'SELECT_OBJECT',
+  'HIGHLIGHT_FIELD_REGION',
+]);
+
+/**
+ * Valida que una acción emitida por Kronox IA pertenezca exclusivamente a la lista blanca
+ * de comandos controlados del motor.
+ */
+export function validateKronoxAction(action) {
+  if (!action || typeof action !== 'object') return null;
+  const type = String(action.type || '').trim();
+  if (!ALLOWED_CLIENT_ACTIONS.has(type)) return null;
+  return action;
+}
+
+/**
+ * Procesa una consulta combinando el motor determinista local (para órdenes de navegación,
+ * consolas y preguntas científicas indexadas) con el servicio backend Gemini (/api/kronox-chat)
+ * para preguntas abiertas o explicaciones dinámicas contextuales.
+ */
+export async function askKronoxDynamic(userQuery = '', context = {}, options = {}) {
+  const deterministic = processKronoxQuery(userQuery, context);
+  if (!deterministic.isFallback || deterministic.action) {
+    return {
+      ...deterministic,
+      action: validateKronoxAction(deterministic.action),
+      source: 'deterministic-engine',
+    };
+  }
+
+  const cacheKey = `${normalizeText(userQuery)}::${context.focusedPlanet || context.nearPlanet || 'Tierra'}::${context.activeTargetKey || 'barnard'}`;
+  if (CLIENT_AI_CACHE.has(cacheKey)) {
+    return CLIENT_AI_CACHE.get(cacheKey);
+  }
+
+  const fetchImpl = options.fetchImpl || (typeof fetch === 'function' ? fetch : null);
+  if (!fetchImpl) {
+    return { ...deterministic, source: 'deterministic-fallback' };
+  }
+
+  try {
+    const baseUrl =
+      typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL
+        ? import.meta.env.BASE_URL.replace(/\/$/, '')
+        : '/KRONOX';
+    const response = await fetchImpl(`${baseUrl}/api/kronox-chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: userQuery,
+        context: {
+          focusedPlanet: context.focusedPlanet || context.nearPlanet || 'Tierra',
+          observationMode: context.observationMode || 'naked-eye',
+          observationModeLabel: context.observationModeLabel || 'Simple vista (1×)',
+          activeTargetKey: context.activeTargetKey || 'barnard',
+          activeTargetName:
+            (SPHEREX_TARGETS.find((t) => t.key === context.activeTargetKey) || SPHEREX_TARGETS[0])
+              ?.name || 'Estrella de Barnard',
+          activeStation: context.activeStation || 'Puente de mando',
+          activeObjective: context.activeObjective || 'Exploración científica libre',
+        },
+      }),
+    });
+
+    if (response && response.ok) {
+      const data = await response.json();
+      if (data && data.ok && data.reply) {
+        const result = {
+          reply: data.reply,
+          action: validateKronoxAction(data.action),
+          role: data.role || 'Kronox IA · Astrofísica de a bordo',
+          avatarState: data.avatarState || 'EXPLAINING',
+          pointDirection: data.pointDirection || 'forward',
+          epistemicCategory:
+            data.epistemicCategory || 'Síntesis contextual asistida por Kronox IA',
+          source: 'gemini-backend',
+        };
+        if (CLIENT_AI_CACHE.size >= 120) {
+          const oldest = CLIENT_AI_CACHE.keys().next().value;
+          if (oldest) CLIENT_AI_CACHE.delete(oldest);
+        }
+        CLIENT_AI_CACHE.set(cacheKey, result);
+        return result;
+      }
+    }
+  } catch {
+    // Si no hay red o el backend está inaccesible, degradar limpiamente al motor determinista
+  }
+
+  return {
+    ...deterministic,
+    source: 'deterministic-fallback',
   };
 }
 

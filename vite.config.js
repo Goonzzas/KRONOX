@@ -24,10 +24,30 @@ function apiDevServerPlugin() {
       const parsedUrl = new URL(rawUrl, 'http://localhost');
       const query = Object.fromEntries(parsedUrl.searchParams.entries());
 
+      let parsedBody = req.body;
+      if (!parsedBody && req.method === 'POST' && typeof req.on === 'function') {
+        parsedBody = await new Promise((resolve) => {
+          let rawBody = '';
+          req.on('data', (chunk) => {
+            rawBody += String(chunk || '');
+            if (rawBody.length > 16384) rawBody = rawBody.slice(0, 16384);
+          });
+          req.on('end', () => {
+            try {
+              resolve(rawBody ? JSON.parse(rawBody) : {});
+            } catch {
+              resolve({});
+            }
+          });
+          req.on('error', () => resolve({}));
+        });
+      }
+
       const mockedReq = {
         method: req.method || 'GET',
         url: rawUrl,
         query,
+        body: parsedBody,
         headers: req.headers || {},
       };
 
@@ -76,7 +96,20 @@ function apiDevServerPlugin() {
 
 export default defineConfig(({ mode }) => {
   const fishEnv = loadEnv(mode, process.cwd(), '');
-  for (const key of ['FISH_AUDIO_API_KEY', 'FISH_API_KEY', 'KRONOX_FISH_AUDIO_KEY', 'FISH_AUDIO_MODEL']) {
+  for (const key of [
+    'FISH_AUDIO_API_KEY',
+    'FISH_API_KEY',
+    'KRONOX_FISH_AUDIO_KEY',
+    'FISH_AUDIO_MODEL',
+    'GEMINI_API_KEY',
+    'GEMINI_API_KEY_SECONDARY',
+    'GEMINI_API_KEY_TERTIARY',
+    'GEMINI_API_KEY_QUATERNARY',
+    'GEMINI_API_KEY_5',
+    'GEMINI_API_KEY_6',
+    'GEMINI_API_KEY_7',
+    'GEMINI_API_KEY_8',
+  ]) {
     if (fishEnv[key] && !process.env[key]) process.env[key] = fishEnv[key];
   }
   return {

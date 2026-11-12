@@ -54,6 +54,11 @@ export default function SpaceshipCockpit({
   consoleProjection = null,
   visualProfile = 'cinematic',
   onToggleVisualProfile,
+  onOpenPauseMenu,
+  observationModeInfo = null,
+  onSetOpticalTelescope,
+  planetaryTelemetry = null,
+  activeObjectiveText = '',
 }) {
   const [navigationMode, setNavigationMode] = useState('manual');
   const [navigationTarget, setNavigationTarget] = useState('planet:Tierra');
@@ -202,6 +207,18 @@ export default function SpaceshipCockpit({
           aria-label={t('Modos de vista y puente habitable 3D', language)}
         >
           <div className="kronoxBridgeIdentity">
+            {onOpenPauseMenu && (
+              <button
+                type="button"
+                className="kronoxPauseTriggerBtn"
+                onClick={onOpenPauseMenu}
+                title="Abrir menú de pausa [ESC]"
+                aria-label="Abrir menú de pausa"
+              >
+                <span className="kronoxPauseKey">ESC</span>
+                <span>Pausa</span>
+              </button>
+            )}
             <span className="kronoxShipDot" />
             <strong>KRONOX</strong>
             <span className="kronoxScaleTag">{SHIP_WORLD_UNITS.SHIP_LENGTH_METERS} m</span>
@@ -245,12 +262,81 @@ export default function SpaceshipCockpit({
               className="kronoxResetExteriorView"
               onClick={onResetExteriorView}
               disabled={navigationActive}
+              title="Restablecer encuadre de la nave de 120 m [R]"
             >
-              Inspeccionar nave
+              Inspeccionar nave [R]
             </button>
           )}
 
+          {onSetOpticalTelescope && viewMode === 'cockpit' && (
+            <div className="kronoxTelescopeHudGroup" aria-label="Control de Telescopio Óptico">
+              <button
+                type="button"
+                className={`kronoxViewBtn ${observationModeInfo?.opticalMagnification > 1 ? 'active' : ''}`}
+                onClick={() => {
+                  const currentMag = observationModeInfo?.opticalMagnification || 1;
+                  if (currentMag <= 1) onSetOpticalTelescope(true, 150);
+                  else onSetOpticalTelescope(false, 1);
+                }}
+                title="Alternar entre observación a simple vista (1×) e instrumento óptico [T]"
+              >
+                <span>
+                  {observationModeInfo?.opticalMagnification > 1
+                    ? `🔭 Telescopio ${observationModeInfo.opticalMagnification}×`
+                    : '👁 Simple vista 1× [T]'}
+                </span>
+              </button>
+              {observationModeInfo?.opticalMagnification > 1 && (
+                <div className="kronoxTelescopeMagRow">
+                  {[50, 150, 300].map((mag) => (
+                    <button
+                      key={mag}
+                      type="button"
+                      className={`kronoxMagStepBtn ${observationModeInfo?.opticalMagnification === mag ? 'active' : ''}`}
+                      onClick={() => onSetOpticalTelescope(true, mag)}
+                    >
+                      {mag}×
+                    </button>
+                  ))}
+                  <select
+                    aria-label="Objetivo planetario del telescopio"
+                    className="kronoxTelescopeTargetSelect"
+                    value={observationModeInfo?.opticalTargetBody || 'Júpiter'}
+                    onChange={(e) =>
+                      onSetOpticalTelescope(
+                        true,
+                        observationModeInfo?.opticalMagnification || 150,
+                        e.target.value,
+                      )
+                    }
+                  >
+                    {['Júpiter', 'Saturno', 'Marte', 'Venus', 'Luna', 'Mercurio', 'Urano', 'Neptuno'].map(
+                      (pName) => (
+                        <option key={pName} value={pName}>
+                          {pName}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="kronoxCruiseReadout">
+            {observationModeInfo?.mode?.label && (
+              <span
+                className={`kronoxObsModeBadge ${observationModeInfo.mode.isCompressedScale ? 'is-compressed' : ''}`}
+                title={observationModeInfo.mode.description}
+              >
+                {observationModeInfo.mode.label}
+              </span>
+            )}
+            {activeObjectiveText && (
+              <span className="kronoxHudObjectivePill" title="Objetivo de misión activo">
+                ◎ {activeObjectiveText}
+              </span>
+            )}
             <span
               className="kronoxDirectorModePill"
               data-mode={directorState?.controlMode || 'FREE_ASTRONAUT'}
@@ -396,6 +482,52 @@ export default function SpaceshipCockpit({
           </aside>
         </div>
       )}
+
+      {/* OPTICAL TELESCOPE EYEPIECE & REAL ANGULAR TELEMETRY HUD */}
+      {cockpitVisible &&
+        viewMode === 'cockpit' &&
+        observationModeInfo?.opticalMagnification > 1 &&
+        planetaryTelemetry && (
+          <div
+            className="kronoxTelescopeEyepieceHud"
+            role="status"
+            aria-label="Retícula y telemetría de instrumento óptico"
+          >
+            <div className="kronoxTelescopeReticleRing" aria-hidden="true">
+              <span className="kronoxReticleCrosshairH" />
+              <span className="kronoxReticleCrosshairV" />
+            </div>
+            <div className="kronoxTelescopeReadoutBox">
+              <div className="kronoxTelescopeReadoutHead">
+                <strong>
+                  INSTRUMENTO ÓPTICO · {(planetaryTelemetry.bodyName || planetaryTelemetry.name || 'PLANETA').toUpperCase()} (
+                  {observationModeInfo.opticalMagnification}×)
+                </strong>
+                <span>Época {planetaryTelemetry.epoch || 'J2000.0'}</span>
+              </div>
+              <div className="kronoxTelescopeMetricsGrid">
+                <span>
+                  Δ Distancia: <b>{planetaryTelemetry.distanceAu?.toFixed(3)} UA</b> (
+                  {Math.round(planetaryTelemetry.distanceKm || 0).toLocaleString('es-ES')} km)
+                </span>
+                <span>
+                  Radio físico R:{' '}
+                  <b>{Number(planetaryTelemetry.radiusKm || 0).toLocaleString('es-ES')} km</b>
+                </span>
+                <span>
+                  Diámetro angular θ:{' '}
+                  <b>{(planetaryTelemetry.angularDiameterArcsec ?? planetaryTelemetry.angularArcsec ?? 0).toFixed(2)}″</b>{' '}
+                  (Aparente:{' '}
+                  {(planetaryTelemetry.magnifiedAngularArcsec ?? planetaryTelemetry.apparentArcsec ?? 0).toFixed(0)}″)
+                </span>
+                <span>
+                  Magnitud V: <b>{planetaryTelemetry.apparentMagnitudeV?.toFixed(2)}</b> · Fase:{' '}
+                  <b>{Math.round((planetaryTelemetry.illuminatedFraction || 1) * 100)}%</b>
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* DISCRETE MINIMAL CONTEXTUAL PROMPT WHEN ASTRONAUT IS NEAR A PHYSICAL 3D CONSOLE */}
       {cockpitVisible && nearestStation && !activeStation && (
