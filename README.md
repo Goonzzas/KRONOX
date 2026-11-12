@@ -1,4 +1,4 @@
-> **Copia local independiente de Juan · Astral Sentinels.** Arranque, demo, hitos y validación actual en [LEEME-JUAN.md](LEEME-JUAN.md). Esta copia no se ha publicado ni conectado a Git.
+
 
 <div align="center">
 
