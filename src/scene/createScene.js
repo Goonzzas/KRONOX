@@ -2197,8 +2197,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const direction = target.clone().sub(cam.position);
     if (direction.lengthSq() < 1e-12) return false;
     const ray = new THREE.Raycaster(localCam.position, direction.normalize(), localCam.near, PHYSICAL_CONSTANTS.CABIN_LENGTH_METERS * 2);
-    const meshes = []; localCabinWorld.traverse(object => { if (object.isMesh) meshes.push(object); });
-    const meshes = []; cabinSystem?.cabinRoot ? cabinSystem.cabinRoot.traverse(object => { if (object.isMesh) meshes.push(object); }) : localCabinWorld.traverse(object => { if (object.isMesh) meshes.push(object); });
+    const meshes = [];
+    if (cabinSystem?.cabinRoot) {
+      cabinSystem.cabinRoot.traverse((object) => {
+        if (object.isMesh) meshes.push(object);
+      });
+    } else {
+      localCabinWorld.traverse((object) => {
+        if (object.isMesh) meshes.push(object);
+      });
+    }
     return ray.intersectObjects(meshes, false).some(hit => { let object = hit.object; while (object) { if (!object.visible) return false; object = object.parent; } const material = Array.isArray(hit.object.material) ? hit.object.material[hit.face?.materialIndex || 0] : hit.object.material; return material && material.visible !== false && (!material.transparent || (!material.isShaderMaterial && material.opacity >= .6)); });
   }
   function disposeTravelEffect() { hyperspace?.dispose(); hyperspace = null; }
@@ -3646,7 +3654,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   dom.addEventListener('wheel', onWheel, { passive: false });
   addEventListener('keydown', onKeyDown);
   addEventListener('keyup', onKeyUp);
-  addEventListener('blur', releaseInputs); document.addEventListener('visibilitychange', onVisibilityChange); document.addEventListener('focusin', onInputFocus); dom.addEventListener('pointercancel', releaseInputs);
+  addEventListener('blur',releaseInputs); document.addEventListener('visibilitychange', onVisibilityChange); document.addEventListener('focusin', onInputFocus); dom.addEventListener('pointercancel', releaseInputs);
   addEventListener('resize', onResize);
   const frameTiming = { active: false, last: null, values: [], metadata: null };
   function tick() {
@@ -5234,7 +5242,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.onViewChange?.(pv);
       return pv;
     },
-    stopAndInspect: () => { if (realTimeIntro || launchSequence || launchCameraBlend) return false; cancelTravel(); tw = null; vel.set(0, 0, 0); for (const key of Object.keys(keys)) delete keys[key]; ac = 0; th = 0; S.onNavigation?.(null); leaveExteriorCamera(false); free = false; spectator = false; freeHelmMode = false; localCabinWorld.visible = false; ship.visible = false; tr.visible = false; S.fr(false); ct.enabled = true; const found = missionMarkers.get(activeMissionKey); if (found) ct.target.copy(found.marker.getWorldPosition(new V())); else { const direction = new V(); cam.getWorldDirection(direction); ct.target.copy(cam.position).addScaledVector(direction, 2); } ct.minDistance = .05; ct.maxDistance = 200; cam.lookAt(ct.target); ct.update(); },
+    stopAndInspect:()=>{if(realTimeIntro || launchSequence || launchCameraBlend) return false; cancelTravel(); tw = null; vel.set(0, 0, 0); for (const key of Object.keys(keys)) delete keys[key]; ac = 0; th = 0; S.onNavigation?.(null); leaveExteriorCamera(false); free = false; spectator = false; freeHelmMode = false; localCabinWorld.visible = false; ship.visible = false; tr.visible = false; S.fr(false); ct.enabled = true; const found = missionMarkers.get(activeMissionKey); if (found) ct.target.copy(found.marker.getWorldPosition(new V())); else { const direction = new V(); cam.getWorldDirection(direction); ct.target.copy(cam.position).addScaledVector(direction, 2); } ct.minDistance = .05; ct.maxDistance = 200; cam.lookAt(ct.target); ct.update(); },
     returnToStarMap: () => setNavigationScale('stellar'),
     nearbyMap,
     returnFromNearbyMap,
