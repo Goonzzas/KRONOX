@@ -21,7 +21,12 @@ export default function SpaceshipCockpit({
   cockpitVisible = false,
   navigationActive = false,
   cabinFirstPerson = true,
+  astronautSectorState = null,
   onToggleCabinPerspective,
+  onToggleMicrogravityMode,
+  onToggleGrabRail,
+  onTeleportToDeck,
+  onOpenArchiveJournal,
   nearestStation = null,
   activeStation = null,
   onSelectStation,
@@ -246,6 +251,17 @@ export default function SpaceshipCockpit({
               >
                 <span>Cabina 1P</span>
               </button>
+              {viewMode === 'cockpit' && onToggleCabinPerspective && (
+                <button
+                  type="button"
+                  className={`kronoxViewBtn ${!cabinFirstPerson ? 'active' : ''}`}
+                  disabled={navigationActive}
+                  onClick={() => onToggleCabinPerspective(!cabinFirstPerson)}
+                  title="Alternar cámara interior 1P / Astronauta EVA 3P [V]"
+                >
+                  <span>{cabinFirstPerson ? '3P EVA [V]' : '1P Ojos [V]'}</span>
+                </button>
+              )}
               <button
                 type="button"
                 className={`kronoxViewBtn ${viewMode === 'exterior' ? 'active' : ''}`}
@@ -256,6 +272,28 @@ export default function SpaceshipCockpit({
                 <span>Exterior</span>
               </button>
             </nav>
+
+            {viewMode === 'cockpit' && astronautSectorState && cockpitVisible && (
+              <div className="kronoxTelescopeHudGroup" aria-label="Cubierta y microgravedad">
+                <button
+                  type="button"
+                  className={`kronoxViewBtn ${astronautSectorState.microgravityMode === 'FREE' ? 'active' : ''}`}
+                  onClick={() => onToggleMicrogravityMode?.()}
+                  title="Alternar microgravedad Asistida / Libre 6-DOF [M] · Freno RCS [X] · Pasamanos [H]"
+                >
+                  <span>
+                    {astronautSectorState.deckId === 'deck-01'
+                      ? 'C01'
+                      : astronautSectorState.deckId === 'deck-02'
+                        ? 'C02'
+                        : astronautSectorState.deckId === 'deck-03'
+                          ? 'C03'
+                          : 'C04'}{' '}
+                    · μG {astronautSectorState.microgravityMode === 'FREE' ? 'Libre' : 'Asist.'} [M]
+                  </span>
+                </button>
+              </div>
+            )}
 
             {viewMode === 'exterior' && (
               <button
@@ -457,8 +495,8 @@ export default function SpaceshipCockpit({
         <div className="kronoxProximityPrompt" role="status" aria-live="polite">
           <div className="kronoxProximityKey">[E]</div>
           <div className="kronoxProximityInfo">
-            <strong>{nearestStation.title}</strong>
-            <span>Interactuar con consola física</span>
+            <strong>{nearestStation.title || nearestStation.label}</strong>
+            <span>{nearestStation.zoneLabel || 'Interactuar con consola física'}</span>
           </div>
           <button
             type="button"
@@ -608,7 +646,7 @@ export default function SpaceshipCockpit({
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">
-                ESTACIÓN FÍSICA DE PROA · (0.0 m, -6.2 m) · MAPA HOLOGRÁFICO 3D ACTIVO
+                CUBIERTA 01 · TIMÓN Y NAVEGACIÓN ORBITAL (Z -46.8 m) · MAPA 3D
               </span>
               <h4>CONSOLA DE NAVEGACIÓN · PROPULSIÓN Y SALTOS ESTELARES</h4>
             </div>
@@ -856,7 +894,7 @@ export default function SpaceshipCockpit({
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">
-                ESTACIÓN FÍSICA DE BABOR · (-4.2 m, -2.2 m) · SENSORES 3D ACTIVOS
+                CUBIERTA 02 · VAINA BABOR SPHEREx (X -5.6 m, Z -32.2 m) · SENSORES ACTIVOS
               </span>
               <h4>CONSOLA CIENTÍFICA · ESPECTROFOTOMETRÍA NASA SPHEREx</h4>
             </div>
@@ -909,7 +947,7 @@ export default function SpaceshipCockpit({
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">
-                ESTACIÓN FÍSICA DE ESTRIBOR · (+4.2 m, -2.2 m)
+                CUBIERTA 01 · TABLERO DE CAMPAÑA (X +3.2 m, Z -45.2 m)
               </span>
               <h4>CONSOLA DE MISIONES · BITÁCORA Y RETOS CIENTÍFICOS</h4>
             </div>
@@ -954,7 +992,7 @@ export default function SpaceshipCockpit({
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">
-                MIRADOR PANORÁMICO DE PROA · (0.0 m, -9.8 m)
+                CUBIERTA 01 · MIRADOR PANORÁMICO DE PROA (Z -50.6 m)
               </span>
               <h4>OBSERVACIÓN VISUAL DIRECTA DEL COSMOS 3D</h4>
             </div>
@@ -964,7 +1002,7 @@ export default function SpaceshipCockpit({
           </div>
           <p className="kronoxStationDesc">
             Haz clic directamente sobre cualquier estrella o planeta a través del parabrisas
-            panorámico para que Kronox IA apunte con su haz luminoso 3D y despliegue su telemetría.
+            panorámico para que KRONOX IA apunte con su haz luminoso 3D y despliegue su telemetría.
           </p>
           {onToggleVisualProfile && (
             <div className="kronoxStationBtnRow" style={{ marginTop: '8px' }}>
@@ -997,7 +1035,7 @@ export default function SpaceshipCockpit({
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">
-                ESTACIÓN FÍSICA CUÁNTICA · (-2.8 m, +2.8 m) · NÚCLEO ACTIVO
+                CUBIERTA 01 · NÚCLEO KRONOX IA (X -3.2 m, Z -45.2 m) · EN LÍNEA
               </span>
               <h4>CONSOLA DE COMUNICACIONES · KRONOX IA</h4>
             </div>
@@ -1021,7 +1059,7 @@ export default function SpaceshipCockpit({
                 onOpenAiConsole?.();
               }}
             >
-              ✦ Transmitir consulta o dialogar con Kronox IA
+              ✦ Transmitir consulta o dialogar con KRONOX IA
             </button>
             <button
               type="button"
@@ -1033,6 +1071,87 @@ export default function SpaceshipCockpit({
               Iniciar recorrido guiado por el puente
             </button>
           </div>
+        </div>
+      )}
+
+      {cockpitVisible && activeStation === 'archive' && (
+        <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Cúpula Dorsal de Archivo">
+          <div className="kronoxStationDrawerHead">
+            <div>
+              <span className="kronoxDiegeticTag">CUBIERTA 02 · CÚPULA DORSAL (Y +1.6 m, Z -26.0 m)</span>
+              <h4>ARCHIVO ESTELAR Y BITÁCORA PERSONAL</h4>
+            </div>
+            <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar archivo">×</button>
+          </div>
+          <p className="kronoxStationDesc">
+            Registra y consulta tus hallazgos fotométricos y registros observacionales de SPHEREx.
+            Hallazgos actuales: <strong>{findingsCount}</strong>.
+          </p>
+          <div className="kronoxStationBtnRow">
+            <button type="button" className="active" onClick={() => { onSelectStation(null); onOpenArchiveJournal?.(); }}>
+              ✦ Abrir Diario de Exploración y Hallazgos
+            </button>
+            <button type="button" onClick={() => { onSelectStation(null); onOpenSpherexDoc?.(); }}>
+              Ver archivo histórico SPHEREx
+            </button>
+          </div>
+        </div>
+      )}
+
+      {cockpitVisible && activeStation === 'galley' && (
+        <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Estación de Habitabilidad">
+          <div className="kronoxStationDrawerHead">
+            <div>
+              <span className="kronoxDiegeticTag">CUBIERTA 03 · TAMBOR HABITACIONAL (X -6.2 m, Z -5.8 m)</span>
+              <h4>HABITABILIDAD, BOTÁNICA Y SOPORTE VITAL</h4>
+            </div>
+            <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar habitabilidad">×</button>
+          </div>
+          <p className="kronoxStationDesc">
+            Presión de cabina nominal: <strong>101.3 kPa</strong> · O₂: <strong>21.0%</strong> · Cámara hidropónica activa con iluminación fotosintética y ojos de buey libres al vacío exterior.
+          </p>
+        </div>
+      )}
+
+      {cockpitVisible && activeStation === 'airlock' && (
+        <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Esclusa Ventral y Tránsito de Cubiertas">
+          <div className="kronoxStationDrawerHead">
+            <div>
+              <span className="kronoxDiegeticTag">CUBIERTA 03 · ESCLUSA VENTRAL EVA Y ESPINA CENTRAL</span>
+              <h4>ESCLUSA DE TRANSPORTE ENTRE CUBIERTAS</h4>
+            </div>
+            <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar esclusa">×</button>
+          </div>
+          <p className="kronoxStationDesc">
+            Puedes desplazarte flotando en 6-DOF a lo largo de la espina central o utilizar las esclusas presurizadas de transferencia rápida:
+          </p>
+          <div className="kronoxStationBtnRow">
+            {[
+              ['deck-01', 'Cubierta 01 · Puente de Mando'],
+              ['deck-02', 'Cubierta 02 · Ciencia SPHEREx'],
+              ['deck-03', 'Cubierta 03 · Habitabilidad EVA'],
+              ['deck-04', 'Cubierta 04 · Ingeniería Tokamak'],
+            ].map(([dId, label]) => (
+              <button key={dId} type="button" onClick={() => onTeleportToDeck?.(dId)}>
+                ↗ Ir a {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {cockpitVisible && activeStation === 'engineering' && (
+        <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Consola de Ingeniería Tokamak">
+          <div className="kronoxStationDrawerHead">
+            <div>
+              <span className="kronoxDiegeticTag">CUBIERTA 04 · REACTOR TOKAMAK D-He³ (Z +24.0 m)</span>
+              <h4>INGENIERÍA, CONFINAMIENTO Y PROPULSIÓN MPD</h4>
+            </div>
+            <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar ingeniería">×</button>
+          </div>
+          <p className="kronoxStationDesc">
+            Toroide Tokamak alineado con el núcleo de 120 m (confinamiento nominal 12.4 T · reserva de He³ estable · radiadores de grafeno a 310 K).
+          </p>
         </div>
       )}
     </>

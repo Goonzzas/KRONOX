@@ -224,8 +224,8 @@ function getPanoramicMilkyWayBandTexture() {
   if (typeof document === 'undefined') return null;
 
   const isHarness = Boolean(globalThis.__KRONOX_SCENE_HARNESS__);
-  const W = isHarness ? 64 : 1024;
-  const H = isHarness ? 32 : 512;
+  const W = isHarness ? 64 : 2048;
+  const H = isHarness ? 32 : 1024;
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -242,8 +242,8 @@ function getPanoramicMilkyWayBandTexture() {
 
       for (let px = 0; px < W; px++) {
         const idx = (py * W + px) * 4;
-        // Fuera del plano galáctico (|b| > 28°), el espacio profundo permanece completamente negro (alpha = 0)
-        if (absB > 0.32) {
+        // Fuera del plano galáctico (|b| > 24°), el espacio profundo permanece completamente negro (alpha = 0)
+        if (absB > 0.27) {
           d[idx] = d[idx + 1] = d[idx + 2] = d[idx + 3] = 0;
           continue;
         }
@@ -252,74 +252,62 @@ function getPanoramicMilkyWayBandTexture() {
         const lRad = ((px / W) * 2 - 1) * Math.PI;
         const cosL = Math.cos(lRad);
 
-        // Domain warping para formas orgánicas de nubes estelares y grietas de polvo (nunca bandas geométricas lisas)
-        const warpX = skyFbm(px / (W / 10) + 3.1, py / (H / 5) - 1.9, 3) - 0.5;
-        const warpY = skyFbm(px / (W / 10) - 7.4, py / (H / 5) + 4.6, 3) - 0.5;
-        const nBroad = skyFbm(px / (W / 9) + warpX * 1.8, py / (H / 4.5) + warpY * 1.4, 4);
-        const nFine = skyFbm(px / (W / 32) + 11.3 + warpX * 2.4, py / (H / 16) - 5.7 + warpY * 2.1, 4);
+        // Domain warping anisotrópico de alta frecuencia (evita manchas gruesas y produce filamentos naturales)
+        const warpX = skyFbm(px / (W / 14) + 3.1, py / (H / 7) - 1.9, 4) - 0.5;
+        const warpY = skyFbm(px / (W / 14) - 7.4, py / (H / 7) + 4.6, 4) - 0.5;
+        const nBroad = skyFbm(px / (W / 12) + warpX * 1.4, py / (H / 6) + warpY * 1.2, 4);
+        const nFine = skyFbm(px / (W / 44) + 11.3 + warpX * 2.1, py / (H / 22) - 5.7 + warpY * 1.9, 5);
+        const nDetail = skyFbm(px / (W / 110) - 4.2, py / (H / 55) + 9.4, 3);
         const nMicro = skyHash(px * 3 + 17, py * 3 + 29);
 
-        const bWarped = bNorm + warpY * 0.042;
+        const bWarped = bNorm + warpY * 0.032;
         const absBWarped = Math.abs(bWarped);
 
-        // Perfil del bulbo de Sagitario (l ~ 0, |b| < 0.16) y disco galáctico irregular
-        const bulgeFactor = Math.exp(-Math.pow(lRad / 0.55, 2) - Math.pow(absBWarped / 0.125, 1.65));
-        const diskWidth = Math.max(0.032, 0.055 + 0.068 * Math.max(0, cosL) + 0.038 * (nBroad - 0.5));
+        // Perfil realista del bulbo central de Sagitario y disco galáctico tenue sin saturación excesiva
+        const bulgeFactor = Math.exp(-Math.pow(lRad / 0.46, 2) - Math.pow(absBWarped / 0.105, 1.75));
+        const diskWidth = Math.max(0.026, 0.044 + 0.048 * Math.max(0, cosL) + 0.026 * (nBroad - 0.5));
         const diskProfile =
-          Math.exp(-Math.pow(absBWarped / diskWidth, 1.65)) *
-          (0.32 + 0.68 * Math.pow((cosL + 1) * 0.5, 0.85));
+          Math.exp(-Math.pow(absBWarped / diskWidth, 1.72)) *
+          (0.24 + 0.76 * Math.pow((cosL + 1) * 0.5, 0.9));
 
-        const cloudTextureMod = Math.pow(Math.max(0, 0.35 + 0.85 * nBroad + 0.45 * (nFine - 0.5)), 1.35);
-        const starCloudLum = Math.min(1.15, (bulgeFactor * 0.92 + diskProfile * 0.78) * cloudTextureMod);
+        const cloudTextureMod = Math.pow(
+          Math.max(0, 0.32 + 0.65 * nBroad + 0.35 * (nFine - 0.5) + 0.2 * (nDetail - 0.5)),
+          1.25,
+        );
+        const starCloudLum = Math.min(0.92, (bulgeFactor * 0.82 + diskProfile * 0.66) * cloudTextureMod);
 
-        // Gran Grieta de Polvo Oscuro (Great Rift: Cygnus -> Aquila -> Ophiuchus -> Sagittarius -> Centaurus)
-        const riftCenterB = 0.014 * Math.sin(lRad * 2.3) + warpY * 0.045;
-        const riftWidth = Math.max(0.012, 0.022 + 0.028 * nFine);
+        // Gran Grieta de Polvo Oscuro (Great Rift natural: absorción oscura nítida, sin manchas marrones ni parches)
+        const riftCenterB = 0.011 * Math.sin(lRad * 1.8) + warpY * 0.035;
+        const riftWidth = Math.max(0.008, 0.015 + 0.022 * nFine);
         const riftMask =
-          Math.exp(-Math.pow(Math.abs(bNorm - riftCenterB) / riftWidth, 1.8)) *
-          (0.38 + 0.62 * Math.max(0, cosL + 0.35)) *
-          Math.pow(0.45 + 0.75 * nFine, 1.4);
+          Math.exp(-Math.pow(Math.abs(bNorm - riftCenterB) / riftWidth, 1.9)) *
+          (0.32 + 0.68 * Math.max(0, cosL + 0.3)) *
+          Math.pow(0.45 + 0.7 * nFine, 1.45);
         const darkFilaments =
-          Math.exp(-Math.pow(absBWarped / 0.105, 1.8)) *
-          Math.pow(Math.max(0, nFine - 0.38) * 1.75, 2.2) *
-          0.92;
-        const dustExtinction = Math.min(0.92, riftMask * 0.88 + darkFilaments * 0.72);
+          Math.exp(-Math.pow(absBWarped / 0.088, 1.9)) *
+          Math.pow(Math.max(0, nDetail - 0.42) * 1.7, 2.0) *
+          0.85;
+        const dustExtinction = Math.min(0.94, riftMask * 0.92 + darkFilaments * 0.68);
 
-        // Nebulosas de emisión HII rosadas/magenta discretas y localizadas (Laguna M8, Trífida M20, Carina, Cygnus X)
-        const hiiSpots =
-          Math.exp(-Math.pow(absBWarped / 0.058, 2)) *
-          Math.pow(Math.max(0, Math.sin(lRad * 11 + nFine * 6.5)), 14) *
-          (0.35 + 0.65 * Math.max(0, cosL + 0.3)) *
-          0.75;
-
-        // Micro-estrellas resueltas dentro de las nubes estelares de la Vía Láctea
+        // Micro-estrellas finas resueltas dentro de la banda galáctica
         const starGrain =
-          nMicro > 0.965 && starCloudLum > 0.14 ? (nMicro - 0.965) * 28.0 * (1 - dustExtinction * 0.7) : 0;
+          nMicro > 0.935 && starCloudLum > 0.08 ? Math.pow((nMicro - 0.935) / 0.065, 1.4) * (1 - dustExtinction * 0.75) : 0;
 
-        const transmittance = Math.max(0.06, 1 - dustExtinction * 0.88);
+        const transmittance = Math.max(0.04, 1 - dustExtinction * 0.92);
 
-        // Nubes estelares doradas/ámbar en Sagitario + tono azulado-plata en brazos exteriores + bordes ocre del polvo + HII rosa
-        const warmWeight = 0.42 + 0.58 * Math.max(0, cosL);
+        // Nubes estelares sutiles marfil-doradas hacia Sagitario y plata-azuladas en brazos externos
+        const warmWeight = 0.25 + 0.75 * Math.pow(Math.max(0, cosL), 1.4);
         const starR =
-          starCloudLum * (212 + 43 * warmWeight) * transmittance +
-          dustExtinction * starCloudLum * 54 +
-          hiiSpots * 245 +
-          starGrain * 255;
+          starCloudLum * (175 + 48 * warmWeight) * transmittance + starGrain * 250;
         const starG =
-          starCloudLum * (178 + 32 * warmWeight) * transmittance +
-          dustExtinction * starCloudLum * 34 +
-          hiiSpots * 76 +
-          starGrain * 238;
+          starCloudLum * (168 + 26 * warmWeight) * transmittance + starGrain * 242;
         const starB =
-          starCloudLum * (205 - 58 * warmWeight) * transmittance +
-          dustExtinction * starCloudLum * 18 +
-          hiiSpots * 146 +
-          starGrain * 220;
+          starCloudLum * (192 - 44 * warmWeight) * transmittance + starGrain * 235;
 
         const alpha = Math.min(
-          0.86,
-          (starCloudLum * 0.68 + dustExtinction * starCloudLum * 0.28 + hiiSpots * 0.55 + starGrain * 0.6) *
-            Math.max(0, 1 - Math.pow(absB / 0.31, 2.1)),
+          0.74,
+          (starCloudLum * 0.56 + starGrain * 0.65) *
+            Math.max(0, 1 - Math.pow(absB / 0.265, 2.2)),
         );
 
         d[idx] = Math.max(0, Math.min(255, Math.round(starR)));
@@ -403,27 +391,26 @@ export function createObserverAwareFirmament({
     diffuseGalacticLayer.add(panoramicBandMesh);
   }
 
-  // Nodos de nubes estelares, complejos HII y oscurecimiento por polvo a lo largo del plano galáctico
-  const dustAndBandCount = 1800;
+  // Nodos finos de micro-estrellas densas a lo largo del plano galáctico (sin parches ni círculos gigantes)
+  const dustAndBandCount = 3200;
   const bandPos = new Float32Array(dustAndBandCount * 3);
   const bandCol = new Float32Array(dustAndBandCount * 3);
   for (let i = 0; i < dustAndBandCount; i++) {
     const i3 = i * 3;
-    const theta = (i / dustAndBandCount) * Math.PI * 2 + Math.sin(i * 1.7) * 0.08;
-    const latSpread = (((i * 73) % 100) / 100 - 0.5) * 0.26;
+    const h1 = skyHash(i, 19);
+    const h2 = skyHash(i, 47);
+    const theta = h1 * Math.PI * 2;
+    const latSpread = (h2 - 0.5) * 0.22 * (0.4 + 0.6 * skyHash(i, 83));
     const r = skyDomeRadius * 0.95;
     bandPos[i3] = Math.cos(latSpread) * Math.cos(theta) * r;
     bandPos[i3 + 1] = Math.sin(latSpread) * r;
     bandPos[i3 + 2] = Math.cos(latSpread) * Math.sin(theta) * r;
 
-    const towardCenter = Math.pow(Math.max(0, Math.cos(theta)), 2.4);
-    const isHii = i % 16 === 0;
-    const isWarmCloud = !isHii && i % 3 === 0;
-    const c = isHii
-      ? new THREE.Color('#ff5e9c')
-      : isWarmCloud
-        ? new THREE.Color('#f5c482').lerp(new THREE.Color('#ffe8be'), towardCenter)
-        : new THREE.Color('#8cb8f2').lerp(new THREE.Color('#ffdca8'), towardCenter * 0.8);
+    const towardCenter = Math.pow(Math.max(0, Math.cos(theta)), 2.2);
+    const isWarmCloud = i % 3 === 0;
+    const c = isWarmCloud
+      ? new THREE.Color('#eed3a6').lerp(new THREE.Color('#fff2d6'), towardCenter)
+      : new THREE.Color('#a4c6f5').lerp(new THREE.Color('#f7dec0'), towardCenter * 0.72);
     bandCol[i3] = c.r;
     bandCol[i3 + 1] = c.g;
     bandCol[i3 + 2] = c.b;
@@ -432,11 +419,11 @@ export function createObserverAwareFirmament({
   bandGeo.setAttribute('position', new THREE.BufferAttribute(bandPos, 3));
   bandGeo.setAttribute('color', new THREE.BufferAttribute(bandCol, 3));
   const bandMaterial = new THREE.PointsMaterial({
-    size: 5.5,
+    size: 1.5,
     map: glowTexture || null,
     vertexColors: true,
     transparent: true,
-    opacity: 0.42,
+    opacity: 0.26,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     sizeAttenuation: false,
@@ -593,11 +580,11 @@ export function createObserverAwareFirmament({
     const haloAttenuation =
       1 - THREE.MathUtils.smoothstep(sky.observerDistanceFromSunPc, 2500, 18000);
     if (panoramicBandMesh) {
-      panoramicBandMesh.material.opacity = (isScientific ? 0.24 : 0.72) * haloAttenuation;
+      panoramicBandMesh.material.opacity = (isScientific ? 0.22 : 0.68) * haloAttenuation;
     }
-    bandMaterial.opacity = (isScientific ? 0.18 : 0.44) * haloAttenuation;
-    procMaterial.opacity = (isScientific ? 0.42 : 0.82) * haloAttenuation;
-    catalogMaterial.size = isScientific ? 3.2 : 4.5;
+    bandMaterial.opacity = (isScientific ? 0.11 : 0.26) * haloAttenuation;
+    procMaterial.opacity = (isScientific ? 0.42 : 0.8) * haloAttenuation;
+    catalogMaterial.size = isScientific ? 3.2 : 4.2;
 
     return sky;
   }

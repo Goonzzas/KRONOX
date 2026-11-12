@@ -74,7 +74,7 @@ export async function verifyFishVoiceAccess(referenceId = FISH_AUDIO_VOICE_ID, f
         authorized: true,
         accessible: true,
         referenceId: cleanId,
-        title: metadata.title || metadata.name || 'Cronos Fish Audio Voice',
+        title: metadata.title || metadata.name || 'KRONOX IA Fish Audio Voice',
         visibility: metadata.visibility || 'public',
         provider: 'fish-audio',
       };

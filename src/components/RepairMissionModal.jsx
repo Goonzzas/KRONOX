@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { unlockAchievement } from '../utils/gameAchievements.js';
 import { advanceCampaignLevel, loadCampaignProgress, saveCampaignProgress } from '../state/campaignState.js';
 
@@ -8,7 +8,7 @@ import { advanceCampaignLevel, loadCampaignProgress, saveCampaignProgress } from
  * 1. Diagnostic scan with portable spectral scanner.
  * 2. Unmounting degraded optical coupler with multi-tool.
  * 3. Installing replacement quantum coupler from player inventory.
- * 4. Frequency calibration and system clearance by Kronox IA.
+ * 4. Frequency calibration and system clearance by KRONOX IA.
  */
 export default function RepairMissionModal({
   open = false,
@@ -16,6 +16,7 @@ export default function RepairMissionModal({
   onClose,
   onRepairCompleted,
   onMissionComplete,
+  onStageChange,
   language = 'es',
 }) {
   const [stage, setStage] = useState(1); // 1: Scan, 2: Extract, 3: Install, 4: Calibrate, 5: Finished
@@ -25,23 +26,85 @@ export default function RepairMissionModal({
   const [feedbackMsg, setFeedbackMsg] = useState('');
 
   const modalOpen = Boolean(open || isOpen);
+  const timersRef = useRef({ intervals: new Set(), timeouts: new Set() });
+  const cancelledRef = useRef(!modalOpen);
+  const onStageChangeRef = useRef(onStageChange);
+  onStageChangeRef.current = onStageChange;
+
+  const clearPendingTimers = useCallback(() => {
+    timersRef.current.intervals.forEach((id) => clearInterval(id));
+    timersRef.current.intervals.clear();
+    timersRef.current.timeouts.forEach((id) => clearTimeout(id));
+    timersRef.current.timeouts.clear();
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    cancelledRef.current = true;
+    clearPendingTimers();
+    onClose?.();
+  }, [clearPendingTimers, onClose]);
+
+  useEffect(() => {
+    if (!modalOpen) {
+      cancelledRef.current = true;
+      clearPendingTimers();
+      setStage(1);
+      setScanProgress(0);
+      setToolTorque(0);
+      setCalibratedFreq(164.2);
+      setFeedbackMsg('');
+      return;
+    }
+    cancelledRef.current = false;
+    onStageChangeRef.current?.(Math.min(4, stage));
+  }, [modalOpen, stage, clearPendingTimers]);
+
+  useEffect(() => {
+    if (!modalOpen) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleCloseModal();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [modalOpen, handleCloseModal]);
+
+  useEffect(() => {
+    return () => {
+      cancelledRef.current = true;
+      clearPendingTimers();
+    };
+  }, [clearPendingTimers]);
+
   if (!modalOpen) return null;
 
   const handleRunDiagnostic = () => {
+    clearPendingTimers();
     setFeedbackMsg('Iniciando barrido espectral del bus óptico...');
     let p = 0;
     const interval = setInterval(() => {
+      if (cancelledRef.current) {
+        clearInterval(interval);
+        timersRef.current.intervals.delete(interval);
+        return;
+      }
       p += 20;
       setScanProgress(p);
       if (p >= 100) {
         clearInterval(interval);
+        timersRef.current.intervals.delete(interval);
+        if (cancelledRef.current) return;
         setFeedbackMsg('Fallo detectado: Acoplador óptico desalineado. Resonancia caída a 164.2 THz (-14.8%).');
         setStage(2);
       }
     }, 120);
+    timersRef.current.intervals.add(interval);
   };
 
   const handleUseMultiTool = () => {
+    if (cancelledRef.current) return;
     setToolTorque((prev) => {
       const next = prev + 35;
       if (next >= 100) {
@@ -55,21 +118,33 @@ export default function RepairMissionModal({
   };
 
   const handleInstallReplacement = () => {
+    clearPendingTimers();
     setFeedbackMsg('Instalando Acoplador Óptico Cuántico de niobato de litio desde el inventario...');
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
+      timersRef.current.timeouts.delete(timeoutId);
+      if (cancelledRef.current) return;
       setFeedbackMsg('Acoplador acoplado a la guía de ondas. Listo para calibración de frecuencia.');
       setStage(4);
     }, 600);
+    timersRef.current.timeouts.add(timeoutId);
   };
 
   const handleCalibrateTelemetry = () => {
+    clearPendingTimers();
     setFeedbackMsg('Alineando fase óptica con la referencia estelar J2000.0...');
     let f = 164.2;
     const interval = setInterval(() => {
+      if (cancelledRef.current) {
+        clearInterval(interval);
+        timersRef.current.intervals.delete(interval);
+        return;
+      }
       f = Math.min(193.4, f + 5.8);
       setCalibratedFreq(Number(f.toFixed(1)));
       if (f >= 193.4) {
         clearInterval(interval);
+        timersRef.current.intervals.delete(interval);
+        if (cancelledRef.current) return;
         setFeedbackMsg('¡Telemetría verificada! Resonancia estabilizada en 193.4 THz (99.8% de eficiencia).');
         setStage(5);
 
@@ -79,9 +154,16 @@ export default function RepairMissionModal({
         prog.prologueRepaired = true;
         saveCampaignProgress(prog);
         advanceCampaignLevel(0);
-        (onRepairCompleted || onMissionComplete)?.();
       }
     }, 100);
+    timersRef.current.intervals.add(interval);
+  };
+
+  const handleFinishAndClose = () => {
+    cancelledRef.current = true;
+    clearPendingTimers();
+    (onRepairCompleted || onMissionComplete)?.();
+    onClose?.();
   };
 
   return (
@@ -162,7 +244,7 @@ export default function RepairMissionModal({
                   <span>🏆 Logro Desbloqueado:</span>
                   <strong>Técnico de a Bordo</strong>
                 </div>
-                <button type="button" className="kronox-repair-btn primary" onClick={onClose}>
+                <button type="button" className="kronox-repair-btn primary" onClick={handleFinishAndClose}>
                   Continuar Expedición
                 </button>
               </div>
@@ -173,7 +255,7 @@ export default function RepairMissionModal({
         </div>
 
         <footer className="kronox-repair-footer">
-          <button type="button" className="kronox-pause-secondary-btn" onClick={onClose}>
+          <button type="button" className="kronox-pause-secondary-btn" onClick={handleCloseModal}>
             Cerrar [ESC]
           </button>
         </footer>

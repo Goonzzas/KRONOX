@@ -142,7 +142,14 @@ export default function App() {
     [freeHelmMode, setFreeHelmMode] = useState(false),
     [nearestCabinStation, setNearestCabinStation] = useState(null),
     [cabinFirstPerson, setCabinFirstPerson] = useState(true),
-    [astronautCoords, setAstronautCoords] = useState({ x: 0, z: -1.8 }),
+    [astronautCoords, setAstronautCoords] = useState({ x: 0, z: -44.2 }),
+    [astronautSectorState, setAstronautSectorState] = useState({
+      deckId: 'deck-01',
+      deckNumber: 1,
+      deckName: 'Puente de Mando y Mirador de Proa',
+      microgravityMode: 'ASSISTED',
+      anchoredRailId: null,
+    }),
     [aiProjection, setAiProjection] = useState(null),
     [consoleProjection, setConsoleProjection] = useState(null),
     [directorState, setDirectorState] = useState(null),
@@ -239,6 +246,11 @@ export default function App() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.__KRONOX_OPEN_STATION__ = (id) => setActiveCockpitStation(id);
+      window.__KRONOX_OPEN_PAUSE_MENU__ = (open = true) => {
+        setPauseMenuSection('save');
+        setPauseMenuOpen(Boolean(open));
+        api.current?.setSimulationPaused?.(Boolean(open));
+      };
     }
   }, [setActiveCockpitStation]);
   const languageManuallyChosen = useRef(false);
@@ -563,7 +575,7 @@ export default function App() {
     const useBrowserVoice = (remainingText) => {
       if (token !== voiceToken.current || !voiceRef.current) return;
       if (typeof window === 'undefined' || !window.speechSynthesis || !window.SpeechSynthesisUtterance) {
-        setVoiceError('No se pudo reproducir la voz de Cronos. Revisa el audio del navegador.');
+        setVoiceError('No se pudo reproducir la voz de KRONOX IA. Revisa el audio del navegador.');
         advanceQueueOrFinish();
         return;
       }
@@ -589,7 +601,7 @@ export default function App() {
       utterance.onerror = () => {
         window.__kronoxActiveUtterance = null;
         if (token === voiceToken.current)
-          setVoiceError('No se pudo reproducir la voz de Cronos. Revisa el audio del navegador.');
+          setVoiceError('No se pudo reproducir la voz de KRONOX IA. Revisa el audio del navegador.');
         advanceQueueOrFinish();
       };
       window.speechSynthesis.speak(utterance);
@@ -659,7 +671,7 @@ export default function App() {
               voiceBlockedByAutoplayRef.current = true;
               setVoiceBlockedByAutoplay(true);
               setVoiceError(
-                'Pulsa «INICIAR EXPLORACIÓN» para escuchar la narración de Cronos.',
+                'Pulsa «INICIAR EXPLORACIÓN» para escuchar la narración de KRONOX IA.',
               );
               speakingRef.current = false;
               setSpeaking(false);
@@ -690,7 +702,7 @@ export default function App() {
       } catch {
         /* ignore */
       }
-      // Si Cronos ya está hablando o reproduciendo audio, jamás interrumpir ni reiniciar el diálogo
+      // Si KRONOX IA ya está hablando o reproduciendo audio, jamás interrumpir ni reiniciar el diálogo
       if (speakingRef.current || voiceAudio.current) {
         return;
       }
@@ -766,7 +778,7 @@ export default function App() {
       onNavigationScale: setNavigationScale,
       onNearbyMapChange: setNearbyMapActive,
       reducedMotion: () => reducedMotion,
-      // Mantiene la toma cinematográfica mientras Cronos habla para que ninguna locución se corte
+      // Mantiene la toma cinematográfica mientras KRONOX IA habla para que ninguna locución se corte
       shouldHoldIntroStage: (stageKey, stageElapsed) => {
         if (stageKey === 'opening') {
           if (voiceBlockedByAutoplayRef.current || introMusicBlocked) {
@@ -820,6 +832,15 @@ export default function App() {
         }
       },
       onFreeHelmChange: (enabled) => setFreeHelmMode(Boolean(enabled)),
+      onCabinFirstPersonChange: (firstP) => setCabinFirstPerson(Boolean(firstP)),
+      onMicrogravityStateChange: (mg) => {
+        if (!mg) return;
+        setAstronautSectorState((prev) => ({
+          ...prev,
+          microgravityMode: mg.mode || prev.microgravityMode,
+          anchoredRailId: mg.anchored ? (mg.anchoredRailId || 'rail') : null,
+        }));
+      },
       onIntroStageChange: (stageKey, captionText, stageOpts = {}) => {
         setCinematicStage(stageKey);
         setRealTimeIntroActive(true);
@@ -854,6 +875,15 @@ export default function App() {
         if (proj && Number.isFinite(proj.astronautX)) {
           setAstronautCoords({ x: proj.astronautX, z: proj.astronautZ });
           setCabinFirstPerson(Boolean(proj.cabinFirstPerson));
+        }
+        if (proj?.deckId) {
+          setAstronautSectorState((prev) => ({
+            ...prev,
+            deckId: proj.deckId,
+            deckName: proj.deckName || prev.deckName,
+            microgravityMode: proj.microgravityMode || prev.microgravityMode,
+            anchoredRailId: proj.anchoredRailId ?? null,
+          }));
         }
       },
       onConsoleScreenProjection: (proj) => {
@@ -999,7 +1029,7 @@ export default function App() {
           'En cada longitud de onda, el cosmos revela una historia diferente.',
           'Estrellas, mundos y galaxias guardan los rastros de una historia que todavía estamos aprendiendo a interpretar.',
           'Para continuar ese descubrimiento, hemos construido una nueva forma de explorar.',
-          'Soy Cronos, tu asistente de exploración. Bienvenido a bordo. El universo nos espera.',
+          'Soy KRONOX IA, tu asistente de exploración. Bienvenido a bordo. El universo nos espera.',
         ];
         introTexts.forEach((text) => {
           try {
@@ -2751,9 +2781,34 @@ export default function App() {
       cockpitVisible: fr && pv == 1,
       navigationActive: !!navigation && navigation.phase !== 'countdown',
       cabinFirstPerson,
+      astronautSectorState,
       onToggleCabinPerspective: (firstP) => {
-        setCabinFirstPerson(firstP);
-        A().setCabinFirstPerson?.(firstP);
+        const nextVal = firstP !== undefined ? Boolean(firstP) : !cabinFirstPerson;
+        setCabinFirstPerson(nextVal);
+        A().setCabinPerspective?.(nextVal);
+      },
+      onToggleMicrogravityMode: () => {
+        const nextMode = astronautSectorState.microgravityMode === 'FREE' ? 'ASSISTED' : 'FREE';
+        A().setMicrogravityMode?.(nextMode);
+      },
+      onToggleGrabRail: () => A().toggleGrabRail?.(),
+      onTeleportToDeck: (deckId) => {
+        const res = A().teleportAstronautToDeck?.(deckId);
+        if (res) {
+          setAstronautSectorState((prev) => ({
+            ...prev,
+            deckId: res.deckId,
+            deckNumber: res.deckNumber,
+            deckName: res.deckName,
+          }));
+          setActiveCockpitStation(null);
+          A().setActiveCabinStation?.(null);
+        }
+      },
+      onOpenArchiveJournal: () => {
+        setPauseMenuSection('journal');
+        setPauseMenuOpen(true);
+        api.current?.setSimulationPaused?.(true);
       },
       nearestStation: nearestCabinStation,
       activeStation: activeCockpitStation,
@@ -2986,13 +3041,17 @@ export default function App() {
     }),
     h(RepairMissionModal, {
       isOpen: activeCockpitStation === 'sensor-calibration',
+      onStageChange: (stage) => {
+        A()?.setRepairMissionStage?.(stage);
+      },
       onClose: () => {
         setActiveCockpitStation(null);
-        A()?.onStationInteract?.(null);
+        A()?.setActiveCabinStation?.(null);
       },
       onMissionComplete: () => {
+        A()?.setRepairMissionStage?.(4);
         setActiveCockpitStation(null);
-        A()?.onStationInteract?.(null);
+        A()?.setActiveCabinStation?.(null);
         notify('¡Sensor óptico calibrado con éxito! Logro de Ingeniero desbloqueado.', 'Servicio Técnico');
       },
     }),

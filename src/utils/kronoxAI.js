@@ -166,7 +166,7 @@ export function processKronoxQuery(userQuery = '', context = {}) {
       reply:
         'Iniciando documental interactivo de la misión SPHEREx de NASA y Caltech: desde su concepción en 102 bandas espectrales y pruebas criogénicas, hasta su despegue a bordo del Falcon 9 y sus tres pilares cosmológicos.',
       action: { type: 'PLAY_SPHEREX_DOCUMENTARY' },
-      role: 'Cronos · Asistente Científico',
+      role: 'KRONOX IA · Asistente Científico',
       avatarState: 'EXPLAINING',
       pointDirection: 'left',
       epistemicCategory: 'Documental Histórico SPHEREx',

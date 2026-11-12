@@ -58,7 +58,7 @@ export function createFishAudioVoiceProvider({
 }
 
 /**
- * Cola de reproducción secuencial para Cronos:
+ * Cola de reproducción secuencial para KRONOX IA:
  * - Evita superposiciones de locuciones.
  * - No interrumpe una frase antes de que termine (a menos que el usuario pida interrupt explícito).
  * - Nunca usa temporizadores fijos para estimar la duración de una locución: avanza al evento real `onended`.

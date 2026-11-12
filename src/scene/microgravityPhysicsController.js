@@ -1,190 +1,143 @@
 import * as THREE from 'three';
 
-/**
- * KRONOX 3D Microgravity Physics Engine & 6-DOF Controller.
- *
- * Implements physically authentic microgravity movement for the 1.75m astronaut:
- * - 6-DOF Velocity, Acceleration, Inertia, and Damping.
- * - Controls:
- *   - WASD: Forward/Back/Left/Right planar thrust relative to camera view.
- *   - Space: Upward vertical thrust (+Y).
- *   - Ctrl: Downward vertical thrust (-Y).
- *   - Shift: Burst RCS thrust (2.2x impulse).
- *   - X: Active Position Stabilization (RCS dampeners actively brake velocity to 0).
- *   - E: Grab handrail / anchor to console (clamps position rigidly).
- * - Two selectable flight difficulty modes:
- *   - ASSISTED: Automatic soft damping (tau = 1.4s), ideal for exploration & science.
- *   - FREE: Pure Newtonian inertia (damping = 0.002/s), true space mechanics.
- */
-
 export const MICROGRAVITY_MODES = Object.freeze({
   ASSISTED: 'ASSISTED',
   FREE: 'FREE',
 });
 
+/**
+ * 6-DOF microgravity locomotion controller for KRONOX interior navigation.
+ * Supports:
+ * - ASSISTED mode: responsive RCS thrust + gentle inertial damping for natural ship exploration.
+ * - FREE mode: pure Newtonian inertia preservation until counter-thrusted or braked with [X].
+ * - Zero-G rail anchoring (`toggleAnchor`) and hull/obstacle projection (`clampPositionFn`).
+ */
 export function createMicrogravityPhysicsController({
-  initialPosition = new THREE.Vector3(0, 3.4, -30.0), // Starts on Deck 01 (Bridge)
+  initialPosition = new THREE.Vector3(0, -1.6, -45.3),
   mode = MICROGRAVITY_MODES.ASSISTED,
   clampPositionFn = null,
 } = {}) {
   const position = initialPosition.clone();
   const velocity = new THREE.Vector3(0, 0, 0);
-  const acceleration = new THREE.Vector3(0, 0, 0);
+  let activeMode = mode;
+  let anchoredRailId = null;
 
-  let currentMode = mode;
-  let isAnchored = false;
-  let anchoredPosition = new THREE.Vector3();
-  let isStabilizing = false;
-  let activeGrabRail = null;
+  const baseAccelMps2 = 5.2;
+  const boostMult = 2.1;
+  const maxAssistedSpeed = 3.2;
+  const maxFreeSpeed = 4.6;
 
-  // Physical Constants in 1 unit = 1 meter
-  const BASE_THRUST_ACCEL = 4.2; // m/s^2
-  const BURST_MULTIPLIER = 2.4;
-  const MAX_SPEED = 6.5; // m/s
-  const ASSISTED_DAMPING = 2.8; // Exponential braking factor
-  const FREE_DAMPING = 0.05; // Vacuum residual friction
+  function setMode(nextMode) {
+    if (Object.values(MICROGRAVITY_MODES).includes(nextMode)) {
+      activeMode = nextMode;
+    }
+    return activeMode;
+  }
 
-  const update = (dt = 0.016, keys = {}, cameraQuaternion = null, nearbyGrabRail = null) => {
-    // If anchored to a handrail or console via [E], fix position in space
-    if (isAnchored) {
+  function setPosition(pos) {
+    if (!pos) return position;
+    position.set(Number(pos.x || 0), Number(pos.y || 0), Number(pos.z || 0));
+    velocity.set(0, 0, 0);
+    return position;
+  }
+
+  function toggleAnchor(railId = 'rail-local') {
+    if (anchoredRailId) {
+      anchoredRailId = null;
+      return false;
+    }
+    anchoredRailId = railId || 'rail-local';
+    velocity.set(0, 0, 0);
+    return true;
+  }
+
+  function update(dt = 0.016, keys = {}, viewQuat = new THREE.Quaternion()) {
+    const safeDt = Math.max(0.0005, Math.min(0.1, Number(dt) || 0.016));
+    const isStabilizing = Boolean(keys.x);
+    const isBoosting = Boolean(keys.shift);
+
+    if (anchoredRailId) {
       velocity.set(0, 0, 0);
-      acceleration.set(0, 0, 0);
-      position.copy(anchoredPosition);
       return {
         position: position.clone(),
         velocity: velocity.clone(),
         speed: 0,
-        isAnchored: true,
-        isThrusting: false,
+        mode: activeMode,
+        anchoredRailId,
         isStabilizing: false,
-        activeGrabRail,
+        isBoosting: false,
       };
     }
 
-    // Determine camera direction vectors in 3D
-    const forward = new THREE.Vector3(0, 0, -1);
-    const right = new THREE.Vector3(1, 0, 0);
-    const up = new THREE.Vector3(0, 1, 0);
+    const fwd = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0);
+    const strafe = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
+    const vert = (keys[' '] || keys.space ? 1 : 0) - (keys.control || keys.ctrl || keys.q ? 1 : 0);
 
-    if (cameraQuaternion) {
-      forward.applyQuaternion(cameraQuaternion);
-      right.applyQuaternion(cameraQuaternion);
-      // Up direction in camera space
-      up.crossVectors(right, forward).normalize();
+    const forwardVec = new THREE.Vector3(0, 0, -1).applyQuaternion(viewQuat).normalize();
+    const rightVec = new THREE.Vector3(1, 0, 0).applyQuaternion(viewQuat).normalize();
+    const upVec = new THREE.Vector3(0, 1, 0);
+
+    const thrustDir = new THREE.Vector3()
+      .addScaledVector(forwardVec, fwd)
+      .addScaledVector(rightVec, strafe)
+      .addScaledVector(upVec, vert);
+
+    const hasThrust = thrustDir.lengthSq() > 1e-4;
+    if (hasThrust) {
+      thrustDir.normalize();
+      const accel = baseAccelMps2 * (isBoosting ? boostMult : 1.0);
+      velocity.addScaledVector(thrustDir, accel * safeDt);
     }
 
-    acceleration.set(0, 0, 0);
-    let thrusting = false;
-
-    // Evaluate Input Commands
-    const thrustStrength = (keys['shift'] ? BURST_MULTIPLIER : 1.0) * BASE_THRUST_ACCEL;
-
-    if (keys['w'] || keys['arrowup']) {
-      acceleration.addScaledVector(forward, thrustStrength);
-      thrusting = true;
-    }
-    if (keys['s'] || keys['arrowdown']) {
-      acceleration.addScaledVector(forward, -thrustStrength);
-      thrusting = true;
-    }
-    if (keys['d'] || keys['arrowright']) {
-      acceleration.addScaledVector(right, thrustStrength);
-      thrusting = true;
-    }
-    if (keys['a'] || keys['arrowleft']) {
-      acceleration.addScaledVector(right, -thrustStrength);
-      thrusting = true;
-    }
-    // Vertical Microgravity Impulses
-    if (keys[' '] || keys['space']) {
-      // Space: ascend (+Y)
-      acceleration.y += thrustStrength * 0.9;
-      thrusting = true;
-    }
-    if (keys['control'] || keys['c'] && keys['ctrlKey']) {
-      // Ctrl: descend (-Y)
-      acceleration.y -= thrustStrength * 0.9;
-      thrusting = true;
+    if (isStabilizing) {
+      velocity.multiplyScalar(Math.max(0, Math.exp(-safeDt * 6.8)));
+    } else if (activeMode === MICROGRAVITY_MODES.ASSISTED && !hasThrust) {
+      // Smooth RCS auto-damping brings drift gently to rest when no thrusters fire
+      velocity.multiplyScalar(Math.max(0, Math.exp(-safeDt * 2.8)));
+    } else if (activeMode === MICROGRAVITY_MODES.FREE) {
+      // Pure Newtonian conservation (minus minuscule air-drag in pressurized cabin)
+      velocity.multiplyScalar(Math.max(0, Math.exp(-safeDt * 0.04)));
     }
 
-    // Active Stabilization Brake [X]
-    isStabilizing = Boolean(keys['x']);
-    if (isStabilizing && !thrusting) {
-      const brakeFactor = Math.max(0, 1.0 - 5.5 * dt);
-      velocity.multiplyScalar(brakeFactor);
-      if (velocity.length() < 0.05) velocity.set(0, 0, 0);
+    const speedLimit = (activeMode === MICROGRAVITY_MODES.FREE ? maxFreeSpeed : maxAssistedSpeed) * (isBoosting ? 1.45 : 1.0);
+    if (velocity.length() > speedLimit) {
+      velocity.setLength(speedLimit);
+    }
+    if (velocity.length() < 0.004 && !hasThrust) {
+      velocity.set(0, 0, 0);
     }
 
-    // Integrate Physics Equations: V += A * dt, P += V * dt
-    velocity.addScaledVector(acceleration, dt);
-
-    // Apply Mode-Dependent Damping
-    if (!thrusting && !isStabilizing) {
-      const dampingRate = currentMode === MICROGRAVITY_MODES.ASSISTED ? ASSISTED_DAMPING : FREE_DAMPING;
-      velocity.multiplyScalar(Math.max(0, 1.0 - dampingRate * dt));
-    }
-
-    // Clamp terminal zero-G velocity
-    if (velocity.length() > MAX_SPEED) {
-      velocity.setLength(MAX_SPEED);
-    }
-
-    // Apply translation
-    position.addScaledVector(velocity, dt);
-
-    // Prevent bulkhead clipping using deck spatial boundaries
-    if (clampPositionFn) {
+    const prevPos = position.clone();
+    position.addScaledVector(velocity, safeDt);
+    if (typeof clampPositionFn === 'function') {
       clampPositionFn(position);
+      // Dampen velocity along axes blocked cleanly by walls/bulkheads to avoid jitter
+      const intended = prevPos.clone().addScaledVector(velocity, safeDt);
+      if (Math.abs(position.x - intended.x) > 0.002) velocity.x *= 0.15;
+      if (Math.abs(position.y - intended.y) > 0.002) velocity.y *= 0.15;
+      if (Math.abs(position.z - intended.z) > 0.002) velocity.z *= 0.15;
     }
 
     return {
       position: position.clone(),
       velocity: velocity.clone(),
-      speed: velocity.length(),
-      isAnchored: false,
-      isThrusting: thrusting,
+      speed: Number(velocity.length().toFixed(3)),
+      mode: activeMode,
+      anchoredRailId,
       isStabilizing,
-      activeGrabRail,
+      isBoosting,
     };
-  };
-
-  const toggleAnchor = (nearbyRail = null) => {
-    if (isAnchored) {
-      isAnchored = false;
-      activeGrabRail = null;
-    } else {
-      isAnchored = true;
-      activeGrabRail = nearbyRail;
-      anchoredPosition.copy(position);
-    }
-    return isAnchored;
-  };
-
-  const setPosition = (newPos) => {
-    position.copy(newPos);
-    if (isAnchored) anchoredPosition.copy(newPos);
-  };
-
-  const setVelocity = (newVel) => {
-    velocity.copy(newVel);
-  };
-
-  const setMode = (newMode) => {
-    if (MICROGRAVITY_MODES[newMode]) {
-      currentMode = newMode;
-    }
-  };
+  }
 
   return {
-    getPosition: () => position.clone(),
-    getVelocity: () => velocity.clone(),
-    getSpeed: () => velocity.length(),
-    isAnchored: () => isAnchored,
-    isStabilizing: () => isStabilizing,
-    getMode: () => currentMode,
+    getMode: () => activeMode,
     setMode,
+    getSpeed: () => Number(velocity.length().toFixed(3)),
+    getVelocity: () => velocity.clone(),
+    getPosition: () => position.clone(),
     setPosition,
-    setVelocity,
+    isAnchored: () => Boolean(anchoredRailId),
+    getAnchoredRailId: () => anchoredRailId,
     toggleAnchor,
     update,
   };

@@ -112,7 +112,7 @@ test('5-scene SPHEREx intro, 1st-person cabin, orientation coherence, and orbit 
     assert.ok(uniqueCaptions[2].includes('En cada longitud de onda'));
     assert.ok(uniqueCaptions[3].includes('Estrellas, mundos y galaxias guardan los rastros'));
     assert.ok(uniqueCaptions[4].includes('hemos construido una nueva forma de explorar'));
-    assert.ok(uniqueCaptions[5].includes('Soy Cronos, tu asistente de exploración'));
+    assert.ok(uniqueCaptions[5].includes('Soy KRONOX IA, tu asistente de exploración'));
 
     // 2. SPHEREx 3D observatory exists in polar sun-synchronous orbit (~650 km, 98 min, 98 deg)
     const spherex = api.getSpherexObservatoryState();

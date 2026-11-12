@@ -140,12 +140,12 @@ export default function SpherexDocumentary({
   const scene = SPHEREX_DOCUMENTARY_SCENES[currentSceneIdx];
   const totalScenes = SPHEREX_DOCUMENTARY_SCENES.length;
 
-  // Calculate dynamic slide duration so Cronos has time to finish speaking comfortably:
+  // Calculate dynamic slide duration so KRONOX IA has time to finish speaking comfortably:
   // ~65ms per character + 3500ms breathing margin, clamped between 12s and 22s
   const narrationLength = scene?.narration ? scene.narration.length : 120;
   const currentSlideDuration = Math.max(12000, Math.min(22000, narrationLength * 65 + 3500));
 
-  // Voice narration by Cronos for each scene
+  // Voice narration by KRONOX IA for each scene
   useEffect(() => {
     if (!isPlaying) {
       if (stopNarrator) stopNarrator();
@@ -263,7 +263,7 @@ export default function SpherexDocumentary({
             <div>
               <div className="spherexDocNarrativeHeader">
                 <span className="spherexDocNarrativeTag">{scene.institution}</span>
-                <span className="spherexDocNarratorStatus">{isPlaying ? '● Cronos en emisión' : '⏸ En pausa'}</span>
+                <span className="spherexDocNarratorStatus">{isPlaying ? '● KRONOX IA en emisión' : '⏸ En pausa'}</span>
               </div>
               <h2 style={{ fontSize: '1.35rem', margin: '0 0 4px', color: '#f8fafc', fontWeight: 700 }}>
                 {scene.title}

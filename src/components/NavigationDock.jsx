@@ -86,7 +86,7 @@ export default function NavigationDock({
           )}
           <p>{context.description}</p>
           <div className="navigationDockActions">
-            <button onClick={onReenter}>Reingresar con Cronos</button>
+            <button onClick={onReenter}>Reingresar con KRONOX IA</button>
             <button disabled={travelActive} onClick={onReplayIntro}>
               Reproducir introducción
             </button>

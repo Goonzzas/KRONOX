@@ -2388,7 +2388,7 @@ export function buildMacroMilkyWayVolumetricDisk(macroRadius = 45000) {
       new THREE.MeshBasicMaterial({
         map: mwTex,
         transparent: true,
-        opacity: 0.86,
+        opacity: 0.84,
         side: THREE.DoubleSide,
         depthWrite: false,
         blending: THREE.NormalBlending,
@@ -2403,24 +2403,24 @@ export function buildMacroMilkyWayVolumetricDisk(macroRadius = 45000) {
       new THREE.MeshBasicMaterial({
         map: mwTex,
         transparent: true,
-        opacity: 0.34,
+        opacity: 0.12,
         side: THREE.DoubleSide,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
       }),
     );
     glowPlane.rotation.x = -Math.PI / 2;
-    glowPlane.position.y = 60;
+    glowPlane.position.y = 45;
     group.add(glowPlane);
   }
 
   if (bulgeTex) {
-    const barGeo = new THREE.PlaneGeometry(macroRadius * 0.58, macroRadius * 0.22);
+    const barGeo = new THREE.PlaneGeometry(macroRadius * 0.46, macroRadius * 0.16);
     const barMat = new THREE.MeshBasicMaterial({
       map: bulgeTex,
-      color: new THREE.Color('#fff2d6'),
+      color: new THREE.Color('#ffe5b8'),
       transparent: true,
-      opacity: 0.38,
+      opacity: 0.18,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -2595,10 +2595,21 @@ export function upgradeSceneGalaxiesWithMorphology({
       }
     });
     const macroDisk = buildMacroMilkyWayVolumetricDisk(45000);
-    const macroMorph = buildGalaxyMorphologyLayer3D('milky-way', 45000, glowTexture);
-    if (macroMorph) {
-      macroDisk.add(macroMorph);
-    }
+    // Añadir ancla sutil del Espolón de Orión (~8.18 kpc) sin apilar múltiples discos aditivos saturados
+    const orionMarker = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: glowTexture || null,
+        color: new THREE.Color('#7dd3fc'),
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    orionMarker.name = 'milky-way-orion-spur-anchor';
+    orionMarker.position.set(0, 120, 45000 * 0.52);
+    orionMarker.scale.set(2200, 2200, 1);
+    macroDisk.add(orionMarker);
     macroGalacticGroup.add(macroDisk);
   }
 
