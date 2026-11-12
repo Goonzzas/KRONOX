@@ -6803,3 +6803,409 @@ small {
   }
   .kronoxDialogueCard .kronoxSubtitleText { font-size: 13px; }
 }
+
+
+/* =========================================================================
+   KRONOX COMMERCIAL VIDEO GAME MAIN MENU & REGISTRATION STYLING
+   ========================================================================= */
+.kronox-main-menu-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(8, 15, 30, 0.88) 0%, rgba(3, 7, 18, 0.96) 100%);
+  backdrop-filter: blur(14px);
+  z-index: 99999;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: #f1f5f9;
+  animation: kronoxFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes kronoxFadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.kronox-main-menu-content {
+  width: min(92vw, 680px);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 15, 29, 0.95) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 50px rgba(14, 165, 233, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 36px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.kronox-main-menu-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.kronox-main-menu-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: #38bdf8;
+  background: rgba(14, 165, 233, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  padding: 4px 14px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+
+.kronox-main-title {
+  margin: 0;
+  font-size: clamp(38px, 6vw, 54px);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  background: linear-gradient(180deg, #ffffff 30%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 35px rgba(56, 189, 248, 0.4);
+}
+
+.kronox-main-subtitle {
+  margin: 0;
+  font-size: 13.5px;
+  color: #94a3b8;
+  max-width: 480px;
+  line-height: 1.5;
+}
+
+.kronox-main-nav-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kronox-main-btn {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(71, 85, 105, 0.45);
+  color: #f8fafc;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+}
+
+.kronox-main-btn:hover:not(:disabled) {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(56, 189, 248, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.2);
+}
+
+.kronox-main-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.8);
+}
+
+.kronox-main-btn.primary {
+  background: linear-gradient(90deg, rgba(14, 165, 233, 0.25) 0%, rgba(30, 41, 59, 0.7) 100%);
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
+.kronox-main-btn.primary:hover:not(:disabled) {
+  background: linear-gradient(90deg, rgba(14, 165, 233, 0.4) 0%, rgba(30, 41, 59, 0.9) 100%);
+  border-color: #38bdf8;
+}
+
+.kronox-main-btn .btn-icon {
+  font-size: 20px;
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(14, 165, 233, 0.12);
+  border-radius: 8px;
+}
+
+.kronox-main-btn .btn-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kronox-main-btn .btn-text strong {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.kronox-main-btn .btn-text small {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* REGISTRATION CARD */
+.kronox-registration-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: kronoxFadeIn 0.25s ease-out;
+}
+
+.kronox-registration-card h3 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.03em;
+}
+
+.kronox-reg-intro {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #cbd5e1;
+  background: rgba(15, 23, 42, 0.65);
+  border-left: 3px solid #38bdf8;
+  padding: 10px 14px;
+  border-radius: 0 8px 8px 0;
+}
+
+.kronox-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kronox-form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.kronox-reg-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(71, 85, 105, 0.6);
+  color: #ffffff;
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.kronox-reg-input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+}
+
+.kronox-skill-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.skill-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(71, 85, 105, 0.4);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.skill-card input {
+  display: none;
+}
+
+.skill-card:hover {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: rgba(30, 41, 59, 0.6);
+}
+
+.skill-card.selected {
+  border-color: #38bdf8;
+  background: rgba(14, 165, 233, 0.15);
+  box-shadow: 0 0 16px rgba(14, 165, 233, 0.2);
+}
+
+.skill-card strong {
+  font-size: 14px;
+  color: #f8fafc;
+}
+
+.skill-card small {
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.kronox-reg-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.kronox-pause-secondary-btn {
+  padding: 10px 18px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #cbd5e1;
+  font-size: 13.5px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.kronox-pause-secondary-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #f1f5f9;
+}
+
+.kronox-main-footer {
+  text-align: center;
+  font-size: 11px;
+  color: #64748b;
+  letter-spacing: 0.05em;
+  padding-top: 8px;
+  border-top: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+/* =========================================================================
+   TACTICAL DIEGETIC REPAIR HUD STYLING
+   ========================================================================= */
+.kronox-repair-modal-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 24px;
+  z-index: 99990;
+}
+
+.kronox-repair-card {
+  pointer-events: auto;
+  width: min(92vw, 640px);
+  background: rgba(10, 16, 30, 0.92);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 30px rgba(14, 165, 233, 0.2);
+  padding: 20px 24px;
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: kronoxSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes kronoxSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.kronox-repair-header {
+  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+  padding-bottom: 10px;
+}
+
+.kronox-repair-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #38bdf8;
+  text-transform: uppercase;
+}
+
+.kronox-repair-header h2 {
+  margin: 4px 0;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.kronox-repair-header p {
+  margin: 0;
+  font-size: 12.5px;
+  color: #94a3b8;
+}
+
+.kronox-repair-progress-track {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.step-dot {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 8px;
+  border-radius: 6px;
+  text-align: center;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(71, 85, 105, 0.4);
+  color: #64748b;
+}
+
+.step-dot.done {
+  background: rgba(14, 165, 233, 0.18);
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.repair-action-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.repair-telemetry-badge {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: monospace;
+  color: #38bdf8;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.kronox-repair-feedback {
+  font-size: 12.5px;
+  color: #cbd5e1;
+  background: rgba(15, 23, 42, 0.5);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 2px solid #38bdf8;
+}
+
+.kronox-repair-actions-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 6px;
+}

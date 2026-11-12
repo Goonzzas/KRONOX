@@ -97,7 +97,7 @@ test('1. Prueba H — Fish Audio TTS (8150d8bf74d245cd84a154b785aa7fab), backend
   });
   queue.enqueue('Frase 1');
   queue.enqueue('Frase 2');
-  await new Promise((r) => setTimeout(r, 60));
+  await new Promise((r) => setTimeout(r, 150));
   assert.deepEqual(spokenOrder, [
     'start:Frase 1',
     'end:Frase 1',

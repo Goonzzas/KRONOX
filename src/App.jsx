@@ -236,6 +236,11 @@ export default function App() {
     setMissionArrival(false);
   };
   useEffect(() => () => clearTimeout(missionOfferTimer.current), []);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__KRONOX_OPEN_STATION__ = (id) => setActiveCockpitStation(id);
+    }
+  }, [setActiveCockpitStation]);
   const languageManuallyChosen = useRef(false);
   const languagePreferenceExists = useRef(hasSavedLanguage());
   const missionGuideSyncRef = useRef(null);
@@ -952,6 +957,10 @@ export default function App() {
         setPv(3);
         api.current.free(true, false);
         api.current.view(3);
+      }
+      if (typeof window !== 'undefined') {
+        window.__KRONOX_API__ = api.current;
+        window.__KRONOX_OPEN_STATION__ = (id) => setActiveCockpitStation(id);
       }
     } catch (error) {
       if (import.meta.env.DEV) console.error('KRONOX scene initialization failed:', error);
@@ -2987,29 +2996,55 @@ export default function App() {
         notify('¡Sensor óptico calibrado con éxito! Logro de Ingeniero desbloqueado.', 'Servicio Técnico');
       },
     }),
-    showFullMainMenu &&
+    (showFullMainMenu || welcomeOpen) &&
     h(MainMenu, {
+      open: true,
       onStartNewExpedition: ({ alias, skillLevel }) => {
+        try {
+          sessionStorage.setItem('kronox-intro-seen', '1');
+        } catch {
+          /* ignore */
+        }
         setShowFullMainMenu(false);
         setWelcomeOpen(false);
         setRealTimeIntroActive(true);
         A()?.startRealTimeIntro?.(() => {
+          introSoundtrackRef.current?.fadeOut?.(3.0);
           setRealTimeIntroActive(false);
           setFr(true);
           setPv(1);
+          setAiAvatarState('Acompañamiento');
         });
       },
       onContinueExpedition: () => {
+        try {
+          sessionStorage.setItem('kronox-intro-seen', '1');
+        } catch {
+          /* ignore */
+        }
         setShowFullMainMenu(false);
         setWelcomeOpen(false);
+        const resumeKey =
+          savedExpedition?.targetKey || missionFindingsSync[0]?.targetKey || 'barnard';
+        const resumeStage = savedExpedition?.stage || 'explore';
+        setMissionTargetKey(resumeKey);
+        setMissionInitialStage(resumeStage);
+        A()?.skipRealTimeIntro?.();
         setFr(true);
         setPv(1);
+        setAiAvatarState('Acompañamiento');
+        const resumeTarget =
+          SPHEREX_TARGETS.find((t) => t.key === resumeKey) || SPHEREX_TARGETS[0];
+        notify(
+          `Expedición retomada en ${resumeTarget.name} (${missionFindingsSync.length} hallazgo(s) en cuaderno).`,
+          'Continuar expedición',
+        );
       },
       onOpenSettings: () => {
-        setShowFullMainMenu(false);
         setPauseMenuSection('settings');
         setPauseMenuOpen(true);
       },
+      language,
     }),
     reticleTarget && !pauseMenuOpen && !welcomeOpen && !realTimeIntroActive &&
     h('div', {
@@ -3051,312 +3086,6 @@ export default function App() {
       (fv >= 300 ? ' · ≈ ' + Math.round(fv * 1.156) + ' años luz/s' : '') +
       ' · Exterior Nave 120m' +
       (fo.au ? ' · piloto auto.' : ''),
-    ),
-    welcomeOpen &&
-    h(
-      'div',
-      { className: 'welcomeShade cinematicWelcomeShade' },
-      h(
-        'section',
-        {
-          className: 'welcomeCard cinematicWelcomeStage',
-          role: 'dialog',
-          'aria-modal': 'true',
-          'aria-labelledby': 'welcome-title',
-        },
-        /* Top Discreet Utility Bar (Voice quick toggle + Settings drawer button) */
-        h(
-          'div',
-          { className: 'welcomeCinematicTopRow' },
-          h(
-            'span',
-            { className: 'welcomeEyebrow' },
-            'VIDEOJUEGO DE EXPLORACIÓN ESPACIAL 3D · NASA SPHEREx / GAIA DR3',
-          ),
-          h(
-            'div',
-            { className: 'welcomeDiscreetControls' },
-            h(
-              'button',
-              {
-                type: 'button',
-                className: `welcomeVoicePill ${voice ? 'active' : ''}`,
-                onClick: () => {
-                  const next = !voice;
-                  voiceRef.current = next;
-                  setVoice(next);
-                  if (next) {
-                    const msg =
-                      language === 'es'
-                        ? 'Sistemas de voz de Kronox IA en línea.'
-                        : 'Kronox AI voice systems online.';
-                    say(msg);
-                    speak(msg, { interrupt: true });
-                  } else {
-                    stopVoiceAndClearQueue();
-                  }
-                },
-              },
-              voice
-                ? language === 'es'
-                  ? '🔊 Voz IA: Activa'
-                  : '🔊 AI Voice: On'
-                : language === 'es'
-                  ? '🔇 Activar voz IA'
-                  : '🔇 Enable AI Voice',
-            ),
-            h(
-              'button',
-              {
-                type: 'button',
-                className: `welcomeSettingsToggleBtn ${welcomeSettingsOpen ? 'active' : ''}`,
-                onClick: () => setWelcomeSettingsOpen((prev) => !prev),
-              },
-              '⚙ ',
-              language === 'es' ? 'Ajustes' : 'Settings',
-            ),
-          ),
-        ),
-
-        h(
-          'p',
-          { className: 'welcomeVoiceHint', role: 'status' },
-          voice
-            ? language === 'es'
-              ? 'La voz de Kronox está activa: escucharás la introducción y las indicaciones de la misión.'
-              : 'Kronox voice is on: you will hear the introduction and mission guidance.'
-            : language === 'es'
-              ? 'Activa la voz de Kronox para escuchar la introducción y las indicaciones de la misión.'
-              : 'Turn on Kronox voice to hear the introduction and mission guidance.',
-        ),
-
-        /* Integrated Hero Title over the Real-Time 3D Cosmos & 120m Ship */
-        h(
-          'div',
-          { className: 'welcomeHeroCenter' },
-          h('h1', { id: 'welcome-title', className: 'welcomeCinematicLogo' }, 'KRONOX'),
-          h(
-            'p',
-            { className: 'welcomeMessage' },
-            language === 'es'
-              ? 'Aborda la nave científica de 120 metros en un mundo 3D continuo, camina por su cabina habitable (1 unidad = 1 metro) junto a la entidad luminosa Kronox IA e investiga datos infrarrojos reales de SPHEREx.'
-              : 'Board the 120-meter scientific vessel in a continuous 3D world, walk through its habitable cabin (1 unit = 1 meter) alongside the luminous Kronox AI entity, and investigate real SPHEREx infrared data.',
-          ),
-          h(
-            'p',
-            { className: 'welcomeSequenceSummary' },
-            language === 'es'
-              ? 'Introducción: despegue desde la Tierra → recorrido espacial → llegada a la cabina en primera persona.'
-              : 'Intro: launch from Earth → spaceflight overview → arrival inside the cabin in first person.',
-          ),
-        ),
-
-        h(
-          'section',
-          {
-            className: 'welcomeDevicePrompt',
-            'aria-label': language === 'es' ? 'Selecciona tu dispositivo' : 'Choose your device',
-          },
-          h(
-            'span',
-            null,
-            language === 'es'
-              ? '¿Desde qué dispositivo jugarás?'
-              : 'Which device are you playing on?',
-          ),
-          h(
-            'div',
-            { className: 'welcomeDeviceChoices' },
-            h(
-              'button',
-              {
-                type: 'button',
-                className: deviceMode === 'desktop' ? 'selected' : '',
-                'aria-pressed': deviceMode === 'desktop',
-                onClick: () => setDeviceMode('desktop'),
-              },
-              '🖥️ ',
-              'PC / Laptop',
-            ),
-            h(
-              'button',
-              {
-                type: 'button',
-                className: deviceMode === 'mobile' ? 'selected' : '',
-                'aria-pressed': deviceMode === 'mobile',
-                onClick: () => setDeviceMode('mobile'),
-              },
-              '📱 ',
-              language === 'es' ? 'Móvil / Táctil' : 'Mobile / Touch',
-            ),
-          ),
-        ),
-
-        /* Primary Narrative Actions (Section 1, 2 & 7) */
-        h(
-          'div',
-          { className: 'welcomeActionButtons cinematicActions' },
-          h(
-            'button',
-            {
-              type: 'button',
-              className: 'welcomeLaunch primary',
-              onClick: () => {
-                try {
-                  sessionStorage.setItem('kronox-intro-seen', '1');
-                } catch {
-                  /* ignore */
-                }
-                setWelcomeOpen(false);
-                setRealTimeIntroActive(true);
-                A().startRealTimeIntro?.(() => {
-                  introSoundtrackRef.current?.fadeOut?.(3.0);
-                  setRealTimeIntroActive(false);
-                  setFr(true);
-                  setPv(1);
-                  setAiAvatarState('Acompañamiento');
-                });
-              },
-            },
-            language === 'es' ? 'INICIAR EXPEDICIÓN' : 'START EXPEDITION',
-          ),
-
-          /* CONTINUAR EXPEDICIÓN: Only rendered when real saved progress exists! */
-          (savedExpedition?.targetKey || missionFindingsSync.length > 0) &&
-          h(
-            'button',
-            {
-              type: 'button',
-              className: 'welcomeLaunch continueBtn',
-              onClick: () => {
-                try {
-                  sessionStorage.setItem('kronox-intro-seen', '1');
-                } catch {
-                  /* ignore */
-                }
-                setWelcomeOpen(false);
-                const resumeKey =
-                  savedExpedition?.targetKey || missionFindingsSync[0]?.targetKey || 'barnard';
-                const resumeStage = savedExpedition?.stage || 'explore';
-                setMissionTargetKey(resumeKey);
-                setMissionInitialStage(resumeStage);
-                A().skipRealTimeIntro?.();
-                setFr(true);
-                setPv(1);
-                setMissionOpen(true);
-                setAiAvatarState('Acompañamiento');
-                const resumeTarget =
-                  SPHEREX_TARGETS.find((t) => t.key === resumeKey) || SPHEREX_TARGETS[0];
-                notify(
-                  `Expedición retomada en ${resumeTarget.name} (${missionFindingsSync.length} hallazgo(s) en cuaderno).`,
-                  'Continuar expedición',
-                );
-              },
-            },
-            language === 'es'
-              ? `CONTINUAR EXPEDICIÓN (${(
-                SPHEREX_TARGETS.find(
-                  (t) =>
-                    t.key ===
-                    (savedExpedition?.targetKey || missionFindingsSync[0]?.targetKey),
-                ) || SPHEREX_TARGETS[0]
-              ).name
-              })`
-              : 'CONTINUE EXPEDITION',
-          ),
-
-          h(
-            'button',
-            {
-              type: 'button',
-              className: 'welcomeLaunch secondary skipBtn',
-              onClick: () => {
-                try {
-                  sessionStorage.setItem('kronox-intro-seen', '1');
-                } catch {
-                  /* ignore */
-                }
-                setWelcomeOpen(false);
-                setRealTimeIntroActive(false);
-                if (spec) {
-                  A().board();
-                  setSpec(false);
-                }
-                setFr(true);
-                setPv(1);
-                A().skipRealTimeIntro?.();
-                setAiAvatarState('Acompañamiento');
-              },
-            },
-            language === 'es' ? 'ENTRAR DIRECTO A LA CABINA 3D' : 'ENTER 3D CABIN DIRECTLY',
-          ),
-        ),
-
-        /* Secondary Collapsible Settings Panel (Language, Graphics Quality, Reduced Motion, Device Override) */
-        welcomeSettingsOpen &&
-        h(
-          'div',
-          {
-            className: 'welcomeSecondarySettings',
-            role: 'region',
-            'aria-label': 'Configuración secundaria',
-          },
-          h(
-            'label',
-            { className: 'welcomeLanguage' },
-            h('span', null, language === 'es' ? 'Idioma' : 'Language'),
-            h(
-              'select',
-              {
-                value: language,
-                onChange: (event) => chooseLanguage(event.target.value),
-                'aria-label': language === 'es' ? 'Elegir idioma' : 'Choose language',
-              },
-              LANGUAGES.map((option) =>
-                h('option', { key: option.code, value: option.code }, option.native),
-              ),
-            ),
-          ),
-          h(
-            'label',
-            { className: 'welcomeLanguage' },
-            h('span', null, language === 'es' ? 'Calidad gráfica' : 'Graphics quality'),
-            h(
-              'select',
-              {
-                value: quality,
-                onChange: (event) => setQuality(event.target.value),
-              },
-              h('option', { value: 'auto' }, 'Auto'),
-              h('option', { value: 'high' }, 'Alta'),
-              h('option', { value: 'low' }, 'Rendimiento'),
-            ),
-          ),
-          h(
-            'label',
-            { className: 'welcomeLanguage' },
-            h('span', null, language === 'es' ? 'Interfaz (Auto-detectada)' : 'Interface mode'),
-            h(
-              'select',
-              {
-                value: deviceMode,
-                onChange: (event) => setDeviceMode(event.target.value),
-              },
-              h('option', { value: 'desktop' }, 'PC / Laptop'),
-              h('option', { value: 'mobile' }, 'Móvil / Táctil'),
-            ),
-          ),
-          h(
-            'button',
-            {
-              type: 'button',
-              className: `welcomeVoiceBtn ${reducedMotion ? 'active' : ''}`,
-              onClick: () => setReducedMotion((prev) => !prev),
-            },
-            reducedMotion ? 'Movimiento reducido: Sí' : 'Movimiento reducido: No',
-          ),
-        ),
-      ),
-    ),
+    )
   );
 }

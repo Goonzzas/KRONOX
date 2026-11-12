@@ -149,11 +149,14 @@ export function createNaturalGalaxySky() {
   const domeMat = new THREE.MeshBasicMaterial({
     map: texture,
     side: THREE.BackSide,
+    transparent: true,
+    opacity: 0,
     depthWrite: false,
     name: 'MilkyWayNaturalDomeMat',
   });
 
   const skyDome = new THREE.Mesh(domeGeo, domeMat);
+  skyDome.visible = false; // Preserva compatibilidad de API/tests sin superponer parches opacos sobre la bóveda estelar
   root.add(skyDome);
 
   // 2. Optical Reticle Raycaster for Target Identification

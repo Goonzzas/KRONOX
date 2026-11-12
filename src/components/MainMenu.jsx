@@ -15,6 +15,7 @@ export default function MainMenu({
   open = true,
   onStartNewExpedition,
   onResumeExpedition,
+  onContinueExpedition,
   onOpenSettings,
   language = 'es',
 }) {
@@ -60,7 +61,7 @@ export default function MainMenu({
             >
               <span className="btn-icon">✦</span>
               <div className="btn-text">
-                <strong>Nueva Expedición</strong>
+                <strong>INICIAR EXPEDICIÓN</strong>
                 <small>Registrar explorador e iniciar travesía con Kronox IA</small>
               </div>
             </button>
@@ -69,7 +70,7 @@ export default function MainMenu({
               type="button"
               className="kronox-main-btn"
               disabled={!existingProfile}
-              onClick={() => onResumeExpedition?.(existingProfile)}
+              onClick={() => (onResumeExpedition || onContinueExpedition)?.(existingProfile)}
               title={existingProfile ? `Continuar expedición de ${existingProfile.alias}` : 'No hay partida guardada'}
             >
               <span className="btn-icon">▶</span>

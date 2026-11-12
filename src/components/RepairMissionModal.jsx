@@ -12,8 +12,10 @@ import { advanceCampaignLevel, loadCampaignProgress, saveCampaignProgress } from
  */
 export default function RepairMissionModal({
   open = false,
+  isOpen,
   onClose,
   onRepairCompleted,
+  onMissionComplete,
   language = 'es',
 }) {
   const [stage, setStage] = useState(1); // 1: Scan, 2: Extract, 3: Install, 4: Calibrate, 5: Finished
@@ -22,7 +24,8 @@ export default function RepairMissionModal({
   const [calibratedFreq, setCalibratedFreq] = useState(164.2);
   const [feedbackMsg, setFeedbackMsg] = useState('');
 
-  if (!open) return null;
+  const modalOpen = Boolean(open || isOpen);
+  if (!modalOpen) return null;
 
   const handleRunDiagnostic = () => {
     setFeedbackMsg('Iniciando barrido espectral del bus óptico...');
@@ -76,7 +79,7 @@ export default function RepairMissionModal({
         prog.prologueRepaired = true;
         saveCampaignProgress(prog);
         advanceCampaignLevel(0);
-        onRepairCompleted?.();
+        (onRepairCompleted || onMissionComplete)?.();
       }
     }, 100);
   };

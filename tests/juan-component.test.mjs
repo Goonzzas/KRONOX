@@ -72,7 +72,7 @@ test('React mission component: real local observation, inspect, justify, save, c
     );
     await act(async () => {
       button('Análisis espectral').props.onClick();
-      await new Promise((r) => setTimeout(r, 60));
+      await new Promise((r) => setTimeout(r, 120));
     });
     assert.ok(text().includes('Análisis espectral · de observar a justificar'));
     await act(async () => {

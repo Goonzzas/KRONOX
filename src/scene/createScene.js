@@ -2423,6 +2423,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       const o = new THREE.Mesh(g, m);
       o.position.set(x, y, z);
       o.rotation.x = rx || 0;
+      o.visible = false;
       ship.add(o);
     };
   sa(new THREE.ConeGeometry(0.3, 1, 24), sm, 0, 0, -0.7, -Math.PI / 2);
@@ -2449,6 +2450,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     wing.scale.x = direction;
     wing.rotation.x = Math.PI / 2;
     wing.position.set(0, -0.055, 0.32);
+    wing.visible = false;
     ship.add(wing);
   });
   sa(new THREE.BoxGeometry(0.035, 0.022, 0.48), em, -0.76, -0.045, 0.74);
@@ -2458,6 +2460,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const cockpit = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 24), cm);
   cockpit.scale.set(0.21, 0.17, 0.34);
   cockpit.position.set(0, 0.17, -0.29);
+  cockpit.visible = false;
   ship.add(cockpit);
   const cockpitFrame = new THREE.Mesh(new THREE.TorusGeometry(0.21, 0.025, 8, 32), sm);
   cockpitFrame.scale.set(1, 0.82, 1.48);
@@ -2611,8 +2614,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     initialPosition: new THREE.Vector3(0, 0, -1.8),
     mode: MICROGRAVITY_MODES.ASSISTED,
     clampPositionFn: (pos) => {
-      fourDecksInterior.clampAstronautPosition(pos);
-      cabinSystem.clampAstronautPosition(pos);
+      if (fourDecksInterior) {
+        fourDecksInterior.clampAstronautPosition(pos);
+      } else {
+        cabinSystem.clampAstronautPosition(pos);
+      }
     },
   });
 
@@ -3604,6 +3610,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.onViewChange?.(pv);
       return;
     }
+    // Tecla contextual [V] para alternar cámara 1P (ojos) y 3P (astronauta visible) en cabina/interior
+    if (k === 'v' && free && pv === 1 && !realTimeIntro && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      cabinFirstPerson = !cabinFirstPerson;
+      S.onCabinFirstPersonChange?.(cabinFirstPerson);
+      return;
+    }
     // Tecla contextual [T] para alternar el Telescopio Óptico de a bordo (1× -> 10× -> 50× -> 150× -> 300× -> 500× -> 1×)
     if (k === 't' && free && !realTimeIntro && !e.ctrlKey && !e.metaKey && !e.altKey) {
       const steps = OPTICAL_MAGNIFICATION_STEPS;
@@ -3632,6 +3644,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       else if (stId === 'science') sceneDirector.dispatchEvent('SCIENTIFIC_SCAN_STARTED', {});
       else if (stId === 'missions') sceneDirector.dispatchEvent('MISSION_ACTIVATED', {});
       else if (stId === 'comms') sceneDirector.dispatchEvent('AI_ACTIVATED', {});
+      else if (stId === 'sensor-calibration') sceneDirector.dispatchEvent('REPAIR_INTERACT', {});
       S.onStationInteract?.(stId);
     }
   };
@@ -3678,7 +3691,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       material.opacity = deepSkyVisibility * 0.68;
     });
     deepSkyNebulaMaterials.forEach((material) => {
-      material.opacity = deepSkyVisibility * 0.22;
+      material.opacity = 0; // Evitar manchas o parches de color artificiales en la bóveda estelar
     });
     deepGalaxyMotion.forEach(
       ({ sprite, material, initialPosition, orbitAxis, orbitSpeed, spinSpeed }) => {
@@ -4470,39 +4483,48 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           astronautYaw += (targetYaw - astronautYaw) * Math.min(1, dt * 14);
           astronautPitch += (targetPitch - astronautPitch) * Math.min(1, dt * 14);
 
-          // 2. Locomoción fluida en cabina (1.4 m/s normal, 3.5 m/s carrera con Shift)
+          // 2. Locomoción fluida en cabina (1.4 m/s normal, 3.5 m/s carrera con Shift, 6-DOF en microgravedad)
           const targetSpeed = keys.shift ? SHIP_WORLD_UNITS.SPRINT_SPEED_MPS : SHIP_WORLD_UNITS.WALK_SPEED_MPS;
           const forwardInput = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0);
           const strafeInput = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
-          const hasInput = activeCabinStation !== 'nav' && (forwardInput !== 0 || strafeInput !== 0);
+          const verticalInput = (keys[' '] || keys.space ? 1 : 0) - (keys.control || keys.ctrl || keys.q ? 1 : 0);
+          const hasInput = activeCabinStation !== 'nav' && (forwardInput !== 0 || strafeInput !== 0 || verticalInput !== 0);
 
           const desiredVel = new V(0, 0, 0);
           if (hasInput) {
             const localForward = new V(-Math.sin(astronautYaw), 0, -Math.cos(astronautYaw));
             const localRight = new V(Math.cos(astronautYaw), 0, -Math.sin(astronautYaw));
+            const localUp = new V(0, 1, 0);
             desiredVel
               .addScaledVector(localForward, forwardInput)
-              .addScaledVector(localRight, strafeInput);
+              .addScaledVector(localRight, strafeInput)
+              .addScaledVector(localUp, verticalInput);
             if (desiredVel.lengthSq() > 1e-4) {
               desiredVel.normalize().multiplyScalar(targetSpeed);
             }
           }
 
-          // Aceleración suave (2.2 m/s²) y frenado progresivo (3.0 m/s²)
-          const accelRate = hasInput ? 2.2 : 3.0;
-          astronautVel.lerp(desiredVel, Math.min(1, dt * accelRate));
+          // Aceleración suave (2.2 m/s²) y frenado progresivo (3.0 m/s²) o frenado activo RCS con tecla X
+          if (keys.x) {
+            astronautVel.multiplyScalar(Math.max(0, 1 - dt * 6.0));
+          } else {
+            const accelRate = hasInput ? 2.2 : 3.0;
+            astronautVel.lerp(desiredVel, Math.min(1, dt * accelRate));
+          }
 
           const currentSpeed = astronautVel.length();
           const isWalking = currentSpeed > 0.05;
 
           if (currentSpeed > 1e-4) {
             astronautPos.addScaledVector(astronautVel, dt);
-            cabinSystem.clampAstronautPosition(astronautPos);
-            if (fourDecksInterior) fourDecksInterior.clampAstronautPosition(astronautPos);
+            if (fourDecksInterior) {
+              fourDecksInterior.clampAstronautPosition(astronautPos);
+            } else {
+              cabinSystem.clampAstronautPosition(astronautPos);
+            }
           }
 
-          // Eliminar renderizado del cuerpo humano en tercera persona y brazos que bloqueen la cámara
-          cabinFirstPerson = true;
+          // Actualización de avatar tridimensional articulado
           astronaut3D.root.position.copy(astronautPos);
           astronaut3D.root.rotation.y = astronautYaw;
           astronaut3D.root.visible = false;
@@ -4527,7 +4549,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
             articulatedAstronaut.root.position.copy(astronautPos);
             articulatedAstronaut.root.rotation.y = astronautYaw;
-            articulatedAstronaut.root.visible = (pv === 3 || exteriorCameraMode);
+            articulatedAstronaut.root.visible = !cabinFirstPerson || (pv === 3 || exteriorCameraMode);
             articulatedAstronaut.updateAnimation(dt, animState);
           }
 
@@ -4535,17 +4557,34 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             fourDecksInterior.updateStations(clk.elapsedTime, activeCabinStation);
           }
 
-          // Cámara exclusivamente en primera persona (ojos del piloto a 1.65 m en el Mundo Local Métrico)
+          // Configuración de cámara: 1ª Persona (ojos del astronauta) o 3ª Persona (detrás de la espalda)
           const localLookQuat = new THREE.Quaternion().setFromEuler(
             new THREE.Euler(astronautPitch, astronautYaw, 0, 'YXZ'),
           );
-          const headBob = isWalking ? Math.sin(clk.elapsedTime * (keys.shift ? 11.5 : 8.2)) * (0.012 * Math.min(1.2, currentSpeed / 1.4)) : 0;
-
-          const localCamPos = new V(
-            astronautPos.x,
-            SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + headBob + freeHelmBlend * 0.42,
-            astronautPos.z + (-10.55 - astronautPos.z) * freeHelmBlend,
-          );
+          let localCamPos;
+          if (cabinFirstPerson) {
+            const headBob = isWalking ? Math.sin(clk.elapsedTime * (keys.shift ? 11.5 : 8.2)) * (0.012 * Math.min(1.2, currentSpeed / 1.4)) : 0;
+            localCamPos = new V(
+              astronautPos.x,
+              astronautPos.y + SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + headBob + freeHelmBlend * 0.42,
+              astronautPos.z + (-10.55 - astronautPos.z) * freeHelmBlend,
+            );
+          } else {
+            const distBehind = 2.2;
+            const camBack = new V(
+              Math.sin(astronautYaw) * distBehind * Math.cos(astronautPitch),
+              -Math.sin(astronautPitch) * distBehind + 0.35,
+              Math.cos(astronautYaw) * distBehind * Math.cos(astronautPitch),
+            );
+            localCamPos = new V(
+              astronautPos.x + camBack.x,
+              astronautPos.y + SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + camBack.y,
+              astronautPos.z + camBack.z,
+            );
+            if (fourDecksInterior) {
+              fourDecksInterior.clampAstronautPosition(localCamPos);
+            }
+          }
           const localEyeOffsetMeters = localCamPos.clone().applyQuaternion(q);
           const baseCabinFov = Math.min(fovBase, 42);
 
@@ -5366,8 +5405,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       z: Number(astronautPos.z.toFixed(2)),
       yaw: Number(astronautYaw.toFixed(2)),
       pitch: Number(astronautPitch.toFixed(2)),
-      cabinFirstPerson: true,
-      thirdPersonAvatarVisible: Boolean(astronaut3D.root.visible),
+      cabinFirstPerson: Boolean(cabinFirstPerson),
+      thirdPersonAvatarVisible: Boolean(!cabinFirstPerson && (articulatedAstronaut?.root?.visible || astronaut3D?.root?.visible)),
       nearestStationId: nearestCabinStation ? nearestCabinStation.station.id : null,
       nearestStationDist: nearestCabinStation ? Number(nearestCabinStation.distance.toFixed(2)) : null,
       activeStationId: activeCabinStation,
