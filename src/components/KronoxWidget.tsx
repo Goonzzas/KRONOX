@@ -284,7 +284,7 @@ export default function KronoxWidget({
             </div>
 
             <p className="kronoxSubtitleText" aria-live="polite">
-              {typed}
+              {typed || (panelOpen ? (language === 'en' ? 'Comms channel active with Kronox IA. Enter query or order:' : 'Canal de comunicaciones activo con Kronox IA. Ingresa una consulta u orden estelar:') : '')}
               <span className="kronoxCursor">▍</span>
             </p>
           </div>

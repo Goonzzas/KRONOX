@@ -1637,6 +1637,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     sim = T0(),
     free = false,
     spectator = false,
+    simulationPaused = false,
     launchSequence = null,
     launchCameraBlend = null,
     shipZoom = 1,
@@ -3547,6 +3548,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return;
     }
     keys[k] = 1;
+    // Tecla contextual [C] para alternar el modo de cámara (Cabina 1P <-> Exterior 120 m)
+    if (k === 'c' && free && !realTimeIntro && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (pv === 1) view(3);
+      else view(1);
+      S.onViewChange?.(pv);
+      return;
+    }
     // Tecla contextual [T] para alternar el Telescopio Óptico de a bordo (1× -> 10× -> 50× -> 150× -> 300× -> 500× -> 1×)
     if (k === 't' && free && !realTimeIntro && !e.ctrlKey && !e.metaKey && !e.altKey) {
       const steps = OPTICAL_MAGNIFICATION_STEPS;
@@ -3607,8 +3615,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     frameTiming.last=frameNow;
     if (disposed) return;
     rafId = requestAnimationFrame(tick);
-    const dt = Math.min(clk.getDelta(), 0.1),
-      spd = S.pause.current ? 0 : S.speed.current;
+    const rawDelta = clk.getDelta();
+    if (simulationPaused) {
+      releaseInputs();
+      vel.set(0, 0, 0);
+      astronautVel.set(0, 0, 0);
+    }
+    const dt = simulationPaused ? 0 : Math.min(rawDelta, 0.1),
+      spd = (simulationPaused || S.pause.current) ? 0 : S.speed.current;
     const deepSkyVisibility =
       0.55 + 0.45 * THREE.MathUtils.smoothstep(cam.position.length(), 1800, 10000);
     deepGalaxyMaterials.forEach((material) => {
@@ -5121,6 +5135,25 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.onObservationModeChange?.(getObservationMode());
     },
     releaseInputs,
+    setSimulationPaused: (paused) => {
+      simulationPaused = Boolean(paused);
+      if (simulationPaused) {
+        releaseInputs();
+        vel.set(0, 0, 0);
+        astronautVel.set(0, 0, 0);
+      } else {
+        clk.getDelta();
+        releaseInputs();
+      }
+      return simulationPaused;
+    },
+    isSimulationPaused: () => simulationPaused,
+    cycleCameraMode: () => {
+      if (pv === 1) view(3);
+      else view(1);
+      S.onViewChange?.(pv);
+      return pv;
+    },
     stopAndInspect:()=>{if(realTimeIntro||launchSequence||launchCameraBlend)return false;cancelTravel();tw=null;vel.set(0,0,0);for(const key of Object.keys(keys))delete keys[key];ac=0;th=0;S.onNavigation?.(null);leaveExteriorCamera(false);free=false;spectator=false;freeHelmMode=false;localCabinWorld.visible=false;ship.visible=false;tr.visible=false;S.fr(false);ct.enabled=true;const found=missionMarkers.get(activeMissionKey);if(found)ct.target.copy(found.marker.getWorldPosition(new V()));else{const direction=new V();cam.getWorldDirection(direction);ct.target.copy(cam.position).addScaledVector(direction,2);}ct.minDistance=.05;ct.maxDistance=200;cam.lookAt(ct.target);ct.update();},
     returnToStarMap:()=>setNavigationScale('stellar'),
     nearbyMap,

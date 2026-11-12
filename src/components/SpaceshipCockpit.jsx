@@ -199,7 +199,7 @@ export default function SpaceshipCockpit({
 
   return (
     <>
-      {/* TOP BRIDGE VIEW MODE & PHYSICAL SCALE BAR (Clean, structured sci-fi HUD) */}
+      {/* MINIMAL IN-GAME VIDEO GAME HUD (Bloques A, C y D) */}
       {!freeHelmMode && (
         <header
           className="kronoxBridgeTopBar"
@@ -224,184 +224,84 @@ export default function SpaceshipCockpit({
             <span className="kronoxScaleTag">{SHIP_WORLD_UNITS.SHIP_LENGTH_METERS} m</span>
           </div>
 
-          <nav className="kronoxViewModeSwitcher" aria-label="Selector de cámara 3D">
-            <button
-              type="button"
-              className={`kronoxViewBtn ${viewMode === 'cockpit' ? 'active' : ''}`}
-              disabled={navigationActive}
-              onClick={() => {
-                onChangeViewMode('cockpit');
-                onToggleCabinPerspective?.(true);
-              }}
-              title="Vista de cabina exclusivamente en primera persona (ojos del piloto a 1.65 m)"
-            >
-              <span>Cabina 1P</span>
-            </button>
-            <button
-              type="button"
-              className={`kronoxViewBtn ${viewMode === 'exterior' ? 'active' : ''}`}
-              disabled={navigationActive}
-              onClick={() => onChangeViewMode('exterior')}
-              title="Vista exterior de la nave de 120 metros"
-            >
-              <span>Exterior</span>
-            </button>
-            <button
-              type="button"
-              className={`kronoxViewBtn ${viewMode === 'navigation' ? 'active' : ''}`}
-              disabled={navigationActive}
-              onClick={() => onChangeViewMode('navigation')}
-              title="Vista del mapa cósmico 3D"
-            >
-              <span>Cosmos</span>
-            </button>
-          </nav>
-          {viewMode === 'exterior' && (
-            <button
-              type="button"
-              className="kronoxResetExteriorView"
-              onClick={onResetExteriorView}
-              disabled={navigationActive}
-              title="Restablecer encuadre de la nave de 120 m [R]"
-            >
-              Inspeccionar nave [R]
-            </button>
-          )}
-
-          {onSetOpticalTelescope && viewMode === 'cockpit' && (
-            <div className="kronoxTelescopeHudGroup" aria-label="Control de Telescopio Óptico">
-              <button
-                type="button"
-                className={`kronoxViewBtn ${observationModeInfo?.opticalMagnification > 1 ? 'active' : ''}`}
-                onClick={() => {
-                  const currentMag = observationModeInfo?.opticalMagnification || 1;
-                  if (currentMag <= 1) onSetOpticalTelescope(true, 150);
-                  else onSetOpticalTelescope(false, 1);
-                }}
-                title="Alternar entre observación a simple vista (1×) e instrumento óptico [T]"
-              >
-                <span>
-                  {observationModeInfo?.opticalMagnification > 1
-                    ? `🔭 Telescopio ${observationModeInfo.opticalMagnification}×`
-                    : '👁 Simple vista 1× [T]'}
-                </span>
-              </button>
-              {observationModeInfo?.opticalMagnification > 1 && (
-                <div className="kronoxTelescopeMagRow">
-                  {[10, 50, 150, 300, 500].map((mag) => (
-                    <button
-                      key={mag}
-                      type="button"
-                      className={`kronoxMagStepBtn ${observationModeInfo?.opticalMagnification === mag ? 'active' : ''}`}
-                      onClick={() => onSetOpticalTelescope(true, mag)}
-                    >
-                      {mag}×
-                    </button>
-                  ))}
-                  <select
-                    aria-label="Objetivo planetario del telescopio"
-                    className="kronoxTelescopeTargetSelect"
-                    value={observationModeInfo?.opticalTargetBody || 'Júpiter'}
-                    onChange={(e) =>
-                      onSetOpticalTelescope(
-                        true,
-                        observationModeInfo?.opticalMagnification || 150,
-                        e.target.value,
-                      )
-                    }
-                  >
-                    {['Júpiter', 'Saturno', 'Marte', 'Venus', 'Luna', 'Mercurio', 'Urano', 'Neptuno'].map(
-                      (pName) => (
-                        <option key={pName} value={pName}>
-                          {pName}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                </div>
-              )}
+          {activeObjectiveText && (
+            <div className="kronoxHudObjectivePill" role="status" aria-live="polite" title="Objetivo de expedición activo">
+              <span className="kronoxObjMarker">◎</span>
+              <span className="kronoxObjLabel">OBJETIVO:</span>
+              <span className="kronoxObjText">{activeObjectiveText.replace(/^OBJETIVO:\s*/i, '')}</span>
             </div>
           )}
 
-          <div className="kronoxCruiseReadout">
-            {observationModeInfo?.mode?.label && (
-              <span
-                className={`kronoxObsModeBadge ${observationModeInfo.mode.isCompressedScale ? 'is-compressed' : ''}`}
-                title={observationModeInfo.mode.description}
-              >
-                {observationModeInfo.mode.label}
-              </span>
-            )}
-            {(observationModeInfo?.isCompressedScale || viewMode === 'navigation') && (
-              <span
-                className="kronoxObsModeBadge is-compressed"
-                title="Representación cartográfica comprimida para orientación general"
-              >
-                {observationModeInfo?.schematicBanner || 'VISTA ESQUEMÁTICA · ESCALA COMPRIMIDA'}
-              </span>
-            )}
-            {navigationActive && (
-              <span
-                className="kronoxObsModeBadge is-transit"
-                title="Tránsito interplanetario o interestelar con compresión temporal"
-              >
-                TRÁNSITO CON COMPRESIÓN TEMPORAL
-              </span>
-            )}
-            {activeObjectiveText && (
-              <span className="kronoxHudObjectivePill" title="Objetivo de misión activo">
-                ◎ {activeObjectiveText}
-              </span>
-            )}
-            <span
-              className="kronoxDirectorModePill"
-              data-mode={directorState?.controlMode || 'FREE_ASTRONAUT'}
-              title={`Estado de control: ${directorState?.controlMode || 'FREE_ASTRONAUT'}`}
-            >
-              ◈ {controlModeLabel}
-            </span>
-            {viewMode === 'cockpit' ? (
-              <span className="kronoxCabinPosReadout" title="Posición y velocidad del astronauta">
-                X {astronautCoords.x >= 0 ? `+${astronautCoords.x}` : astronautCoords.x} · Z{' '}
-                {astronautCoords.z >= 0 ? `+${astronautCoords.z}` : astronautCoords.z} m ·{' '}
-                {SHIP_WORLD_UNITS.WALK_SPEED_MPS} m/s
-              </span>
-            ) : (
-              <span className="kronoxCabinPosReadout" title="Velocidad en mapa cósmico">
-                {flightSpeed >= 100 ? flightSpeed.toFixed(0) : flightSpeed.toFixed(1)} u/s
-              </span>
-            )}
-            {directorState?.activeSequence && onSkipDirectorSequence && (
+          <div className="kronoxTopRightControls">
+            <nav className="kronoxViewModeSwitcher" aria-label="Selector de cámara 3D">
               <button
                 type="button"
-                className="kronoxBridgeCinemaBtn"
-                onClick={onSkipDirectorSequence}
-                title="Saltar secuencia activa"
+                className={`kronoxViewBtn ${viewMode === 'cockpit' ? 'active' : ''}`}
+                disabled={navigationActive}
+                onClick={() => {
+                  onChangeViewMode('cockpit');
+                  onToggleCabinPerspective?.(true);
+                }}
+                title="Cabina 1P [C]"
               >
-                ⏭ Saltar
+                <span>Cabina 1P</span>
               </button>
-            )}
-            {onToggleVisualProfile && (
               <button
                 type="button"
-                className="kronoxBridgeSettingsBtn"
-                onClick={onToggleVisualProfile}
-                title="Alternar el firmamento entre Modo Científico (magnitudes y flujo estricto) y Modo Cinematográfico (mayor riqueza visual de la Vía Láctea)"
-                aria-label="Alternar modo de cielo entre científico y cinematográfico"
+                className={`kronoxViewBtn ${viewMode === 'exterior' ? 'active' : ''}`}
+                disabled={navigationActive}
+                onClick={() => onChangeViewMode('exterior')}
+                title="Vista exterior de la nave de 120 metros [C]"
               >
-                <span>{visualProfile === 'scientific' ? '✦ Cielo: Científico' : '✦ Cielo: Cinematográfico'}</span>
+                <span>Exterior</span>
               </button>
-            )}
-            {onOpenSettingsModal && (
+            </nav>
+
+            {viewMode === 'exterior' && (
               <button
                 type="button"
-                className="kronoxBridgeSettingsBtn"
-                onClick={onOpenSettingsModal}
-                aria-label="Abrir controles de navegación"
+                className="kronoxResetExteriorView"
+                onClick={onResetExteriorView}
+                disabled={navigationActive}
+                title="Restablecer encuadre de la nave de 120 m [R]"
               >
-                <span aria-hidden="true">☷</span>
-                <span>Más ajustes</span>
+                Inspeccionar [R]
               </button>
+            )}
+
+            {onSetOpticalTelescope && viewMode === 'cockpit' && (
+              <div className="kronoxTelescopeHudGroup" aria-label="Control de Telescopio Óptico">
+                <button
+                  type="button"
+                  className={`kronoxViewBtn ${observationModeInfo?.opticalMagnification > 1 ? 'active' : ''}`}
+                  onClick={() => {
+                    const currentMag = observationModeInfo?.opticalMagnification || 1;
+                    if (currentMag <= 1) onSetOpticalTelescope(true, 150);
+                    else onSetOpticalTelescope(false, 1);
+                  }}
+                  title="Alternar entre simple vista y telescopio óptico [T]"
+                >
+                  <span>
+                    {observationModeInfo?.opticalMagnification > 1
+                      ? `🔭 Telescopio ${observationModeInfo.opticalMagnification}×`
+                      : '👁 Simple vista 1× [T]'}
+                  </span>
+                </button>
+                {observationModeInfo?.opticalMagnification > 1 && (
+                  <div className="kronoxTelescopeMagRow">
+                    {[10, 50, 150, 300, 500].map((mag) => (
+                      <button
+                        key={mag}
+                        type="button"
+                        className={`kronoxMagStepBtn ${observationModeInfo?.opticalMagnification === mag ? 'active' : ''}`}
+                        onClick={() => onSetOpticalTelescope(true, mag)}
+                      >
+                        {mag}×
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </header>

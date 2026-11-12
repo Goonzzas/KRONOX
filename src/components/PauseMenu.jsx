@@ -34,7 +34,7 @@ const SETTINGS_TABS = [
 
 export default function PauseMenu({
   open,
-  initialSection = 'save',
+  initialSection = 'continue',
   onClose,
   onReturnToMainMenu,
   currentBody = 'Tierra',
@@ -43,6 +43,8 @@ export default function PauseMenu({
   opticalMagnification = 1,
   scaleMode = 'real',
   onToggleScaleMode,
+  visualProfile = 'cinematic',
+  onToggleVisualProfile,
   activeMissionId = null,
   activeObjective = null,
   voiceMuted = false,
@@ -52,13 +54,14 @@ export default function PauseMenu({
   onUpdateGameSettings,
   onOpenMissionTarget,
 }) {
-  const [activeSection, setActiveSection] = useState(initialSection || 'save');
+  const [activeSection, setActiveSection] = useState(initialSection || 'continue');
   const [activeSettingsTab, setActiveSettingsTab] = useState('graphics');
   const [findings, setFindings] = useState([]);
   const [journal, setJournal] = useState(() => loadExpeditionJournal());
   const [lastSave, setLastSave] = useState(() => loadGameState());
   const [saveFeedback, setSaveFeedback] = useState('');
   const [exportedEnvelope, setExportedEnvelope] = useState(null);
+  const [confirmMainMenu, setConfirmMainMenu] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -67,7 +70,8 @@ export default function PauseMenu({
       setLastSave(loadGameState());
       setSaveFeedback('');
       setExportedEnvelope(null);
-      if (initialSection && initialSection !== 'continue') {
+      setConfirmMainMenu(false);
+      if (initialSection) {
         setActiveSection(initialSection);
       }
     }
@@ -81,9 +85,10 @@ export default function PauseMenu({
       return;
     }
     if (sectionId === 'main-menu') {
-      onReturnToMainMenu?.();
+      setConfirmMainMenu(true);
       return;
     }
+    setConfirmMainMenu(false);
     setActiveSection(sectionId);
   };
 
@@ -518,6 +523,25 @@ export default function PauseMenu({
                   <div className="kronox-settings-group">
                     <div className="kronox-setting-row">
                       <div>
+                        <strong>Modo de firmamento y cielo estelar</strong>
+                        <p>
+                          Alterna entre Modo Científico (brillo estelar estricto según magnitud aparente
+                          física y menor dispersión) y Modo Cinematográfico (mayor riqueza visual de la
+                          Vía Láctea, polvo oscuro y nebulosas).
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="kronox-pause-secondary-btn"
+                        onClick={onToggleVisualProfile}
+                      >
+                        {visualProfile === 'scientific'
+                          ? '✦ Cielo: Científico (Activo)'
+                          : '✦ Cielo: Cinematográfico (Activo)'}
+                      </button>
+                    </div>
+                    <div className="kronox-setting-row">
+                      <div>
                         <strong>Escala astronómica del Sistema Solar</strong>
                         <p>
                           En modo Física Real (J2000.0), los planetas lejanos conservan su tamaño
@@ -746,6 +770,45 @@ export default function PauseMenu({
                 </div>
               </div>
             </section>
+          )}
+
+          {confirmMainMenu && (
+            <div
+              className="kronox-pause-confirm-modal"
+              role="alertdialog"
+              aria-modal="true"
+              aria-label="Confirmación de salida"
+            >
+              <div className="kronox-pause-card">
+                <header className="kronox-pause-header">
+                  <span className="kronox-pause-eyebrow">CONFIRMACIÓN DE SALIDA</span>
+                  <h3>¿Abandonar la expedición actual?</h3>
+                  <p>
+                    Regresarás al menú principal de KRONOX. Asegúrate de haber guardado tu partida
+                    reciente para no perder el estado de la nave ni tus observaciones científicas.
+                  </p>
+                </header>
+                <div style={{ display: 'flex', gap: 12, marginTop: 18 }}>
+                  <button
+                    type="button"
+                    className="kronox-pause-danger-btn"
+                    onClick={() => {
+                      setConfirmMainMenu(false);
+                      onReturnToMainMenu?.();
+                    }}
+                  >
+                    Sí, salir al menú principal
+                  </button>
+                  <button
+                    type="button"
+                    className="kronox-pause-secondary-btn"
+                    onClick={() => setConfirmMainMenu(false)}
+                  >
+                    Cancelar y permanecer en pausa
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </main>
       </div>

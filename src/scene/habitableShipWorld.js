@@ -709,36 +709,47 @@ export function buildHabitableCabin3D() {
   cabinRoot.name = 'KronoxHabitableCabin1to1';
 
   const deckMat = new THREE.MeshStandardMaterial({
-    color: 0x090f1d,
-    roughness: 0.78,
-    metalness: 0.35,
+    color: 0x111622,
+    roughness: 0.82,
+    metalness: 0.32,
   });
   const walkwayMat = new THREE.MeshStandardMaterial({
-    color: 0x111c30,
-    roughness: 0.58,
-    metalness: 0.45,
+    color: 0x182030,
+    roughness: 0.68,
+    metalness: 0.28,
   });
   const bulkheadMat = new THREE.MeshStandardMaterial({
-    color: 0x141f33,
-    roughness: 0.62,
-    metalness: 0.52,
+    color: 0x1a2436,
+    roughness: 0.52,
+    metalness: 0.68,
   });
   const ribMat = new THREE.MeshStandardMaterial({
-    color: 0x22324d,
-    roughness: 0.42,
-    metalness: 0.72,
+    color: 0x24324a,
+    roughness: 0.38,
+    metalness: 0.78,
   });
-  const neonStripMat = new THREE.MeshBasicMaterial({
+  const guidanceStripMat = new THREE.MeshStandardMaterial({
     color: 0x0284c7,
+    emissive: 0x0369a1,
+    emissiveIntensity: 0.16,
+    roughness: 0.6,
+    metalness: 0.35,
+  });
+  const ceilingLightMat = new THREE.MeshStandardMaterial({
+    color: 0x94a3b8,
+    emissive: 0x38bdf8,
+    emissiveIntensity: 0.14,
+    roughness: 0.5,
+    metalness: 0.5,
   });
   const glassMat = new THREE.MeshPhysicalMaterial({
-    color: 0x93c5fd,
+    color: 0xdbeafe,
     transparent: true,
-    opacity: 0.12,
-    roughness: 0.05,
-    metalness: 0.05,
-    transmission: 0.88,
-    ior: 1.45,
+    opacity: 0.08,
+    roughness: 0.03,
+    metalness: 0.08,
+    transmission: 0.94,
+    ior: 1.48,
     side: THREE.DoubleSide,
     depthWrite: false,
   });
@@ -757,10 +768,10 @@ export function buildHabitableCabin3D() {
   crossWalkway.position.set(0, 0.01, -2.2);
   cabinRoot.add(crossWalkway);
 
-  // Floor LED Guide Strips
+  // Floor Discrete Orientation Guide Strips (subdued, elegant, non-neon tracks)
   [-1.32, 1.32].forEach((x) => {
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.025, 20.5), neonStripMat);
-    strip.position.set(x, 0.015, -1);
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.015, 20.5), guidanceStripMat);
+    strip.position.set(x, 0.012, -1);
     cabinRoot.add(strip);
   });
 
@@ -779,8 +790,8 @@ export function buildHabitableCabin3D() {
     leftPillar.position.set(-6.8, 2.1, z);
     const rightPillar = new THREE.Mesh(new THREE.BoxGeometry(0.36, 4.2, 0.36), ribMat);
     rightPillar.position.set(6.8, 2.1, z);
-    const lightBar = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.04, 0.08), neonStripMat);
-    lightBar.position.set(0, 3.95, z);
+    const lightBar = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.03, 0.06), ceilingLightMat);
+    lightBar.position.set(0, 3.96, z);
     cabinRoot.add(topBeam, leftPillar, rightPillar, lightBar);
   }
 
@@ -976,21 +987,21 @@ export function buildHabitableCabin3D() {
     });
   });
 
-  // Balanced Sci-Fi Bridge Lighting Hierarchy
+  // Balanced Sci-Fi Bridge Lighting Hierarchy (soft shadows, cinematic contrast, no neon burn)
   // 1. Ambient fill for soft shadows (prevents completely crushed blacks)
-  const cabinHemisphere = new THREE.HemisphereLight(0x0f1c32, 0x030712, 0.45);
+  const cabinHemisphere = new THREE.HemisphereLight(0x141f33, 0x070c16, 0.52);
   cabinRoot.add(cabinHemisphere);
 
   // 2. Main overhead cabin ambient light (clean, controlled blue-white tint)
-  const bridgeAmbient = new THREE.PointLight(0x93c5fd, 0.85, 24);
+  const bridgeAmbient = new THREE.PointLight(0xdbeafe, 0.65, 26);
   bridgeAmbient.position.set(0, 3.7, -2.5);
 
   // 3. Bow observation area light (soft celestial blue)
-  const bowLight = new THREE.PointLight(0x38bdf8, 0.65, 16);
+  const bowLight = new THREE.PointLight(0x38bdf8, 0.45, 14);
   bowLight.position.set(0, 2.9, -9.5);
 
   // 4. Aft corridor light (warm indigo)
-  const aftLight = new THREE.PointLight(0x6366f1, 0.55, 14);
+  const aftLight = new THREE.PointLight(0x4f46e5, 0.35, 12);
   aftLight.position.set(0, 3.2, 6.5);
 
   cabinRoot.add(bridgeAmbient, bowLight, aftLight);
@@ -1049,11 +1060,11 @@ export function buildHabitableCabin3D() {
       const isNear = entry.id === nearStationId;
       const isActive = entry.id === activeStationId;
       const isGuidedTarget = entry.id === guidedTargetId;
-      const pulse = 0.55 + Math.sin(elapsedTime * 3.2 + idx) * 0.18;
+      const pulse = 0.35 + Math.sin(elapsedTime * 2.8 + idx) * 0.12;
       if (entry.floorRing?.material) {
         entry.floorRing.material.opacity = guidedTargetId
-          ? isGuidedTarget ? (isActive ? 0.95 : isNear ? 0.85 : pulse * 0.65) : 0.12
-          : isActive ? 0.95 : isNear ? 0.85 : pulse * 0.65;
+          ? isGuidedTarget ? (isActive ? 0.85 : isNear ? 0.65 : pulse * 0.45) : 0.08
+          : isActive ? 0.85 : isNear ? 0.65 : 0.10;
       }
       if (entry.floorRing) {
         entry.floorRing.scale.setScalar(isGuidedTarget || (!guidedTargetId && (isActive || isNear)) ? 1.08 : 1.0);

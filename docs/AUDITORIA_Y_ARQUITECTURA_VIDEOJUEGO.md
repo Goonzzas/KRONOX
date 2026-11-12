@@ -211,4 +211,76 @@ Para erradicar en la raíz la colisión de escalas donde `localCabinWorld` (`24 
 5. **Modo 5 — Inspección cercana (`close-inspection`)**:
    - Órbita de inspección física segura fuera de atmósferas y anillos ($R_{\text{seguro,Saturno}} = 2.85 R_{\text{Saturno}} \approx 165.961\text{ km} > R_{\text{anillos,ext}} = 139.756,8\text{ km}$), con tránsito interplanetario identificado mediante `TRÁNSITO CON COMPRESIÓN TEMPORAL`.
 
+---
+
+## 5. FASE 2: REDISEÑO DE LA EXPERIENCIA DE VIDEOJUEGO, MENÚ DE PAUSA Y DIRECCIÓN ARTÍSTICA
+
+### 5.1. Bloque A: HUD Limpio de Videojuego (Despeje de Pantalla)
+- **Desaparición de Elementos Permanentes Intrusivos**:
+  - Se eliminaron del HUD habitual durante la exploración a pie: barra superior fija de doble fila, telemetría fija de coordenadas X/Z, velocímetro permanente en primera persona, botones saturadores de cielo y ajustes, y la caja flotante duplicada de recorrido guiado (`.guideObjectiveHud`).
+- **HUD Mínimo de Exploración**:
+  - Limitado exclusivamente a:
+    1. Acceso discreto al menú de pausa mediante `ESC` (y botón compacto `Pausa`).
+    2. Identificador discreto `KRONOX · 120m`.
+    3. Conmutador de cámara `[C] Cabina 1P / Exterior 120m`.
+    4. Conmutador de telescopio `[T] Simple vista 1× / Telescopio`.
+    5. Indicación contextual de interacción diegética (`[E] Operar consola...`).
+    6. Indicador de objetivo compacto (`◎ OBJETIVO: ...`) en una sola píldora integrada en la barra superior.
+    7. Subtítulos breves cuando Kronox IA se comunica.
+
+### 5.2. Bloque B: Menú de Pausa Centralizado (`ESC`) y Detención de Simulación
+- **Pausa de la Simulación Física (`setSimulationPaused`)**:
+  - Al pulsar `ESC` o hacer clic en `Pausa`, la simulación física planetaria, el desplazamiento del astronauta (`astronautVel.set(0,0,0)`), la velocidad de vuelo (`flightVel.set(0,0,0)`), las órbitas keplerianas y los inputs de ratón/teclado se pausan de forma limpia.
+  - Al reanudar, el reloj consume el delta (`clk.getDelta()`) sin saltos temporales ni desplazamientos bruscos de cámara.
+- **Estructura Unificada de 8 Secciones**:
+  1. `1. Continuar`: Reanuda la simulación inmediatamente.
+  2. `2. Guardar partida`: Almacena efemérides J2000.0, posición orbital, modo de observación y estado de la nave en `localStorage`.
+  3. `3. Mis observaciones`: Registro científico con distinción epistémica estricta.
+  4. `4. Diario de exploración`: Bitácora de viaje con historial de inspecciones y eventos.
+  5. `5. Comunidad`: Arquitectura de ciencia ciudadana federada (documentada honestamente como planificada).
+  6. `6. Ajustes`: Pestañas de Gráficos (conmutación entre Cielo Científico y Cielo Cinematográfico), Audio, Controles, Accesibilidad, Interfaz y Voz.
+  7. `7. Controles`: Guía completa de teclado, ratón y teclas contextuales (`[ESC]`, `[E]`, `[C]`, `[T]`, `[R]`, `[WASD]`).
+  8. `8. Volver al menú principal`: Con modal de confirmación antes de salir.
+
+### 5.3. Bloque C: Consolas Diegéticas de Cabina 3D
+- **Presencia Física en el Espacio Tridimensional**:
+  - La nave contiene 5 consolas habitables físicas:
+    1. `nav`: Timón y cartografía estelar.
+    2. `science`: Laboratorio de análisis espectral y fotometría SPHEREx.
+    3. `missions`: Catálogo de misiones de exploración.
+    4. `comms`: Canal de comunicaciones e interrogación de Kronox IA.
+    5. `windows`: Puesto de observación panorámico hacia el ventanal exterior.
+- **Interacción Contextual y Salida Limpia**:
+  - Al aproximarse a una consola a menos de 2.45 m, se muestra el indicador `[E] Operar...`.
+  - La tecla `ESC` cierra la consola activa y regresa al control del astronauta antes de abrir el menú de pausa.
+
+### 5.4. Bloque D: Rediseño de la Comunicación de Kronox IA
+- **Subtítulos Contextuales Auto-Dismiss**:
+  - Kronox IA se comunica mediante subtítulos contextuales que aparecen durante la locución y desaparecen automáticamente al terminar (`onMessageComplete`), sin dejar tarjetas vacías en pantalla.
+- **Eliminación de la Ventana de Chat Fija**:
+  - El cajón de comandos y el historial solo se abren voluntariamente desde la consola `comms` o pulsando voluntariamente sobre la entidad luminosa.
+- **Eliminación de Duplicados e Interrupciones**:
+  - Se eliminó el registro de subtítulos de la introducción cinematográfica en la cola de Kronox IA (`say(captionText)` retirado de `onIntroStageChange`).
+  - Se eliminó el intervalo de 38 segundos que interrumpía con datos astronómicos aleatorios durante la exploración a pie.
+
+### 5.5. Bloque E: Dirección Artística de la Nave y Atmósfera Espacial
+- **Materialidad PBR Sobria y Creíble**:
+  - Suelo de cubierta: planchas de grafito estructurado (`0x111622`, `roughness: 0.82`, `metalness: 0.32`).
+  - Pasarela central: polímero mate antirreflectante (`0x182030`, `roughness: 0.68`).
+  - Mamparos interiores: titanio cepillado (`0x1a2436`, `metalness: 0.68`).
+  - Arcos estructurales: acero reforzado (`0x24324a`).
+  - Guías luminosas de orientación: perfiles LED empotrados discretos con emisión atenuada (`emissiveIntensity: 0.16`), eliminando el efecto de carriles de neón cegadores.
+  - Ventanal de proa: cristal físico de alta transmitancia (`MeshPhysicalMaterial`, `transmission: 0.94`, `opacity: 0.08`, `roughness: 0.03`) que permite observar el universo con claridad sin velos artificiales.
+- **Iluminación Cinematográfica Equilibrada**:
+  - Luz hemisférica suave (`HemisphereLight(0x141f33, 0x070c16, 0.52)`) para evitar negros empastados.
+  - Luces puntuales empotradas con atenuación y caída suave en puente (`0.65`), proa (`0.45`) y popa (`0.35`).
+
+### 5.6. Bloques F y G: Mis Observaciones y Comunidad Científica
+- **Distinción Epistémica Rigurosa**:
+  - Las notas personales se clasifican estrictamente como `PERSONAL_ANNOTATION` (`Anotación personal del explorador — No validada`), sin confundirse con observaciones astronómicas validadas.
+- **Comunidad Presentada con Honestidad**:
+  - El módulo de Comunidad se describe formalmente con estado `PLANNED_ARCHITECTURE`, sin inventar usuarios falsos ni actividad simulada en backend.
+  - Proporciona esquemas formales JSON Schema v1.0 para 7 entidades de federación ciudadana (`SharedObservation`, `PeerReview`, `ScientificHypothesis`, `CommunityChallenge`, `AstrometricContribution`, `TargetProposal`, `EpistemicAttestation`).
+
+
 

@@ -475,7 +475,8 @@ export default function App() {
       ) {
         return;
       }
-      openKronox();
+      // Voice audio does not forcefully pop open the command drawer;
+      // subtitles display contextually via narrative queue while speaking.
       const shouldInterrupt = Boolean(options.interrupt);
 
       if (!shouldInterrupt && (speakingRef.current || voiceAudio.current || voiceQueueRef.current.length > 0)) {
@@ -814,7 +815,7 @@ export default function App() {
         setCinematicStage(stageKey);
         setRealTimeIntroActive(true);
         setRealTimeIntroCaption(captionText);
-        say(captionText);
+        // Do NOT enqueue intro prologue into Kronox IA dialogue queue to prevent duplicate speech
         if (voiceRef.current && !stageOpts?.silentVoice) {
           speak(captionText, { interrupt: false });
         }
@@ -1021,6 +1022,7 @@ export default function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (pauseMenuOpen) {
         setPauseMenuOpen(false);
+        api.current?.setSimulationPaused?.(false);
         return;
       }
       if (activeCockpitStation) {
@@ -1047,6 +1049,7 @@ export default function App() {
       if (!welcomeOpen && !realTimeIntroActive && !missionOpen) {
         setPauseMenuSection('save');
         setPauseMenuOpen(true);
+        api.current?.setSimulationPaused?.(true);
       }
     };
     window.addEventListener('keydown', handleEscKey);
@@ -1062,32 +1065,6 @@ export default function App() {
     realTimeIntroActive,
     missionOpen,
   ]);
-
-  useEffect(() => {
-    const target = near || f;
-    if (!target || !INFO[target]) return undefined;
-    const timer = setInterval(() => {
-      if (speakingRef.current || travelRef.current || countdown !== null || noticeRef.current)
-        return;
-      const data = INFO[target];
-      const facts = [
-        ['dato', 'Curiosidad'],
-        ['clima', 'Clima'],
-        ['atmosfera', 'Atmósfera'],
-        ['composicion', 'Composición'],
-        ['superficie', 'Superficie'],
-      ].filter(([key]) => data[key]);
-      if (!facts.length) return;
-      const [key, label] = facts[factIndexRef.current % facts.length];
-      factIndexRef.current += 1;
-      notify(
-        t(label, language) + ' de ' + t(target, language) + ': ' + t(data[key], language),
-        'Dato astronómico',
-        target,
-      );
-    }, 38000);
-    return () => clearInterval(timer);
-  }, [near, f, countdown]);
   useEffect(
     () => () => {
       clearTimeout(noticeTimer.current);
@@ -2416,24 +2393,7 @@ export default function App() {
           ),
         ),
       ),
-    guideObjective &&
-      fr &&
-      pv === 1 &&
-      !selectedObject &&
-      !activeCockpitStation &&
-      !nearbyMapActive &&
-      !missionTraveling &&
-      h(
-        'div',
-        { className: 'guideObjectiveHud', role: 'status', 'aria-live': 'polite' },
-        h('span', { 'aria-hidden': 'true' }, '✦'),
-        h(
-          'div',
-          null,
-          h('small', null, language === 'es' ? 'RECORRIDO GUIADO' : 'GUIDED TOUR'),
-          h('b', null, guideObjective),
-        ),
-      ),
+
     countdown !== null &&
       h('div', { className: 'countdownOverlay' }, h('b', { key: countdown }, countdown)),
     missionLaunchTarget &&
@@ -2919,6 +2879,7 @@ export default function App() {
         onOpenPauseMenu: () => {
           setPauseMenuSection('save');
           setPauseMenuOpen(true);
+          api.current?.setSimulationPaused?.(true);
         },
         observationModeInfo,
         onSetOpticalTelescope: (enabled, magnification = 150, targetBody = null) => {
@@ -2949,9 +2910,13 @@ export default function App() {
     h(PauseMenu, {
       open: pauseMenuOpen,
       initialSection: pauseMenuSection,
-      onClose: () => setPauseMenuOpen(false),
+      onClose: () => {
+        setPauseMenuOpen(false);
+        api.current?.setSimulationPaused?.(false);
+      },
       onReturnToMainMenu: () => {
         setPauseMenuOpen(false);
+        api.current?.setSimulationPaused?.(false);
         setWelcomeOpen(true);
       },
       currentBody: f || near || 'Tierra',
@@ -2959,6 +2924,18 @@ export default function App() {
       observationMode: observationModeInfo?.mode?.id || 'naked-eye',
       opticalMagnification: observationModeInfo?.opticalMagnification || 1,
       scaleMode: real ? 'real' : 'visual',
+      visualProfile,
+      onToggleVisualProfile: () => {
+        const next = visualProfile === 'scientific' ? 'cinematic' : 'scientific';
+        setVisualProfile(next);
+        A()?.setVisualProfile?.(next);
+        notify(
+          next === 'scientific'
+            ? 'Modo Científico activado: fotometría física rigurosa y menor intensidad difusa.'
+            : 'Modo Cinematográfico activado: enriquecimiento estético de la Vía Láctea y nebulosas.',
+          'Ajustes visuales',
+        );
+      },
       onToggleScaleMode: () => {
         const nextReal = !real;
         setReal(nextReal);
