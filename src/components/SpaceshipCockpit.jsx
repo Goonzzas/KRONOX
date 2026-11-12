@@ -288,7 +288,7 @@ export default function SpaceshipCockpit({
               </button>
               {observationModeInfo?.opticalMagnification > 1 && (
                 <div className="kronoxTelescopeMagRow">
-                  {[50, 150, 300].map((mag) => (
+                  {[10, 50, 150, 300, 500].map((mag) => (
                     <button
                       key={mag}
                       type="button"
@@ -330,6 +330,22 @@ export default function SpaceshipCockpit({
                 title={observationModeInfo.mode.description}
               >
                 {observationModeInfo.mode.label}
+              </span>
+            )}
+            {(observationModeInfo?.isCompressedScale || viewMode === 'navigation') && (
+              <span
+                className="kronoxObsModeBadge is-compressed"
+                title="Representación cartográfica comprimida para orientación general"
+              >
+                {observationModeInfo?.schematicBanner || 'VISTA ESQUEMÁTICA · ESCALA COMPRIMIDA'}
+              </span>
+            )}
+            {navigationActive && (
+              <span
+                className="kronoxObsModeBadge is-transit"
+                title="Tránsito interplanetario o interestelar con compresión temporal"
+              >
+                TRÁNSITO CON COMPRESIÓN TEMPORAL
               </span>
             )}
             {activeObjectiveText && (
@@ -512,7 +528,8 @@ export default function SpaceshipCockpit({
                 </span>
                 <span>
                   Radio físico R:{' '}
-                  <b>{Number(planetaryTelemetry.radiusKm || 0).toLocaleString('es-ES')} km</b>
+                  <b>{Number(planetaryTelemetry.radiusKm || 0).toLocaleString('es-ES')} km</b> · Eje axial:{' '}
+                  <b>{planetaryTelemetry.axialTiltDeg ?? 0}°</b>
                 </span>
                 <span>
                   Diámetro angular θ:{' '}
@@ -524,6 +541,12 @@ export default function SpaceshipCockpit({
                   Magnitud V: <b>{planetaryTelemetry.apparentMagnitudeV?.toFixed(2)}</b> · Fase:{' '}
                   <b>{Math.round((planetaryTelemetry.illuminatedFraction || 1) * 100)}%</b>
                 </span>
+                {Array.isArray(planetaryTelemetry.resolvableMoons) &&
+                  planetaryTelemetry.resolvableMoons.length > 0 && (
+                    <span>
+                      Lunas resueltas: <b>{planetaryTelemetry.resolvableMoons.join(', ')}</b>
+                    </span>
+                  )}
               </div>
             </div>
           </div>

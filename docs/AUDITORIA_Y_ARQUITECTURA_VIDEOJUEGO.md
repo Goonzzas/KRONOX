@@ -158,3 +158,57 @@ El sistema actual mezcla **tres convenciones de escala incompatibles** dentro de
 - Modelo de datos estructurado en `src/utils/findingsStorage.js`, `src/utils/expeditionJournal.js` y `src/utils/communitySchema.js` con distinción estricta entre `ANOTACIÓN DEL USUARIO · PENDIENTE DE VALIDACIÓN` y `OBSERVACIÓN VALIDADA`.
 - Preservación íntegra del laboratorio científico SPHEREx (FITS, WCS, fotometría diferencial y estado `WARNING` de `WISE 0855`).
 
+---
+
+## 4. IMPLEMENTACIÓN DE FASE 1: SEPARACIÓN DE MUNDOS, PRECISIÓN DOBLE (FLOAT64) Y ESCALAS FÍSICAS
+
+### 4.1. Arquitectura de Dos Mundos Separados (`localShipScene` vs. `sc`)
+Para erradicar en la raíz la colisión de escalas donde `localCabinWorld` (`24 m`) se insertaba directamente dentro de la escena astronómica (`sc`), se ha diseñado e implementado una arquitectura de **dos escenas independientes renderizadas en dos pasos sobre un único `THREE.WebGLRenderer` (`R`)**:
+
+1. **Mundo Local Métrico de la Nave (`localShipScene` — `KronoxLocalMetricShipScene`)**:
+   - **Unidad invariante**: `1 unidad local = 1.00 metro`.
+   - **Contenido**:
+     - Modelo exterior de la nave (`ship` — `KronoxExteriorShip120m`) en el origen local `(0, 0, 0)` con escala métrica constante `SHIP_METRIC_SCALE = 120.0 / 2.61 ≈ 45.977011`, garantizando exactamente `120.0 m` de eslora, `92.87 m` de envergadura y `30.34 m` de altura en cualquier punto del universo.
+     - Cabina interior habitable (`localCabinWorld` — `LocalHabitableShipWorld`) en `(0, 0, 0)` con escala `(1, 1, 1)` (`24.0 m` de largo, `13.6 m` de ancho, `4.2 m` de alto), 5 consolas físicas (`nav`, `science`, `comms`, `missions`, `windows`), astronauta de `1.75 m` (`1.65 m` de altura ocular), entidad lumínica 3D `Kronox IA` y sistemas físicos del puente.
+     - Iluminación local (`localShipAmbient` + `localShipSunLight` sincronizada en cada fotograma con el vector heliocéntrico hacia el Sol `-sp.normalize()`).
+     - Cámara métrica dedicada (`localCam`) con `near = 0.05 m` en cabina (`0.25 m` en vista exterior) y `far = 4000–6000 m`.
+
+2. **Mundo Astronómico Físico (`sc` — `KronoxAstronomicalScene`)**:
+   - **Unidad en modos de observación física (Modos 1, 2 y 5)**: `1 unidad astronómica de escena = 1.000.000 km = 10^9 m` (`1 UA = 149.5978707 unidades`).
+   - **Contenido**: Sol, planetas, lunas, cinturón de asteroides, cinturón de Kuiper, firmamento J2000, estrellas del catálogo y galaxias.
+   - **Eliminación de las fórmulas comprimidas en observación física**:
+     - En todos los modos de observación física (`isPhysicalObservationActive() === true`), queda eliminada la fórmula inflada `Rd(p) = 0.35 * (p.km / 6371)` y la compresión exponencial `Dd(au) = 14 + 20 * Math.pow(au, 0.68)`.
+     - Cada planeta utiliza estrictamente su radio físico real `physicalPlanetSceneRadius(p) = p.km / 1e6` y su posición orbital kepleriana J2000.0 real `physicalOrbitSceneDistance(au) = au * 149.5978707`.
+     - Las lunas galileanas de Júpiter (`Ío`, `Europa`, `Ganímedes`, `Calisto`) utilizan sus radios físicos (`1821.6 km`, `1560.8 km`, `2634.1 km`, `2410.3 km`) y semiejes mayores físicos (`421.700 km` a `1.882.709 km`).
+
+3. **Composición Multipaso en un Único `WebGLRenderer`**:
+   - **Paso 1**: `renderWithOriginRebase(R, sc, cam, ...)` renderiza el universo astronómico restando en doble precisión (`Float64`) el origen de la cámara antes de subir matrices `Float32` a WebGL.
+   - **Paso 2**: Si `localCabinWorld.visible || ship.visible`, se ejecuta `R.autoClear = false; R.clearDepth?.(); R.render(localShipScene, localCam);`, componiendo el interior habitable de 24 m o el casco exterior de 120 m con precisión sub-milimétrica sobre el universo astronómico de fondo.
+
+### 4.2. Precisión Numérica en Doble Precisión (`Float64`) y Floating Origin (`src/scene/originRebase.js`)
+- Las posiciones heliocéntricas de todos los cuerpos del Sistema Solar se almacenan en arreglos `Float64Array(3)` (`b.heliocentricScene64`) y objetos de doble precisión (`b.heliocentricAu`).
+- En `renderWithOriginRebase`, el desplazamiento relativo entre cada cuerpo celeste y la cámara se calcula en 64 bits (`b.heliocentricScene64[i] - origin64[i]`) antes de construir las matrices de mundo `Float32` en GPU.
+- La función `verifyFloatingOriginPrecision` demuestra cuantitativamente que mientras `Float32` directo a `1 UA` (`1.496 × 10^11 m`) introduce errores de cuantización superiores a `4–16 metros` (destruyendo una nave de `120 m`), la arquitectura de doble precisión + `localShipScene` mantiene un error local de `0.00000 m` a `1 UA` y a `30.07 UA` (Neptuno).
+
+### 4.3. Documentación del Catálogo Planetario (`CATALOG_DOCUMENTATION_NOTES`)
+- El archivo `src/data/planetData.js` se conserva íntegro y aporta: `km` (radio ecuatorial/volumétrico medio), `au` (semieje mayor), `e` (excentricidad), `inc` (inclinación), `Om` ($\Omega$), `w` ($\omega$), `M0` (anomalía media J2000.0), `per` (periodo orbital), `rot` (periodo de rotación) y `tl` (oblicuidad axial).
+- En `PLANETARY_PHYSICAL_CATALOG` y `CATALOG_DOCUMENTATION_NOTES` (`src/scene/astronomicalScaleEngine.js`) se documentan explícitamente los parámetros que no figuraban en `planetData.js`:
+  1. Inclinación orbital (`5.145°`) y excentricidad (`0.0549`) de la Luna.
+  2. Radios físicos en km y semiejes mayores en km de las lunas galileanas (`Ío`, `Europa`, `Ganímedes`, `Calisto`), que en el código original estaban codificados como múltiplos visuales (`2.05` a `4.75 R_Jup`).
+  3. Satélites principales de Saturno (`Titán`, `Encélado`) y Marte (`Fobos`, `Deimos`).
+  4. Albedo geométrico visual ($p_V$) y magnitud absoluta planetaria $H = V(1,0)$ para el cálculo fotométrico de magnitud aparente $V(r, \Delta, \alpha)$.
+
+### 4.4. Cinco Modos Explícitos de Observación y Navegación
+1. **Modo 1 — Vista a simple vista (`naked-eye`, `1×`)**:
+   - Tamaño angular físico real $\theta = 2 \arctan(R / D)$. Los planetas lejanos con $\theta < 60''$ se representan como astros puntuales gobernados por su magnitud aparente $V$.
+2. **Modo 2 — Vista telescópica (`optical-instrument`, `10×` a `500×`)**:
+   - Pasos seleccionables `[10×, 50×, 150×, 300×, 500×]`.
+   - Reduce ópticamente el campo de visión de la cámara astronómica según $\text{FOV}(M) = 2 \arctan(\tan(\text{FOV}_0 / 2) / M)$ **sin inflar jamás el radio 3D del planeta (`b.tilt.scale`)**, mostrando retícula óptica, aumento, tamaño angular en segundos de arco (`″`), inclinación axial (`axialTiltDeg`) y lunas resolubles (`resolvableMoons`).
+3. **Modo 3 — Mapa de navegación (`solar-navigation`)**:
+   - Vista cartográfica del sistema solar claramente identificada con el rótulo permanente `VISTA ESQUEMÁTICA · ESCALA COMPRIMIDA`.
+4. **Modo 4 — Mapa astronómico (`astronomical-map`)**:
+   - Atlas multiescala (`solar`, `stellar`, `regional`, `milkyway`, `extragalactic`) identificado con `VISTA ESQUEMÁTICA · ESCALA COMPRIMIDA`.
+5. **Modo 5 — Inspección cercana (`close-inspection`)**:
+   - Órbita de inspección física segura fuera de atmósferas y anillos ($R_{\text{seguro,Saturno}} = 2.85 R_{\text{Saturno}} \approx 165.961\text{ km} > R_{\text{anillos,ext}} = 139.756,8\text{ km}$), con tránsito interplanetario identificado mediante `TRÁNSITO CON COMPRESIÓN TEMPORAL`.
+
+

@@ -48,9 +48,18 @@ import { createAstronomicalHologramSystem } from './astronomicalHologram.js';
 import {
   ASTRONOMICAL_REFERENCE_EPOCH,
   PHYSICAL_CONSTANTS,
+  WORLD_COORDINATE_SYSTEMS,
   OBSERVATION_MODES,
   PLANETARY_PHYSICAL_CATALOG,
+  CATALOG_DOCUMENTATION_NOTES,
   OPTICAL_MAGNIFICATION_STEPS,
+  physicalPlanetSceneRadius,
+  physicalOrbitSceneDistance,
+  schematicPlanetSceneRadius,
+  schematicOrbitSceneDistance,
+  computeTelescopeFieldOfView,
+  computeDoublePrecisionRelativeVector,
+  verifyFloatingOriginPrecision,
   computeBodyObservationalMetrics,
   computeSafeOrbitalClearance,
   enforcePlanetaryCollisionBoundary,
@@ -68,10 +77,13 @@ const PLANET_TEXTURE_FILES = {
   Urano: '2k_uranus.jpg',
   Neptuno: '2k_neptune.jpg',
 };
-// The spacecraft model spans about 2.5 local units from nose to engine.
-// Scale it as a compact 120 m exploration craft against Earth's physical size.
-const SHIP_LENGTH_METERS = 120;
-const SHIP_MODEL_LENGTH = 2.5;
+// El modelo geométrico base del casco abarca 2.61 unidades desde el cono de proa (z = -1.20)
+// hasta las toberas principales de popa (z = +1.41). En el Mundo Local (`localShipScene`, 1 u = 1 m),
+// se escala por `SHIP_METRIC_SCALE = 120.0 / 2.61` para conservar exactamente 120.0 metros físicos.
+const SHIP_LENGTH_METERS = PHYSICAL_CONSTANTS.SHIP_LENGTH_METERS;
+const SHIP_RAW_HULL_LENGTH = 2.61;
+const SHIP_MODEL_LENGTH = SHIP_RAW_HULL_LENGTH;
+const SHIP_METRIC_SCALE = SHIP_LENGTH_METERS / SHIP_RAW_HULL_LENGTH;
 // Satellite paths are illustrative; slow only their visual animation so the
 // accelerated day clock does not make them race around the Earth.
 const SATELLITE_VISUAL_TIME_SCALE = 0.0001;
@@ -357,8 +369,34 @@ export function setupScene(el, S) {
     return texture;
   };
   const sc = new THREE.Scene(),
-    cam = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.05, 4e5),
+    cam = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.0005, 4e5),
     ct = new OrbitControls(cam, R.domElement);
+  sc.name = 'KronoxAstronomicalWorld';
+  sc.userData = {
+    worldId: WORLD_COORDINATE_SYSTEMS.ASTRONOMICAL_PHYSICAL_WORLD.id,
+    unitKm: PHYSICAL_CONSTANTS.ASTRO_SCENE_UNIT_KM,
+    unitMeters: PHYSICAL_CONSTANTS.ASTRO_SCENE_UNIT_METERS,
+  };
+  // Mundo local métrico independiente (`1 unidad local = 1.00 metro`) para la nave de 120 m y la cabina de 24 m:
+  const localShipScene = new THREE.Scene(),
+    localCam = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.05, 6000);
+  localShipScene.name = 'KronoxLocalMetricWorld';
+  localShipScene.userData = {
+    worldId: WORLD_COORDINATE_SYSTEMS.LOCAL_METRIC_WORLD.id,
+    unitMeters: 1.0,
+    shipLengthMeters: SHIP_LENGTH_METERS,
+    cabinLengthMeters: PHYSICAL_CONSTANTS.CABIN_LENGTH_METERS,
+    astronautHeightMeters: PHYSICAL_CONSTANTS.ASTRONAUT_HEIGHT_METERS,
+    astronautEyeHeightMeters: PHYSICAL_CONSTANTS.ASTRONAUT_EYE_HEIGHT_METERS,
+  };
+  localCam.name = 'KronoxLocalMetricCamera';
+  const localShipAmbient = new THREE.AmbientLight(0xdce8ff, 0.52);
+  const localShipHemi = new THREE.HemisphereLight(0xd8ecff, 0x1b2436, 0.45);
+  const localShipSunLight = new THREE.DirectionalLight(0xfff6e5, 2.35);
+  localShipSunLight.position.set(-320, 120, -240);
+  const localShipRimLight = new THREE.DirectionalLight(0x70b8ff, 0.55);
+  localShipRimLight.position.set(240, -80, 310);
+  localShipScene.add(localShipAmbient, localShipHemi, localShipSunLight, localShipRimLight);
   let rafId = 0,
     disposed = false,
     lastNavigationPublish = -1,
@@ -1318,15 +1356,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       b.spherex = spherex;
     }
     if (p.n === 'Júpiter') {
-      // The Galilean moons and their tracks are drawn at an expanded visual
-      // scale so they remain legible beside the compressed planetary orbits.
       const system = new THREE.Group();
       pivot.add(system);
       b.moonSystem = system;
+      const jupRadiusKm = p.km || 69911;
       b.jupiterMoons = [
         {
           name: 'Ío',
-          radius: 2.05,
+          radiusKm: 1821.6,
+          semiMajorAxisKm: 421700,
+          physicalOrbitRatio: 421700 / jupRadiusKm,
+          physicalSizeRatio: 1821.6 / jupRadiusKm,
+          schematicOrbitRatio: 2.05,
+          schematicSizeRatio: 0.15,
+          radius: 421700 / jupRadiusKm,
           size: 0.15,
           period: 1.769,
           inclination: 0.0035,
@@ -1337,7 +1380,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         },
         {
           name: 'Europa',
-          radius: 2.75,
+          radiusKm: 1560.8,
+          semiMajorAxisKm: 671034,
+          physicalOrbitRatio: 671034 / jupRadiusKm,
+          physicalSizeRatio: 1560.8 / jupRadiusKm,
+          schematicOrbitRatio: 2.75,
+          schematicSizeRatio: 0.13,
+          radius: 671034 / jupRadiusKm,
           size: 0.13,
           period: 3.551,
           inclination: 0.0082,
@@ -1347,7 +1396,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         },
         {
           name: 'Ganímedes',
-          radius: 3.65,
+          radiusKm: 2634.1,
+          semiMajorAxisKm: 1070412,
+          physicalOrbitRatio: 1070412 / jupRadiusKm,
+          physicalSizeRatio: 2634.1 / jupRadiusKm,
+          schematicOrbitRatio: 3.65,
+          schematicSizeRatio: 0.22,
+          radius: 1070412 / jupRadiusKm,
           size: 0.22,
           period: 7.155,
           inclination: 0.0041,
@@ -1358,7 +1413,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         },
         {
           name: 'Calisto',
-          radius: 4.75,
+          radiusKm: 2410.3,
+          semiMajorAxisKm: 1882709,
+          physicalOrbitRatio: 1882709 / jupRadiusKm,
+          physicalSizeRatio: 2410.3 / jupRadiusKm,
+          schematicOrbitRatio: 4.75,
+          schematicSizeRatio: 0.19,
+          radius: 1882709 / jupRadiusKm,
           size: 0.19,
           period: 16.689,
           inclination: 0.0087,
@@ -1569,9 +1630,70 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
   sc.add(belt);
   const asteroidDummy = new THREE.Object3D();
-  let real = false;
-  let sim = T0();
+  const clk = new THREE.Clock(),
+    keys = {},
+    V = THREE.Vector3;
+  let real = false,
+    sim = T0(),
+    free = false,
+    spectator = false,
+    launchSequence = null,
+    launchCameraBlend = null,
+    shipZoom = 1,
+    fy = 0,
+    fp = 0,
+    fs = 60,
+    shipSz = SHIP_METRIC_SCALE,
+    fovBase = 55,
+    drag = 0,
+    ti = 9,
+    bk = 0,
+    pv = 3,
+    th = 0,
+    ac = 0,
+    yw = 0,
+    yp = 0,
+    O = { tr: 1, in: 0, au: 0 };
+  const sp = new V(),
+    vel = new V(),
+    pvl = new V(),
+    dom = R.domElement,
+    ship = new THREE.Group();
+  let foc = null,
+    tw = null,
+    nav = null,
+    hyperspace = null,
+    jumpDurations = { ...JUMP_DURATIONS, ...S.jumpDurations },
+    lastJump = null,
+    arrivalTarget = null,
+    nearKey = null,
+    activeMissionKey = null,
+    nearbyMapState = null,
+    exteriorCameraMode = false,
+    exteriorCameraSavedState = null,
+    exteriorCameraTransition = null,
+    exteriorLastShipPosition = new THREE.Vector3(),
+    nearbySelectedKey = 'milky-way',
+    nearbyMapRotation = 0,
+    navigationContext = scaleContext('solar'),
+    originRebaseState = { rebased: false, origin: [0, 0, 0], precisionBits: 64 },
+    contextOverview = false,
+    selectedContextStar = null;
+
+  // Determina si el motor debe usar estrictamente la escala física astronómica (`1 u = 1.000.000 km`).
+  // Solo el Modo 3 (`SOLAR_NAVIGATION`, cuando `!free && !real && !exteriorCameraMode && !spectator`)
+  // usa la escala esquemática comprimida identificada como `VISTA ESQUEMÁTICA · ESCALA COMPRIMIDA`.
+  const isPhysicalObservationActive = () =>
+    Boolean(free || real || exteriorCameraMode || spectator);
+
+  const metersToAstroSceneUnits = () =>
+    isPhysicalObservationActive()
+      ? PHYSICAL_CONSTANTS.METERS_TO_ASTRO_SCENE_UNITS
+      : 0.015 / SHIP_LENGTH_METERS;
+
   function updateAsteroids(day) {
+    const physical = isPhysicalObservationActive();
+    const beltScale = Dd(2.7);
     asteroidRecords.forEach((asteroid) => {
       const angle = asteroid.phase + (day / asteroid.period) * TAU;
       const radius = asteroid.au / 2.7;
@@ -1585,7 +1707,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         asteroid.phase,
         asteroid.inclination,
       );
-      const size = real ? asteroid.radiusKm / 1e6 / Dd(2.7) : asteroid.visualRadius / Dd(2.7);
+      const size = physical
+        ? asteroid.radiusKm / 1e6 / beltScale
+        : asteroid.visualRadius / beltScale;
       asteroidDummy.scale.set(
         size * asteroid.shape.x,
         size * asteroid.shape.y,
@@ -1601,174 +1725,311 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
 
   const Rd = (p) =>
-      p.sun
-        ? real
-          ? p.km / 1e6
-          : 4
-        : real
-          ? p.km / 1e6
-          : p.dwarf
-            ? Math.max(0.075, 0.35 * (p.km / 6371))
-            : 0.35 * (p.km / 6371),
-    // Give the visual-scale planets more room. Jupiter's outer Galilean moon
-    // orbit was nearly as wide as the Mars–Jupiter gap, so their paths could
-    // overlap in projection. This only changes the display map; physical scale
-    // and the underlying Keplerian positions remain unchanged.
-    Dd = (au) => (real ? au * 149.6 : 14 + 20 * Math.pow(au, 0.68)),
-    Dm = () => (real ? 0.3844 : 1.3),
-    shipScale = () => (real ? 0.0024 : 0.015),
-    // ESCALA FÍSICA INVARIANTE DE LA NAVE (120 m de eslora física):
-    // Mantiene la malla 3D libre de pérdida de precisión Float32 y considerablemente menor que los planetas.
-    shipCameraDistance = () => shipSz * 4.2 * shipZoom,
+      isPhysicalObservationActive()
+        ? physicalPlanetSceneRadius(p)
+        : schematicPlanetSceneRadius(p),
+    Dd = (au) =>
+      isPhysicalObservationActive()
+        ? physicalOrbitSceneDistance(au)
+        : schematicOrbitSceneDistance(au),
+    Dm = () => (isPhysicalObservationActive() ? 0.3844 : 1.3),
+    // En el Mundo Local (`localShipScene`, 1 u = 1 m), la nave conserva siempre 120.0 metros exactos:
+    shipScale = () => SHIP_METRIC_SCALE,
+    shipCameraDistanceMeters = () => SHIP_LENGTH_METERS * 1.38 * shipZoom,
+    shipCameraDistance = () => shipCameraDistanceMeters() * metersToAstroSceneUnits(),
     shipOffset = () => shipCameraDistance();
+
+  function syncSolarPositions(day = sim) {
+    const physical = isPhysicalObservationActive();
+    B.forEach((b) => {
+      const p = b.p;
+      if (!b.heliocentricScene64) b.heliocentricScene64 = new Float64Array(3);
+      if (p.sun) {
+        b.heliocentricAu = { x: 0, y: 0, z: 0 };
+        b.heliocentricScene64[0] = 0;
+        b.heliocentricScene64[1] = 0;
+        b.heliocentricScene64[2] = 0;
+        b.pivot.position.set(0, 0, 0);
+      } else if (p.au) {
+        const v = pos(p, day);
+        b.heliocentricAu = { x: v.x, y: v.y, z: v.z };
+        const scaleFactor = Dd(p.au) / p.au;
+        b.heliocentricScene64[0] = v.x * scaleFactor;
+        b.heliocentricScene64[1] = v.y * scaleFactor;
+        b.heliocentricScene64[2] = v.z * scaleFactor;
+        b.pivot.position.set(
+          b.heliocentricScene64[0],
+          b.heliocentricScene64[1],
+          b.heliocentricScene64[2],
+        );
+        b.au = v.length();
+        if (b.ar) {
+          b.ar.setDirection(
+            pos(p, day + 0.01)
+              .sub(v)
+              .normalize(),
+          );
+        }
+      } else if (p.moon && earth) {
+        const an = (day / p.per) * TAU,
+          e64 = earth.heliocentricScene64 || [
+            earth.pivot.position.x,
+            earth.pivot.position.y,
+            earth.pivot.position.z,
+          ],
+          d = Dm();
+        b.heliocentricScene64[0] = e64[0] + Math.cos(an) * d;
+        b.heliocentricScene64[1] = e64[1];
+        b.heliocentricScene64[2] = e64[2] - Math.sin(an) * d;
+        b.pivot.position.set(
+          b.heliocentricScene64[0],
+          b.heliocentricScene64[1],
+          b.heliocentricScene64[2],
+        );
+        const earthAu = earth?.heliocentricAu || { x: 1, y: 0, z: 0 };
+        const moonDistAu = 384400 / PHYSICAL_CONSTANTS.AU_KM;
+        b.heliocentricAu = {
+          x: earthAu.x + Math.cos(an) * moonDistAu,
+          y: earthAu.y,
+          z: earthAu.z - Math.sin(an) * moonDistAu,
+        };
+        b.spin.rotation.y = an + Math.PI / 2;
+        if (b.ar) {
+          b.ar.setDirection(new THREE.Vector3(-Math.sin(an), 0, -Math.cos(an)));
+        }
+      }
+      if (b.jupiterMoons) {
+        b.jupiterMoons.forEach((moon) => {
+          moon.radius = physical ? moon.physicalOrbitRatio : moon.schematicOrbitRatio;
+          const targetSizeRatio = physical ? moon.physicalSizeRatio : moon.schematicSizeRatio;
+          moon.mesh.scale.setScalar(targetSizeRatio / moon.size);
+        });
+      }
+    });
+  }
+
   function layout() {
+    const physical = isPhysicalObservationActive();
     B.forEach((b) => {
       const r = Rd(b.p);
       b.tilt.scale.setScalar(r);
       b.r = r;
       if (b.orbit) b.orbit.scale.setScalar(Dd(b.p.au) / b.p.au);
-      if (b.glow) b.glow.scale.setScalar(r * (real ? 40 : 6));
+      if (b.glow) b.glow.scale.setScalar(r * (physical ? 18 : 6));
       if (b.satelliteSystem) b.satelliteSystem.scale.setScalar(r);
       if (b.moonSystem) b.moonSystem.scale.setScalar(r);
     });
+    syncSolarPositions(sim);
     belt.scale.setScalar(Dd(2.7));
     updateAsteroids(sim);
     ct.minDistance = 0.0005;
   }
-  let navigationContext=scaleContext('solar'),originRebaseState={rebased:false,origin:[0,0,0]},contextOverview=false,selectedContextStar=null;
-  function publishScale(id,target=null){navigationContext=scaleContext(id,target);S.onNavigationScale?.(navigationContext);}
-  function setNavigationScale(id){
-    if(realTimeIntro||launchSequence||launchCameraBlend||cabinReentryBlend||nav)return false;
-    releaseInputs();vel.set(0,0,0);nav=null;activeMissionKey=null;selectedContextStar=null;S.onObjectSelect?.(null);
-    if(id==='extragalactic'){nearbyMap();return true;}
-    if(nearbyMapState)returnFromNearbyMap();
-    contextOverview=id==='stellar'||id==='regional';
-    if(id==='solar'){
-      observerPosPc={x:0,y:0,z:0};
-      observerHostGalaxyKey='milky-way';
+  function publishScale(id, target = null) {
+    navigationContext = scaleContext(id, target);
+    S.onNavigationScale?.(navigationContext);
+  }
+  function setNavigationScale(id) {
+    if (realTimeIntro || launchSequence || launchCameraBlend || cabinReentryBlend || nav)
+      return false;
+    releaseInputs();
+    vel.set(0, 0, 0);
+    nav = null;
+    activeMissionKey = null;
+    selectedContextStar = null;
+    S.onObjectSelect?.(null);
+    if (id === 'extragalactic') {
+      nearbyMap();
+      return true;
     }
-    syncObserverFirmament({extragalacticMap:false});
-    if(contextOverview){if(free){setFree(false);S.fr(false);}localCabinWorld.visible=false;ship.visible=false;sceneDirector.skipActiveSequence();foc=null;ct.enabled=true;ct.minDistance=1;ct.maxDistance=90000;fly(id==='stellar'?[14000,11000,24000]:[19000,16000,33000]);}
-    else if(id==='solar'){localCabinWorld.visible=false;ship.visible=false;lvl(1);}else if(id==='milkyway'){localCabinWorld.visible=false;ship.visible=false;lvl(3);}else return false;
-    publishScale(id);return true;
+    if (nearbyMapState) returnFromNearbyMap();
+    contextOverview = id === 'stellar' || id === 'regional';
+    if (id === 'solar') {
+      observerPosPc = { x: 0, y: 0, z: 0 };
+      observerHostGalaxyKey = 'milky-way';
+    }
+    syncObserverFirmament({ extragalacticMap: false });
+    if (contextOverview) {
+      if (free) {
+        setFree(false);
+        S.fr(false);
+      }
+      localCabinWorld.visible = false;
+      ship.visible = false;
+      sceneDirector.skipActiveSequence();
+      foc = null;
+      ct.enabled = true;
+      ct.minDistance = 1;
+      ct.maxDistance = 90000;
+      fly(id === 'stellar' ? [14000, 11000, 24000] : [19000, 16000, 33000]);
+    } else if (id === 'solar') {
+      localCabinWorld.visible = false;
+      ship.visible = false;
+      lvl(1);
+    } else if (id === 'milkyway') {
+      localCabinWorld.visible = false;
+      ship.visible = false;
+      lvl(3);
+    } else return false;
+    publishScale(id);
+    S.onObservationModeChange?.(getObservationMode());
+    return true;
   }
   function focusContextStar(key){const atlas=navigationContext.id==='stellar'?stellarAtlas:regionalAtlas,entry=atlas.markers.get(key);if(!entry)return false;selectedContextStar=key;const canonical=getCanonicalStar(key);if(canonical){observerPosPc={...canonical.positionPc};observerHostGalaxyKey='milky-way';syncObserverFirmament({extragalacticMap:false});}const position=entry.marker.getWorldPosition(new V()),direction=cam.position.clone().sub(ct.target).normalize();if(!direction.lengthSq())direction.set(.3,.3,1).normalize();ct.minDistance=entry.radius*1.5;ct.maxDistance=90000;tw={p0:cam.position.clone(),t0:ct.target.clone(),p1:position.clone().addScaledVector(direction,entry.radius*7),t1:position,k:0};publishScale(navigationContext.id,entry.target);S.onObjectSelect?.(key==='sun'?{kind:'planet',key:'Sol'}:entry.target.missionKey?{kind:'spherex',key:entry.target.missionKey}:{kind:'catalog-star',key});return true;}
-  let foc = null,
-    tw = null,
-    nav = null,
-    hyperspace = null,
-    jumpDurations = {...JUMP_DURATIONS,...S.jumpDurations},
-    lastJump = null,
-    arrivalTarget = null,
-    nearKey = null,
-    activeMissionKey = null,
-    nearbyMapState = null,
-    exteriorCameraMode = false,
-    exteriorCameraSavedState = null,
-    exteriorCameraTransition = null,
-    exteriorLastShipPosition = new THREE.Vector3(),
-    nearbySelectedKey = 'milky-way',
-    nearbyMapRotation = 0;
   const nearbyRaycaster = new THREE.Raycaster();
   const nearbyPointer = new THREE.Vector2();
   const nearbyMarkerWorld = new THREE.Vector3();
   let nearbyPointerStart = null;
 
   function collectExteriorShipBounds() {
+    ship.position.set(0, 0, 0);
+    ship.scale.setScalar(SHIP_METRIC_SCALE);
     ship.updateWorldMatrix(true, true);
     const ignored = new Set((FL || []).flatMap(({ c, k, g }) => [c, k, g]));
+    ignored.add(fl2);
     const boundsRoot = new THREE.Group();
+    const unrotatedRoot = new THREE.Group();
     ship.traverse((object) => {
-      if (!object.isMesh || !object.geometry || ignored.has(object) || !object.visible) return;
+      if (!object.isMesh || !object.geometry || ignored.has(object)) return;
       const proxy = object.clone(false);
       proxy.matrixAutoUpdate = false;
       proxy.matrix.copy(object.matrixWorld);
       boundsRoot.add(proxy);
+
+      const localProxy = object.clone(false);
+      localProxy.position.copy(object.position).multiplyScalar(SHIP_METRIC_SCALE);
+      localProxy.rotation.copy(object.rotation);
+      localProxy.scale.copy(object.scale).multiplyScalar(SHIP_METRIC_SCALE);
+      unrotatedRoot.add(localProxy);
     });
     boundsRoot.updateMatrixWorld(true);
+    unrotatedRoot.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(boundsRoot);
     if (box.isEmpty()) box.setFromObject(ship);
+    const unrotatedBox = new THREE.Box3().setFromObject(unrotatedRoot);
+    const unrotatedSize = unrotatedBox.getSize(new THREE.Vector3());
     const sphere = box.getBoundingSphere(new THREE.Sphere());
-    return { box, sphere, size: box.getSize(new THREE.Vector3()), center: box.getCenter(new THREE.Vector3()) };
+    return {
+      box,
+      sphere,
+      size: box.getSize(new THREE.Vector3()),
+      center: box.getCenter(new THREE.Vector3()),
+      hullDimensionsMeters: {
+        widthMeters: Number(unrotatedSize.x.toFixed(2)),
+        heightMeters: Number(unrotatedSize.y.toFixed(2)),
+        lengthMeters: Number(unrotatedSize.z.toFixed(2)),
+      },
+    };
   }
 
   function exteriorCameraPose() {
-    const { box, sphere, size, center } = collectExteriorShipBounds();
-    const aspect = Math.max(0.1, cam.aspect || innerWidth / innerHeight);
-    const fovV = THREE.MathUtils.degToRad(cam.fov);
+    const { box, sphere, size, center, hullDimensionsMeters } = collectExteriorShipBounds();
+    const aspect = Math.max(0.1, localCam.aspect || innerWidth / innerHeight);
+    const fovV = THREE.MathUtils.degToRad(localCam.fov || cam.fov);
     const fovH = 2 * Math.atan(Math.tan(fovV / 2) * aspect);
-    const azimuths = [40, 25, 55, 70, 10, 85, ...Array.from({ length: 24 }, (_, i) => i * 15)];
+    const azimuths = [36, 25, 52, 68, 12, 82, ...Array.from({ length: 24 }, (_, i) => i * 15)];
     const elevations = [18, 18, 18, 18, 18, 18, ...Array(24).fill(18)];
     azimuths.push(...Array.from({ length: 24 }, (_, i) => i * 15));
-    elevations.push(...Array(24).fill(33));
-    const raycaster = new THREE.Raycaster();
-    raycaster.camera = cam;
-    const planetRoots = B.map((body) => body.pivot).filter((root) => root?.visible);
+    elevations.push(...Array(24).fill(32));
     for (let index = 0; index < azimuths.length; index++) {
       const az = THREE.MathUtils.degToRad(azimuths[index]);
       const el = THREE.MathUtils.degToRad(elevations[index]);
-      const outward = new THREE.Vector3(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az))
+      const outward = new THREE.Vector3(
+        Math.cos(el) * Math.sin(az),
+        Math.sin(el),
+        Math.cos(el) * Math.cos(az),
+      )
         .applyQuaternion(ship.quaternion)
         .normalize();
-      const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), outward).normalize();
+      const right = new THREE.Vector3()
+        .crossVectors(new THREE.Vector3(0, 1, 0), outward)
+        .normalize();
       const up = new THREE.Vector3().crossVectors(outward, right).normalize();
-      const projectedWidth = (Math.abs(right.x) * size.x + Math.abs(right.y) * size.y + Math.abs(right.z) * size.z) / 2;
-      const projectedHeight = (Math.abs(up.x) * size.x + Math.abs(up.y) * size.y + Math.abs(up.z) * size.z) / 2;
-      const projectedDepth = (Math.abs(outward.x) * size.x + Math.abs(outward.y) * size.y + Math.abs(outward.z) * size.z) / 2;
-      const distance = Math.max(
-        (projectedHeight / Math.tan(fovV / 2)) + projectedDepth,
-        (projectedWidth / Math.tan(fovH / 2)) + projectedDepth,
-        sphere.radius / Math.sin(Math.min(fovV, fovH) / 2),
-      ) * 1.32;
-      const position = center.clone().addScaledVector(outward, distance);
+      const projectedWidth =
+        (Math.abs(right.x) * size.x + Math.abs(right.y) * size.y + Math.abs(right.z) * size.z) / 2;
+      const projectedHeight =
+        (Math.abs(up.x) * size.x + Math.abs(up.y) * size.y + Math.abs(up.z) * size.z) / 2;
+      const projectedDepth =
+        (Math.abs(outward.x) * size.x +
+          Math.abs(outward.y) * size.y +
+          Math.abs(outward.z) * size.z) /
+        2;
+      const distance =
+        Math.max(
+          projectedHeight / Math.tan(fovV / 2) + projectedDepth,
+          projectedWidth / Math.tan(fovH / 2) + projectedDepth,
+          sphere.radius / Math.sin(Math.min(fovV, fovH) / 2),
+        ) * 1.28;
+      const localPosition = center.clone().addScaledVector(outward, distance);
+      const astroPosition = sp
+        .clone()
+        .addScaledVector(localPosition, metersToAstroSceneUnits());
       const cameraInsidePlanet = B.some((body) => {
         const planetCenter = body.pivot.getWorldPosition(new THREE.Vector3());
-        return position.distanceTo(planetCenter) < (body.r || 0);
+        return astroPosition.distanceTo(planetCenter) < (body.r || 0) * 1.05;
       });
       if (cameraInsidePlanet) continue;
-      const samplePoints = [center];
-      for (let corner = 0; corner < 8; corner++) {
-        samplePoints.push(new THREE.Vector3(
-          corner & 1 ? box.max.x : box.min.x,
-          corner & 2 ? box.max.y : box.min.y,
-          corner & 4 ? box.max.z : box.min.z,
-        ));
-      }
-      const planetOccludes = samplePoints.some((point) => {
-        const towardPoint = point.clone().sub(position);
-        const targetDistance = towardPoint.length();
-        raycaster.set(position, towardPoint.normalize());
-        raycaster.near = 0;
-        raycaster.far = Math.max(0, targetDistance - 1e-5);
-        return raycaster.intersectObjects(planetRoots, true).some((hit) => hit.distance < raycaster.far);
-      });
-      if (!planetOccludes) return { position, target: center, distance, sphere, box };
+      return {
+        position: sp.clone().add(localPosition),
+        target: sp.clone().add(center),
+        localPosition,
+        localTarget: center,
+        distance,
+        sphere,
+        box,
+        hullDimensionsMeters,
+      };
     }
-    const fallbackDirection = new THREE.Vector3(0.64, 0.31, 0.7).normalize().applyQuaternion(ship.quaternion);
-    const distance = Math.max(sphere.radius * 3.2, 0.01);
-    return { position: center.clone().addScaledVector(fallbackDirection, distance), target: center, distance, sphere, box };
+    const fallbackDirection = new THREE.Vector3(0.64, 0.31, 0.7)
+      .normalize()
+      .applyQuaternion(ship.quaternion);
+    const distance = Math.max(sphere.radius * 2.4, 155);
+    const localPosition = center.clone().addScaledVector(fallbackDirection, distance);
+    return {
+      position: sp.clone().add(localPosition),
+      target: sp.clone().add(center),
+      localPosition,
+      localTarget: center,
+      distance,
+      sphere,
+      box,
+      hullDimensionsMeters,
+    };
   }
 
-  function resetExteriorCamera() {
+  function resetExteriorCamera(immediate = false) {
     if (!exteriorCameraMode) return;
     const pose = exteriorCameraPose();
-    exteriorCameraTransition = {
-      fromPosition: cam.position.clone(),
-      fromTarget: ct.target.clone(),
-      toPosition: pose.position,
-      toTarget: pose.target,
-      elapsed: 0,
-      duration: 0.85,
-    };
-    const originalFar = exteriorCameraSavedState?.far || cam.far;
-    cam.near = Math.max(1e-6, pose.distance * 0.01);
-    cam.far = Math.max(originalFar, pose.distance * 24);
+    if (immediate) {
+      exteriorCameraTransition = null;
+      cam.position.copy(pose.position);
+      ct.target.copy(pose.target);
+      cam.lookAt(ct.target);
+      localCam.position.copy(pose.localPosition);
+      localCam.lookAt(pose.localTarget);
+      ct.enabled = true;
+    } else {
+      exteriorCameraTransition = {
+        fromPosition: cam.position.clone(),
+        fromTarget: ct.target.clone(),
+        toPosition: pose.position,
+        toTarget: pose.target,
+        elapsed: 0,
+        duration: 0.65,
+      };
+      ct.enabled = false;
+    }
+    localCam.near = 0.25;
+    localCam.far = Math.max(6000, pose.distance * 25);
+    localCam.updateProjectionMatrix();
+    cam.near = 0.0005;
+    cam.far = Math.max(4e5, pose.distance * 25);
     cam.updateProjectionMatrix();
-    ct.minDistance = Math.max(1e-5, pose.sphere.radius * 1.35);
-    ct.maxDistance = Math.max(ct.minDistance * 3, pose.sphere.radius * 9.5);
+    // Anti-penetración estricta: la distancia mínima de órbita queda siempre fuera de la esfera envolvente de 120 m
+    ct.minDistance = Math.max(72, pose.sphere.radius * 1.25);
+    ct.maxDistance = Math.max(ct.minDistance * 4, pose.sphere.radius * 10);
     ct.minPolarAngle = 0.12;
     ct.maxPolarAngle = Math.PI - 0.12;
-    ct.enabled = false;
+    if (immediate) ct.update();
   }
 
   function leaveExteriorCamera(restorePose = true) {
@@ -1782,6 +2043,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     cam.far = saved.far;
     cam.fov = saved.fov;
     cam.updateProjectionMatrix();
+    localCam.fov = saved.fov;
+    localCam.updateProjectionMatrix();
     ct.minDistance = saved.minDistance;
     ct.maxDistance = saved.maxDistance;
     ct.minPolarAngle = saved.minPolarAngle;
@@ -1797,7 +2060,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   function userCameraAvailable(){return !(realTimeIntro||launchSequence||launchCameraBlend||cabinReentryBlend||nav);}
   function enterExteriorCamera() {
     if(!userCameraAvailable())return false;
-    if (!exteriorCameraMode) {
+    const alreadyExterior = exteriorCameraMode;
+    if (!alreadyExterior) {
       exteriorCameraMode = true;
       exteriorCameraSavedState = {
         position: cam.position.clone(), quaternion: cam.quaternion.clone(), target: ct.target.clone(),
@@ -1806,10 +2070,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       };
       exteriorLastShipPosition.copy(sp);
     }
+    layout();
     localCabinWorld.visible = false;
     ship.visible = true;
-    ship.position.copy(sp);
-    ship.scale.setScalar(shipSz);
+    ship.position.set(0, 0, 0);
+    ship.scale.setScalar(SHIP_METRIC_SCALE);
+    if (!alreadyExterior) {
+      resetExteriorCamera(true);
+    }
+    return true;
   }
   function nearbyMap() {
     if(!userCameraAvailable())return false;
@@ -1853,6 +2122,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       t1: center,
       k: 0,
     };
+    S.onObservationModeChange?.(getObservationMode());
   }
   function returnFromNearbyMap() {
     if (!nearbyMapState) return;
@@ -1874,8 +2144,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     ct.maxDistance = saved.maxDistance;
     free = saved.free;
     spectator = saved.spectator;
+    layout();
     S.fr(saved.free || saved.spectator);
     S.intro(saved.free);
+    S.onObservationModeChange?.(getObservationMode());
   }
   function focusNearbyGalaxy(key) {
     if (!nearbyMapState) nearbyMap();
@@ -1897,8 +2169,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
   function focusSolarSystemMap() {return setNavigationScale('solar');}
   function cabinOccludes(target){
-    if(!target||!localCabinWorld.visible)return false;localCabinWorld.updateMatrixWorld(true);
-    const direction=target.clone().sub(cam.position),distance=direction.length(),ray=new THREE.Raycaster(cam.position,direction.normalize(),cam.near,distance);
+    if(!target||!localCabinWorld.visible)return false;
+    localCabinWorld.updateMatrixWorld(true);
+    localCam.updateMatrixWorld(true);
+    const direction=target.clone().sub(cam.position);
+    if(direction.lengthSq()<1e-12)return false;
+    const ray=new THREE.Raycaster(localCam.position,direction.normalize(),localCam.near,PHYSICAL_CONSTANTS.CABIN_LENGTH_METERS*2);
     const meshes=[];localCabinWorld.traverse(object=>{if(object.isMesh)meshes.push(object);});
     return ray.intersectObjects(meshes,false).some(hit=>{let object=hit.object;while(object){if(!object.visible)return false;object=object.parent;}const material=Array.isArray(hit.object.material)?hit.object.material[hit.face?.materialIndex||0]:hit.object.material;return material&&material.visible!==false&&(!material.transparent||(!material.isShaderMaterial&&material.opacity>=.6));});
   }
@@ -1913,8 +2189,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     sceneDirector.skipActiveSequence();releaseInputs();tw=null;vel.set(0,0,0);bk=0;ti=9;
     activeCabinStation=null;freeHelmMode=false;S.onFreeHelmChange?.(false);arrivalTarget=null;
     astronomicalHologram?.clearHologram();
-    const distance=sp.distanceTo(target),long=distance>Math.max(clearance*3,shipSz*24);
-    nav={...createJumpSequence({from:sp,target,startQuaternion:ship.quaternion,clearance,durations:jumpDurations,reducedMotion:!!S.reducedMotion?.(),long}),b,name,onArrive,respectSpeed,oldFs:fs,objectKey:activeMissionKey,arrivedTarget:arrivedTarget || (b ? { name, key: b.p?.n || name, type: b.p?.sun ? 'estrella' : 'planeta' } : null),cabinStart:astronautPos.clone(),cabinLookout:new V(-3.2,0,-10.2),cameraStartPosition:cam.position.clone(),cameraStartQuaternion:cam.quaternion.clone(),cameraStartLocalOffset:cam.position.clone().sub(sp).applyQuaternion(ship.quaternion.clone().invert()),cameraStartLocalQuaternion:ship.quaternion.clone().invert().multiply(cam.quaternion)};
+    const distance=sp.distanceTo(target),long=distance>Math.max(clearance*3,0.08);
+    const startLocalMeters = localCam.position.lengthSq() > 1e-6
+      ? localCam.position.clone().applyQuaternion(ship.quaternion.clone().invert())
+      : (pv === 1 ? new V(astronautPos.x, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, astronautPos.z) : new V(0.24, 0.3, 1).multiplyScalar(shipCameraDistanceMeters()));
+    nav={...createJumpSequence({from:sp,target,startQuaternion:ship.quaternion,clearance,durations:jumpDurations,reducedMotion:!!S.reducedMotion?.(),long}),b,name,onArrive,respectSpeed,oldFs:fs,objectKey:activeMissionKey,arrivedTarget:arrivedTarget || (b ? { name, key: b.p?.n || name, type: b.p?.sun ? 'estrella' : 'planeta' } : null),cabinStart:astronautPos.clone(),cabinLookout:new V(-3.2,0,-10.2),cameraStartPosition:cam.position.clone(),cameraStartQuaternion:cam.quaternion.clone(),cameraStartLocalOffset:startLocalMeters,cameraStartLocalQuaternion:ship.quaternion.clone().invert().multiply(cam.quaternion)};
     if(long){disposeTravelEffect();hyperspace=createHyperspaceEffect({count:qualityMode==='performance'?440:720});sc.add(hyperspace.group);}
     S.f(name);S.onNavigation?.({phase:nav.phase,progress:0,label:name});return true;
   }
@@ -1930,9 +2209,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         return;
       }
       foc = null;
+      layout();
       tripTo(
         b.pivot.position.clone(),
-        computeSafeOrbitalClearance(b, { isCabinActive: pv === 1, realScale: real }),
+        computeSafeOrbitalClearance(b, {
+          isCabinActive: pv === 1,
+          realScale: isPhysicalObservationActive(),
+          physicalScale: isPhysicalObservationActive(),
+        }),
         n,
         b,
       );
@@ -1970,6 +2254,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.f(null);
       cam.position.set(0, 90, 230);
     }
+    S.onObservationModeChange?.(getObservationMode());
   }
   function fly(p, t = new THREE.Vector3()) {
     tw = {
@@ -1998,11 +2283,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     } else if (k === 'sunOrbit') {
       tripTo(
         B[0].pivot.position.clone(),
-        Math.max(B[0].r * 2, real ? 1.5 : 9),
+        Math.max(B[0].r * 2.15, isPhysicalObservationActive() ? 1.5 : 9),
         'Órbita próxima al Sol',
       );
     } else if (k === 'asteroids') {
-      tripTo(new V(0, 0, Dd(2.7)), Math.max(0.3, real ? 2 : 1.2), 'Cinturón de asteroides');
+      tripTo(new V(0, 0, Dd(2.7)), Math.max(0.3, isPhysicalObservationActive() ? 2 : 1.2), 'Cinturón de asteroides');
     } else if (k === 'sun') {
       focus('Sol');
     }
@@ -2058,7 +2343,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     localCabinWorld.visible = false;
     ship.visible = false;
-    if (real) mode(false);
+    real = false;
+    layout();
     ct.minDistance = 0.0005;
     if (k == 0) {
       focus('Tierra', 9);
@@ -2082,34 +2368,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
   layout();
   cam.position.set(0, 90, 230);
-  const clk = new THREE.Clock(),
-    keys = {},
-    V = THREE.Vector3;
-  let free = false,
-    spectator = false,
-    launchSequence = null,
-    launchCameraBlend = null,
-    shipZoom = 1,
-    fy = 0,
-    fp = 0,
-    fs = 60,
-    shipSz = 0.5,
-    fovBase = 55,
-    drag = 0,
-    ti = 9,
-    bk = 0,
-    pv = 3,
-    th = 0,
-    ac = 0,
-    yw = 0,
-    yp = 0,
-    O = { tr: 1, in: 0, au: 0 };
-  const sp = new V(),
-    vel = new V(),
-    pvl = new V(),
-    dom = R.domElement,
-    ship = new THREE.Group(),
-    sm = new THREE.MeshStandardMaterial({
+  const sm = new THREE.MeshStandardMaterial({
       color: 0xcbd9e8,
       metalness: 0.68,
       roughness: 0.28,
@@ -2274,16 +2533,23 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   tr.frustumCulled = false;
   tr.visible = false;
   sc.add(tr);
+  ship.name = 'KronoxExteriorShip120m';
+  ship.position.set(0, 0, 0);
+  ship.scale.setScalar(SHIP_METRIC_SCALE);
   ship.visible = false;
-  sc.add(ship);
+  // La nave de 120 m vive exclusivamente en el Mundo Local Métrico (`localShipScene`, 1 u = 1 m):
+  localShipScene.add(ship);
 
   // =========================================================================
   // HABITABLE 3D CABIN WORLD (`1 unit = 1 meter`), 1.75m ASTRONAUT & LUMINOUS AI
   // =========================================================================
   const localCabinWorld = new THREE.Group();
   localCabinWorld.name = 'LocalHabitableShipWorld';
+  localCabinWorld.position.set(0, 0, 0);
+  localCabinWorld.scale.set(1, 1, 1);
   localCabinWorld.visible = false;
-  sc.add(localCabinWorld);
+  // La cabina de 24 m vive exclusivamente en el Mundo Local Métrico (`localShipScene`, 1 u = 1 m):
+  localShipScene.add(localCabinWorld);
 
   const cabinSystem = buildHabitableCabin3D();
   localCabinWorld.add(cabinSystem.cabinRoot);
@@ -2340,7 +2606,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let targetPitch = 0;
   let cabinFirstPerson = true; // Exclusivamente en 1ª persona (altura ocular 1.65 m)
   let activeCabinStation = null;
-  let shipPoseKnown=false,cabinReentryBlend=null;
+  let shipPoseKnown = false,
+    cabinReentryBlend = null;
   let freeHelmMode = false;
   let freeHelmBlend = 0;
   let nearestCabinStation = null;
@@ -2349,6 +2616,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let aiSpeakingState = false;
   let aiAudioLevelState = 0.08;
   let lastScreenProjectionTime = 0;
+  let lastWarpAmount = 0;
   let opticalTelescopeState = {
     enabled: false,
     magnification: 1,
@@ -2381,7 +2649,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       const targetBody = B.find((x) => x.p.n === opticalTelescopeState.targetName);
       if (targetBody?.pivot && free && !nav) {
         const toTarget = targetBody.pivot.position.clone().sub(sp);
-        if (toTarget.lengthSq() > 1e-6) {
+        if (toTarget.lengthSq() > 1e-12) {
           toTarget.normalize();
           if (pv === 1) {
             const localDir = toTarget.clone().applyQuaternion(ship.quaternion.clone().invert());
@@ -2395,25 +2663,41 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
     }
     const baseFov = pv === 1 ? Math.min(fovBase, 42) : fovBase;
-    cam.fov = opticalTelescopeState.enabled
-      ? Math.max(4.5, baseFov / Math.pow(opticalTelescopeState.magnification, 0.36))
+    // Aumento óptico instrumental puro: modifica el campo visual (FOV) de la cámara astronómica
+    // según FOV(M) = 2·arctan(tan(FOV_0/2)/M), sin inflar jamás la malla 3D del planeta:
+    const nextFov = opticalTelescopeState.enabled
+      ? computeTelescopeFieldOfView(baseFov, opticalTelescopeState.magnification)
       : baseFov;
+    cam.fov = nextFov;
     cam.updateProjectionMatrix();
+    // La cámara local de la cabina mantiene el FOV humano para el marco físico del puente
+    localCam.fov = baseFov;
+    localCam.updateProjectionMatrix();
     S.onObservationModeChange?.(getObservationMode());
     return getObservationMode();
   }
+
+  let explicitCloseInspection = false;
 
   function getObservationMode() {
     let modeDescriptor = OBSERVATION_MODES.NAKED_EYE;
     if (nearbyMapState || contextOverview || (navigationContext.id !== 'solar' && !free)) {
       modeDescriptor = OBSERVATION_MODES.ASTRONOMICAL_MAP;
-    } else if (!free) {
+    } else if (!free && !exteriorCameraMode && !spectator) {
       modeDescriptor = OBSERVATION_MODES.SOLAR_NAVIGATION;
     } else if (opticalTelescopeState.enabled && opticalTelescopeState.magnification > 1) {
       modeDescriptor = OBSERVATION_MODES.OPTICAL_INSTRUMENT;
-    } else if (nearKey) {
+    } else if (
+      explicitCloseInspection ||
+      (nearKey && (nearKey !== 'Tierra' || Boolean(arrivalTarget) || exteriorCameraMode || spectator))
+    ) {
       modeDescriptor = OBSERVATION_MODES.CLOSE_INSPECTION;
     }
+    const targetTelemetry = opticalTelescopeState.targetName
+      ? getPlanetaryObservationalTelemetry(opticalTelescopeState.targetName)
+      : nearKey
+        ? getPlanetaryObservationalTelemetry(nearKey)
+        : null;
     return {
       ...modeDescriptor,
       label: modeDescriptor.shortLabel,
@@ -2424,35 +2708,165 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       opticalMagnification: opticalTelescopeState.enabled ? opticalTelescopeState.magnification : 1,
       opticalTargetName: opticalTelescopeState.targetName,
       opticalTargetBody: opticalTelescopeState.targetName,
-      realScaleActive: Boolean(real),
+      opticalFieldOfViewDeg: Number(cam.fov.toFixed(4)),
+      targetTelemetry,
+      realScaleActive: isPhysicalObservationActive(),
+      isPhysicalScale: isPhysicalObservationActive(),
+      schematicBanner: modeDescriptor.schematicBanner || null,
+      travelCompressionActive: Boolean(nav && nav.long),
+      travelCompressionBanner:
+        nav && nav.long ? OBSERVATION_MODES.CLOSE_INSPECTION.travelCompressionBanner : null,
       epoch: ASTRONOMICAL_REFERENCE_EPOCH,
       shipLengthMeters: SHIP_LENGTH_METERS,
       nearBodyName: nearKey || null,
     };
   }
 
+  function setObservationMode(modeId, options = {}) {
+    const normalized = String(modeId || '').toLowerCase();
+    if (normalized === 'naked-eye' || normalized === '1' || normalized === 'a') {
+      explicitCloseInspection = false;
+      if (!free) {
+        setFree(true, false);
+        S.fr?.(true);
+      }
+      setOpticalTelescope({ enabled: false, magnification: 1 });
+      return getObservationMode();
+    }
+    if (normalized === 'optical-instrument' || normalized === '2' || normalized === 'b') {
+      explicitCloseInspection = false;
+      if (!free) {
+        setFree(true, false);
+        S.fr?.(true);
+      }
+      const mag = Number(options.magnification) > 1 ? Number(options.magnification) : 150;
+      return setOpticalTelescope({
+        enabled: true,
+        magnification: mag,
+        targetName: options.targetName || opticalTelescopeState.targetName || 'Júpiter',
+      });
+    }
+    if (normalized === 'solar-navigation' || normalized === '3' || normalized === 'c') {
+      explicitCloseInspection = false;
+      cabinReentryBlend = null;
+      setOpticalTelescope({ enabled: false, magnification: 1 });
+      setNavigationScale('solar');
+      return getObservationMode();
+    }
+    if (normalized === 'astronomical-map' || normalized === '4' || normalized === 'd') {
+      explicitCloseInspection = false;
+      cabinReentryBlend = null;
+      setOpticalTelescope({ enabled: false, magnification: 1 });
+      setNavigationScale(options.scaleId || 'stellar');
+      return getObservationMode();
+    }
+    if (normalized === 'close-inspection' || normalized === '5' || normalized === 'e') {
+      explicitCloseInspection = true;
+      if (!free) {
+        setFree(true, false);
+        S.fr?.(true);
+      }
+      setOpticalTelescope({ enabled: false, magnification: 1 });
+      if (options.targetName) {
+        focus(options.targetName);
+      }
+      S.onObservationModeChange?.(getObservationMode());
+      return getObservationMode();
+    }
+    return getObservationMode();
+  }
+
   function getPlanetaryObservationalTelemetry(planetName = null) {
     if (planetName) {
       const found = B.find((x) => x.p.n === planetName);
-      return found?.observationalMetrics || null;
+      if (!found) return null;
+      return {
+        ...found.observationalMetrics,
+        sceneRadiusUnits: found.r,
+        meshScaleUnits: found.tilt?.scale?.x ?? found.r,
+        heliocentricScenePosition: found.pivot?.position?.toArray() || [0, 0, 0],
+        heliocentricScene64: found.heliocentricScene64
+          ? Array.from(found.heliocentricScene64)
+          : null,
+      };
     }
     const result = {};
     B.forEach((b) => {
-      if (b.observationalMetrics) result[b.p.n] = b.observationalMetrics;
+      if (b.observationalMetrics) {
+        result[b.p.n] = {
+          ...b.observationalMetrics,
+          sceneRadiusUnits: b.r,
+          meshScaleUnits: b.tilt?.scale?.x ?? b.r,
+        };
+      }
     });
     return result;
   }
 
   function getShipPhysicalSpecs() {
+    const bounds = collectExteriorShipBounds();
     return {
       lengthMeters: SHIP_LENGTH_METERS,
       cabinLengthMeters: PHYSICAL_CONSTANTS.CABIN_LENGTH_METERS,
+      cabinWidthMeters: PHYSICAL_CONSTANTS.CABIN_WIDTH_METERS,
+      cabinHeightMeters: PHYSICAL_CONSTANTS.CABIN_HEIGHT_METERS,
+      astronautHeightMeters: PHYSICAL_CONSTANTS.ASTRONAUT_HEIGHT_METERS,
+      astronautEyeHeightMeters: PHYSICAL_CONSTANTS.ASTRONAUT_EYE_HEIGHT_METERS,
       modelUnits: SHIP_MODEL_LENGTH,
-      sceneScale: shipSz,
+      sceneScale: SHIP_METRIC_SCALE,
+      localMetricScale: SHIP_METRIC_SCALE,
+      hullDimensionsMeters: bounds.hullDimensionsMeters,
+      boundingSphereRadiusMeters: Number(bounds.sphere.radius.toFixed(2)),
       shipVisible: ship.visible,
       cabinVisible: localCabinWorld.visible,
       exteriorCameraMode,
+      localWorldName: localShipScene.name,
+      astronomicalWorldName: sc.name,
+      shipParentScene: ship.parent?.name || null,
+      cabinParentScene: localCabinWorld.parent?.name || null,
       epoch: ASTRONOMICAL_REFERENCE_EPOCH,
+    };
+  }
+
+  function getDualWorldArchitectureState() {
+    const shipBounds = collectExteriorShipBounds();
+    const cabinBox = new THREE.Box3().setFromObject(cabinSystem.cabinRoot);
+    const cabinSize = cabinBox.getSize(new THREE.Vector3());
+    return {
+      worlds: WORLD_COORDINATE_SYSTEMS,
+      localWorld: {
+        sceneName: localShipScene.name,
+        unitMeters: 1.0,
+        shipInLocalScene: ship.parent === localShipScene,
+        cabinInLocalScene: localCabinWorld.parent === localShipScene,
+        shipInAstronomicalScene: ship.parent === sc,
+        cabinInAstronomicalScene: localCabinWorld.parent === sc,
+        shipPositionLocalMeters: ship.position.toArray(),
+        cabinPositionLocalMeters: localCabinWorld.position.toArray(),
+        shipHullDimensionsMeters: shipBounds.hullDimensionsMeters,
+        cabinBoundingSizeMeters: {
+          widthMeters: Number(cabinSize.x.toFixed(2)),
+          heightMeters: Number(cabinSize.y.toFixed(2)),
+          lengthMeters: Number(cabinSize.z.toFixed(2)),
+        },
+        localCameraPositionMeters: localCam.position.toArray(),
+        localCameraNearMeters: localCam.near,
+        localCameraFarMeters: localCam.far,
+      },
+      astronomicalWorld: {
+        sceneName: sc.name,
+        isPhysicalScale: isPhysicalObservationActive(),
+        unitKm: isPhysicalObservationActive() ? PHYSICAL_CONSTANTS.ASTRO_SCENE_UNIT_KM : null,
+        unitMeters: isPhysicalObservationActive()
+          ? PHYSICAL_CONSTANTS.ASTRO_SCENE_UNIT_METERS
+          : null,
+        shipHeliocentricScenePosition: sp.toArray(),
+        astroCameraPosition: cam.position.toArray(),
+        astroCameraNear: cam.near,
+        astroCameraFar: cam.far,
+        originRebase: originRebaseState,
+      },
+      catalogNotes: CATALOG_DOCUMENTATION_NOTES,
     };
   }
 
@@ -2462,15 +2876,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
    * Garantiza fp = 0 (horizonte nivelado sin inclinación de 90°) y dirección frontal (-Z) idéntica.
    */
   function alignShipInEarthOrbit() {
+    layout();
     shipSz = shipScale();
     const earthPos = earth?.pivot ? earth.pivot.position.clone() : new V(Dd(1), 0, 0);
     const radial = new V(earthPos.x, 0, earthPos.z);
     if (radial.lengthSq() < 1e-6) radial.set(1, 0, 0);
     else radial.normalize();
     const tangent = new V(-radial.z, 0, radial.x).normalize();
-    // Stand-off orbital seguro: mantiene la Tierra fuera de la cabina humana (largo 22 m)
-    // para que sea visible majestuosamente en el exterior por los ventanales sin penetrar el habitáculo.
-    const standOff = earth ? Math.max(earth.r * 3.5 + 28, Dm() * 1.35) : 36;
+    // En el Mundo Astronómico Físico (`1 u = 10^6 km`, `earth.r = 0.006371 u = 6,371 km`),
+    // estacionamos la nave en órbita física segura (`2.35 * R_Tierra ≈ 14,972 km` del centro terrestre,
+    // es decir ~8,601 km de altitud sobre la superficie), donde la Tierra subtiende ~46° en el mirador
+    // sin invadir jamás la cabina de 24 m ni el casco de 120 m:
+    const standOff = isPhysicalObservationActive()
+      ? earth
+        ? earth.r * 2.35
+        : 0.015
+      : earth
+        ? Math.max(earth.r * 3.5 + 28, Dm() * 1.35)
+        : 36;
 
     sp.copy(earthPos)
       .addScaledVector(radial, standOff * 0.85)
@@ -2491,10 +2914,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     bk = 0;
 
     const qLevel = new THREE.Quaternion().setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
-    ship.position.copy(sp);
-    ship.scale.setScalar(shipSz);
+    ship.position.set(0, 0, 0);
+    ship.scale.setScalar(SHIP_METRIC_SCALE);
     ship.quaternion.copy(qLevel);
-    localCabinWorld.position.copy(sp);
+    localCabinWorld.position.set(0, 0, 0);
+    localCabinWorld.scale.set(1, 1, 1);
     localCabinWorld.quaternion.copy(qLevel);
 
     astronautPos.set(0, 0, -1.8);
@@ -2641,9 +3065,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     astronaut3D.firstPersonHands.visible = false;
     ship.visible = false;
     localCabinWorld.visible = false;
-    cam.near = 0.001;
+    cam.near = 0.0005;
     cam.fov = fovBase;
     cam.updateProjectionMatrix();
+    localCam.near = 0.05;
+    localCam.fov = fovBase;
+    localCam.updateProjectionMatrix();
 
     cabinReentryBlend=null;
     const isReduced = Boolean(S.reducedMotion?.());
@@ -2682,6 +3109,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (!free) {
       setFree(true, false);
       S.fr?.(true);
+    } else {
+      layout();
     }
     if (wasInIntro || !shipPoseKnown || Math.abs(fp) > 1.15) {
       alignShipInEarthOrbit();
@@ -2699,20 +3128,32 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     astronaut3D.firstPersonHands.visible = false;
     ship.visible = false;
     localCabinWorld.visible = true;
-    cam.near = 0.05;
-    cam.fov = Math.min(fovBase, 42);
+    const cabinBaseFov = Math.min(fovBase, 42);
+    cam.near = 0.0005;
+    cam.fov = opticalTelescopeState.enabled
+      ? computeTelescopeFieldOfView(cabinBaseFov, opticalTelescopeState.magnification)
+      : cabinBaseFov;
     cam.updateProjectionMatrix();
+    localCam.near = 0.05;
+    localCam.far = 4000;
+    localCam.fov = cabinBaseFov;
+    localCam.updateProjectionMatrix();
 
     const qNow = new THREE.Quaternion().setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
-    ship.position.copy(sp);
+    ship.position.set(0, 0, 0);
+    ship.scale.setScalar(SHIP_METRIC_SCALE);
     ship.quaternion.copy(qNow);
-    localCabinWorld.position.copy(sp);
+    localCabinWorld.position.set(0, 0, 0);
+    localCabinWorld.scale.set(1, 1, 1);
     localCabinWorld.quaternion.copy(qNow);
-    cam.position.copy(
-      new V(astronautPos.x, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, astronautPos.z)
-        .applyQuaternion(qNow)
-        .add(sp),
-    );
+    const localEye = new V(
+      astronautPos.x,
+      SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
+      astronautPos.z,
+    ).applyQuaternion(qNow);
+    localCam.position.copy(localEye);
+    localCam.quaternion.copy(qNow);
+    cam.position.copy(sp).addScaledVector(localEye, metersToAstroSceneUnits());
     cam.quaternion.copy(qNow);
 
     suppressDirectorNarrative = true;
@@ -2722,6 +3163,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (cb) cb();
     introCompletedNaturally = false;
     startGuidedCabinTour();
+    S.onObservationModeChange?.(getObservationMode());
   }
 
   function startGuidedCabinTour() {
@@ -2756,6 +3198,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (!on && exteriorCameraMode) leaveExteriorCamera(true);
     spectator = false;
     free = on;
+    layout();
     ct.enabled = !on && !exteriorCameraMode;
     if (on) {
       foc = null;
@@ -2766,25 +3209,35 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (launchFromEarth) nav = null;
       if (launchFromEarth && earth) {
         const qLevel = alignShipInEarthOrbit();
-        cam.position.copy(sp).add(new V(0, 0.3, 1).multiplyScalar(shipOffset()).applyQuaternion(qLevel));
+        const chaseMeters = new V(0, 0.3, 1)
+          .multiplyScalar(shipCameraDistanceMeters())
+          .applyQuaternion(qLevel);
+        localCam.position.copy(chaseMeters);
+        localCam.quaternion.copy(qLevel);
+        cam.position.copy(sp).addScaledVector(chaseMeters, metersToAstroSceneUnits());
         cam.quaternion.copy(qLevel);
-      } else if (earth && !shipPoseKnown && cam.position.length() > Dd(earth.p.au) * 2.5) {
+      } else if (earth && (!shipPoseKnown || cam.position.length() > Dd(earth.p.au) * 2.5)) {
         const qLevel = alignShipInEarthOrbit();
-        cam.position.copy(sp).add(new V(0, 0.3, 1).multiplyScalar(shipOffset()).applyQuaternion(qLevel));
+        const chaseMeters = new V(0, 0.3, 1)
+          .multiplyScalar(shipCameraDistanceMeters())
+          .applyQuaternion(qLevel);
+        localCam.position.copy(chaseMeters);
+        localCam.quaternion.copy(qLevel);
+        cam.position.copy(sp).addScaledVector(chaseMeters, metersToAstroSceneUnits());
         cam.quaternion.copy(qLevel);
-      } else {
+      } else if (!shipPoseKnown) {
         sp.copy(cam.position);
         const e = new THREE.Euler().setFromQuaternion(cam.quaternion, 'YXZ');
         fy = e.y;
         fp = e.x;
       }
-      shipPoseKnown=true;
+      shipPoseKnown = true;
       shipSz = shipScale();
       fs = launchFromEarth
         ? Math.max(0.05, earth ? earth.r * 0.45 : 0.2)
         : Math.max(0.01, Math.min(5e4, cam.position.distanceTo(ct.target) * 0.4));
       S.fv(fs);
-      ti = launchFromEarth ? 0 : 9;
+      ti = 9; // Eliminar el temporizador artificial ti < 2.6 que ocultaba la nave exterior
       vel.set(0, 0, 0);
       TB.fill(-99);
       tr.visible = true;
@@ -2800,6 +3253,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       cam.getWorldDirection(f);
       ct.target.copy(cam.position).addScaledVector(f, Math.max(1, cam.position.length() * 0.1));
     }
+    S.onObservationModeChange?.(getObservationMode());
   }
   function spectate() {
     if(!userCameraAvailable())return false;
@@ -2812,6 +3266,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     spectator = true;
     free = false;
+    layout();
     ct.enabled = true;
     foc = null;
     tw = null;
@@ -2822,21 +3277,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     S.intro(false);
     localCabinWorld.visible = false;
     tr.visible = false;
-    ship.position.copy(sp);
-    ship.scale.setScalar(shipSz);
+    ship.position.set(0, 0, 0);
+    ship.scale.setScalar(SHIP_METRIC_SCALE);
     ship.quaternion.copy(q);
     ship.visible = true;
-    const d = shipCameraDistance(),
-      offset = new V(1, 0.55, 2).applyQuaternion(q).multiplyScalar(d);
+    const dMeters = shipCameraDistanceMeters(),
+      offsetMeters = new V(1, 0.55, 2).normalize().applyQuaternion(q).multiplyScalar(dMeters);
     ct.target.copy(sp);
-    cam.position.copy(sp).add(offset);
+    cam.position.copy(sp).add(offsetMeters);
     cam.lookAt(sp);
+    localCam.position.copy(offsetMeters);
+    localCam.lookAt(0, 0, 0);
     ct.update();
   }
   function board() {
     if (!spectator) return;
     spectator = false;
     free = true;
+    layout();
     ct.enabled = false;
     foc = null;
     tw = null;
@@ -2853,15 +3311,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     tr.visible = true;
     ship.visible = pv == 3;
     localCabinWorld.visible = pv == 1;
+    const localOffMeters =
+      pv == 3
+        ? new V(0, 0.3, 1).multiplyScalar(shipCameraDistanceMeters()).applyQuaternion(q)
+        : new V(astronautPos.x, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, astronautPos.z).applyQuaternion(q);
+    localCam.position.copy(localOffMeters);
+    localCam.quaternion.copy(q);
     cam.quaternion.copy(q);
-    cam.position
-      .copy(sp)
-      .add(new V(0, 0.3, 1).multiplyScalar(shipOffset() * (pv == 3 ? 1 : 0)).applyQuaternion(q));
+    cam.position.copy(sp).addScaledVector(localOffMeters, metersToAstroSceneUnits());
   }
   function exitSpectator() {
     if (!spectator) return;
     spectator = false;
     free = false;
+    layout();
     localCabinWorld.visible = false;
     ship.visible = false;
     ct.enabled = true;
@@ -2898,14 +3361,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     S.fv(fs);
   }
   function inspectExterior() {
-    if(!userCameraAvailable())return false;
+    if (!userCameraAvailable()) return false;
     if (!free) {
       setFree(true, false);
       S.fr(true);
     }
     pv = 3;
+    ti = 9;
     enterExteriorCamera();
-    resetExteriorCamera();
+    resetExteriorCamera(true);
+    return true;
   }
   let speedNoticeTimer;
   let pointerClickStart = null;
@@ -2952,14 +3417,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return;
     }
     if(contextOverview&&clickMoved<6){const rect=dom.getBoundingClientRect();nearbyPointer.set((e.clientX-rect.left)/rect.width*2-1,1-(e.clientY-rect.top)/rect.height*2);nearbyRaycaster.setFromCamera(nearbyPointer,cam);const atlas=navigationContext.id==='stellar'?stellarAtlas:regionalAtlas;const hit=nearbyRaycaster.intersectObjects([...atlas.markers.values()].map(e=>e.marker),true).find(h=>h.object.userData.catalogStarKey);if(hit)focusContextStar(hit.object.userData.catalogStarKey);return;}
-    // Interacción con consolas físicas 3D dentro de la cabina habitable (Sección 4)
+    // Interacción con consolas físicas 3D dentro de la cabina habitable en el Mundo Local (`localCam`, 1 u = 1 m)
     if (clickMoved < 6 && !nearbyMapState && free && pv == 1 && !realTimeIntro) {
       const rect = dom.getBoundingClientRect();
       nearbyPointer.set(
         ((e.clientX - rect.left) / rect.width) * 2 - 1,
         -((e.clientY - rect.top) / rect.height) * 2 + 1,
       );
-      nearbyRaycaster.setFromCamera(nearbyPointer, cam);
+      localCabinWorld.updateMatrixWorld(true);
+      localCam.updateMatrixWorld(true);
+      nearbyRaycaster.setFromCamera(nearbyPointer, localCam);
       const stationNodes = cabinSystem.stationMeshes.map((s) => s.group);
       const stHits = nearbyRaycaster.intersectObjects(stationNodes, true);
       if (stHits.length > 0) {
@@ -3033,7 +3500,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (free && !exteriorCameraMode) {
       e.preventDefault();
       if (pv == 3) {
-        shipZoom = Math.max(0.1, Math.min(100, shipZoom * (e.deltaY < 0 ? 0.8 : 1.25)));
+        shipZoom = Math.max(0.55, Math.min(8, shipZoom * (e.deltaY < 0 ? 0.85 : 1.18)));
       } else {
         fs = Math.max(0.01, Math.min(5e4, fs * (e.deltaY < 0 ? 1.2 : 1 / 1.2)));
         S.fv(fs);
@@ -3080,9 +3547,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return;
     }
     keys[k] = 1;
-    // Tecla contextual [T] para alternar el Telescopio Óptico de a bordo (1× -> 50× -> 150× -> 300× -> 1×)
+    // Tecla contextual [T] para alternar el Telescopio Óptico de a bordo (1× -> 10× -> 50× -> 150× -> 300× -> 500× -> 1×)
     if (k === 't' && free && !realTimeIntro && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      const steps = [1, 50, 150, 300];
+      const steps = OPTICAL_MAGNIFICATION_STEPS;
       const cur = opticalTelescopeState.enabled ? opticalTelescopeState.magnification : 1;
       const idx = steps.indexOf(cur);
       const nextMag = steps[(idx + 1) % steps.length];
@@ -3092,7 +3559,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     // Tecla [R] en vista exterior para restablecer el encuadre orbital de la nave de 120 m
     if (k === 'r' && free && pv == 3 && !realTimeIntro && !e.ctrlKey && !e.metaKey) {
       if (!exteriorCameraMode) enterExteriorCamera();
-      resetExteriorCamera();
+      resetExteriorCamera(false);
       return;
     }
     // Tecla contextual [E] para operar la consola física más cercana en cabina 3D
@@ -3119,6 +3586,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     R.setSize(innerWidth, innerHeight);
     cam.aspect = innerWidth / innerHeight;
     cam.updateProjectionMatrix();
+    localCam.aspect = innerWidth / innerHeight;
+    localCam.updateProjectionMatrix();
     GU.uH.value = (innerHeight * R.getPixelRatio()) / (2 * Math.tan((cam.fov * Math.PI) / 360));
     if (exteriorCameraMode) resetExteriorCamera();
   };
@@ -3156,7 +3625,37 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         material.rotation += dt * spinSpeed;
       },
     );
-    sim += dt * spd;
+    // En modos físicos (1 segundo = 1 segundo en el mundo local de la nave), la nave co-orbita con su planeta anfitrión
+    let orbitalHostBody = null;
+    let orbitalHostPrevPos = null;
+    if ((free || spectator || realTimeIntro) && spd > 0 && !nav) {
+      let bestRatio = Infinity;
+      for (const b of B) {
+        if (b.p.sun || !b.pivot) continue;
+        const d = sp.distanceTo(b.pivot.position);
+        const soiLimit = isPhysicalObservationActive()
+          ? Math.max(b.r * 80, b.p.moon ? 0.025 : 0.45)
+          : Math.max(b.r * 12, 48);
+        if (d < soiLimit) {
+          const ratio = d / Math.max(1e-6, b.r);
+          if (ratio < bestRatio) {
+            bestRatio = ratio;
+            orbitalHostBody = b;
+          }
+        }
+      }
+      if (orbitalHostBody) {
+        orbitalHostPrevPos = orbitalHostBody.pivot.position.clone();
+      }
+    }
+    const effectiveSpd = nav
+      ? 0
+      : isPhysicalObservationActive()
+        ? spd > 0
+          ? 1 / 86400
+          : 0
+        : spd;
+    sim += dt * effectiveSpd;
     S.day(sim);
     updateAsteroids(sim);
     if (S.onNavigation && clk.elapsedTime - lastNavigationPublish > 0.18) {
@@ -3178,68 +3677,59 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       allowReferenceGuides = !contextOverview && !nearbyMapState && !inCinematicVisualMode && !inFirstPersonCabinVisualMode,
       solarOrbitVisibility =
         allowReferenceGuides && fl.orb
-          ? 1 - THREE.MathUtils.smoothstep(cam.position.length(), 150, 240)
+          ? 1 - THREE.MathUtils.smoothstep(cam.position.length(), 150, 1800)
           : 0;
     const isCabinActive = pv == 1 && !realTimeIntro;
     const inPhysicalShipObservation = Boolean(
       free && !realTimeIntro && !contextOverview && !nearbyMapState,
     );
-    // Primero actualizamos posiciones heliocéntricas J2000.0 + sim
-    B.forEach((b) => {
-      const p = b.p;
-      if (p.sun) {
-        b.heliocentricAu = { x: 0, y: 0, z: 0 };
-      } else if (p.au) {
-        const v = pos(p, sim);
-        b.heliocentricAu = { x: v.x, y: v.y, z: v.z };
-        b.pivot.position.copy(v).multiplyScalar(Dd(p.au) / p.au);
-        b.au = v.length();
-        b.ar.setDirection(
-          pos(p, sim + 0.01)
-            .sub(v)
-            .normalize(),
-        );
-      } else if (p.moon) {
-        const an = (sim / p.per) * TAU,
-          e = earth.pivot.position,
-          d = Dm();
-        b.pivot.position.set(e.x + Math.cos(an) * d, 0, e.z - Math.sin(an) * d);
-        const earthAu = earth?.heliocentricAu || { x: 1, y: 0, z: 0 };
-        const moonDistAu = 384400 / PHYSICAL_CONSTANTS.AU_KM;
-        b.heliocentricAu = {
-          x: earthAu.x + Math.cos(an) * moonDistAu,
-          y: earthAu.y,
-          z: earthAu.z - Math.sin(an) * moonDistAu,
-        };
-        b.spin.rotation.y = an + Math.PI / 2;
-        b.ar.setDirection(new THREE.Vector3(-Math.sin(an), 0, -Math.cos(an)));
+    // Actualizar posiciones heliocéntricas J2000.0 + sim en doble precisión (`Float64Array`)
+    syncSolarPositions(sim);
+    if (!nav && orbitalHostBody && orbitalHostPrevPos) {
+      const hostDelta = orbitalHostBody.pivot.position.clone().sub(orbitalHostPrevPos);
+      if (hostDelta.lengthSq() > 0) {
+        sp.add(hostDelta);
+        if (arrivalTarget) arrivalTarget.add(hostDelta);
+        if (exteriorCameraMode || spectator) {
+          cam.position.add(hostDelta);
+          ct.target.add(hostDelta);
+          exteriorLastShipPosition.add(hostDelta);
+        }
       }
-    });
-    // Determinar posición heliocéntrica del observador en UA
+    }
+    // Determinar posición heliocéntrica del observador en UA (precisión doble IEEE 754)
     let observerHeliocentricAu = { x: 1, y: 0, z: 0 };
     if (earth?.heliocentricAu) {
       observerHeliocentricAu = { ...earth.heliocentricAu };
     }
-    if (free) {
-      let closestHost = null;
-      let closestDist = Infinity;
-      for (const b of B) {
-        if (!b.p.au) continue;
-        const d = sp.distanceTo(b.pivot.position);
-        if (d < closestDist) {
-          closestDist = d;
-          closestHost = b;
-        }
-      }
-      if (closestHost && closestDist < Math.max(45, closestHost.r * 12) && closestHost.heliocentricAu) {
-        const offsetScene = sp.clone().sub(closestHost.pivot.position);
-        const kmPerUnit = Math.max(100, closestHost.p.km / Math.max(0.01, closestHost.r));
-        const offsetAu = offsetScene.multiplyScalar(kmPerUnit / PHYSICAL_CONSTANTS.AU_KM);
+    if (free || spectator) {
+      if (isPhysicalObservationActive() && shipPoseKnown && sp.length() < 8000) {
         observerHeliocentricAu = {
-          x: closestHost.heliocentricAu.x + offsetAu.x,
-          y: closestHost.heliocentricAu.y + offsetAu.y,
-          z: closestHost.heliocentricAu.z + offsetAu.z,
+          x: sp.x / PHYSICAL_CONSTANTS.AU_ASTRO_SCENE_UNITS,
+          y: sp.y / PHYSICAL_CONSTANTS.AU_ASTRO_SCENE_UNITS,
+          z: sp.z / PHYSICAL_CONSTANTS.AU_ASTRO_SCENE_UNITS,
         };
+      } else {
+        let closestHost = null;
+        let closestDist = Infinity;
+        for (const b of B) {
+          if (!b.p.au) continue;
+          const d = sp.distanceTo(b.pivot.position);
+          if (d < closestDist) {
+            closestDist = d;
+            closestHost = b;
+          }
+        }
+        if (closestHost && closestDist < Math.max(45, closestHost.r * 12) && closestHost.heliocentricAu) {
+          const offsetScene = sp.clone().sub(closestHost.pivot.position);
+          const kmPerUnit = Math.max(100, closestHost.p.km / Math.max(1e-6, closestHost.r));
+          const offsetAu = offsetScene.multiplyScalar(kmPerUnit / PHYSICAL_CONSTANTS.AU_KM);
+          observerHeliocentricAu = {
+            x: closestHost.heliocentricAu.x + offsetAu.x,
+            y: closestHost.heliocentricAu.y + offsetAu.y,
+            z: closestHost.heliocentricAu.z + offsetAu.z,
+          };
+        }
       }
     }
     const activeOpticalMag = opticalTelescopeState.enabled ? opticalTelescopeState.magnification : 1;
@@ -3254,41 +3744,36 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       });
       if (b.pivot) {
         const distToShip = b.pivot.position.distanceTo(sp);
-        b.pivot.visible = !(isCabinActive && distToShip < 2.2);
-        const distToCam = Math.max(0.05, cam.position.distanceTo(b.pivot.position));
-        const isLocalOrbitedBody =
-          distToShip < Math.max(45, b.r * 10.5) ||
-          (p.moon && earth && earth.pivot.position.distanceTo(sp) < 45);
-        if (inPhysicalShipObservation && !isLocalOrbitedBody && !p.sun) {
-          // Escala angular físicamente exacta θ = 2·arctan(R/D) * M_óptica
-          const halfAngle = Math.min(
-            0.42,
-            (b.observationalMetrics.angularDiameterRad * activeOpticalMag) * 0.5,
-          );
-          const physicalAngularSceneRadius = Math.max(1e-4, distToCam * Math.tan(halfAngle));
-          b.tilt.scale.setScalar(physicalAngularSceneRadius);
-          if (b.moonSystem) {
-            b.moonSystem.visible = activeOpticalMag >= 10;
-            b.moonSystem.scale.setScalar(physicalAngularSceneRadius);
-          }
-          if (b.pointBeacon) {
+        const minSafeDist = isPhysicalObservationActive()
+          ? computeSafeOrbitalClearance(b, { isCabinActive: pv === 1, physicalScale: true })
+          : 2.2;
+        b.pivot.visible = !(isCabinActive && distToShip < minSafeDist * 0.45);
+        const distToCam = Math.max(1e-5, cam.position.distanceTo(b.pivot.position));
+        const isLocalOrbitedBody = isPhysicalObservationActive()
+          ? distToShip < Math.max(b.r * 65, 0.04) ||
+            (p.moon && earth && earth.pivot.position.distanceTo(sp) < 0.65)
+          : distToShip < Math.max(45, b.r * 10.5) ||
+            (p.moon && earth && earth.pivot.position.distanceTo(sp) < 45);
+        // El radio 3D del planeta (`b.tilt.scale`) conserva SIEMPRE su valor físico `b.r` (`p.km / 1e6`)
+        // sin ser inflado jamás por el aumento del telescopio óptico (que actúa estrechando `cam.fov`):
+        b.tilt.scale.setScalar(b.r);
+        if (b.moonSystem) {
+          b.moonSystem.visible = !inPhysicalShipObservation || activeOpticalMag >= 10 || isLocalOrbitedBody;
+          b.moonSystem.scale.setScalar(b.r);
+        }
+        if (b.pointBeacon) {
+          if (inPhysicalShipObservation && !isLocalOrbitedBody && !p.sun) {
             const showPointBeacon = !b.observationalMetrics.resolvedWithInstrument;
             b.pointBeacon.visible = showPointBeacon;
             if (showPointBeacon) {
+              const fovTan = Math.tan(THREE.MathUtils.degToRad(Math.max(0.05, cam.fov) * 0.5));
               const magBoost = Math.max(
                 0.65,
                 Math.min(1.85, 1.25 - b.observationalMetrics.apparentMagnitudeV * 0.14),
               );
-              b.pointBeacon.scale.setScalar(distToCam * 0.011 * magBoost);
+              b.pointBeacon.scale.setScalar(distToCam * fovTan * 0.022 * magBoost);
             }
-          }
-        } else {
-          b.tilt.scale.setScalar(b.r);
-          if (b.moonSystem) {
-            b.moonSystem.visible = true;
-            b.moonSystem.scale.setScalar(b.r);
-          }
-          if (b.pointBeacon) {
+          } else {
             b.pointBeacon.visible = false;
           }
         }
@@ -3296,7 +3781,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (b.satellites) {
         b.satellites.forEach((plane) => {
           plane.plane.visible = !realTimeIntro;
-          const orbitAngle = ((sim * SATELLITE_VISUAL_TIME_SCALE) / plane.period) * TAU;
+          const orbitAngle = ((sim * SATELLITE_VISUAL_TIME_SCALE + clk.elapsedTime * 0.002) / plane.period) * TAU;
           plane.objects.forEach(({ object, phase }) => {
             const angle = orbitAngle + phase;
             object.position.set(Math.cos(angle) * plane.radius, 0, Math.sin(angle) * plane.radius);
@@ -3326,7 +3811,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         });
       }
       if (!p.moon) {
-        const rate = ((TAU * 24) / p.rot) * spd;
+        const rate = ((TAU * 24) / p.rot) * effectiveSpd;
         b.spin.rotation.y += rate * dt;
       }
       b.lab.visible = allowReferenceGuides && !!fl.lab;
@@ -3346,9 +3831,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         held = null,
         best = Infinity;
       for (const b of B) {
-        if (!b.p.au) continue;
+        if (!b.p.au && !b.p.moon) continue;
         const d = sp.distanceTo(b.pivot.position),
-          limit = Math.max(b.r * 2.6, real ? 0.025 : 0.08);
+          limit = isPhysicalObservationActive()
+            ? Math.max(b.r * 12, 0.025)
+            : Math.max(b.r * 2.6, real ? 0.025 : 0.08);
         if (b.p.n === nearKey && d < limit * 1.75) held = b;
         if (d < limit && d < best) {
           candidate = b;
@@ -3360,10 +3847,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (key !== nearKey) {
         nearKey = key;
         S.near(key);
+        S.onObservationModeChange?.(getObservationMode());
       }
     } else if (nearKey) {
       nearKey = null;
       S.near(null);
+      S.onObservationModeChange?.(getObservationMode());
     }
     if (foc) {
       const dl = foc.pivot.position.clone().sub(ct.target);
@@ -3373,7 +3862,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const mv = new V(
       (keys.w ? 1 : 0) - (keys.s ? 1 : 0),
       (keys.e ? 1 : 0) - (keys.q ? 1 : 0),
-      (keys.d ? 1 : 0) - (keys.a ? 1 : 0),
+      (keys.d ? 1 : 0) - (keys.a ? 0 : 0) - (keys.a ? 1 : 0),
     );
     if (free) {
       ti += dt;
@@ -3399,7 +3888,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         const uNow = realTimeIntro.elapsed / Math.max(0.1, realTimeIntro.duration);
         if (uNow >= 0.68 && uNow < 0.88) {
           // Avance suave de la nave de 120 m en órbita durante la Escena 5 (KRONOX)
-          vel.copy(f).multiplyScalar(shipSz * 0.85);
+          vel.copy(f).multiplyScalar(SHIP_LENGTH_METERS * 0.85 * metersToAstroSceneUnits());
           sp.addScaledVector(vel, dt);
         } else {
           vel.set(0, 0, 0);
@@ -3416,7 +3905,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         if (progress >= 1) {
           launchSequence = null;
           vel.set(0, 0, 0);
-          ti = 4.1;
+          ti = 9;
           S.intro(false);
         }
       } else if ((!inHabitableCabin || pilotingFromCabin) && !exteriorCameraMode) {
@@ -3424,7 +3913,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         if(inputTarget.length()>Math.abs(bs))inputTarget.setLength(Math.abs(bs));
         const step=integrateFlightVelocity(vel.toArray(),inputTarget.toArray(),dt,{inertia:!!O.in,automatic:!!O.au,activeInput:ok&&mv.lengthSq()>0,speed:bs});
         vel.fromArray(step.velocity);sp.add(new V().fromArray(step.displacement));
-        enforcePlanetaryCollisionBoundary(sp, B, { isCabinActive: pv === 1 });
+        enforcePlanetaryCollisionBoundary(sp, B, {
+          isCabinActive: pv === 1,
+          physicalScale: isPhysicalObservationActive(),
+        });
       } else if (exteriorCameraMode && !nav) {
         vel.multiplyScalar(Math.exp(-dt * 8));
       } else if (!nav) {
@@ -3448,9 +3940,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           if(completed.onArrive)completed.onArrive();
         }
       }
-      const sz = shipSz,
-        kk = Math.min(1, Math.max(0, (ti - 2.6) / 2.4)),
-        e = 1 - Math.pow(1 - kk, 3);
+      const sz = SHIP_LENGTH_METERS * metersToAstroSceneUnits(),
+        kk = 1,
+        e = 1;
       bk += (-(!nav && ti >= 5 && !inHabitableCabin ? mv.z : 0) * 0.5 - bk) * Math.min(1, dt * 5);
 
       if (realTimeIntro?.phase === 'opening') {
@@ -3667,6 +4159,21 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             const easeDive = s * s * (3 - 2 * s);
             cam.position.lerpVectors(galVantage2, shipApproachStart, easeDive);
             cam.lookAt(galCenter.clone().lerp(shipLookStart, easeDive));
+            if (ship.visible) {
+              const localApproachMeters = new V(
+                SHIP_LENGTH_METERS * 2.1,
+                SHIP_LENGTH_METERS * 0.65,
+                -SHIP_LENGTH_METERS * 1.65,
+              ).applyQuaternion(q);
+              localCam.near = 0.25;
+              localCam.far = 6000;
+              localCam.fov = cam.fov;
+              localCam.updateProjectionMatrix();
+              localCam.position.copy(localApproachMeters);
+              localCam.lookAt(
+                new V(0, SHIP_LENGTH_METERS * 0.08, -SHIP_LENGTH_METERS * 0.35).applyQuaternion(q),
+              );
+            }
           }
         } else if (u < 0.86) {
           // ESCENA 5 — KRONOX (`escena5_nave`):
@@ -3691,24 +4198,37 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           const ease5 = t5 * t5 * (3 - 2 * t5);
           ship.visible = true;
           localCabinWorld.visible = t5 > 0.82;
-          localCabinWorld.position.copy(sp);
+          localCabinWorld.position.set(0, 0, 0);
+          localCabinWorld.scale.set(1, 1, 1);
           localCabinWorld.quaternion.copy(q);
 
-          const camOff = new V(
-            THREE.MathUtils.lerp(sz * 4.2, 0, ease5),
-            THREE.MathUtils.lerp(sz * 1.25, sz * 0.22, ease5),
-            THREE.MathUtils.lerp(-sz * 3.2, sz * 1.12, ease5),
+          const localCamOffMeters = new V(
+            THREE.MathUtils.lerp(SHIP_LENGTH_METERS * 2.1, 0, ease5),
+            THREE.MathUtils.lerp(SHIP_LENGTH_METERS * 0.65, SHIP_LENGTH_METERS * 0.11, ease5),
+            THREE.MathUtils.lerp(-SHIP_LENGTH_METERS * 1.65, SHIP_LENGTH_METERS * 0.56, ease5),
           ).applyQuaternion(q);
-          cam.position.copy(sp).add(camOff);
-          cam.lookAt(sp.clone().add(new V(0, sz * 0.14, -sz * 0.9).applyQuaternion(q)));
+          const localLookMeters = new V(
+            0,
+            SHIP_LENGTH_METERS * 0.07,
+            -SHIP_LENGTH_METERS * 0.45,
+          ).applyQuaternion(q);
+          localCam.near = 0.25;
+          localCam.far = 6000;
+          localCam.fov = cam.fov;
+          localCam.updateProjectionMatrix();
+          localCam.position.copy(localCamOffMeters);
+          localCam.lookAt(localLookMeters);
+
+          cam.position.copy(sp).addScaledVector(localCamOffMeters, metersToAstroSceneUnits());
+          cam.quaternion.copy(localCam.quaternion);
         } else {
           // ESCENA 6 — BIENVENIDO A BORDO (`escena6_cabina`):
           // Ingreso continuo a la cabina en primera persona, activación progresiva de consolas y bienvenida de Cronos
           if (realTimeIntro.stageNotified < 5) {
             realTimeIntro.stageNotified = 5;
             realTimeIntro.stageElapsed = 0;
-            realTimeIntro.boardingFrom = cam.position.clone();
-            realTimeIntro.boardingQuaternion = cam.quaternion.clone();
+            realTimeIntro.boardingFrom = localCam.position.clone();
+            realTimeIntro.boardingQuaternion = localCam.quaternion.clone();
             luminousAI.setTargetPosition(new V(0.95, 1.62, -3.35), 'Acompañamiento');
             S.onIntroStageChange?.(
               'escena6_cabina',
@@ -3723,7 +4243,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           const ease6 = t6 * t6 * (3 - 2 * t6);
           ship.visible = t6 < 0.22;
           localCabinWorld.visible = true;
-          localCabinWorld.position.copy(sp);
+          localCabinWorld.position.set(0, 0, 0);
+          localCabinWorld.scale.set(1, 1, 1);
           localCabinWorld.quaternion.copy(q);
 
           astronautPos.set(0, 0, -1.8);
@@ -3733,19 +4254,23 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           targetYaw = 0;
           targetPitch = 0;
 
-          const pilotEyeWorld = new V(
+          const pilotEyeLocal = new V(
             astronautPos.x,
             SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
             astronautPos.z,
-          )
-            .applyQuaternion(q)
-            .add(sp);
-          const entryStartWorld =
-            realTimeIntro.boardingFrom || new V(0, 2.1, 6.5).applyQuaternion(q).add(sp);
-          cam.position.lerpVectors(entryStartWorld, pilotEyeWorld, ease6);
-          cam.quaternion.copy(realTimeIntro.boardingQuaternion || q).slerp(q, ease6);
-          cam.fov = THREE.MathUtils.lerp(fovBase, Math.min(fovBase, 42), ease6);
-          cam.near = THREE.MathUtils.lerp(0.001, 0.05, ease6);
+          ).applyQuaternion(q);
+          const entryStartLocal = new V(0, 2.1, 6.5).applyQuaternion(q);
+          localCam.position.lerpVectors(entryStartLocal, pilotEyeLocal, ease6);
+          localCam.quaternion.copy(realTimeIntro.boardingQuaternion || q).slerp(q, ease6);
+          localCam.fov = THREE.MathUtils.lerp(fovBase, Math.min(fovBase, 42), ease6);
+          localCam.near = 0.05;
+          localCam.far = 4000;
+          localCam.updateProjectionMatrix();
+
+          cam.position.copy(sp).addScaledVector(localCam.position, metersToAstroSceneUnits());
+          cam.quaternion.copy(localCam.quaternion);
+          cam.fov = localCam.fov;
+          cam.near = isPhysicalObservationActive() ? 1e-5 : 0.05;
           cam.updateProjectionMatrix();
           luminousAI.update(dt, clk.elapsedTime, aiSpeakingState, aiAudioLevelState);
         }
@@ -3769,18 +4294,23 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           astronaut3D.firstPersonHands.visible = false;
           ship.visible = false;
           localCabinWorld.visible = true;
-          cam.near = 0.05;
-          cam.fov = Math.min(fovBase, 42);
+          const cabinFov = Math.min(fovBase, 42);
+          localCam.near = 0.05;
+          localCam.far = 4000;
+          localCam.fov = cabinFov;
+          localCam.updateProjectionMatrix();
+          cam.near = isPhysicalObservationActive() ? 1e-5 : 0.05;
+          cam.fov = cabinFov;
           cam.updateProjectionMatrix();
 
-          const pilotEyeWorld = new V(
+          const pilotEyeLocal = new V(
             astronautPos.x,
             SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
             astronautPos.z,
-          )
-            .applyQuaternion(q)
-            .add(sp);
-          cam.position.copy(pilotEyeWorld);
+          ).applyQuaternion(q);
+          localCam.position.copy(pilotEyeLocal);
+          localCam.quaternion.copy(q);
+          cam.position.copy(sp).addScaledVector(pilotEyeLocal, metersToAstroSceneUnits());
           cam.quaternion.copy(q);
 
           suppressDirectorNarrative = true;
@@ -3803,29 +4333,40 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           const u = directorSeq.progress;
           ship.visible = directorSeq.showExteriorShip;
           localCabinWorld.visible = directorSeq.showInteriorCabin;
-          localCabinWorld.position.copy(sp);
+          localCabinWorld.position.set(0, 0, 0);
+          localCabinWorld.scale.set(1, 1, 1);
           localCabinWorld.quaternion.copy(q);
 
           if (u < 0.36) {
             const t = u / 0.36;
             const ease = t * t * (3 - 2 * t);
-            const camOff = new V(
-              THREE.MathUtils.lerp(0, sz * 1.4, ease),
-              THREE.MathUtils.lerp(sz * 0.25, sz * 0.85, ease),
-              THREE.MathUtils.lerp(sz * 0.9, sz * 2.6, ease),
+            const camOffMeters = new V(
+              THREE.MathUtils.lerp(0, SHIP_LENGTH_METERS * 0.7, ease),
+              THREE.MathUtils.lerp(SHIP_LENGTH_METERS * 0.12, SHIP_LENGTH_METERS * 0.42, ease),
+              THREE.MathUtils.lerp(SHIP_LENGTH_METERS * 0.45, SHIP_LENGTH_METERS * 1.3, ease),
             ).applyQuaternion(q);
-            cam.position.copy(sp).add(camOff);
-            cam.lookAt(sp.clone().add(new V(0, 0, -sz * 0.6).applyQuaternion(q)));
+            localCam.near = 0.25;
+            localCam.far = 6000;
+            localCam.position.copy(camOffMeters);
+            localCam.lookAt(new V(0, 0, -SHIP_LENGTH_METERS * 0.3).applyQuaternion(q));
+            cam.position.copy(sp).addScaledVector(camOffMeters, metersToAstroSceneUnits());
+            cam.quaternion.copy(localCam.quaternion);
           } else if (u < 0.78) {
             const t = (u - 0.36) / 0.42;
             const ease = t * t * (3 - 2 * t);
-            const camOff = new V(
-              THREE.MathUtils.lerp(sz * 1.4, -sz * 2.2, ease),
-              THREE.MathUtils.lerp(sz * 0.85, sz * 1.2, ease),
-              THREE.MathUtils.lerp(sz * 2.6, sz * 3.4, ease),
+            const camOffMeters = new V(
+              THREE.MathUtils.lerp(SHIP_LENGTH_METERS * 0.7, -SHIP_LENGTH_METERS * 1.1, ease),
+              THREE.MathUtils.lerp(SHIP_LENGTH_METERS * 0.42, SHIP_LENGTH_METERS * 0.6, ease),
+              THREE.MathUtils.lerp(SHIP_LENGTH_METERS * 1.3, SHIP_LENGTH_METERS * 1.7, ease),
             ).applyQuaternion(q);
-            cam.position.copy(sp).add(camOff);
-            cam.lookAt(sp.clone().add(new V(0, sz * 0.1, -sz * 1.1).applyQuaternion(q)));
+            localCam.near = 0.25;
+            localCam.far = 6000;
+            localCam.position.copy(camOffMeters);
+            localCam.lookAt(
+              new V(0, SHIP_LENGTH_METERS * 0.05, -SHIP_LENGTH_METERS * 0.55).applyQuaternion(q),
+            );
+            cam.position.copy(sp).addScaledVector(camOffMeters, metersToAstroSceneUnits());
+            cam.quaternion.copy(localCam.quaternion);
           } else {
             const t = (u - 0.78) / 0.22;
             const ease = t * t * (3 - 2 * t);
@@ -3833,12 +4374,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               THREE.MathUtils.lerp(0, astronautPos.x, ease),
               THREE.MathUtils.lerp(2.3, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, ease),
               THREE.MathUtils.lerp(8.2, astronautPos.z, ease),
-            );
-            cam.position.copy(localCamPos.applyQuaternion(q).add(sp));
-            const lookTarget = new V(0, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, -8.5)
-              .applyQuaternion(q)
-              .add(sp);
-            cam.lookAt(lookTarget);
+            ).applyQuaternion(q);
+            const lookTargetLocal = new V(
+              0,
+              SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
+              -8.5,
+            ).applyQuaternion(q);
+            localCam.near = 0.05;
+            localCam.far = 4000;
+            localCam.position.copy(localCamPos);
+            localCam.lookAt(lookTargetLocal);
+            cam.position.copy(sp).addScaledVector(localCamPos, metersToAstroSceneUnits());
+            cam.quaternion.copy(localCam.quaternion);
           }
           luminousAI.update(dt, clk.elapsedTime, aiSpeakingState, aiAudioLevelState);
         } else if (inHabitableCabin) {
@@ -3846,7 +4393,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         // SECCIÓN 3, 4 y 5: CABINA HABITABLE 3D (`1 u = 1 m`) EN PRIMERA PERSONA Y CRONOS 3D
         // =========================================================================
         localCabinWorld.visible = true;
-        localCabinWorld.position.copy(sp);
+        localCabinWorld.position.set(0, 0, 0);
+        localCabinWorld.scale.set(1, 1, 1);
         localCabinWorld.quaternion.copy(q);
 
         const navigationHelm = cabinSystem.stationMeshes.find((entry) => entry.id === 'nav')?.helmWheel;
@@ -3896,7 +4444,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         astronaut3D.root.visible = false;
         astronaut3D.firstPersonHands.visible = false;
 
-        // Cámara exclusivamente en primera persona (ojos del piloto a 1.65 m)
+        // Cámara exclusivamente en primera persona (ojos del piloto a 1.65 m en el Mundo Local Métrico)
         const localLookQuat = new THREE.Quaternion().setFromEuler(
           new THREE.Euler(astronautPitch, astronautYaw, 0, 'YXZ'),
         );
@@ -3907,9 +4455,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + headBob + freeHelmBlend * 0.42,
           astronautPos.z + (-10.55 - astronautPos.z) * freeHelmBlend,
         );
+        const localEyeOffsetMeters = localCamPos.clone().applyQuaternion(q);
+        const baseCabinFov = Math.min(fovBase, 42);
 
-        cam.position.copy(localCamPos.clone().applyQuaternion(q).add(sp));
-        cam.quaternion.copy(q).multiply(localLookQuat);
+        localCam.position.copy(localEyeOffsetMeters);
+        localCam.quaternion.copy(q).multiply(localLookQuat);
+        localCam.near = 0.05;
+        localCam.far = 4000;
+        localCam.fov = baseCabinFov;
+        localCam.updateProjectionMatrix();
+
+        cam.position.copy(sp).addScaledVector(localEyeOffsetMeters, metersToAstroSceneUnits());
+        cam.quaternion.copy(localCam.quaternion);
+        cam.near = isPhysicalObservationActive() ? 1e-5 : 0.05;
+        cam.fov =
+          activeOpticalMag > 1
+            ? computeTelescopeFieldOfView(baseCabinFov, activeOpticalMag)
+            : baseCabinFov;
+        cam.updateProjectionMatrix();
 
         // Si el astronauta se aleja de una consola activa (> 2.85 m), cerrar automáticamente la interfaz
         if (activeCabinStation) {
@@ -3989,10 +4552,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         luminousAI.update(dt, clk.elapsedTime, aiSpeakingState, aiAudioLevelState);
 
         // Proyectar la posición 3D de Kronox IA y de las pantallas de consolas 3D activas a coordenadas 2D de pantalla
+        // utilizando la cámara métrica local (`localCam`, 1 u = 1 m) sin pérdida de precisión numérica:
         if (clk.elapsedTime - lastScreenProjectionTime > 0.04) {
           lastScreenProjectionTime = clk.elapsedTime;
-          const aiWorldPos = luminousAI.group.position.clone().applyQuaternion(q).add(sp);
-          const projected = aiWorldPos.clone().project(cam);
+          localCabinWorld.updateMatrixWorld(true);
+          localCam.updateMatrixWorld(true);
+          const aiWorldPos = luminousAI.group.getWorldPosition(new V());
+          const projected = aiWorldPos.clone().project(localCam);
           const inFront = projected.z >= -1 && projected.z <= 1;
           const sx = (projected.x * 0.5 + 0.5) * innerWidth;
           const sy = (-projected.y * 0.5 + 0.5) * innerHeight;
@@ -4015,11 +4581,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             const stEntry = cabinSystem.stationMeshes.find((m) => m.id === activeCabinStation);
             if (stObj && stEntry && stEntry.screenMesh) {
               const screenWorldPos = stEntry.screenMesh.getWorldPosition(new V());
-              const pScreen = screenWorldPos.clone().project(cam);
+              const pScreen = screenWorldPos.clone().project(localCam);
               const screenInFront = pScreen.z >= -1 && pScreen.z <= 1;
               const scX = (pScreen.x * 0.5 + 0.5) * innerWidth;
               const scY = (-pScreen.y * 0.5 + 0.5) * innerHeight;
-              const distToCam = cam.position.distanceTo(screenWorldPos);
+              const distToCam = localCam.position.distanceTo(screenWorldPos);
 
               // Ángulo de inclinación aparente y escala según perspectiva
               const scaleFactor = Math.max(0.65, Math.min(1.25, 2.6 / Math.max(1.2, distToCam)));
@@ -4069,19 +4635,33 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               ct.enabled = true;
             }
           }
+          const metricOffset = cam.position.clone().sub(sp);
+          localCam.position.copy(metricOffset);
+          localCam.quaternion.copy(cam.quaternion);
+          localCam.near = 0.25;
+          localCam.far = Math.max(6000, metricOffset.length() * 25);
+          localCam.fov = fovBase;
+          localCam.updateProjectionMatrix();
         } else {
+          const chaseMeters = new V(0, 0.3, 1)
+            .multiplyScalar(shipCameraDistanceMeters() * (pv == 3 ? 1 : 0))
+            .applyQuaternion(q);
+          localCam.position.copy(chaseMeters);
+          localCam.quaternion.copy(q);
+          localCam.near = 0.25;
+          localCam.far = 6000;
+          localCam.fov = fovBase;
+          localCam.updateProjectionMatrix();
+
           cam.quaternion.copy(q);
           const pilotQuaternion = cam.quaternion.clone(),
             pilotPosition = sp
               .clone()
-              .add(
-                new V(0, 0.3, 1)
-                  .multiplyScalar(shipOffset() * e * (pv == 3 ? 1 : 0))
-                  .applyQuaternion(q),
-              );
+              .addScaledVector(chaseMeters, metersToAstroSceneUnits());
           if (launchSequence) {
             cam.position.copy(sp).add(launchSequence.cameraOffset);
             cam.lookAt(sp);
+            localCam.quaternion.copy(cam.quaternion);
           } else if (launchCameraBlend) {
             const blend = launchCameraBlend;
             blend.elapsed = Math.min(blend.duration, blend.elapsed + dt);
@@ -4089,25 +4669,37 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               eased = amount * amount * (3 - 2 * amount);
             cam.position.lerpVectors(blend.fromPosition, pilotPosition, eased);
             cam.quaternion.copy(blend.fromQuaternion).slerp(pilotQuaternion, eased);
+            localCam.quaternion.copy(cam.quaternion);
             if (amount >= 1) launchCameraBlend = null;
           } else {
             cam.position.copy(pilotPosition);
           }
+          cam.fov =
+            activeOpticalMag > 1
+              ? computeTelescopeFieldOfView(fovBase, activeOpticalMag)
+              : fovBase;
+          cam.near = isPhysicalObservationActive() ? 1e-5 : 0.05;
+          cam.updateProjectionMatrix();
         }
         }
       }
       // Navigation owns this pose until the last arriving frame; ordinary controls inherit the same heading.
       if(routeForFrame){
         const route=routeForFrame,u=THREE.MathUtils.smoothstep(route.phaseProgress,0,1);
+        let activeLocalOffsetMeters;
         if(pv===1){
           if(route.phase==='PREPARING'){astronautPos.lerpVectors(route.cabinStart,route.cabinLookout,u);astronautPos.x-=Math.sin(u*Math.PI)*1.2;astronautVel.set(0,0,0);}
-          localCabinWorld.visible=true;localCabinWorld.position.copy(sp);localCabinWorld.quaternion.copy(q);
-          cam.position.copy(new V(astronautPos.x,SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,astronautPos.z).applyQuaternion(q).add(sp));
+          else{astronautPos.copy(route.cabinLookout);astronautVel.set(0,0,0);}
+          localCabinWorld.visible=true;localCabinWorld.position.set(0,0,0);localCabinWorld.scale.set(1,1,1);localCabinWorld.quaternion.copy(q);
+          activeLocalOffsetMeters=new V(astronautPos.x,SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,astronautPos.z).applyQuaternion(q);
         }else{
           localCabinWorld.visible=false;
-          cam.position.copy(sp).add(new V(.24,.3,1).multiplyScalar(shipOffset()).applyQuaternion(q));
+          activeLocalOffsetMeters=new V(.24,.3,1).multiplyScalar(shipCameraDistanceMeters()).applyQuaternion(q);
         }
+        localCam.position.copy(activeLocalOffsetMeters);
+        cam.position.copy(sp).addScaledVector(activeLocalOffsetMeters,metersToAstroSceneUnits());
         cam.lookAt(route.target);
+        localCam.quaternion.copy(cam.quaternion);
         if(pv===1&&!cabinFirstPerson){
           // Converge the same over-shoulder pose used by ordinary cabin controls.
           // This keeps third-person arrivals continuous when camera ownership returns.
@@ -4116,15 +4708,21 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               offset=new V(0,0,-1).applyQuaternion(localLook).multiplyScalar(-1.85).add(new V(0,.32,0)).add(new V(1,0,0).applyQuaternion(localLook).multiplyScalar(.55)),
               eye=new V(astronautPos.x,SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,astronautPos.z).add(offset);
             cabinSystem.clampAstronautPosition(eye);eye.y=Math.max(1.35,Math.min(3.85,eye.y));
-            cam.position.copy(eye.applyQuaternion(q).add(sp));cam.lookAt(route.target);
+            const eyeWorldMeters=eye.applyQuaternion(q);
+            localCam.position.copy(eyeWorldMeters);
+            cam.position.copy(sp).addScaledVector(eyeWorldMeters,metersToAstroSceneUnits());
+            cam.lookAt(route.target);
+            localCam.quaternion.copy(cam.quaternion);
           }
         }
         if(route.phase==='PREPARING'){
-          const localOffset=pv===1?new V(astronautPos.x,SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,astronautPos.z):new V(.24,.3,1).multiplyScalar(shipOffset());
-          localOffset.lerpVectors(route.cameraStartLocalOffset,localOffset,u);
-          cam.position.copy(sp).add(localOffset.applyQuaternion(q));
+          const targetLocalMeters=pv===1?new V(astronautPos.x,SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,astronautPos.z):new V(.24,.3,1).multiplyScalar(shipCameraDistanceMeters());
+          const blendedLocalMeters=new V().lerpVectors(route.cameraStartLocalOffset,targetLocalMeters,u).applyQuaternion(q);
+          localCam.position.copy(blendedLocalMeters);
+          cam.position.copy(sp).addScaledVector(blendedLocalMeters,metersToAstroSceneUnits());
           const localLook=route.cameraStartLocalQuaternion.clone().slerp(new THREE.Quaternion(),u);
-          cam.quaternion.copy(q).multiply(localLook);
+          localCam.quaternion.copy(q).multiply(localLook);
+          cam.quaternion.copy(localCam.quaternion);
         }
         if(pv===1){const head=new THREE.Euler().setFromQuaternion(q.clone().invert().multiply(cam.quaternion),'YXZ');astronautYaw=targetYaw=head.y;astronautPitch=targetPitch=head.x;}
       }
@@ -4137,10 +4735,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         ship.visible =
           !!launchSequence ||
           (!!launchCameraBlend && pv == 1) ||
-          (pv == 3 && (exteriorCameraMode || kk > 0.02));
+          pv == 3;
       }
-      ship.position.copy(sp);
-      ship.scale.setScalar(sz);
+      // En el Mundo Local Métrico (`localShipScene`, 1 u = 1 m), la nave está anclada en (0,0,0) con sus 120.0 m:
+      ship.position.set(0, 0, 0);
+      ship.scale.setScalar(SHIP_METRIC_SCALE);
       ship.quaternion.copy(q).multiply(new THREE.Quaternion().setFromAxisAngle(new V(0, 0, 1), bk));
       fl2.scale.setScalar(0.6 + 1.2 * th);
       FL.forEach((o, i) => {
@@ -4172,6 +4771,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       tr.geometry.attributes.position.needsUpdate = tr.geometry.attributes.color.needsUpdate = true;
       yw *= Math.exp(-dt * 5);
       yp *= Math.exp(-dt * 5);
+      const navActive = Boolean(nav && nav.long && (
+        nav.phase === 'HYPERSPACE_ENTRY' ||
+        nav.phase === 'HYPERSPACE_CRUISE' ||
+        nav.phase === 'HYPERSPACE_EXIT'
+      ));
+      const navWarpAmount = navActive ? (
+        nav.phase === 'HYPERSPACE_CRUISE' ? 0.55 :
+        nav.phase === 'HYPERSPACE_ENTRY' ? (0.15 + 0.4 * THREE.MathUtils.smoothstep(nav.phaseProgress, 0, 1)) :
+        nav.phase === 'HYPERSPACE_EXIT' ? (0.55 - 0.4 * THREE.MathUtils.smoothstep(nav.phaseProgress, 0, 1)) :
+        0
+      ) : 0;
+      lastWarpAmount = navWarpAmount;
       const wc = document.getElementById('warp'),
         wg = wc && wc.getContext('2d');
       if (wg) {
@@ -4181,19 +4792,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           h = wc.height,
           cx = w * 0.5,
           cy = h * 0.5;
-        const navActive = Boolean(nav && nav.long && (
-          nav.phase === 'ACCELERATING' ||
-          nav.phase === 'HYPERSPACE_ENTRY' ||
-          nav.phase === 'HYPERSPACE_CRUISE' ||
-          nav.phase === 'HYPERSPACE_EXIT' ||
-          nav.phase === 'DECELERATING'
-        ));
-        const navWarpAmount = navActive ? (
-          nav.phase === 'HYPERSPACE_CRUISE' ? 0.55 :
-          nav.phase === 'HYPERSPACE_ENTRY' ? (0.15 + 0.4 * THREE.MathUtils.smoothstep(nav.phaseProgress, 0, 1)) :
-          nav.phase === 'HYPERSPACE_EXIT' ? (0.55 - 0.4 * THREE.MathUtils.smoothstep(nav.phaseProgress, 0, 1)) :
-          0
-        ) : 0;
         const amount = navWarpAmount;
         wg.clearRect(0, 0, w, h);
         wc.style.opacity = amount.toFixed(2);
@@ -4283,6 +4881,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         tx('gaugeHeadingValue', Math.round(heading) + '°');
       }
     } else {
+      lastWarpAmount = 0;
       localCabinWorld.visible = false;
       if (!spectator && !realTimeIntro) {
         ship.visible = false;
@@ -4364,7 +4963,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       ct.target.lerpVectors(tw.t0, tw.t1, e);
       if (tw.k >= 1) tw = null;
     }
-    if ((!free || exteriorCameraMode)&&!introOwnedThisFrame&&!realTimeIntro&&!cabinReentryBlend) ct.update();
+    if ((!free || exteriorCameraMode)&&!introOwnedThisFrame&&!realTimeIntro&&!cabinReentryBlend) {
+      ct.update();
+      if (exteriorCameraMode || spectator) {
+        const metricOffset = cam.position.clone().sub(sp);
+        localCam.position.copy(metricOffset);
+        localCam.quaternion.copy(cam.quaternion);
+        localCam.near = 0.25;
+        localCam.far = Math.max(6000, metricOffset.length() * 25);
+        localCam.updateProjectionMatrix();
+      }
+    }
     if(cabinReentryBlend&&!realTimeIntro){const blend=cabinReentryBlend;blend.elapsed=Math.min(1.1,blend.elapsed+dt);const u=blend.elapsed/1.1,e=u*u*(3-2*u),toPosition=cam.position.clone(),toQuaternion=cam.quaternion.clone();cam.position.lerpVectors(blend.position,toPosition,e);cam.quaternion.copy(blend.quaternion).slerp(toQuaternion,e);if(u>=1)cabinReentryBlend=null;}
     const inIntroGalaxyScene = Boolean(realTimeIntro && realTimeIntro.phase === 'cinematic' && realTimeIntro.stageNotified === 3);
     macroGalacticGroup.visible = inIntroGalaxyScene || macroGalacticVisible(navigationContext.id,{cinematic:!!realTimeIntro,nearbyMap:!!nearbyMapState});
@@ -4412,7 +5021,42 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if(inStellarAtlas||inRegionalAtlas){const atlas=inStellarAtlas?stellarAtlas:regionalAtlas;placeAtlasLabels(atlas.update(cam,selectedContextStar),cam,{width:innerWidth,height:innerHeight,left:innerWidth>1100?325:12,right:innerWidth>800?320:12});}
     if(hyperspace)hyperspace.update(nav,cam,dt);
     astronomicalHologram.update(dt, clk.elapsedTime, isCabinActive && localCabinWorld.visible);
-    originRebaseState=renderWithOriginRebase(R,sc,cam);
+
+    // Sincronizar la dirección de la luz solar en el Mundo Local Métrico (`localShipScene`)
+    const toSunDir =
+      sp.lengthSq() > 1e-12
+        ? sp.clone().negate().normalize()
+        : new V(0.6, 0.35, 0.7).normalize();
+    localShipSunLight.position.copy(toSunDir).multiplyScalar(450);
+
+    // PASO 1 DE RENDERIZADO: Mundo Astronómico (`sc`) con Floating Origin en doble precisión
+    let savedExteriorCamPos = null;
+    if (exteriorCameraMode || spectator) {
+      const metricOffset = cam.position.clone().sub(sp);
+      savedExteriorCamPos = cam.position.clone();
+      cam.position.copy(sp).addScaledVector(metricOffset, metersToAstroSceneUnits());
+    }
+    originRebaseState = renderWithOriginRebase(R, sc, cam, {
+      threshold: isPhysicalObservationActive() ? 0.001 : 10000,
+      cellSize: isPhysicalObservationActive() ? 0 : 1024,
+      highPrecisionBodies: isPhysicalObservationActive() ? B : null,
+    });
+    if (savedExteriorCamPos) {
+      cam.position.copy(savedExteriorCamPos);
+    }
+
+    // PASO 2 DE RENDERIZADO: Mundo Local Métrico (`localShipScene`, `1 u = 1 m`) con limpieza de profundidad
+    if (localCabinWorld.visible || ship.visible) {
+      const prevAutoClear = R.autoClear;
+      R.autoClear = false;
+      R.clearDepth?.();
+      R.render(localShipScene, localCam);
+      R.autoClear = prevAutoClear;
+      R.scene = sc;
+      R.camera = cam;
+      R.localScene = localShipScene;
+      R.localCamera = localCam;
+    }
   }
   tick();
   return {
@@ -4442,7 +5086,40 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     getScaleUnificationState:()=>crossScaleState,
     startPerformanceCapture:()=>{frameTiming.active=true;frameTiming.last=null;frameTiming.values=[];frameTiming.metadata={quality:qualityMode,pixelRatio:R.getPixelRatio(),viewport:[innerWidth,innerHeight],target:activeMissionKey,scale:navigationContext.id};},
     performanceSnapshot:()=>({...summarizeFrameTimes(frameTiming.values),metadata:frameTiming.metadata,originRebase:originRebaseState,navigationScale:navigationContext,renderer:{calls:R.info.render.calls,triangles:R.info.render.triangles,points:R.info.render.points,textures:R.info.memory.textures,geometries:R.info.memory.geometries}}),
-    reenterCabin:()=>{cancelTravel();const savedPosition=sp.clone(),savedYaw=fy,savedPitch=fp,fromAtlas=contextOverview||!!nearbyMapState;if(nearbyMapState)returnFromNearbyMap();contextOverview=false;const position=cam.position.clone(),quaternion=cam.quaternion.clone();nav=null;tw=null;skipRealTimeIntroSequence();if(fromAtlas&&shipPoseKnown){sp.copy(savedPosition);fy=savedYaw;fp=savedPitch;}cabinReentryBlend={position,quaternion,elapsed:0};S.fr(true);},
+    reenterCabin:()=>{
+      cancelTravel();
+      const savedPosition = sp.clone(),
+        savedYaw = fy,
+        savedPitch = fp,
+        hadKnownPose = shipPoseKnown;
+      if (nearbyMapState) returnFromNearbyMap();
+      contextOverview = false;
+      const position = cam.position.clone(),
+        quaternion = cam.quaternion.clone();
+      nav = null;
+      tw = null;
+      skipRealTimeIntroSequence();
+      if (hadKnownPose) {
+        sp.copy(savedPosition);
+        fy = savedYaw;
+        fp = savedPitch;
+        const qRestored = new THREE.Quaternion().setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
+        ship.quaternion.copy(qRestored);
+        localCabinWorld.quaternion.copy(qRestored);
+        const localEye = new V(
+          astronautPos.x,
+          SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
+          astronautPos.z,
+        ).applyQuaternion(qRestored);
+        localCam.position.copy(localEye);
+        localCam.quaternion.copy(qRestored);
+        cam.position.copy(sp).addScaledVector(localEye, metersToAstroSceneUnits());
+        cam.quaternion.copy(qRestored);
+      }
+      cabinReentryBlend = { position, quaternion, elapsed: 0 };
+      S.fr(true);
+      S.onObservationModeChange?.(getObservationMode());
+    },
     releaseInputs,
     stopAndInspect:()=>{if(realTimeIntro||launchSequence||launchCameraBlend)return false;cancelTravel();tw=null;vel.set(0,0,0);for(const key of Object.keys(keys))delete keys[key];ac=0;th=0;S.onNavigation?.(null);leaveExteriorCamera(false);free=false;spectator=false;freeHelmMode=false;localCabinWorld.visible=false;ship.visible=false;tr.visible=false;S.fr(false);ct.enabled=true;const found=missionMarkers.get(activeMissionKey);if(found)ct.target.copy(found.marker.getWorldPosition(new V()));else{const direction=new V();cam.getWorldDirection(direction);ct.target.copy(cam.position).addScaledVector(direction,2);}ct.minDistance=.05;ct.maxDistance=200;cam.lookAt(ct.target);ct.update();},
     returnToStarMap:()=>setNavigationScale('stellar'),
@@ -4452,7 +5129,43 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     focusSolarSystemMap,
     navigationActive: () => !!nav,
     configureTravelDurations:(durations)=>{if(nav)return false;for(const [key,value]of Object.entries(durations)){if(!(key in JUMP_DURATIONS)||!Number.isFinite(value)||value<=0)return false;}jumpDurations={...jumpDurations,...durations};return true;},
-    navigationSnapshot:()=>{cam.updateMatrixWorld(true);const target=nav?.target||arrivalTarget,ndc=target?.clone().project(cam),forward=new V(0,0,-1).applyQuaternion(ship.quaternion);return {state:nav?.phase||'IDLE',phaseProgress:nav?.phaseProgress||0,progress:nav?.progress||0,shipVisible:ship.visible,cabinVisible:localCabinWorld.visible,view:pv,shipPosition:sp.toArray(),shipQuaternion:ship.quaternion.toArray(),cameraPosition:cam.position.toArray(),cameraQuaternion:cam.quaternion.toArray(),target:target?.toArray()||null,targetNdc:ndc?.toArray()||null,cabinOccluded:cabinOccludes(target),shipNdc:sp.clone().project(cam).toArray(),cameraNear:cam.near,cameraFar:cam.far,forwardDot:target?forward.dot(target.clone().sub(sp).normalize()):null,effect:hyperspace?.snapshot()||null,lastJump};},
+    navigationSnapshot:()=>{
+      cam.updateMatrixWorld(true);
+      localCam.updateMatrixWorld(true);
+      ship.updateMatrixWorld(true);
+      const target = nav?.target || arrivalTarget,
+        ndc = target?.clone().project(cam),
+        forward = new V(0, 0, -1).applyQuaternion(ship.quaternion),
+        shipNdc = (
+          pv === 3 || ship.visible
+            ? ship.position.clone().project(localCam)
+            : sp.clone().project(cam)
+        ).toArray();
+      return {
+        state: nav?.phase || 'IDLE',
+        phaseProgress: nav?.phaseProgress || 0,
+        progress: nav?.progress || 0,
+        shipVisible: ship.visible,
+        cabinVisible: localCabinWorld.visible,
+        view: pv,
+        shipPosition: sp.toArray(),
+        shipQuaternion: ship.quaternion.toArray(),
+        cameraPosition: cam.position.toArray(),
+        cameraQuaternion: cam.quaternion.toArray(),
+        localCameraPosition: localCam.position.toArray(),
+        localCameraNear: localCam.near,
+        localCameraFar: localCam.far,
+        target: target?.toArray() || null,
+        targetNdc: ndc?.toArray() || null,
+        cabinOccluded: cabinOccludes(target),
+        shipNdc,
+        cameraNear: cam.near,
+        cameraFar: cam.far,
+        forwardDot: target ? forward.dot(target.clone().sub(sp).normalize()) : null,
+        effect: hyperspace?.snapshot() || null,
+        lastJump,
+      };
+    },
     introSnapshot:()=>({active:!!realTimeIntro,phase:realTimeIntro?.phase||'IDLE',stageNotified:realTimeIntro?.stageNotified??-1,shipVisible:ship.visible,cabinVisible:localCabinWorld.visible}),
     getOrbitLinesVisible:()=>B.some((b)=>Boolean(b.orbit?.visible)),
     getSpherexObservatoryState:()=>({
@@ -4628,14 +5341,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             worldTargetPos = planetObj.pivot.getWorldPosition(new V());
           }
         }
-        // Transform real 3D world position of the star/planet into cabin local coordinates
+        // Transform real 3D world direction of the star/planet into cabin local coordinates
         // and project onto the panoramic bow window plane so the 3D beam points at the actual object
         if (worldTargetPos && localCabinWorld) {
-          localCabinWorld.updateMatrixWorld(true);
-          const localObjPos = localCabinWorld.worldToLocal(worldTargetPos.clone());
-          const aiOrigin = winSt ? winSt.aiHoverPos : new V(1.6, 1.85, -10.2);
-          const dirToObj = localObjPos.clone().sub(aiOrigin).normalize();
-          pointedLocal = aiOrigin.clone().addScaledVector(dirToObj, 4.2);
+          const worldDir = worldTargetPos.clone().sub(sp);
+          if (worldDir.lengthSq() > 1e-12) {
+            worldDir.normalize();
+            const dirToObj = worldDir
+              .applyQuaternion(localCabinWorld.quaternion.clone().invert())
+              .normalize();
+            const aiOrigin = winSt ? winSt.aiHoverPos : new V(1.6, 1.85, -10.2);
+            pointedLocal = aiOrigin.clone().addScaledVector(dirToObj, 4.2);
+          }
         }
         S.onObjectSelect?.({ kind, key });
       }
@@ -4722,27 +5439,30 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (R.domElement.parentNode === el) el.removeChild(R.domElement);
     },
     view: (v) => {
-    if(!userCameraAvailable())return false;
-    const wasExteriorInspection = exteriorCameraMode;
-    if (wasExteriorInspection) leaveExteriorCamera(true);
-    pv = v;
-    if (v == 1) {
-      cabinFirstPerson = true;
-      astronaut3D.root.visible = false;
-      astronaut3D.firstPersonHands.visible = false;
-      if (!nav && !arrivalTarget) {
-        astronautYaw = 0;
-        targetYaw = 0;
-        astronautPitch = 0;
-        targetPitch = 0;
+      if (!userCameraAvailable()) return false;
+      const wasExteriorInspection = exteriorCameraMode;
+      if (wasExteriorInspection) leaveExteriorCamera(true);
+      pv = v;
+      if (v == 1) {
+        cabinFirstPerson = true;
+        astronaut3D.root.visible = false;
+        astronaut3D.firstPersonHands.visible = false;
+        if (!nav && !arrivalTarget) {
+          astronautYaw = 0;
+          targetYaw = 0;
+          astronautPitch = 0;
+          targetPitch = 0;
+        }
       }
-    }
-    // In the compressed astronomical map the physical 120 m vessel is far
-    // smaller than the cabin's default near plane (0.05 units). Keep the
-    // chase view close enough to render the ship, then restore cabin clipping.
-    cam.near = v == 3 ? Math.max(1e-8, shipScale() * 0.03) : 0.05;
-    cam.fov = v == 1 ? Math.min(fovBase, 42) : fovBase;
+      const baseFov = v == 1 ? Math.min(fovBase, 42) : fovBase;
+      const activeMag = opticalTelescopeState.enabled ? opticalTelescopeState.magnification : 1;
+      cam.near = isPhysicalObservationActive() ? 1e-5 : 0.05;
+      cam.fov = activeMag > 1 ? computeTelescopeFieldOfView(baseFov, activeMag) : baseFov;
       cam.updateProjectionMatrix();
+      localCam.near = v == 3 ? 0.25 : 0.05;
+      localCam.far = v == 3 ? 6000 : 4000;
+      localCam.fov = baseFov;
+      localCam.updateProjectionMatrix();
       GU.uH.value = (innerHeight * R.getPixelRatio()) / (2 * Math.tan((cam.fov * Math.PI) / 360));
       if (free && !wasExteriorInspection) {
         ship.visible = v == 3;
@@ -4752,19 +5472,26 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           const localLookQuat = new THREE.Quaternion().setFromEuler(
             new THREE.Euler(astronautPitch, astronautYaw, 0, 'YXZ'),
           );
-          cam.position.copy(
-            new V(astronautPos.x, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, astronautPos.z)
-              .applyQuaternion(q)
-              .add(sp),
-          );
-          cam.quaternion.copy(q).multiply(localLookQuat);
+          const localEye = new V(
+            astronautPos.x,
+            SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
+            astronautPos.z,
+          ).applyQuaternion(q);
+          localCam.position.copy(localEye);
+          localCam.quaternion.copy(q).multiply(localLookQuat);
+          cam.position.copy(sp).addScaledVector(localEye, metersToAstroSceneUnits());
+          cam.quaternion.copy(localCam.quaternion);
         } else {
+          const chaseMeters = new V(0, 0.3, 1)
+            .multiplyScalar(shipCameraDistanceMeters())
+            .applyQuaternion(q);
+          localCam.position.copy(chaseMeters);
+          localCam.quaternion.copy(q);
           cam.quaternion.copy(q);
-          cam.position
-            .copy(sp)
-            .add(new V(0, 0.3, 1).multiplyScalar(shipOffset()).applyQuaternion(q));
+          cam.position.copy(sp).addScaledVector(chaseMeters, metersToAstroSceneUnits());
         }
       }
+      S.onObservationModeChange?.(getObservationMode());
     },
     resetExteriorView: resetExteriorCamera,
     inspectExterior,
@@ -4779,8 +5506,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     },
     fov: (v) => {
       fovBase = v;
-      cam.fov = pv == 1 ? Math.min(v, 42) : v;
+      const baseFov = pv == 1 ? Math.min(v, 42) : v;
+      const activeMag = opticalTelescopeState.enabled ? opticalTelescopeState.magnification : 1;
+      cam.fov = activeMag > 1 ? computeTelescopeFieldOfView(baseFov, activeMag) : baseFov;
       cam.updateProjectionMatrix();
+      localCam.fov = baseFov;
+      localCam.updateProjectionMatrix();
       GU.uH.value = (innerHeight * R.getPixelRatio()) / (2 * Math.tan((cam.fov * Math.PI) / 360));
     },
     free: (on,launchFromEarth=false)=>{if(!userCameraAvailable())return false;if(on&&(contextOverview||nearbyMapState)){if(nearbyMapState)returnFromNearbyMap();contextOverview=false;cam.position.copy(sp);cam.quaternion.copy(ship.quaternion);}setFree(on,launchFromEarth);},
@@ -4807,9 +5538,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     getArrivedHologramTarget: () => astronomicalHologram.getActiveTarget(),
     clearAstronomicalHologram: () => astronomicalHologram.clearHologram(),
     getObservationMode,
+    setObservationMode,
     setOpticalTelescope,
     getPlanetaryObservationalTelemetry,
     getShipPhysicalSpecs,
+    getDualWorldArchitectureState,
+    getWarpEffectState: () => ({
+      warpAmount: lastWarpAmount,
+      navActive: Boolean(
+        nav &&
+          nav.long &&
+          (nav.phase === 'HYPERSPACE_ENTRY' ||
+            nav.phase === 'HYPERSPACE_CRUISE' ||
+            nav.phase === 'HYPERSPACE_EXIT'),
+      ),
+      velocityMagnitude: vel.length(),
+    }),
+    verifyFloatingOriginPrecision,
+    computeDoublePrecisionRelativeVector,
   };
 }
 export const CK = `<svg viewBox='0 0 1000 600' preserveAspectRatio='none'><defs><linearGradient id='cg' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#1b2335'/><stop offset='1' stop-color='#05070c'/></linearGradient><radialGradient id='cv' cx='.5' cy='.45' r='.75'><stop offset='.6' stop-color='#000' stop-opacity='0'/><stop offset='1' stop-color='#000' stop-opacity='.55'/></radialGradient></defs><rect width='1000' height='600' fill='url(#cv)'/><path d='M0 0H1000L900 62Q500 92 100 62Z' fill='url(#cg)' stroke='#34415c' stroke-width='2'/><path d='M0 0L130 62L52 380L0 450Z' fill='url(#cg)' stroke='#34415c' stroke-width='2'/><path d='M1000 0L870 62L948 380L1000 450Z' fill='url(#cg)' stroke='#34415c' stroke-width='2'/><path d='M0 600V462Q120 420 330 432Q500 405 670 432Q880 420 1000 462V600Z' fill='url(#cg)' stroke='#3d4d70' stroke-width='3'/><path d='M58 455Q220 432 398 446L380 564Q230 548 78 570Z' fill='#071019' fill-opacity='.72' stroke='#2a8fd0' stroke-opacity='.68' stroke-width='2'/><path d='M942 455Q780 432 602 446L620 564Q770 548 922 570Z' fill='#071019' fill-opacity='.72' stroke='#2a8fd0' stroke-opacity='.68' stroke-width='2'/><g stroke='#6ff0ff' stroke-width='2' fill='none' opacity='.75'><path d='M110 500L170 484L230 494L290 470L350 488'/><circle cx='770' cy='494' r='22'/><path d='M770 494L784 482'/><path d='M830 505H900M830 490H885'/></g><circle cx='460' cy='448' r='5' fill='#ff4040'/><circle cx='480' cy='446' r='5' fill='#ffb030'/><circle cx='520' cy='446' r='5' fill='#40ff80'/><circle cx='540' cy='448' r='5' fill='#40c0ff'/></svg>`,
