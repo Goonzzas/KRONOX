@@ -44,14 +44,15 @@ test('Production intro timings finish without audio; first satellite framing ble
   const api=await h.start();api.startRealTimeIntro();
   let previous=h.renderers[0].camera.position.clone(),previousPhase='opening',openingEnd,transitionStep;
   let frames=0;
-  while(api.introSnapshot().active&&frames++<1200){
+  while(api.introSnapshot().active&&frames++<1800){
    h.stepFrames(1);const snap=api.introSnapshot(),camera=h.renderers[0].camera;
    if(previousPhase==='opening'&&snap.phase==='cinematic')openingEnd=previous.clone();
    if(snap.stageNotified===1&&transitionStep===undefined)transitionStep=camera.position.distanceTo(openingEnd);
    previousPhase=snap.phase;previous.copy(camera.position);
   }
-  assert.ok(frames/30<37);assert.ok(frames/30>36);assert.ok(api.introSnapshot().cabinVisible);
-  assert.deepEqual(stages,['opening','escena2_spherex','escena3_conocimiento','escena4_galaxia','escena5_nave','escena6_cabina']);
+  assert.equal(api.introSnapshot().active,false);
+  assert.ok(frames/30<53);assert.ok(frames/30>47);assert.ok(api.introSnapshot().cabinVisible);
+  assert.deepEqual(stages,['opening','escena2_spherex','escena3_conocimiento','escena4_galaxia','escena5_nave','escena6_puente','escena7_spherex','escena8_habitabilidad','escena9_ingenieria','escena10_inicio']);
   assert.ok(transitionStep<0.05,'The first camera movement must blend, not teleport');
  }finally{await h.close();}
 });

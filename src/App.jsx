@@ -1,4 +1,3 @@
-import CinematicOpening from './components/CinematicOpening.jsx';
 import { installFlightPanelLayout } from './utils/flightPanelLayout.js';
 import StellarCatalogPanel from './components/StellarCatalogPanel.jsx';
 import NavigationDock from './components/NavigationDock.jsx';
@@ -30,7 +29,7 @@ import RepairMissionModal from './components/RepairMissionModal.jsx';
 import { SPHEREX_MISSION_TYPES, SPHEREX_TARGETS } from './data/spherexTargets.js';
 import { processKronoxQuery, askKronoxDynamic } from './utils/kronoxAI.js';
 import { loadFindingsFromStorage } from './utils/findingsStorage.js';
-import { recordJournalActivity } from './utils/expeditionJournal.js';
+import { recordJournalActivity, loadGameState } from './utils/expeditionJournal.js';
 import { detectLanguage, hasSavedLanguage, LANGUAGES, t, voiceLanguage } from './i18n.js';
 import { createGameAudio } from './utils/gameAudio.js';
 import { createCinematicSoundtrack } from './utils/cinematicSoundtrack.js';
@@ -103,8 +102,9 @@ export default function App() {
       if (urlNavParams?.get('observatory') === 'true' || urlNavParams?.has('target'))
         return 'observatory';
       if (urlNavParams?.get('intro') === 'false') return 'cabin';
-      if (urlNavParams?.get('welcome') === 'true') return 'welcome';
-      return 'intro';
+      if (urlNavParams?.get('intro') === 'true' || urlNavParams?.get('welcome') === 'false')
+        return 'intro';
+      return 'welcome';
     }),
     [welcomeOpen, setWelcomeOpen] = useState(startupMode === 'welcome'),
     [missionOpen, setMissionOpen] = useState(() => {
@@ -156,8 +156,10 @@ export default function App() {
     [guideObjective, setGuideObjective] = useState(''),
     [speechPaused, setSpeechPaused] = useState(false),
     [realTimeIntroActive, setRealTimeIntroActive] = useState(false),
+    [introPaused, setIntroPaused] = useState(false),
     [cinematicStage, setCinematicStage] = useState(''),
     [realTimeIntroCaption, setRealTimeIntroCaption] = useState(''),
+    [savedGameSnapshot, setSavedGameSnapshot] = useState(() => loadGameState()),
     [aiRole, setAiRole] = useState('Entidad Luminosa 3D'),
     [aiAvatarState, setAiAvatarState] = useState('Acompañamiento'),
     [aiPointDirection, setAiPointDirection] = useState('right'),
@@ -212,12 +214,32 @@ export default function App() {
     [planetaryTelemetry, setPlanetaryTelemetry] = useState(null),
     [reticleTarget, setReticleTarget] = useState(null),
     [showFullMainMenu, setShowFullMainMenu] = useState(false),
-    [gameSettings, setGameSettings] = useState({
-      cameraSensitivity: 'normal',
-      showSubtitles: true,
-      showTelescopeTelemetry: true,
+    [gameSettings, setGameSettings] = useState(() => {
+      const defaults = {
+        cameraSensitivity: 'normal',
+        showSubtitles: true,
+        subtitleSize: 'normal',
+        masterVolume: 0.85,
+        musicVolume: 0.7,
+        sfxVolume: 0.65,
+        voiceVolume: 0.95,
+        showTelescopeTelemetry: true,
+      };
+      try {
+        const raw = localStorage.getItem('kronox-game-settings-v1');
+        if (!raw) return defaults;
+        return { ...defaults, ...JSON.parse(raw) };
+      } catch {
+        return defaults;
+      }
     }),
     realTimeIntroActiveRef = useRef(false),
+    mainMenuVisibleRef = useRef(welcomeOpen || false),
+    introPausedRef = useRef(false),
+    browserVoiceActiveRef = useRef(false),
+    voiceStartWatchdogRef = useRef(null),
+    voiceMaxWatchdogRef = useRef(null),
+    gameSettingsRef = useRef(gameSettings),
     flR = useRef(fl),
     countTimers = useRef([]),
     missionTravelTipTimer = useRef(null),
@@ -336,11 +358,28 @@ export default function App() {
     api.current?.quality?.(quality);
   }, [quality]);
   const playCue = (kind) => gameAudioRef.current?.cue(kind);
+  const ensureGameplayAudioStarted = () => {
+    const master = Number(gameSettingsRef.current?.masterVolume ?? 0.85);
+    const sfx = Number(gameSettingsRef.current?.sfxVolume ?? 0.65);
+    const mix = Math.max(0, Math.min(1, master * sfx));
+    if (!gameAudioRef.current) {
+      gameAudioRef.current = createGameAudio();
+    }
+    if (gameAudioRef.current) {
+      gameAudioRef.current.setVolume(mix);
+      gameAudioRef.current.setEnabled(mix > 0.005);
+      setAmbientEnabled(mix > 0.005);
+    }
+    introSoundtrackRef.current?.unlock?.();
+  };
   const toggleAmbient = () => {
+    const master = Number(gameSettingsRef.current?.masterVolume ?? 0.85);
+    const sfx = Number(gameSettingsRef.current?.sfxVolume ?? 0.65);
+    const mix = Math.max(0, Math.min(1, master * sfx));
     if (!gameAudioRef.current) {
       gameAudioRef.current = createGameAudio();
       if (!gameAudioRef.current) return;
-      gameAudioRef.current?.setVolume(soundVolume);
+      gameAudioRef.current?.setVolume(mix);
     }
     const next = !ambientEnabled;
     gameAudioRef.current?.setEnabled(next);
@@ -389,6 +428,9 @@ export default function App() {
   voiceAccentRef.current = voiceLanguage(language, voiceAccent);
   speakingRef.current = speaking;
   realTimeIntroActiveRef.current = realTimeIntroActive;
+  mainMenuVisibleRef.current = Boolean(welcomeOpen || showFullMainMenu);
+  introPausedRef.current = introPaused;
+  gameSettingsRef.current = gameSettings;
   const openKronox = () => {
     clearTimeout(kronoxCloseTimer.current);
     if (!kronoxDialogHiddenRef.current && !realTimeIntroActiveRef.current) setKronoxOpen(true);
@@ -474,6 +516,9 @@ export default function App() {
     voiceQueueRef.current = [];
     activeSpeechTextRef.current = '';
     clearTimeout(voiceGapTimerRef.current);
+    clearTimeout(voiceStartWatchdogRef.current);
+    clearTimeout(voiceMaxWatchdogRef.current);
+    browserVoiceActiveRef.current = false;
     if (voiceAudio.current) {
       voiceAudio.current.onended = null;
       voiceAudio.current.onerror = null;
@@ -495,6 +540,10 @@ export default function App() {
     const cleanMsg = String(translated).trim();
     lastSpokenTextRef.current = cleanMsg;
     if (!voiceRef.current) return;
+    const master = Number(gameSettingsRef.current?.masterVolume ?? 0.85);
+    const vox = Number(gameSettingsRef.current?.voiceVolume ?? 0.95);
+    const voiceGain = Math.max(0, Math.min(1, master * vox));
+    if (voiceGain <= 0.001) return;
     if (
       typeof Audio === 'undefined' &&
       (typeof window === 'undefined' || !window.speechSynthesis || !window.SpeechSynthesisUtterance)
@@ -579,6 +628,9 @@ export default function App() {
 
     const useBrowserVoice = (remainingText) => {
       if (token !== voiceToken.current || !voiceRef.current) return;
+      clearTimeout(voiceStartWatchdogRef.current);
+      clearTimeout(voiceMaxWatchdogRef.current);
+      browserVoiceActiveRef.current = false;
       if (typeof window === 'undefined' || !window.speechSynthesis || !window.SpeechSynthesisUtterance) {
         setVoiceError('No se pudo reproducir la voz de KRONOX IA. Revisa el audio del navegador.');
         advanceQueueOrFinish();
@@ -588,27 +640,64 @@ export default function App() {
         if (window.speechSynthesis.paused) window.speechSynthesis.resume();
         window.speechSynthesis.cancel();
       } catch { }
+      let started = false;
       const utterance = new SpeechSynthesisUtterance(remainingText);
       window.__kronoxActiveUtterance = utterance;
       utterance.lang = voiceAccentRef.current || 'es-US';
-      utterance.rate = 1.04;
+      utterance.rate = 1.02;
+      utterance.volume = Math.max(
+        0,
+        Math.min(
+          1,
+          Number(gameSettingsRef.current?.masterVolume ?? 0.85) *
+            Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
+        ),
+      );
       utterance.onstart = () => {
         if (token !== voiceToken.current) return;
+        started = true;
+        browserVoiceActiveRef.current = true;
+        clearTimeout(voiceStartWatchdogRef.current);
+        clearTimeout(voiceMaxWatchdogRef.current);
+        voiceMaxWatchdogRef.current = setTimeout(() => {
+          if (token !== voiceToken.current) return;
+          browserVoiceActiveRef.current = false;
+          try {
+            window.speechSynthesis.cancel();
+          } catch { }
+          window.__kronoxActiveUtterance = null;
+          advanceQueueOrFinish();
+        }, Math.max(4500, Math.min(18000, remainingText.length * 95)));
         setVoiceBlockedByAutoplay(false);
         setVoiceError('');
         setSpeaking(true);
         speakingRef.current = true;
       };
       utterance.onend = () => {
+        clearTimeout(voiceStartWatchdogRef.current);
+        clearTimeout(voiceMaxWatchdogRef.current);
+        browserVoiceActiveRef.current = false;
         window.__kronoxActiveUtterance = null;
         advanceQueueOrFinish();
       };
       utterance.onerror = () => {
+        clearTimeout(voiceStartWatchdogRef.current);
+        clearTimeout(voiceMaxWatchdogRef.current);
+        browserVoiceActiveRef.current = false;
         window.__kronoxActiveUtterance = null;
         if (token === voiceToken.current)
           setVoiceError('No se pudo reproducir la voz de KRONOX IA. Revisa el audio del navegador.');
         advanceQueueOrFinish();
       };
+      voiceStartWatchdogRef.current = setTimeout(() => {
+        if (token !== voiceToken.current || started) return;
+        browserVoiceActiveRef.current = false;
+        try {
+          window.speechSynthesis.cancel();
+        } catch { }
+        window.__kronoxActiveUtterance = null;
+        advanceQueueOrFinish();
+      }, 950);
       window.speechSynthesis.speak(utterance);
     };
 
@@ -621,9 +710,16 @@ export default function App() {
       const a = new Audio();
       a.src = audioUrl;
       a.preload = 'auto';
-      a.playbackRate = 1.04;
+      a.playbackRate = 1.02;
       a.preservesPitch = true;
-      a.volume = 1.0;
+      a.volume = Math.max(
+        0,
+        Math.min(
+          1,
+          Number(gameSettingsRef.current?.masterVolume ?? 0.85) *
+            Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
+        ),
+      );
       a.muted = false;
       return { audio: a, audioUrl, text: textSegment, usedFallbackEndpoint: useFallbackEndpoint };
     };
@@ -647,6 +743,8 @@ export default function App() {
         if (fallbackStarted || token !== voiceToken.current) return;
         fallbackStarted = true;
         voiceAudio.current = null;
+        speakingRef.current = false;
+        setSpeaking(false);
         stopAudioAnalysis();
         useBrowserVoice([text, ...parts.slice(i)].join(' '));
       };
@@ -719,6 +817,48 @@ export default function App() {
         speak(pendingText, { interrupt: false });
       }
     },
+    toggleIntroPause = () => {
+      const nextPaused = !introPausedRef.current;
+      introPausedRef.current = nextPaused;
+      setIntroPaused(nextPaused);
+      api.current?.pauseRealTimeIntro?.(nextPaused);
+      if (nextPaused) {
+        if (voiceAudio.current && !voiceAudio.current.paused) voiceAudio.current.pause?.();
+        if (typeof window !== 'undefined' && window.speechSynthesis?.speaking) {
+          try {
+            window.speechSynthesis.pause?.();
+          } catch { }
+        }
+        if (introMusicElementRef.current && !introMusicElementRef.current.paused) {
+          introMusicElementRef.current.pause?.();
+        }
+      } else {
+        if (voiceAudio.current && voiceAudio.current.paused) {
+          voiceAudio.current.play?.()?.catch?.(() => { });
+        }
+        if (typeof window !== 'undefined' && window.speechSynthesis?.paused) {
+          try {
+            window.speechSynthesis.resume?.();
+          } catch { }
+        }
+        if (introMusicElementRef.current && introMusicElementRef.current.paused) {
+          introMusicElementRef.current.play?.()?.catch?.(() => { });
+        }
+      }
+    },
+    skipIntroAndEnterCabin = () => {
+      stopVoiceAndClearQueue();
+      clearNotices();
+      introPausedRef.current = false;
+      setIntroPaused(false);
+      introSoundtrackRef.current?.fadeOut?.(1.8);
+      setRealTimeIntroActive(false);
+      api.current?.skipRealTimeIntro?.();
+      setFr(true);
+      setPv(1);
+      setMissionTargetKey('barnard');
+      setAiAvatarState('Bienvenida');
+    },
     say = (msg) => {
       setGuide(msg);
     },
@@ -738,6 +878,7 @@ export default function App() {
       }, duration);
     },
     notify = (text, title = 'Aviso', planet = null) => {
+      if (planet && (mainMenuVisibleRef.current || realTimeIntroActiveRef.current)) return;
       noticeQueue.current.push({
         id: Date.now() + Math.random(),
         text: t(text, language),
@@ -745,6 +886,12 @@ export default function App() {
         planet,
       });
       if (!noticeRef.current) showNextNotice();
+    },
+    clearNotices = () => {
+      noticeQueue.current = [];
+      clearTimeout(noticeTimer.current);
+      noticeRef.current = null;
+      setNotice(null);
     };
   useEffect(() => {
     const handleGestureUnlock = () => {
@@ -783,21 +930,18 @@ export default function App() {
       onNavigationScale: setNavigationScale,
       onNearbyMapChange: setNearbyMapActive,
       reducedMotion: () => reducedMotion,
-      // Mantiene la toma cinematográfica mientras KRONOX IA habla para que ninguna locución se corte
-      shouldHoldIntroStage: (stageKey, stageElapsed) => {
-        if (stageKey === 'opening') {
-          if (voiceBlockedByAutoplayRef.current || introMusicBlocked) {
-            // No congelar indefinidamente la Tierra: ventana de espera máxima de 6.5s para interacción inicial
-            return (stageElapsed || 0) < 6.5;
-          }
-        }
-        if (
-          speakingRef.current ||
-          (voiceAudio.current && !voiceAudio.current.paused) ||
-          voiceQueueRef.current.length > 0 ||
-          Boolean(voiceGapTimerRef.current)
-        ) {
-          return (stageElapsed || 0) < 25;
+      // Mantiene la toma cinematográfica mientras la introducción está pausada o KRONOX IA habla
+      shouldHoldIntroStage: (_stageKey, stageElapsed) => {
+        if (introPausedRef.current) return true;
+        const audioPlaying =
+          (voiceAudio.current &&
+            !voiceAudio.current.paused &&
+            voiceAudio.current.readyState >= 2 &&
+            voiceAudio.current.currentTime > 0) ||
+          browserVoiceActiveRef.current ||
+          Boolean(voiceGapTimerRef.current);
+        if (audioPlaying) {
+          return (stageElapsed || 0) < 15;
         }
         return false;
       },
@@ -934,7 +1078,13 @@ export default function App() {
       f: setF,
       near: (n) => {
         setNear(n);
-        if (n && INFO[n] && !cockpitInsideRef.current)
+        if (
+          n &&
+          INFO[n] &&
+          !cockpitInsideRef.current &&
+          !mainMenuVisibleRef.current &&
+          !realTimeIntroActiveRef.current
+        )
           notify(
             'Nos acercamos a ' +
             n +
@@ -982,12 +1132,15 @@ export default function App() {
       if (typeof window !== 'undefined') window.__kronoxSceneApi = api.current;
       if (startupMode === 'intro') {
         setRealTimeIntroActive(true);
+        setIntroPaused(false);
         api.current.startRealTimeIntro(() => {
-          introSoundtrackRef.current?.fadeOut?.(3.0);
+          introSoundtrackRef.current?.fadeOut?.(2.8);
           setRealTimeIntroActive(false);
+          setIntroPaused(false);
           setFr(true);
           setPv(1);
-          setAiAvatarState('Acompañamiento');
+          setMissionTargetKey('barnard');
+          setAiAvatarState('Bienvenida');
         });
       } else if (startupMode === 'cabin') {
         api.current.skipRealTimeIntro();
@@ -996,8 +1149,7 @@ export default function App() {
       } else {
         setFr(true);
         setPv(3);
-        api.current.free(true, false);
-        api.current.view(3);
+        api.current.setMainMenuOrbit?.(true);
       }
       if (typeof window !== 'undefined') {
         window.__KRONOX_API__ = api.current;
@@ -1031,16 +1183,20 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (realTimeIntroActive) {
-      introSoundtrackRef.current?.start();
-      // Precarga anticipada de las 6 locuciones del prólogo para eliminar latencia de red entre escenas
+      if (!introPaused) introSoundtrackRef.current?.start();
+      // Precarga anticipada de las 10 locuciones (Acto I Cósmico + Acto II Nave KRONOX)
       if (typeof Audio !== 'undefined') {
         const introTexts = [
           'Durante siglos, contemplamos el universo desde un pequeño mundo, buscando respuestas entre las estrellas.',
-          'Ahora, nuestros instrumentos nos permiten observar aquello que nuestros ojos no pueden alcanzar.',
-          'En cada longitud de onda, el cosmos revela una historia diferente.',
-          'Estrellas, mundos y galaxias guardan los rastros de una historia que todavía estamos aprendiendo a interpretar.',
-          'Para continuar ese descubrimiento, hemos construido una nueva forma de explorar.',
-          'Soy KRONOX IA, tu asistente de exploración. Bienvenido a bordo. El universo nos espera.',
+          'Observatorios como NASA SPHEREx abrieron una nueva ventana infrarroja, permitiéndonos ver aquello que nuestros ojos no pueden alcanzar.',
+          'En cada longitud de onda infrarroja, el cosmos revela hielos interestelares, viveros estelares y anomalías gravitacionales aún abiertas en los confines del sistema solar.',
+          'Estrellas, mundos y galaxias guardan una historia inconclusa. Para investigar estos misterios en el espacio profundo, la humanidad impulsó el Proyecto Horizonte.',
+          'El Proyecto Horizonte construyó KRONOX: un crucero científico de ciento veinte metros concebido para investigar el cosmos desde la órbita y el espacio profundo.',
+          'Desde el puente de mando supervisamos la navegación orbital, el trazado de trayectorias y los instrumentos principales de la misión.',
+          'La cubierta científica integra instrumentación inspirada en el telescopio infrarrojo NASA SPHEREx para analizar espectros estelares, hielos cósmicos e hipótesis astronómicas aún abiertas con rigor observacional.',
+          'El módulo de habitabilidad sostiene misiones científicas prolongadas mediante soportes vitales, cultivo botánico en microgravedad y áreas de descanso presurizadas.',
+          'En ingeniería, el reactor toroidal de fusión y la propulsión magnetoplasmadinámica garantizan la energía y autonomía necesarias para viajar más allá de nuestro sistema.',
+          'Soy KRONOX IA. Todos los sistemas científicos y de navegación están en línea bajo tu mando; comienza tu expedición analizando tu primer objetivo.',
         ];
         introTexts.forEach((text) => {
           try {
@@ -1058,9 +1214,25 @@ export default function App() {
     }
   }, [realTimeIntroActive]);
   useEffect(() => {
+    try {
+      localStorage.setItem('kronox-game-settings-v1', JSON.stringify(gameSettings));
+    } catch {
+      /* ignore */
+    }
+    const master = Number(gameSettings.masterVolume ?? 0.85);
+    const music = Number(gameSettings.musicVolume ?? 0.7);
+    const sfx = Number(gameSettings.sfxVolume ?? 0.65);
+    const vox = Number(gameSettings.voiceVolume ?? 0.95);
     introSoundtrackRef.current?.setSpeaking(speaking);
-    introSoundtrackRef.current?.setVolume(soundVolume);
-  }, [speaking, soundVolume]);
+    introSoundtrackRef.current?.setVolume(Math.max(0, Math.min(1, master * music)));
+    gameAudioRef.current?.setVolume(Math.max(0, Math.min(1, master * sfx)));
+    if (gameAudioRef.current && ambientEnabled) {
+      gameAudioRef.current.setEnabled(master * sfx > 0.005);
+    }
+    if (voiceAudio.current) {
+      voiceAudio.current.volume = voice ? Math.max(0, Math.min(1, master * vox)) : 0;
+    }
+  }, [speaking, voice, gameSettings, ambientEnabled]);
   useEffect(() => {
     let cancelled = false;
     fetch(voiceProvider.statusUrl()).then(response => response.json()).then(status => {
@@ -1100,7 +1272,7 @@ export default function App() {
         setOpen(false);
         return;
       }
-      if (!welcomeOpen && !realTimeIntroActive && !missionOpen) {
+      if (!welcomeOpen && !showFullMainMenu && !realTimeIntroActive && !missionOpen) {
         setPauseMenuSection('save');
         setPauseMenuOpen(true);
         api.current?.setSimulationPaused?.(true);
@@ -1116,6 +1288,7 @@ export default function App() {
     more,
     open,
     welcomeOpen,
+    showFullMainMenu,
     realTimeIntroActive,
     missionOpen,
   ]);
@@ -2283,8 +2456,10 @@ export default function App() {
       dialogueHidden:
         kronoxDialogHidden ||
         realTimeIntroActive ||
+        welcomeOpen ||
+        showFullMainMenu ||
         (gameSettings.showSubtitles === false && !kronoxOpen),
-      showCornerOrb: fr && pv === 3 && !welcomeOpen && !realTimeIntroActive,
+      showCornerOrb: fr && pv === 3 && !welcomeOpen && !showFullMainMenu && !realTimeIntroActive,
       speaking,
       audioLevels,
       panelOpen: kronoxOpen,
@@ -2382,6 +2557,7 @@ export default function App() {
         setFv(value);
       },
     }),
+    !(welcomeOpen || showFullMainMenu || realTimeIntroActive || pauseMenuOpen) &&
     h(ToastNotification, { notice, onMore: setMore, language }),
     navigation &&
     h(
@@ -2586,176 +2762,77 @@ export default function App() {
       stopNarrator: () => stopVoiceAndClearQueue(),
     }),
     realTimeIntroActive &&
-    cinematicStage === 'opening' &&
-    h(CinematicOpening, {
-      reducedMotion,
-      caption:
-        realTimeIntroCaption ||
-        'Durante siglos, contemplamos el universo desde un pequeño mundo, buscando respuestas entre las estrellas.',
-      subtitlesEnabled: introSubtitles,
-      onToggleSubtitles: () => setIntroSubtitles((prev) => !prev),
-      voiceBlocked: voiceBlockedByAutoplay || introMusicBlocked,
-      onActivateAudio: unlockAndReplayVoice,
-      onSkip: () => {
-        stopVoiceAndClearQueue();
-        introSoundtrackRef.current?.fadeOut?.(1.8);
-        A().skipRealTimeIntro?.();
-        setRealTimeIntroActive(false);
-        setFr(true);
-        setPv(1);
-      },
-    }),
-    realTimeIntroActive &&
-    cinematicStage !== 'opening' &&
     h(
       'div',
       {
-        className: 'kronoxRealTimeIntroHud',
-        role: 'status',
-        'aria-live': 'polite',
+        className: `kronoxFilmIntroOverlay${introPaused ? ' is-paused' : ''}`,
+        role: 'region',
+        'aria-label': 'Introducción cinematográfica KRONOX',
       },
       h(
         'div',
-        { className: 'kronoxRealTimeIntroBadge' },
-        h('span', { className: 'kronoxShipDot' }),
-        h(
-          'strong',
-          null,
-          {
-            escena2_spherex: 'EL OBSERVADOR — SPHEREx EN ÓRBITA POLAR (~650 km)',
-            escena3_conocimiento:
-              'LA INFORMACIÓN DEL UNIVERSO — ESPECTROSCOPÍA INFRARROJA SPHEREx (0.75–5.0 μm)',
-            escena4_galaxia:
-              'NUESTRA GALAXIA — VÍA LÁCTEA ESPIRAL BARRADA (MODELO HURT / SPITZER)',
-            escena5_nave: 'KRONOX — EXPLORA LO INVISIBLE (NAVE DE 120 m)',
-            escena6_cabina: 'BIENVENIDO A BORDO — CABINA EN PRIMERA PERSONA',
-          }[cinematicStage] || 'MOTOR 3D EN TIEMPO REAL · ABORDAJE KRONOX (120 m)',
-        ),
-      ),
-      cinematicStage === 'escena3_conocimiento' &&
-      h(
-        'div',
-        {
-          className: 'kronoxIntroScienceStrip',
-          style: {
-            display: 'flex',
-            gap: '10px',
-            justifyContent: 'center',
-            flexWrap: 'wrap',
-            margin: '6px 0 8px',
-            fontSize: '0.72rem',
-          },
-        },
-        [
-          ['Banda 1 · 0.95 μm', 'Fotosferas estelares (Barnard · Gaia DR3)', '#6fb6ff'],
-          ['Banda 3 · 2.15 μm', 'Polvo circunestelar y extinción (RW Aurigae)', '#f5b864'],
-          ['Banda 6 · 4.42 μm', 'Emisión PAH y brazos espirales (M31 · M101)', '#ff6ca8'],
-        ].map(([band, desc, col]) =>
-          h(
-            'div',
-            {
-              key: band,
-              style: {
-                padding: '6px 10px',
-                borderRadius: '8px',
-                background: 'rgba(8, 16, 30, 0.78)',
-                border: `1px solid ${col}66`,
-                color: '#e8f1ff',
-              },
-            },
-            h('strong', { style: { color: col, display: 'block' } }, band),
-            h('span', { style: { opacity: 0.86 } }, desc),
-          ),
-        ),
-      ),
-      cinematicStage === 'escena4_galaxia' &&
-      h(
-        'div',
-        {
-          style: {
-            fontSize: '0.74rem',
-            color: '#ffdca8',
-            letterSpacing: '0.04em',
-            marginBottom: '6px',
-          },
-        },
-        '✦ Vía Láctea (SBbc): Modelo exterior reconstruido a partir de observaciones internas (Spitzer GLIMPSE sig05-010a · R. Hurt · Gaia DR3)',
-      ),
-      cinematicStage === 'escena5_nave' &&
-      h(
-        'div',
-        {
-          style: {
-            textAlign: 'center',
-            margin: '4px 0 8px',
-          },
-        },
-        h(
-          'div',
-          {
-            style: {
-              fontSize: '1.65rem',
-              fontWeight: 800,
-              letterSpacing: '0.28em',
-              color: '#f2f7ff',
-              textShadow: '0 0 24px rgba(110, 195, 255, 0.55)',
-            },
-          },
-          'KRONOX',
-        ),
-        h(
-          'div',
-          {
-            style: {
-              fontSize: '0.84rem',
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              color: '#8ec8ff',
-            },
-          },
-          'Explora lo invisible.',
-        ),
-      ),
-      introSubtitles && h('p', { className: 'kronoxRealTimeIntroCaption' }, realTimeIntroCaption),
-      h(
-        'div',
-        { className: 'kronoxRealTimeIntroActions' },
+        { className: 'kronoxFilmControls' },
         (voiceBlockedByAutoplay || introMusicBlocked) &&
         h(
           'button',
           {
             type: 'button',
-            className: 'cinematicActivateAudioBtn',
+            className: 'kronoxFilmBtn is-accent',
             onClick: unlockAndReplayVoice,
           },
-          '🔊 INICIAR EXPLORACIÓN',
+          '🔊 Activar audio',
         ),
         h(
           'button',
           {
             type: 'button',
-            className: 'kronoxRealTimeSkipBtn',
-            onClick: () => setIntroSubtitles((prev) => !prev),
-            'aria-pressed': introSubtitles,
+            className: 'kronoxFilmBtn',
+            onClick: toggleIntroPause,
+            'aria-pressed': introPaused,
           },
-          introSubtitles ? 'CC Subtítulos: Sí' : 'CC Subtítulos: No',
+          introPaused ? '▶ Reanudar' : '⏸ Pausar',
         ),
         h(
           'button',
           {
             type: 'button',
-            className: 'kronoxRealTimeSkipBtn',
-            onClick: () => {
-              stopVoiceAndClearQueue();
-              introSoundtrackRef.current?.fadeOut?.(1.8);
-              setRealTimeIntroActive(false);
-              A().skipRealTimeIntro?.();
-              setFr(true);
-              setPv(1);
-            },
+            className: 'kronoxFilmBtn',
+            onClick: () =>
+              setGameSettings((prev) => ({
+                ...prev,
+                showSubtitles: prev.showSubtitles === false,
+              })),
+            'aria-pressed': gameSettings.showSubtitles !== false,
           },
-          language === 'es' ? 'Saltar introducción 3D ⏭' : 'Skip 3D Intro ⏭',
+          gameSettings.showSubtitles !== false ? 'CC Subtítulos: Sí' : 'CC Subtítulos: No',
         ),
+        h(
+          'button',
+          {
+            type: 'button',
+            className: 'kronoxFilmBtn is-skip',
+            onClick: skipIntroAndEnterCabin,
+          },
+          language === 'es' ? 'Omitir / Saltar ⏭' : 'Skip Intro ⏭',
+        ),
+      ),
+      introPaused &&
+      h(
+        'div',
+        { className: 'kronoxFilmPausedTag', role: 'status' },
+        'SECUENCIA EN PAUSA',
+      ),
+      gameSettings.showSubtitles !== false &&
+      realTimeIntroCaption &&
+      h(
+        'div',
+        {
+          key: cinematicStage || 'subtitle',
+          className: `kronoxFilmSubtitleDock${gameSettings.subtitleSize === 'large' ? ' is-large' : ''}`,
+          role: 'status',
+          'aria-live': 'polite',
+        },
+        h('p', { className: 'kronoxFilmSubtitleText' }, realTimeIntroCaption),
       ),
     ),
     !welcomeOpen &&
@@ -2785,6 +2862,7 @@ export default function App() {
       '✦ Vía Láctea (SBbc) · Modelo exterior reconstruido a partir de observaciones internas (NASA Spitzer GLIMPSE sig05-010a / R. Hurt / Gaia DR3)',
     ),
     !welcomeOpen &&
+    !showFullMainMenu &&
     !missionOpen &&
     !realTimeIntroActive &&
     h(SpaceshipCockpit, {
@@ -3000,12 +3078,23 @@ export default function App() {
       open: pauseMenuOpen,
       initialSection: pauseMenuSection,
       onClose: () => {
+        setSavedGameSnapshot(loadGameState());
         setPauseMenuOpen(false);
         api.current?.setSimulationPaused?.(false);
       },
       onReturnToMainMenu: () => {
+        stopVoiceAndClearQueue();
+        clearNotices();
+        introSoundtrackRef.current?.stop?.();
+        setIntroPaused(false);
+        introPausedRef.current = false;
+        setRealTimeIntroActive(false);
         setPauseMenuOpen(false);
+        setSavedGameSnapshot(loadGameState());
         api.current?.setSimulationPaused?.(false);
+        api.current?.setMainMenuOrbit?.(true);
+        setFr(true);
+        setPv(3);
         setWelcomeOpen(true);
         setShowFullMainMenu(true);
       },
@@ -3071,54 +3160,92 @@ export default function App() {
     (showFullMainMenu || welcomeOpen) &&
     h(MainMenu, {
       open: true,
-      onStartNewExpedition: ({ alias, skillLevel }) => {
-        try {
-          sessionStorage.setItem('kronox-intro-seen', '1');
-        } catch {
-          /* ignore */
-        }
+      hasSavedGame: Boolean(savedGameSnapshot?.savedAt || savedGameSnapshot?.currentBody),
+      savedGameSummary: savedGameSnapshot,
+      gameSettings,
+      onUpdateGameSettings: setGameSettings,
+      voiceMuted: !voice,
+      onToggleVoiceMute: () => {
+        const next = !voice;
+        voiceRef.current = next;
+        setVoice(next);
+        if (!next) stopVoiceAndClearQueue();
+      },
+      quality,
+      onQualityChange: setQuality,
+      visualProfile,
+      onToggleVisualProfile: () => {
+        const next = visualProfile === 'scientific' ? 'cinematic' : 'scientific';
+        setVisualProfile(next);
+        A()?.setVisualProfile?.(next);
+      },
+      reducedMotion,
+      onToggleReducedMotion: () => setReducedMotion((prev) => !prev),
+      realScale: real,
+      onToggleScaleMode: () => {
+        const nextReal = !real;
+        setReal(nextReal);
+        A()?.mode?.(nextReal);
+      },
+      onPlayUiCue: playCue,
+      onStartNewExpedition: () => {
+        ensureGameplayAudioStarted();
+        stopVoiceAndClearQueue();
+        clearNotices();
+        introSoundtrackRef.current?.start?.();
+        setIntroPaused(false);
+        introPausedRef.current = false;
         setShowFullMainMenu(false);
         setWelcomeOpen(false);
+        setMissionTargetKey('barnard');
+        setMissionInitialStage('arrival');
+        setGuideObjective('');
         setRealTimeIntroActive(true);
+        A()?.setMainMenuOrbit?.(false);
         A()?.startRealTimeIntro?.(() => {
-          introSoundtrackRef.current?.fadeOut?.(3.0);
+          introSoundtrackRef.current?.fadeOut?.(2.8);
           setRealTimeIntroActive(false);
+          setIntroPaused(false);
           setFr(true);
           setPv(1);
-          setAiAvatarState('Acompañamiento');
+          setMissionTargetKey('barnard');
+          setAiAvatarState('Bienvenida');
         });
       },
-      onContinueExpedition: () => {
-        try {
-          sessionStorage.setItem('kronox-intro-seen', '1');
-        } catch {
-          /* ignore */
-        }
+      onContinueExpedition: (saveData) => {
+        ensureGameplayAudioStarted();
+        stopVoiceAndClearQueue();
+        introSoundtrackRef.current?.stop?.();
+        setIntroPaused(false);
+        introPausedRef.current = false;
+        setRealTimeIntroActive(false);
         setShowFullMainMenu(false);
         setWelcomeOpen(false);
-        const resumeKey =
-          savedExpedition?.targetKey || missionFindingsSync[0]?.targetKey || 'barnard';
-        const resumeStage = savedExpedition?.stage || 'explore';
+        const save = saveData || loadGameState() || {};
+        const resumeKey = save.activeMissionId || savedExpedition?.targetKey || 'barnard';
+        const wantReal = save.scaleMode ? save.scaleMode === 'real' : real;
+        const wantExterior = String(save.cameraView || '').toLowerCase().includes('exterior');
         setMissionTargetKey(resumeKey);
-        setMissionInitialStage(resumeStage);
-        A()?.skipRealTimeIntro?.();
+        setMissionInitialStage(savedExpedition?.stage || 'explore');
+        setReal(wantReal);
+        A()?.mode?.(wantReal);
+        A()?.restoreSavedGameState?.(save);
         setFr(true);
-        setPv(1);
+        setPv(wantExterior ? 3 : 1);
         setAiAvatarState('Acompañamiento');
-        const resumeTarget =
-          SPHEREX_TARGETS.find((t) => t.key === resumeKey) || SPHEREX_TARGETS[0];
+        if (save.activeObjective) {
+          setGuideObjective(save.activeObjective);
+        } else {
+          setGuideObjective('OBJETIVO: Explora el puente de mando (WASD). Usa [E] en cada consola o avanza por la espina a C02-C04.');
+        }
         notify(
-          `Expedición retomada en ${resumeTarget.name} (${missionFindingsSync.length} hallazgo(s) en cuaderno).`,
-          'Continuar expedición',
+          `Partida cargada en ${save.currentBody || 'Tierra'} (${save.cameraView || 'Cabina 1P'}).`,
+          'Partida reanudada',
         );
-      },
-      onOpenSettings: () => {
-        setPauseMenuSection('settings');
-        setPauseMenuOpen(true);
       },
       language,
     }),
-    reticleTarget && !pauseMenuOpen && !welcomeOpen && !realTimeIntroActive &&
+    reticleTarget && !pauseMenuOpen && !welcomeOpen && !showFullMainMenu && !realTimeIntroActive &&
     h('div', {
       className: 'kronox-reticle-identifier',
       style: {
@@ -3151,6 +3278,8 @@ export default function App() {
     fr &&
     pv == 3 &&
     !realTimeIntroActive &&
+    !welcomeOpen &&
+    !showFullMainMenu &&
     h(
       'div',
       { className: 'hud' },

@@ -13,6 +13,10 @@ import {
 } from '../utils/communitySchema.js';
 import { loadPlayerInventory, equipInventoryItem } from '../utils/playerInventory.js';
 import { getGameAchievementsStatus } from '../utils/gameAchievements.js';
+import {
+  AudioSettingsGroup,
+  SubtitleSettingsGroup,
+} from './AudioSubtitleSettingsControls.jsx';
 
 const PAUSE_SECTIONS = [
   { id: 'continue', label: '1. Continuar', subtitle: 'Reanudar exploración espacial' },
@@ -697,21 +701,12 @@ export default function PauseMenu({
                 )}
 
                 {activeSettingsTab === 'audio' && (
-                  <div className="kronox-settings-group">
-                    <div className="kronox-setting-row">
-                      <div>
-                        <strong>Audio de voz y comunicaciones de puente</strong>
-                        <p>Controla la síntesis vocal neuronal de Kronox IA.</p>
-                      </div>
-                      <button
-                        type="button"
-                        className="kronox-pause-secondary-btn"
-                        onClick={onToggleVoiceMute}
-                      >
-                        {voiceMuted ? 'Voz Silenciada (Activar)' : 'Voz Activa (Silenciar)'}
-                      </button>
-                    </div>
-                  </div>
+                  <AudioSettingsGroup
+                    gameSettings={gameSettings}
+                    onUpdateSetting={updateSetting}
+                    voiceMuted={voiceMuted}
+                    onToggleVoiceMute={onToggleVoiceMute}
+                  />
                 )}
 
                 {activeSettingsTab === 'controls' && (
@@ -735,23 +730,10 @@ export default function PauseMenu({
                 )}
 
                 {activeSettingsTab === 'accessibility' && (
-                  <div className="kronox-settings-group">
-                    <div className="kronox-setting-row">
-                      <div>
-                        <strong>Subtítulos sincronizados de Kronox IA</strong>
-                        <p>Muestra una barra inferior discreta cuando Kronox IA transmite mensajes.</p>
-                      </div>
-                      <button
-                        type="button"
-                        className="kronox-pause-secondary-btn"
-                        onClick={() =>
-                          updateSetting('showSubtitles', gameSettings.showSubtitles === false)
-                        }
-                      >
-                        {gameSettings.showSubtitles === false ? 'Desactivados' : 'Activados'}
-                      </button>
-                    </div>
-                  </div>
+                  <SubtitleSettingsGroup
+                    gameSettings={gameSettings}
+                    onUpdateSetting={updateSetting}
+                  />
                 )}
 
                 {activeSettingsTab === 'interface' && (

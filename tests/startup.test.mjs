@@ -116,7 +116,10 @@ test('The real App preserves the explicitly requested welcome menu and full scen
       );
     });
     const output = JSON.stringify(renderer.toJSON());
-    assert.ok(output.includes('INICIAR EXPEDICIÓN'));
+    assert.ok(output.includes('NUEVA PARTIDA'));
+    assert.ok(output.includes('CONTINUAR'));
+    assert.ok(output.includes('CONFIGURACIÓN'));
+    assert.ok(output.includes('CRÉDITOS'));
     assert.ok(!output.includes('No se pudo iniciar Kronox'));
     assert.equal(harness.element.children.length, 1);
     assert.ok(harness.renderers[0].info.render.calls > 0);
