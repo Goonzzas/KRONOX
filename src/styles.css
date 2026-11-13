@@ -6203,56 +6203,83 @@ small {
 /* 3. Indicador contextual de proximidad a consola física 3D (`[E] Operar...`) */
 .kronoxProximityPrompt {
   position: fixed;
-  bottom: 122px;
+  bottom: 18px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 32;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(6, 19, 38, 0.92), rgba(12, 34, 66, 0.92));
-  border: 1px solid rgba(110, 234, 255, 0.65);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), 0 0 18px rgba(56, 189, 248, 0.28);
-  backdrop-filter: blur(10px);
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: rgba(8, 18, 34, 0.84);
+  border: 1px solid rgba(110, 234, 255, 0.5);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
   color: #eaf7ff;
 }
 .kronoxProximityKey {
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: rgba(110, 234, 255, 0.18);
-  border: 1px solid #6eeaff;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: rgba(110, 234, 255, 0.16);
+  border: 1px solid rgba(110, 234, 255, 0.78);
   color: #6eeaff;
   font-family: ui-monospace, monospace;
   font-weight: 800;
-  font-size: 13px;
+  font-size: 12px;
 }
 .kronoxProximityInfo {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 8px;
 }
 .kronoxProximityInfo strong {
-  font-size: 13px;
+  font-size: 12.5px;
+  font-weight: 600;
   color: #ffffff;
+  white-space: nowrap;
 }
 .kronoxProximityInfo span {
-  font-size: 11.5px;
-  color: #93c5fd;
+  display: none;
 }
 .kronoxProximityActivateBtn {
-  padding: 7px 13px;
-  border-radius: 8px;
-  border: 1px solid #38bdf8;
-  background: linear-gradient(135deg, #0284c7, #0369a1);
+  padding: 4px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(56, 189, 248, 0.72);
+  background: rgba(2, 132, 199, 0.88);
   color: #ffffff;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
 }
 .kronoxProximityActivateBtn:hover {
   filter: brightness(1.12);
+}
+.kronoxDeckTransitBar {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(8, 17, 32, 0.56);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+.kronoxDeckStepBtn {
+  padding: 4px 7px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: rgba(226, 232, 240, 0.8);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.kronoxDeckStepBtn.active {
+  background: rgba(56, 189, 248, 0.28);
+  color: #ffffff;
+}
+.kronoxDeckStepBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* 4. Pantalla diegética de instrumento conectada e integrada a consola física 3D */

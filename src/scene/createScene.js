@@ -12,6 +12,7 @@ import { integrateFlightVelocity } from './flightDynamics.js';
 import { createDestinationResources, summarizeFrameTimes } from './destinationVisuals.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { P, D2R, TAU, T0, kep, pos } from '../data/planetData.js';
 import { SPHEREX_TARGETS } from '../data/spherexTargets.js';
 import { NEARBY_GALAXIES } from '../data/nearbyGalaxies.js';
@@ -401,13 +402,28 @@ export function setupScene(el, S) {
     astronautEyeHeightMeters: PHYSICAL_CONSTANTS.ASTRONAUT_EYE_HEIGHT_METERS,
   };
   localCam.name = 'KronoxLocalMetricCamera';
-  const localShipAmbient = new THREE.AmbientLight(0xdce8ff, 0.52);
-  const localShipHemi = new THREE.HemisphereLight(0xd8ecff, 0x1b2436, 0.45);
+  const localShipAmbient = new THREE.AmbientLight(0x9eb4d0, 0.26);
+  const localShipHemi = new THREE.HemisphereLight(0xd2e1f4, 0x131822, 0.30);
   const localShipSunLight = new THREE.DirectionalLight(0xfff6e5, 2.35);
   localShipSunLight.position.set(-320, 120, -240);
   const localShipRimLight = new THREE.DirectionalLight(0x70b8ff, 0.55);
   localShipRimLight.position.set(240, -80, 310);
   localShipScene.add(localShipAmbient, localShipHemi, localShipSunLight, localShipRimLight);
+  let localShipPmremGenerator = null;
+  let localShipEnvRenderTarget = null;
+  if (typeof R.getContext === 'function' && R.getContext()) {
+    try {
+      const pmremRoom = new RoomEnvironment();
+      localShipPmremGenerator = new THREE.PMREMGenerator(R);
+      localShipPmremGenerator.compileEquirectangularShader?.();
+      localShipEnvRenderTarget = localShipPmremGenerator.fromScene(pmremRoom, 0.04);
+      localShipScene.environment = localShipEnvRenderTarget.texture;
+      disposeSceneResources(pmremRoom);
+    } catch {
+      localShipPmremGenerator = null;
+      localShipEnvRenderTarget = null;
+    }
+  }
   let rafId = 0,
     disposed = false,
     lastNavigationPublish = -1,
@@ -2724,6 +2740,126 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let freeHelmBlend = 0;
   let nearestCabinStation = null;
   let lastNearestStationId = null;
+  let lastContextualDeckId = 'deck-01';
+  const DECK_SPAWNS = {
+    'deck-01': { pos: new V(0.0, -1.6, -45.05), yaw: 0 },
+    'deck-02': { pos: new V(0.0, -1.55, -29.0), yaw: -Math.PI / 2 },
+    'deck-03': { pos: new V(0.0, -1.75, -6.0), yaw: Math.PI / 2 },
+    'deck-04': { pos: new V(0.0, -0.25, 17.5), yaw: Math.PI },
+  };
+  let deckTransitState = null;
+
+  function buildDeckTransitWaypoints(fromPos, targetDeckId, yawOverride = null) {
+    const dest = DECK_SPAWNS[targetDeckId] || DECK_SPAWNS['deck-01'];
+    const targetYawFinal = Number.isFinite(yawOverride) ? yawOverride : dest.yaw;
+    const pts = [];
+    const curZ = fromPos.z;
+    const curX = fromPos.x;
+    const curY = fromPos.y;
+
+    if (curZ <= -41.0) {
+      if (Math.abs(curX) > 0.35) pts.push(new V(0, -1.6, curZ));
+      pts.push(new V(0, -1.55, -42.0));
+    } else if (curZ > -41.0 && curZ <= -19.5) {
+      if (curY > 0.4) {
+        pts.push(new V(0, curY, -26.0), new V(0, -1.55, -26.0));
+      } else if (Math.abs(curX) > 1.3) {
+        pts.push(new V(curX, -1.55, -29.0), new V(0, -1.55, -29.0));
+      } else if (Math.abs(curX) > 0.25) {
+        pts.push(new V(0, -1.55, curZ));
+      }
+    } else if (curZ > -19.5 && curZ <= 10.5) {
+      if (curY < -2.1) {
+        pts.push(new V(0, -1.65, -6.0));
+      } else if (Math.abs(curX) > 1.3) {
+        const zJoin = Math.abs(curZ + 6.0) <= Math.abs(curZ - 2.5) ? -6.0 : 2.5;
+        pts.push(new V(curX, -1.68, zJoin), new V(0, -1.62, zJoin));
+      } else if (Math.abs(curX) > 0.25) {
+        pts.push(new V(0, -1.58, curZ));
+      }
+    } else {
+      if (curY < -1.2) {
+        pts.push(new V(0, curY, 16.5), new V(0, -0.25, 16.5));
+      } else if (Math.abs(curX) > 0.35) {
+        pts.push(new V(0, -0.25, Math.max(13.0, Math.min(20.0, curZ))));
+      }
+      if (targetDeckId !== 'deck-04') {
+        pts.push(new V(0, -0.25, 12.6), new V(0, -1.55, 9.4));
+      }
+    }
+
+    if (targetDeckId === 'deck-01') {
+      pts.push(new V(0, -1.55, -41.5), dest.pos.clone());
+    } else if (targetDeckId === 'deck-02') {
+      pts.push(dest.pos.clone());
+    } else if (targetDeckId === 'deck-03') {
+      pts.push(new V(0, -1.62, -6.0), dest.pos.clone());
+    } else if (targetDeckId === 'deck-04') {
+      if (curZ <= 11.0) {
+        pts.push(new V(0, -1.55, 9.4), new V(0, -0.25, 12.6));
+      }
+      pts.push(dest.pos.clone());
+    }
+
+    const filtered = [];
+    for (const p of pts) {
+      const prev = filtered[filtered.length - 1] || fromPos;
+      if (prev.distanceTo(p) > 0.12) filtered.push(p);
+    }
+    if (filtered.length === 0) filtered.push(dest.pos.clone());
+    return {
+      active: true,
+      targetDeckId,
+      targetYaw: targetYawFinal,
+      waypoints: filtered,
+      index: 0,
+      speed: 9.5,
+    };
+  }
+  const DECK_CONTEXT_BRIEFINGS = {
+    'deck-01': {
+      stationId: 'nav',
+      text: 'Cubierta 01 — Puente de Mando. Desde este arco orbital gobiernas el timón de proa, la telemetría cuántica y la mesa táctica de expedición.',
+    },
+    'deck-02': {
+      stationId: 'science',
+      text: 'Cubierta 02 — Laboratorio SPHEREx y Banco Óptico. Al babor opera el criostato infrarrojo y al estribor calibras el espejo Au-Be.',
+    },
+    'deck-03': {
+      stationId: 'galley',
+      text: 'Cubierta 03 — Módulo Habitacional y Esclusa EVA. Tienes literas cero-G, cámara botánica ECLSS, hidratación y acceso ventral al anillo EVA.',
+    },
+    'deck-04': {
+      stationId: 'engineering',
+      text: 'Cubierta 04 — Ingeniería y Reactor Tokamak D-He3. El núcleo magnético y los tanques de helio líquido sostienen el impulso MPD.',
+    },
+  };
+  function announceDeckContextIfChanged(deckId, immediate = false) {
+    if (!deckId || deckId === lastContextualDeckId) return;
+    lastContextualDeckId = deckId;
+    const entry = DECK_CONTEXT_BRIEFINGS[deckId];
+    if (!entry) return;
+    if (deckId !== 'deck-01' && guidedTourState) {
+      endGuidedCabinTour();
+    }
+    if (!guidedTourState && !realTimeIntro && !launchSequence) {
+      S.onAiTourNarrative?.(entry.text, 'Orientación', entry.stationId, {
+        id: `deck-ctx-${deckId}`,
+        priority: 8,
+        replace: true,
+        once: false,
+      });
+      const targetSt = getStationDef(entry.stationId);
+      if (targetSt) {
+        if (luminousAI.group?.position?.distanceTo(new V(targetSt.aiHoverPos.x, targetSt.aiHoverPos.y, targetSt.aiHoverPos.z)) > 12) {
+          luminousAI.group.position.set(targetSt.aiHoverPos.x, targetSt.aiHoverPos.y, targetSt.aiHoverPos.z);
+          luminousAI.resetWake?.(targetSt.aiHoverPos);
+        }
+        luminousAI.setTargetPosition(targetSt.aiHoverPos, 'Explicación');
+        luminousAI.pointAtWorldPosition(null, false);
+      }
+    }
+  }
   let aiFollowAstronaut = true;
   let aiSpeakingState = false;
   let aiAudioLevelState = 0.08;
@@ -3279,30 +3415,27 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     sceneDirector.dispatchEvent('AI_ACTIVATED', {});
     suppressDirectorNarrative = false;
     if (cb) cb();
-    introCompletedNaturally = false;
+    introCompletedNaturally = true;
     startGuidedCabinTour();
     S.onObservationModeChange?.(getObservationMode());
   }
 
   function startGuidedCabinTour() {
     guidedTourState = {
-      step: introCompletedNaturally ? 'bridge' : 'welcome',
+      step: 'bridge',
       focus: null,
       proximityAnnounced: false,
       scienceInteracted: false,
     };
-    aiFollowAstronaut = false;
-    if (introCompletedNaturally) {
-      introCompletedNaturally = false;
-      S.onGuideStateChange?.({ step: 'bridge', stationId: null, active: true });
-      S.onGuideObjective?.('OBJETIVO: Explora el puente de mando. Muévete libremente con WASD.');
-      return;
-    }
-    S.onGuideStateChange?.({ step: 'welcome', stationId: null, active: true });
-    guidedTourState.welcomeMessageId = S.onAiTourNarrative?.(
-      'Bienvenido a KRONOX. Soy KRONOX IA, tu asistente de exploración. Nuestro viaje comienza ahora.',
-      'Bienvenida',
-      null,
+    aiFollowAstronaut = true;
+    lastContextualDeckId = 'deck-01';
+    S.onGuideStateChange?.({ step: 'bridge', stationId: null, active: true });
+    S.onGuideObjective?.('OBJETIVO: Explora el puente de mando (WASD). Usa [E] en cada consola o avanza por la espina a C02-C04.');
+    S.onAiTourNarrative?.(
+      DECK_CONTEXT_BRIEFINGS['deck-01'].text,
+      'Orientación',
+      'nav',
+      { id: 'deck-ctx-deck-01', priority: 8, replace: true },
     );
   }
 
@@ -4593,9 +4726,63 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             new THREE.Euler(astronautPitch, astronautYaw, 0, 'YXZ'),
           );
 
-          // 2. Motor físico 6-DOF real de microgravedad (Asistido o Libre + freno RCS [X] + pasamanos [H])
+          // 2. Motor físico 6-DOF real de microgravedad o tránsito físico animado por espina central
+          const hasManualThrustInput = Boolean(
+            keys.w ||
+            keys.s ||
+            keys.a ||
+            keys.d ||
+            keys.arrowup ||
+            keys.arrowdown ||
+            keys.arrowleft ||
+            keys.arrowright ||
+            keys[' '] ||
+            keys.space ||
+            keys.control ||
+            keys.ctrl ||
+            keys.q,
+          );
+          if (deckTransitState?.active && hasManualThrustInput) {
+            deckTransitState = null;
+          }
+
           let mgResult;
-          if (activeCabinStation === 'nav' && !freeHelmMode) {
+          if (deckTransitState?.active) {
+            const wp = deckTransitState.waypoints[deckTransitState.index];
+            const toWp = new V().subVectors(wp, astronautPos);
+            const distToWp = toWp.length();
+            const stepDist = deckTransitState.speed * Math.max(0.008, Math.min(0.05, dt));
+            if (distToWp <= stepDist + 0.04) {
+              astronautPos.copy(wp);
+              deckTransitState.index += 1;
+              if (deckTransitState.index >= deckTransitState.waypoints.length) {
+                targetYaw = deckTransitState.targetYaw;
+                astronautYaw = deckTransitState.targetYaw;
+                targetPitch = -0.05;
+                astronautPitch = -0.05;
+                deckTransitState = null;
+                astronautVel.set(0, 0, 0);
+              }
+            } else {
+              toWp.normalize();
+              astronautPos.addScaledVector(toWp, stepDist);
+              astronautVel.copy(toWp).multiplyScalar(deckTransitState.speed);
+              if (Math.hypot(toWp.x, toWp.z) > 0.25) {
+                targetYaw = Math.atan2(-toWp.x, -toWp.z);
+              }
+            }
+            fourDecksInterior.clampAstronautPosition(astronautPos);
+            microgravityController.setPosition(astronautPos);
+            mgResult = {
+              position: astronautPos.clone(),
+              velocity: astronautVel.clone(),
+              speed: deckTransitState ? deckTransitState.speed : 0,
+              mode: microgravityController.getMode(),
+              anchoredRailId: null,
+              isStabilizing: false,
+              isBoosting: Boolean(deckTransitState),
+            };
+          } else if (activeCabinStation === 'nav' && !freeHelmMode) {
             astronautVel.set(0, 0, 0);
             microgravityController.setPosition(astronautPos);
             mgResult = {
@@ -4654,8 +4841,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             );
             fourDecksInterior.clampAstronautPosition(localCamPos, 0.25, 0.24);
           } else {
-            const distBehind = 2.85;
-            const shoulderBias = 0.24;
+            const distBehind = 2.38;
+            const shoulderBias = 0.56;
             const camBack = new V(
               Math.sin(astronautYaw) * distBehind * Math.cos(astronautPitch) + Math.cos(astronautYaw) * shoulderBias,
               -Math.sin(astronautPitch) * distBehind,
@@ -4663,7 +4850,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             );
             localCamPos = new V(
               astronautPos.x + camBack.x,
-              astronautPos.y + 0.90 + camBack.y,
+              astronautPos.y + 1.18 + camBack.y,
               astronautPos.z + camBack.z,
             );
             fourDecksInterior.clampAstronautPosition(localCamPos, 0.24, 0.24);
@@ -4705,17 +4892,21 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
           }
 
-          nearestCabinStation = fourDecksInterior.findNearestInteractiveStation(astronautPos);
+          nearestCabinStation = fourDecksInterior.findNearestInteractiveStation(astronautPos, 2.15);
 
           // Detección contextual inteligente de aproximación de KRONOX IA a la consola más cercana
           if (nearestCabinStation && !activeCabinStation && !guidedTourState) {
-            if (nearestCabinStation.distance < 2.25 && luminousAI.getState() !== 'Señalización') {
+            if (nearestCabinStation.distance < 2.15 && luminousAI.getState() !== 'Señalización') {
               luminousAI.setTargetPosition(nearestCabinStation.station.aiHoverPos, 'Explicación');
-              luminousAI.pointAtWorldPosition(nearestCabinStation.station.consolePos, true);
+              luminousAI.pointAtWorldPosition(null, false);
             }
+          } else if (!guidedTourState && luminousAI.getPointedTarget()) {
+            luminousAI.pointAtWorldPosition(null, false);
           }
 
           const nearId = nearestCabinStation ? nearestCabinStation.station.id : null;
+          const activeDeck = resolveCurrentDeck(astronautPos);
+          announceDeckContextIfChanged(activeDeck?.id, false);
           if (nearId !== lastNearestStationId) {
             lastNearestStationId = nearId;
             S.onNearestStationChange?.(
@@ -5266,6 +5457,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
     // PASO 2 DE RENDERIZADO: Mundo Local Métrico (`localShipScene`, `1 u = 1 m`) con limpieza de profundidad
     if (localCabinWorld.visible || ship.visible) {
+      const inInteriorLighting = Boolean(localCabinWorld.visible && !exteriorCameraMode && !spectator);
+      localShipAmbient.intensity = inInteriorLighting ? 0.17 : 0.52;
+      localShipHemi.intensity = inInteriorLighting ? 0.22 : 0.45;
+      localShipSunLight.intensity = inInteriorLighting ? 0.68 : 2.35;
       const prevAutoClear = R.autoClear;
       R.autoClear = false;
       R.clearDepth?.();
@@ -5705,6 +5900,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
       disposeTravelEffect();
       astronomicalHologram.dispose();
+      localShipEnvRenderTarget?.dispose?.();
+      localShipPmremGenerator?.dispose?.();
       ct.dispose();
       const released = disposeSceneResources(sc); destinationResources.dispose(released);
       R.renderLists?.dispose();
@@ -5866,14 +6063,40 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       });
       return microgravityController.getAnchoredRailId();
     },
-    teleportAstronautToDeck: (deckId, yawOverride = null) => {
-      const spawns = {
-        'deck-01': { pos: new V(0.0, -1.6, -44.2), yaw: 0 },
-        'deck-02': { pos: new V(0.0, -1.55, -29.0), yaw: -Math.PI / 2 },
-        'deck-03': { pos: new V(0.0, -1.75, -6.0), yaw: Math.PI / 2 },
-        'deck-04': { pos: new V(0.0, -0.25, 17.5), yaw: Math.PI },
+    transitAstronautToDeck: (deckId, yawOverride = null) => {
+      if (!free) {
+        setFree(true, false);
+        S.fr?.(true);
+      }
+      pv = 1;
+      ship.visible = false;
+      localCabinWorld.visible = true;
+      activeCabinStation = null;
+      freeHelmMode = false;
+      if (deckId !== 'deck-01' && guidedTourState) endGuidedCabinTour();
+      deckTransitState = buildDeckTransitWaypoints(astronautPos, deckId, yawOverride);
+      const targetCfg = DECK_SPAWNS[deckId] || DECK_SPAWNS['deck-01'];
+      const targetDeckInfo = resolveCurrentDeck(targetCfg.pos);
+      return {
+        deckId: targetDeckInfo.id,
+        deckNumber: targetDeckInfo.deckNumber,
+        deckName: targetDeckInfo.name,
+        position: astronautPos.toArray(),
+        inTransit: true,
       };
-      const cfg = spawns[deckId] || spawns['deck-01'];
+    },
+    getDeckTransitState: () =>
+      deckTransitState
+        ? {
+          active: true,
+          targetDeckId: deckTransitState.targetDeckId,
+          waypointIndex: deckTransitState.index,
+          totalWaypoints: deckTransitState.waypoints.length,
+        }
+        : { active: false },
+    teleportAstronautToDeck: (deckId, yawOverride = null) => {
+      deckTransitState = null;
+      const cfg = DECK_SPAWNS[deckId] || DECK_SPAWNS['deck-01'];
       if (!free) {
         setFree(true, false);
         S.fr?.(true);
@@ -5897,6 +6120,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         articulatedAstronaut.root.visible = !cabinFirstPerson;
       }
       const deckInfo = resolveCurrentDeck(astronautPos);
+      if (luminousAI) {
+        luminousAI.pointAtWorldPosition(null, false);
+        const snapAiPos = {
+          x: astronautPos.x + 1.1,
+          y: astronautPos.y + 1.55,
+          z: astronautPos.z - 1.1,
+        };
+        luminousAI.group?.position?.set(snapAiPos.x, snapAiPos.y, snapAiPos.z);
+        luminousAI.setTargetPosition(snapAiPos, 'Acompañamiento');
+        luminousAI.resetWake?.(snapAiPos);
+      }
+      announceDeckContextIfChanged(deckInfo?.id, true);
       return {
         deckId: deckInfo.id,
         deckNumber: deckInfo.deckNumber,

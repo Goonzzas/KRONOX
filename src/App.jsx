@@ -235,7 +235,11 @@ export default function App() {
     noticeTimer = useRef(null),
     gameAudioRef = useRef(null),
     introSoundtrackRef = useRef(null),
-    introMusicElementRef = useRef(null);
+    introMusicElementRef = useRef(null),
+    cockpitInsideRef = useRef(false);
+  useEffect(() => {
+    cockpitInsideRef.current = Boolean(fr && pv == 1);
+  }, [fr, pv]);
   const missionOfferTimer = useRef(null);
   const clearMissionOffer = () => {
     clearTimeout(missionOfferTimer.current);
@@ -269,7 +273,8 @@ export default function App() {
     if (typeof message !== 'string')
       throw new TypeError('Narrative channel only accepts text through createNarrativeMessage.');
     const narrative = createNarrativeMessage(t(message, language), options);
-    narrativeQueue.enqueue(narrative);
+    if (options.replace) narrativeQueue.replaceActive(narrative);
+    else narrativeQueue.enqueue(narrative);
     return narrative;
   };
   const localizeChildren = (child) =>
@@ -850,7 +855,7 @@ export default function App() {
           speak(captionText, { interrupt: false });
         }
       },
-      onAiTourNarrative: (text, stateName, stationId) => {
+      onAiTourNarrative: (text, stateName, stationId, opts = {}) => {
         setAiAvatarState(stateName);
         const intent = /bienvenida/i.test(stateName)
           ? 'welcome'
@@ -859,8 +864,14 @@ export default function App() {
             : /orient/i.test(stateName)
               ? 'orientation'
               : 'explanation';
-        const message = setGuide(text, { intent, once: true });
-        if (voiceRef.current) speak(text, { interrupt: false });
+        const message = setGuide(text, {
+          intent,
+          once: opts?.once !== undefined ? Boolean(opts.once) : true,
+          id: opts?.id,
+          priority: opts?.priority ?? 0,
+          replace: Boolean(opts?.replace),
+        });
+        if (voiceRef.current) speak(text, { interrupt: Boolean(opts?.replace) });
         return message.id;
       },
       onGuideObjective: (objective) => setGuideObjective(objective),
@@ -923,7 +934,7 @@ export default function App() {
       f: setF,
       near: (n) => {
         setNear(n);
-        if (n && INFO[n])
+        if (n && INFO[n] && !cockpitInsideRef.current)
           notify(
             'Nos acercamos a ' +
             n +
@@ -2793,13 +2804,15 @@ export default function App() {
       },
       onToggleGrabRail: () => A().toggleGrabRail?.(),
       onTeleportToDeck: (deckId) => {
-        const res = A().teleportAstronautToDeck?.(deckId);
+        const res =
+          A().transitAstronautToDeck?.(deckId) ||
+          A().teleportAstronautToDeck?.(deckId);
         if (res) {
           setAstronautSectorState((prev) => ({
             ...prev,
-            deckId: res.deckId,
-            deckNumber: res.deckNumber,
-            deckName: res.deckName,
+            deckId: res.deckId || prev.deckId,
+            deckNumber: res.deckNumber ?? prev.deckNumber,
+            deckName: res.deckName || prev.deckName,
           }));
           setActiveCockpitStation(null);
           A().setActiveCabinStation?.(null);

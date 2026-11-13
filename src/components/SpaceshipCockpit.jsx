@@ -275,6 +275,24 @@ export default function SpaceshipCockpit({
 
             {viewMode === 'cockpit' && astronautSectorState && cockpitVisible && (
               <div className="kronoxTelescopeHudGroup" aria-label="Cubierta y microgravedad">
+                <div className="kronoxDeckTransitBar" aria-label="Tránsito por Espina Central">
+                  {[
+                    ['deck-01', 'C01', 'Cubierta 01 · Puente de Mando'],
+                    ['deck-02', 'C02', 'Cubierta 02 · Laboratorio SPHEREx'],
+                    ['deck-03', 'C03', 'Cubierta 03 · Habitabilidad y EVA'],
+                    ['deck-04', 'C04', 'Cubierta 04 · Ingeniería Tokamak'],
+                  ].map(([dId, shortLbl, fullLbl]) => (
+                    <button
+                      key={dId}
+                      type="button"
+                      className={`kronoxDeckStepBtn ${astronautSectorState.deckId === dId ? 'active' : ''}`}
+                      onClick={() => onTeleportToDeck?.(dId)}
+                      title={`Desplazarse físicamente por la espina a ${fullLbl}`}
+                    >
+                      {shortLbl}
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
                   className={`kronoxViewBtn ${astronautSectorState.microgravityMode === 'FREE' ? 'active' : ''}`}
@@ -282,14 +300,7 @@ export default function SpaceshipCockpit({
                   title="Alternar microgravedad Asistida / Libre 6-DOF [M] · Freno RCS [X] · Pasamanos [H]"
                 >
                   <span>
-                    {astronautSectorState.deckId === 'deck-01'
-                      ? 'C01'
-                      : astronautSectorState.deckId === 'deck-02'
-                        ? 'C02'
-                        : astronautSectorState.deckId === 'deck-03'
-                          ? 'C03'
-                          : 'C04'}{' '}
-                    · μG {astronautSectorState.microgravityMode === 'FREE' ? 'Libre' : 'Asist.'} [M]
+                    μG {astronautSectorState.microgravityMode === 'FREE' ? 'Libre' : 'Asist.'} [M]
                   </span>
                 </button>
               </div>
@@ -496,7 +507,6 @@ export default function SpaceshipCockpit({
           <div className="kronoxProximityKey">[E]</div>
           <div className="kronoxProximityInfo">
             <strong>{nearestStation.title || nearestStation.label}</strong>
-            <span>{nearestStation.zoneLabel || 'Interactuar con consola física'}</span>
           </div>
           <button
             type="button"
@@ -506,7 +516,7 @@ export default function SpaceshipCockpit({
               if (nearestStation.id === 'comms') onOpenAiConsole?.();
             }}
           >
-            Interactuar
+            Operar
           </button>
         </div>
       )}

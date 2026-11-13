@@ -54,34 +54,43 @@ export function createKronoxCompanionEntity3D({
   const entityGroup = new THREE.Group();
   group.add(entityGroup);
 
-  const coreMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe });
-  const coreSphere = new THREE.Mesh(new THREE.SphereGeometry(0.088, 22, 18), coreMat);
+  // Compact precision holographic AI core (~35 cm total span, non-blinding translucent cyan-sapphire)
+  const coreMat = new THREE.MeshStandardMaterial({
+    color: 0xbae6fd,
+    emissive: 0x0284c7,
+    emissiveIntensity: 0.72,
+    metalness: 0.18,
+    roughness: 0.2,
+    transparent: true,
+    opacity: 0.88,
+  });
+  const coreSphere = new THREE.Mesh(new THREE.SphereGeometry(0.054, 22, 18), coreMat);
   entityGroup.add(coreSphere);
 
   const shellMat = new THREE.MeshStandardMaterial({
     color: 0x7dd3fc,
-    emissive: 0x0284c7,
-    emissiveIntensity: 0.7,
-    metalness: 0.85,
+    emissive: 0x0369a1,
+    emissiveIntensity: 0.45,
+    metalness: 0.88,
     roughness: 0.18,
     wireframe: true,
     transparent: true,
-    opacity: 0.42,
+    opacity: 0.34,
   });
-  const photonicShell = new THREE.Mesh(new THREE.IcosahedronGeometry(0.132, 1), shellMat);
+  const photonicShell = new THREE.Mesh(new THREE.IcosahedronGeometry(0.088, 1), shellMat);
   entityGroup.add(photonicShell);
 
   const ringMat = new THREE.MeshStandardMaterial({
     color: 0x38bdf8,
-    emissive: 0x38bdf8,
-    emissiveIntensity: 0.95,
-    metalness: 0.9,
-    roughness: 0.12,
+    emissive: 0x0284c7,
+    emissiveIntensity: 0.58,
+    metalness: 0.92,
+    roughness: 0.14,
   });
-  const ringA = new THREE.Mesh(new THREE.TorusGeometry(0.185, 0.0085, 10, 40), ringMat);
-  const ringB = new THREE.Mesh(new THREE.TorusGeometry(0.225, 0.0065, 10, 44), ringMat);
+  const ringA = new THREE.Mesh(new THREE.TorusGeometry(0.125, 0.0046, 10, 36), ringMat);
+  const ringB = new THREE.Mesh(new THREE.TorusGeometry(0.152, 0.0038, 10, 40), ringMat);
   ringB.rotation.x = Math.PI / 2.6;
-  const ringC = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.005, 8, 48), ringMat);
+  const ringC = new THREE.Mesh(new THREE.TorusGeometry(0.175, 0.0032, 8, 44), ringMat);
   ringC.rotation.y = Math.PI / 3;
   entityGroup.add(ringA, ringB, ringC);
 
@@ -91,15 +100,15 @@ export function createKronoxCompanionEntity3D({
       map: glowTex,
       color: 0x7dd3fc,
       transparent: true,
-      opacity: 0.58,
+      opacity: 0.34,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     }),
   );
-  corona.scale.set(0.85, 0.85, 1);
+  corona.scale.set(0.42, 0.42, 1);
   entityGroup.add(corona);
 
-  const companionLight = new THREE.PointLight(0x38bdf8, 0.8, 5.5, 1.7);
+  const companionLight = new THREE.PointLight(0x38bdf8, 0.48, 3.6, 1.8);
   entityGroup.add(companionLight);
 
   // Subtle spatial wake trail (parented to scene origin via update)
@@ -117,7 +126,7 @@ export function createKronoxCompanionEntity3D({
     new THREE.LineBasicMaterial({
       color: 0x38bdf8,
       transparent: true,
-      opacity: 0.28,
+      opacity: 0.14,
       blending: THREE.AdditiveBlending,
     }),
   );
@@ -130,14 +139,26 @@ export function createKronoxCompanionEntity3D({
   const pointingBeam = new THREE.Line(
     beamGeo,
     new THREE.LineBasicMaterial({
-      color: 0xfef08a,
+      color: 0x38bdf8,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.24,
       blending: THREE.AdditiveBlending,
     }),
   );
   pointingBeam.visible = false;
   pointingBeam.frustumCulled = false;
+
+  function resetWake(pos) {
+    const px = Number(pos?.x ?? group.position.x);
+    const py = Number(pos?.y ?? group.position.y);
+    const pz = Number(pos?.z ?? group.position.z);
+    for (let i = 0; i < wakeMaxPts; i++) {
+      wakePositions[i * 3] = px;
+      wakePositions[i * 3 + 1] = py;
+      wakePositions[i * 3 + 2] = pz;
+    }
+    wakeGeo.attributes.position.needsUpdate = true;
+  }
 
   let currentState = 'Acompañamiento';
   const targetPos = initialPosition.clone();
@@ -181,18 +202,26 @@ export function createKronoxCompanionEntity3D({
     shellMat.emissive.setHex(pal.ring);
     companionLight.color.setHex(pal.ring);
 
-    // Smooth flight displacement toward target
+    // Smooth flight displacement toward target; clamp cross-deck teleports cleanly without wake streaks
+    const prevX = group.position.x;
+    const prevY = group.position.y;
+    const prevZ = group.position.z;
     const spring = Math.min(1, safeDt * 4.4);
     group.position.lerp(targetPos, spring);
     clampAstronautPosition(group.position, 0.35, 0.25);
+    const frameStepDist = Math.hypot(group.position.x - prevX, group.position.y - prevY, group.position.z - prevZ);
+    if (frameStepDist > 1.8) {
+      resetWake(group.position);
+    }
 
     const bob = Math.sin(clock * 2.2) * 0.045;
     entityGroup.position.y = bob;
 
-    const pulseScale = 1 + (speaking ? Math.min(0.28, audioLevel * 0.4) + Math.sin(clock * 14) * 0.06 : Math.sin(clock * 3) * 0.03);
+    const pulseScale = 1 + (speaking ? Math.min(0.2, audioLevel * 0.3) + Math.sin(clock * 14) * 0.04 : Math.sin(clock * 3) * 0.025);
     coreSphere.scale.setScalar(pulseScale);
-    corona.scale.setScalar(0.82 * pulseScale + (speaking ? 0.18 : 0));
-    companionLight.intensity = pal.lightIntensity + (speaking ? 0.45 : 0);
+    corona.scale.setScalar(0.42 * pulseScale + (speaking ? 0.08 : 0));
+    companionLight.intensity = 0.45 + (speaking ? 0.25 : 0);
+    coreMat.emissive.setHex(pal.ring);
 
     const spin = safeDt * pal.speed;
     ringA.rotation.x += spin * 1.1;
@@ -234,6 +263,7 @@ export function createKronoxCompanionEntity3D({
     setState,
     setTargetPosition,
     pointAtWorldPosition,
+    resetWake,
     getPosition: () => group.position.clone(),
     getPointedTarget: () => (isPointing ? pointedTarget.clone() : null),
     update,

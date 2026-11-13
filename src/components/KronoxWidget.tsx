@@ -113,6 +113,8 @@ export default function KronoxWidget({
   // This label reports behavior only; voice and narrative playback have separate indicators.
   const resolvedState: string = stateMap[rawState] || (KRONOX_LUMINOUS_STATES.includes(rawState) ? rawState : 'Acompañamiento');
 
+  const activeMessageKeyRef = React.useRef('');
+
   useEffect(() => {
     setTyped('');
     setTextPaused(false);
@@ -131,30 +133,48 @@ export default function KronoxWidget({
   useEffect(() => {
     if (textPaused || speechPaused) return undefined;
     const text = intervention;
-    if (typed.length >= text.length) return undefined;
+    const msgKey = `${narrative?.id || ''}#${partIndex}#${text}`;
+    const switchedMessage = activeMessageKeyRef.current !== msgKey;
+    activeMessageKeyRef.current = msgKey;
+    if (!text) {
+      setTyped('');
+      return undefined;
+    }
+    let idx = switchedMessage ? 0 : typed.length;
+    if (switchedMessage) setTyped('');
+    if (idx >= text.length) return undefined;
+    const nowFn = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+    let lastTs = nowFn();
     const timer = setInterval(() => {
-      setTyped((prev) => {
-        const nextIdx = Math.min(text.length, prev.length + 3);
-        return text.slice(0, nextIdx);
-      });
-    }, 14);
+      const now = nowFn();
+      const dtMs = Math.max(16, now - lastTs);
+      lastTs = now;
+      // Time-based progression (~220 chars/sec) prevents WebGL frame-budget starvation
+      const step = Math.max(3, Math.round(dtMs * 0.22));
+      idx = Math.min(text.length, idx + step);
+      setTyped(text.slice(0, idx));
+      if (idx >= text.length) {
+        clearInterval(timer);
+      }
+    }, 22);
     return () => clearInterval(timer);
-  }, [intervention, textPaused, speechPaused, typed.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [narrative?.id, partIndex, intervention, textPaused, speechPaused]);
 
   useEffect(() => {
     if (!narrative || !intervention || typed.length < intervention.length || textPaused || speechPaused) return undefined;
     if (partIndex < interventions.length - 1) {
       const wordCount = Math.max(1, intervention.trim().split(/\s+/).length);
-      const holdMs = Math.max(1800, Math.min(5500, wordCount * 240));
-      const timer = window.setTimeout(() => {
+      const holdMs = Math.max(2200, Math.min(5800, wordCount * 260));
+      const timer = setTimeout(() => {
         setPartIndex((index) => index + 1);
         setTyped('');
       }, holdMs);
-      return () => window.clearTimeout(timer);
+      return () => clearTimeout(timer);
     }
     if (!speaking) {
-      const timer = window.setTimeout(() => onMessageComplete?.(narrative.id), 1500);
-      return () => window.clearTimeout(timer);
+      const timer = setTimeout(() => onMessageComplete?.(narrative.id), 3500);
+      return () => clearTimeout(timer);
     }
     return undefined;
   }, [narrative, intervention, interventions.length, partIndex, typed.length, textPaused, speechPaused, speaking, onMessageComplete]);
