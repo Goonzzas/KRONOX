@@ -39,7 +39,10 @@ export function AudioSettingsGroup({
   onToggleVoiceMute,
   onTestVoice,
 }) {
-  const activeVoiceName = gameSettings.voiceName || 'Charon';
+  const canonicalVoice = GEMINI_TTS_VOICES[0] || {
+    id: 'Charon',
+    label: 'Charon · Voz Oficial KRONOX IA',
+  };
   return (
     <div className="kronox-settings-group">
       <VolumeSliderRow
@@ -53,7 +56,7 @@ export function AudioSettingsGroup({
         id="kronox-vol-music"
         label="Volumen de música"
         description="Ajusta la banda sonora cinematográfica de la secuencia de inicio."
-        value={gameSettings.musicVolume ?? 0.7}
+        value={gameSettings.musicVolume ?? 0.38}
         onChange={(v) => onUpdateSetting('musicVolume', v)}
       />
       <VolumeSliderRow
@@ -85,27 +88,21 @@ export function AudioSettingsGroup({
       </div>
       <div className="kronox-setting-row">
         <div>
-          <strong>Timbre neuronal de KRONOX IA (Google Gemini)</strong>
-          <p>Locución de estudio en alta definición con rotación automática de claves en servidor.</p>
+          <strong>Voz neuronal oficial de KRONOX IA (Google Gemini HD)</strong>
+          <p>
+            Voz única e invariable de estudio ({canonicalVoice.id}) con rotación automática de claves
+            en servidor para evitar cambios de timbre.
+          </p>
         </div>
         <div className="kronox-voice-picker-control">
-          <select
-            aria-label="Timbre de voz de KRONOX IA"
-            className="kronox-setting-select"
-            value={activeVoiceName}
-            onChange={(e) => onUpdateSetting('voiceName', e.target.value)}
-          >
-            {GEMINI_TTS_VOICES.map((voiceOpt) => (
-              <option key={voiceOpt.id} value={voiceOpt.id}>
-                {voiceOpt.label}
-              </option>
-            ))}
-          </select>
+          <span className="kronox-setting-pill" aria-label="Voz oficial única de KRONOX IA">
+            {canonicalVoice.label}
+          </span>
           {onTestVoice && (
             <button
               type="button"
               className="kronox-pause-secondary-btn"
-              onClick={() => onTestVoice(activeVoiceName)}
+              onClick={() => onTestVoice(canonicalVoice.id)}
             >
               Probar voz
             </button>

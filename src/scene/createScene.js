@@ -3198,6 +3198,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     astronaut3D.root.visible = false;
     astronaut3D.firstPersonHands.visible = false;
     articulatedAstronaut.root.visible = false;
+    luminousAI.pointAtWorldPosition(null, false);
     ship.visible = false;
     localCabinWorld.visible = true;
     astronautPos.copy(station.position);
@@ -3220,6 +3221,21 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let introCompletedNaturally = false;
   const _introTmpVec = new V();
   const _introTmpLook = new V();
+  const _introTmpUp = new V(0, 1, 0);
+  const _introTmpMat = new THREE.Matrix4();
+  const _introOrigin = new V(0, 0, 0);
+
+  function setShipOrientationFromForward(targetQuat, fwdDir, bankRad = 0) {
+    const dir = fwdDir.clone();
+    if (dir.lengthSq() < 1e-8) dir.set(0, 0, -1);
+    else dir.normalize();
+    _introTmpMat.lookAt(_introOrigin, dir, _introTmpUp);
+    targetQuat.setFromRotationMatrix(_introTmpMat);
+    const eul = new THREE.Euler().setFromQuaternion(targetQuat, 'YXZ');
+    fy = eul.y;
+    fp = eul.x;
+    bk = bankRad;
+  }
 
   function buildIntroCurve(pts) {
     return new THREE.CatmullRomCurve3(
@@ -3232,68 +3248,70 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
   const INTRO_CURVES = {
     extPos: buildIntroCurve([
-      [96, 24, -76],
-      [82, 14, 12],
-      [38, 10, -62],
-      [6.5, 5.2, -26],
+      [98, 26, -74],
+      [88, 12, 16],
+      [44, 24, 68],
+      [-38, 18, 54],
+      [6.2, 5.3, -24.5],
     ]),
     extLook: buildIntroCurve([
-      [0, 1.0, 2],
-      [0, 0.5, 0],
-      [0, 1.5, -14],
-      [0, 4.8, -14.5],
+      [0, 1.5, -8],
+      [0, 0.5, 4],
+      [0, 1.0, 10],
+      [0, 1.5, -6],
+      [0, 4.85, -14.2],
     ]),
     bridgePos: buildIntroCurve([
-      [5.4, 5.3, -8.5],
-      [3.6, 5.5, -4.2],
-      [-4.6, 5.4, 2.5],
-      [-3.4, 5.3, -7.2],
+      [4.8, 5.15, -5.8],
+      [3.6, 5.1, -12.4],
+      [-3.4, 5.15, -12.6],
+      [-4.6, 5.15, -5.6],
     ]),
     bridgeLook: buildIntroCurve([
-      [0.0, 4.9, -11.8],
-      [0.0, 4.8, -6.0],
-      [0.0, 5.0, 5.8],
-      [0.0, 4.9, -14.2],
+      [0.2, 4.45, -10.2],
+      [0.2, 4.45, -9.8],
+      [0.2, 4.45, -9.8],
+      [0.2, 4.5, -10.2],
     ]),
     spherexPos: buildIntroCurve([
-      [-11.2, -1.6, -3.5],
-      [-11.6, -1.5, 2.5],
-      [-2.8, -1.5, -3.6],
-      [4.2, -1.5, -3.4],
-      [11.6, -1.5, 0.0],
+      [-9.6, -1.65, -4.6],
+      [-9.2, -1.6, 3.8],
+      [-2.8, -1.55, 8.8],
+      [8.6, -1.6, 4.2],
+      [9.4, -1.65, -3.2],
     ]),
     spherexLook: buildIntroCurve([
-      [-15.2, -2.2, -0.5],
-      [-15.2, -2.1, 0.5],
-      [0.0, -2.0, -9.0],
-      [14.8, -2.1, 0.0],
-      [15.2, -2.1, 0.0],
+      [-13.4, -2.15, 0.0],
+      [-13.4, -2.15, 0.0],
+      [0.0, -2.0, 6.0],
+      [13.6, -1.95, 0.0],
+      [14.0, -1.95, 0.0],
     ]),
     habitatPos: buildIntroCurve([
-      [5.8, 1.85, -4.5],
-      [6.8, 1.85, 2.5],
-      [-4.2, 1.85, 5.5],
-      [-6.0, 1.85, -3.5],
+      [5.4, 1.85, -5.2],
+      [3.0, 1.9, -6.4],
+      [-2.8, 1.88, -6.2],
+      [-5.2, 1.85, -4.4],
     ]),
     habitatLook: buildIntroCurve([
-      [0.0, 1.0, 0.0],
-      [6.5, 1.2, 4.5],
-      [-5.5, 1.2, 5.0],
-      [-8.0, 1.1, -3.0],
+      [3.2, 0.95, -2.4],
+      [1.2, 1.0, -3.4],
+      [-0.8, 1.0, -3.8],
+      [-2.4, 0.95, -3.4],
     ]),
     engPos: buildIntroCurve([
-      [4.6, -1.45, 2.8],
-      [4.2, -1.25, 6.2],
-      [-4.2, -1.25, 6.2],
-      [-4.6, -1.35, 2.0],
-      [0.0, -1.55, 3.2],
+      [4.6, -1.35, 2.2],
+      [3.8, -1.25, 6.4],
+      [-3.8, -1.25, 6.4],
+      [-4.6, -1.35, 2.2],
+      [0.0, -1.55, 2.6],
     ]),
     engLook: buildIntroCurve([
-      [0.0, -1.8, 9.0],
-      [0.0, -1.8, 9.0],
-      [0.0, -1.8, 9.0],
-      [0.0, -1.8, 9.0],
-      [0.0, -1.8, 9.0],
+      [0.0, -1.9, 6.8],
+      [0.0, -1.8, 7.6],
+      [0.0, -1.85, 7.8],
+      [0.0, -1.9, 6.8],
+      [0.0, -1.85, 7.2],
     ]),
   };
   // Guided In-World Tour State (Section 6)
@@ -3426,7 +3444,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     };
     S.onIntroStageChange?.(
       'opening',
-      'Durante siglos, contemplamos el universo desde un pequeño mundo, buscando respuestas entre las estrellas.',
+      'Durante siglos, contemplamos el universo desde un pequeño mundo azul, buscando respuestas sobre nuestro origen entre millones de estrellas.',
     );
   }
 
@@ -3467,6 +3485,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     astronaut3D.root.visible = false;
     astronaut3D.firstPersonHands.visible = false;
     articulatedAstronaut.root.visible = false;
+    luminousAI.pointAtWorldPosition(null, false);
     ship.visible = false;
     localCabinWorld.visible = true;
     const cabinBaseFov = Math.min(fovBase, 42);
@@ -4345,20 +4364,26 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
       if (mainMenuOrbitActive && !realTimeIntro && !nav) {
         // =========================================================================
-        // PORTADA DE MENÚ PRINCIPAL: Órbita heroica alrededor de la nave KRONOX 120 m
+        // PORTADA DE MENÚ PRINCIPAL: Órbita viva y dinámica alrededor de KRONOX 120 m
         // =========================================================================
         ship.visible = true;
         localCabinWorld.visible = false;
-        mainMenuOrbitAngle += dt * 0.045;
-        const heroOsc = 0.68 + 0.34 * Math.sin(mainMenuOrbitAngle);
-        const radiusM = 136 + 8 * Math.cos(mainMenuOrbitAngle * 0.6);
+        if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
+        mainMenuOrbitAngle += dt * 0.14;
+        const heroAzimuth = 0.72 + 0.56 * Math.sin(mainMenuOrbitAngle);
+        const radiusM = 122 + 16 * Math.cos(mainMenuOrbitAngle * 0.75);
+        const elevM = 14.5 + 11.5 * Math.sin(mainMenuOrbitAngle * 0.62);
         const localHeroPos = new V(
-          Math.sin(heroOsc) * radiusM,
-          20.5 + 5.5 * Math.sin(mainMenuOrbitAngle * 0.8),
-          -Math.cos(heroOsc) * radiusM,
+          Math.sin(heroAzimuth) * radiusM,
+          elevM,
+          -Math.cos(heroAzimuth) * radiusM,
         ).applyQuaternion(q);
-        // Desplazar ligeramente el punto de mira a babor-popa para situar la nave Aurora-120 en el lado derecho
-        const localHeroLook = new V(-14, 1.2, 2).applyQuaternion(q);
+        // Encuadre dinámico mostrando anillos dorados, propulsores encendidos y ventanal iluminado
+        const localHeroLook = new V(
+          -12 + 4.5 * Math.cos(mainMenuOrbitAngle * 0.5),
+          1.0 + 1.8 * Math.sin(mainMenuOrbitAngle * 0.4),
+          2.0 - 5.0 * Math.sin(mainMenuOrbitAngle * 0.6),
+        ).applyQuaternion(q);
         localCam.near = 0.25;
         localCam.far = 6000;
         localCam.fov = Math.min(fovBase, 46);
@@ -4382,6 +4407,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         realTimeIntro.stageElapsed = (realTimeIntro.stageElapsed || 0) + introDt;
         ship.visible = false;
         localCabinWorld.visible = false;
+        if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
 
         const earthPos = earth?.pivot ? earth.pivot.position.clone() : new V(Dd(1), 0, 0);
         const er = earth?.r || 0.35;
@@ -4395,9 +4421,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
         const startPos = earthPos
           .clone()
-          .addScaledVector(radial, -er * 5.2)
-          .addScaledVector(tangent, er * 4.4)
-          .add(new V(0, er * 1.8, 0));
+          .addScaledVector(radial, -er * 5.6)
+          .addScaledVector(tangent, er * 4.8)
+          .add(new V(0, er * 2.1, 0));
         const endPos = earthPos
           .clone()
           .addScaledVector(radial, -er * 2.15)
@@ -4429,7 +4455,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         }
       } else if (realTimeIntro && realTimeIntro.phase !== 'launch') {
         // =========================================================================
-        // SECUENCIA UNIFICADA EN 2 ACTOS (LORE CÓSMICO + NAVE KRONOX 120 m)
+        // SECUENCIA UNIFICADA EN 2 ACTOS (LORE CÓSMICO + TRAVESÍA PLANETARIA + 4 CUBIERTAS)
         // =========================================================================
         const introDt = (realTimeIntroPaused || simulationPaused)
           ? 0
@@ -4451,7 +4477,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           : u < 0.90 ? 8
           : 9;
         if (nextStage !== realTimeIntro.stageNotified) {
-          if (nextStage <= 3) {
+          // Suavizar la transición opening -> escena2_spherex alrededor de la Tierra; cortes limpios entre capítulos planetarios
+          if (nextStage === 1) {
             realTimeIntro.cameraHandoff = {
               fromPosition: cam.position.clone(),
               fromQuaternion: cam.quaternion.clone(),
@@ -4470,7 +4497,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             realTimeIntro.stageElapsed = 0;
             S.onIntroStageChange?.(
               'escena2_spherex',
-              'Observatorios como NASA SPHEREx abrieron una nueva ventana infrarroja, permitiéndonos ver aquello que nuestros ojos no pueden alcanzar.',
+              'Misiones reales como el telescopio espacial NASA SPHEREx abrieron una nueva ventana infrarroja al cosmos, revelando luces ocultas al ojo humano.',
             );
           }
           if (u >= 0.114 && S.shouldHoldIntroStage?.('escena2_spherex', realTimeIntro.stageElapsed)) {
@@ -4479,6 +4506,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           }
           ship.visible = false;
           localCabinWorld.visible = false;
+          if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
           cam.near = 0.0005;
           cam.fov = fovBase;
           cam.updateProjectionMatrix();
@@ -4493,16 +4521,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               earthRadius: 1,
               orbitRadius: 1.95,
               scanning: true,
-              cinematicAngleOverride: 0.72 + ease2 * 0.22 + realTimeIntro.stageElapsed * 0.015,
+              cinematicAngleOverride: 0.72 + ease2 * 0.28 + realTimeIntro.stageElapsed * 0.025,
             });
             earth.pivot.updateMatrixWorld(true);
             const spherexPos = earth.spherex.root.getWorldPosition(new V());
             const spherexQuat = earth.spherex.root.getWorldQuaternion(new THREE.Quaternion());
-            const orbitSweep = -0.75 + ease2 * 1.65 + realTimeIntro.stageElapsed * 0.06;
-            const camDist = er * THREE.MathUtils.lerp(0.46, 0.24, ease2);
+            const orbitSweep = -0.85 + ease2 * 1.95 + realTimeIntro.stageElapsed * 0.08;
+            const camDist = er * THREE.MathUtils.lerp(0.46, 0.23, ease2);
             const localOff = new V(
               Math.cos(orbitSweep) * camDist,
-              er * THREE.MathUtils.lerp(0.14, 0.06, ease2),
+              er * THREE.MathUtils.lerp(0.15, 0.05, ease2),
               Math.sin(orbitSweep) * camDist,
             ).applyQuaternion(spherexQuat);
             cam.position.copy(spherexPos).add(localOff);
@@ -4515,13 +4543,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             cam.lookAt(earthPos);
           }
         } else if (u < 0.23) {
-          // ACTO I · ESCENA 3 — UNIVERSO INFRARROJO E HIPÓTESIS ABIERTAS (`escena3_conocimiento`)
+          // ACTO I · ESCENA 3 — TRAVESÍA POR JÚPITER, LUNAS Y UNIVERSO INFRARROJO (`escena3_conocimiento`)
           if (realTimeIntro.stageNotified < 2) {
             realTimeIntro.stageNotified = 2;
             realTimeIntro.stageElapsed = 0;
+            if (earth?.spherex) {
+              earth.spherex.spectralScanGroup.visible = false;
+              earth.spherex.root.scale.setScalar(0.052);
+            }
             S.onIntroStageChange?.(
               'escena3_conocimiento',
-              'En cada longitud de onda infrarroja, el cosmos revela hielos interestelares, viveros estelares y anomalías gravitacionales aún abiertas en los confines del sistema solar.',
+              'En cada longitud de onda infrarroja detectamos hielos primordiales, viveros de estrellas y enigmas gravitacionales más allá de los gigantes gaseosos.',
             );
           }
           if (u >= 0.224 && S.shouldHoldIntroStage?.('escena3_conocimiento', realTimeIntro.stageElapsed)) {
@@ -4530,49 +4562,61 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           }
           const t3 = Math.min(1, (u - 0.12) / 0.11);
           const ease3 = t3 * t3 * (3 - 2 * t3);
-          ship.visible = false;
-          localCabinWorld.visible = false;
-          cam.near = 0.0005;
-          cam.fov = fovBase;
-          cam.updateProjectionMatrix();
+          const jupBody = B.find((b) => b.p?.n === 'Júpiter') || earth;
+          jupBody?.pivot?.updateMatrixWorld?.(true);
+          const jPos = jupBody?.pivot ? jupBody.pivot.getWorldPosition(new V()) : earthPos.clone();
+          const jr = Math.max(0.35, jupBody?.r || 1.15);
+          const sunDir = jPos.lengthSq() > 1e-6 ? jPos.clone().negate().normalize() : new V(0.7, 0.2, 0.7).normalize();
+          const upRef = new V(0, 1, 0);
+          const sideDir = new V().crossVectors(upRef, sunDir).normalize();
 
-          const radial3 = new V(earthPos.x, 0, earthPos.z);
-          if (radial3.lengthSq() < 1e-6) radial3.set(1, 0, 0);
-          else radial3.normalize();
-          const tangent3 = new V(-radial3.z, 0, radial3.x).normalize();
-
-          let fromPos = earthPos.clone().add(new V(er * 1.5, er * 1.2, er * 1.5));
-          let fromLook = earthPos.clone();
-          if (earth?.spherex) {
-            earth.spherex.root.scale.setScalar(THREE.MathUtils.lerp(0.068, 0.056, ease3));
-            earth.spherex.update({
-              simDays: sim,
-              elapsedTime: clk.elapsedTime,
-              earthRadius: 1,
-              orbitRadius: 1.95,
-              scanning: true,
-              cinematicAngleOverride: 0.94 + ease3 * 0.24,
-            });
-            earth.pivot.updateMatrixWorld(true);
-            const spherexPos = earth.spherex.root.getWorldPosition(new V());
-            const spherexQuat = earth.spherex.root.getWorldQuaternion(new THREE.Quaternion());
-            fromPos = spherexPos
+          const flyAng = THREE.MathUtils.lerp(-0.82, 0.48, ease3);
+          const flyDist = jr * THREE.MathUtils.lerp(2.45, 2.05, ease3);
+          const flyElev = jr * THREE.MathUtils.lerp(0.32, -0.14, ease3);
+          const shipWorldPos = (ang) =>
+            jPos
               .clone()
-              .add(new V(Math.cos(0.9) * er * 0.28, er * 0.10, Math.sin(0.9) * er * 0.28).applyQuaternion(spherexQuat));
-            fromLook = spherexPos.clone().lerp(earthPos, 0.35);
-          }
-          const deepCosmosPos = earthPos
+              .addScaledVector(sunDir, Math.cos(ang) * flyDist)
+              .addScaledVector(sideDir, Math.sin(ang) * flyDist)
+              .addScaledVector(upRef, flyElev);
+
+          sp.copy(shipWorldPos(flyAng));
+          const fwdVec = shipWorldPos(flyAng + 0.05).sub(sp).normalize();
+          setShipOrientationFromForward(q, fwdVec, 0.18 * Math.sin(ease3 * Math.PI));
+
+          ship.visible = true;
+          localCabinWorld.visible = false;
+          if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
+
+          const toJupiter = jPos.clone().sub(sp).normalize();
+          const latDir = new V().crossVectors(toJupiter, upRef).normalize();
+          const heroRange = THREE.MathUtils.lerp(138, 108, ease3);
+          // Cámara en costado derecho respecto a Júpiter (~25° de separación) -> Nave limpia a la izquierda, Júpiter grande a la derecha
+          const camLocal = toJupiter
             .clone()
-            .addScaledVector(radial3, -er * 3.4)
-            .addScaledVector(tangent3, er * 3.2)
-            .add(new V(0, er * 1.35, 0));
-          const deepCosmosLook = earth?.spherex
-            ? earth.spherex.root.getWorldPosition(new V()).lerp(earthPos, 0.45)
-            : earthPos.clone();
-          cam.position.lerpVectors(fromPos, deepCosmosPos, ease3);
-          cam.lookAt(fromLook.clone().lerp(deepCosmosLook, ease3));
+            .multiplyScalar(-heroRange * 0.88)
+            .addScaledVector(latDir, heroRange * 0.42)
+            .addScaledVector(upRef, THREE.MathUtils.lerp(18, 6, ease3));
+          const lookLocal = toJupiter
+            .clone()
+            .multiplyScalar(32)
+            .addScaledVector(latDir, heroRange * 0.14)
+            .addScaledVector(upRef, 4);
+
+          localCam.near = 0.25;
+          localCam.far = 6000;
+          localCam.fov = Math.min(fovBase, 48);
+          localCam.updateProjectionMatrix();
+          localCam.position.copy(camLocal);
+          localCam.lookAt(lookLocal);
+
+          cam.near = 0.0005;
+          cam.fov = localCam.fov;
+          cam.updateProjectionMatrix();
+          cam.position.copy(sp).addScaledVector(localCam.position, metersToAstroSceneUnits());
+          cam.quaternion.copy(localCam.quaternion);
         } else if (u < 0.35) {
-          // ACTO I · ESCENA 4 — LA VÍA LÁCTEA Y PROYECTO HORIZONTE (`escena4_galaxia`)
+          // ACTO I · ESCENA 4 — ANILLOS DE SATURNO, VÍA LÁCTEA Y PROYECTO HORIZONTE (`escena4_galaxia`)
           if (realTimeIntro.stageNotified < 3) {
             realTimeIntro.stageNotified = 3;
             realTimeIntro.stageElapsed = 0;
@@ -4582,7 +4626,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
             S.onIntroStageChange?.(
               'escena4_galaxia',
-              'Estrellas, mundos y galaxias guardan una historia inconclusa. Para investigar estos misterios en el espacio profundo, la humanidad impulsó el Proyecto Horizonte.',
+              'Para descifrar esa historia escrita entre anillos planetarios y brazos galácticos, la humanidad puso en marcha el Proyecto Horizonte.',
             );
           }
           if (u >= 0.344 && S.shouldHoldIntroStage?.('escena4_galaxia', realTimeIntro.stageElapsed)) {
@@ -4590,44 +4634,64 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             u = 0.344;
           }
           const tGal = Math.min(1, (u - 0.23) / 0.12);
-          ship.visible = tGal > 0.78;
+          const easeGal = tGal * tGal * (3 - 2 * tGal);
+          const satBody = B.find((b) => b.p?.n === 'Saturno') || B.find((b) => b.p?.n === 'Júpiter') || earth;
+          satBody?.pivot?.updateMatrixWorld?.(true);
+          const sPos = satBody?.pivot ? satBody.pivot.getWorldPosition(new V()) : earthPos.clone();
+          const sr = Math.max(0.35, satBody?.r || 0.95);
+          const sunDir = sPos.lengthSq() > 1e-6 ? sPos.clone().negate().normalize() : new V(0.65, 0.25, 0.7).normalize();
+          const upRef = new V(0, 1, 0);
+          const sideDir = new V().crossVectors(upRef, sunDir).normalize();
+
+          const satAng = THREE.MathUtils.lerp(-0.95, 0.45, easeGal);
+          const satDist = sr * THREE.MathUtils.lerp(3.15, 3.65, easeGal);
+          const satElev = sr * THREE.MathUtils.lerp(1.25, 1.85, easeGal);
+          const shipSatPos = (ang) =>
+            sPos
+              .clone()
+              .addScaledVector(sunDir, Math.cos(ang) * satDist)
+              .addScaledVector(sideDir, Math.sin(ang) * satDist)
+              .addScaledVector(upRef, satElev);
+
+          sp.copy(shipSatPos(satAng));
+          const fwdVec = shipSatPos(satAng + 0.05).sub(sp).normalize();
+          setShipOrientationFromForward(q, fwdVec, -0.18 * Math.sin(easeGal * Math.PI));
+
+          ship.visible = true;
           localCabinWorld.visible = false;
+          if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
+
+          const toSaturn = sPos.clone().sub(sp).normalize();
+          const latDir = new V().crossVectors(toSaturn, upRef).normalize();
+          const galCenterDir = new V().fromArray(SOLAR_GALACTIC_ANCHOR).applyQuaternion(gal.quaternion).negate().normalize();
+          const heroRange = THREE.MathUtils.lerp(136, 154, easeGal);
+          // Separar ~25° la nave de Saturno para lucir ambos anillos y la Vía Láctea sin obstrucciones
+          const camLocalRing = toSaturn
+            .clone()
+            .multiplyScalar(-heroRange * 0.88)
+            .addScaledVector(latDir, heroRange * 0.44)
+            .addScaledVector(upRef, THREE.MathUtils.lerp(22, -14, easeGal));
+          const lookRing = toSaturn
+            .clone()
+            .multiplyScalar(34)
+            .addScaledVector(latDir, heroRange * 0.14)
+            .addScaledVector(upRef, -2)
+            .lerp(galCenterDir.clone().multiplyScalar(48), Math.max(0, (tGal - 0.65) / 0.35) * 0.42);
+
+          localCam.near = 0.25;
+          localCam.far = 6000;
+          localCam.fov = Math.min(fovBase, 48);
+          localCam.updateProjectionMatrix();
+          localCam.position.copy(camLocalRing);
+          localCam.lookAt(lookRing);
+
           cam.near = 0.0005;
-          cam.fov = Math.min(fovBase, 48);
+          cam.fov = localCam.fov;
           cam.updateProjectionMatrix();
-
-          const galCenter = new V().fromArray(SOLAR_GALACTIC_ANCHOR).applyQuaternion(gal.quaternion).negate();
-          const galVantage1 = galCenter.clone().add(new V(-8000, 62000, 36000).applyQuaternion(gal.quaternion));
-          const galVantage2 = galCenter.clone().add(new V(12000, 44000, 26000).applyQuaternion(gal.quaternion));
-          const extStartMeters = INTRO_CURVES.extPos.getPoint(0, _introTmpVec).clone().applyQuaternion(q);
-          const extLookMeters = INTRO_CURVES.extLook.getPoint(0, _introTmpLook).clone().applyQuaternion(q);
-          const shipApproachStart = sp.clone().addScaledVector(extStartMeters, metersToAstroSceneUnits());
-          const shipLookStart = sp.clone().addScaledVector(extLookMeters, metersToAstroSceneUnits());
-
-          if (tGal < 0.7) {
-            const s = tGal / 0.7;
-            const easeGal = s * s * (3 - 2 * s);
-            cam.position.lerpVectors(galVantage1, galVantage2, easeGal);
-            cam.lookAt(galCenter.clone().lerp(sp, easeGal * 0.18));
-          } else {
-            const s = (tGal - 0.7) / 0.3;
-            const easeDive = s * s * (3 - 2 * s);
-            cam.position.lerpVectors(galVantage2, shipApproachStart, easeDive);
-            cam.lookAt(galCenter.clone().lerp(shipLookStart, easeDive));
-            if (ship.visible) {
-              const reveal = Math.min(1, (tGal - 0.78) / 0.22);
-              const easeReveal = reveal * reveal * (3 - 2 * reveal);
-              const localApproach = new V(220, 64, -175).applyQuaternion(q);
-              localCam.near = 0.25;
-              localCam.far = 6000;
-              localCam.fov = Math.min(fovBase, 48);
-              localCam.updateProjectionMatrix();
-              localCam.position.lerpVectors(localApproach, extStartMeters, easeReveal);
-              localCam.lookAt(extLookMeters);
-            }
-          }
+          cam.position.copy(sp).addScaledVector(localCam.position, metersToAstroSceneUnits());
+          cam.quaternion.copy(localCam.quaternion);
         } else if (u < 0.48) {
-          // ACTO II · ESCENA 5 — KRONOX EN ÓRBITA (EXTERIOR 120 m, `escena5_nave`)
+          // ACTO II · ESCENA 5 — KRONOX AURORA-120 EN ÓRBITA TERRESTRE (EXTERIOR 120 m, `escena5_nave`)
           if (realTimeIntro.stageNotified < 4) {
             realTimeIntro.stageNotified = 4;
             realTimeIntro.stageElapsed = 0;
@@ -4635,9 +4699,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               earth.spherex.spectralScanGroup.visible = false;
               earth.spherex.root.scale.setScalar(0.052);
             }
+            alignShipInEarthOrbit();
             S.onIntroStageChange?.(
               'escena5_nave',
-              'El Proyecto Horizonte construyó KRONOX: un crucero científico de ciento veinte metros concebido para investigar el cosmos desde la órbita y el espacio profundo.',
+              'El Proyecto Horizonte construyó KRONOX Aurora-120: un crucero científico modular de ciento veinte metros diseñado para explorar desde la órbita hasta el espacio profundo.',
             );
           }
           if (u >= 0.472 && S.shouldHoldIntroStage?.('escena5_nave', realTimeIntro.stageElapsed)) {
@@ -4646,6 +4711,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           }
           ship.visible = true;
           localCabinWorld.visible = false;
+          if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
           const t5 = Math.min(1, (u - 0.35) / 0.13);
           const ease5 = t5 * t5 * (3 - 2 * t5);
 
@@ -4664,7 +4730,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           cam.position.copy(sp).addScaledVector(localCam.position, metersToAstroSceneUnits());
           cam.quaternion.copy(localCam.quaternion);
         } else {
-          // ACTO II · ESCENAS 6..10 — INTERIOR DE LAS 4 CUBIERTAS Y ENCUENTRO CON KRONOX IA
+          // ACTO II · ESCENAS 6..10 — INTERIOR VIVO DE LAS 4 CUBIERTAS + TRIPULACIÓN + KRONOX IA
           ship.visible = false;
           localCabinWorld.visible = true;
           localCabinWorld.position.set(0, 0, 0);
@@ -4676,9 +4742,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             if (realTimeIntro.stageNotified < 5) {
               realTimeIntro.stageNotified = 5;
               realTimeIntro.stageElapsed = 0;
+              luminousAI.setTargetPosition(new V(1.45, 5.15, -10.2), 'Señalización');
+              luminousAI.pointAtWorldPosition(new V(0.0, 4.75, -10.1), true);
               S.onIntroStageChange?.(
                 'escena6_puente',
-                'Desde el puente de mando supervisamos la navegación orbital, el trazado de trayectorias y los instrumentos principales de la misión.',
+                'En el puente de mando coordinamos la astrometría J2000, el rumbo interestelar y los sistemas de observación de toda la expedición.',
               );
             }
             if (u >= 0.584 && S.shouldHoldIntroStage?.('escena6_puente', realTimeIntro.stageElapsed)) {
@@ -4687,16 +4755,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
             const t6 = Math.min(1, (u - 0.48) / 0.11);
             const ease6 = t6 * t6 * (3 - 2 * t6);
+            if (articulatedAstronaut) {
+              articulatedAstronaut.root.visible = true;
+              articulatedAstronaut.root.position.set(0.0, 3.4, -9.2);
+              articulatedAstronaut.root.rotation.y = 0;
+              articulatedAstronaut.updateAnimation(dt, ASTRONAUT_ANIMATION_STATES.CONSOLE_WORK);
+            }
             localCam.position.copy(INTRO_CURVES.bridgePos.getPoint(ease6, _introTmpVec).clone().applyQuaternion(q));
             localCam.lookAt(INTRO_CURVES.bridgeLook.getPoint(ease6, _introTmpLook).clone().applyQuaternion(q));
           } else if (u < 0.71) {
-            // ESCENA 7 — LABORATORIO SPHEREx (`escena7_spherex`, Cubierta 02)
+            // ESCENA 7 — LABORATORIO SPHEREx Y BANCO ÓPTICO (`escena7_spherex`, Cubierta 03)
             if (realTimeIntro.stageNotified < 6) {
               realTimeIntro.stageNotified = 6;
               realTimeIntro.stageElapsed = 0;
+              luminousAI.setTargetPosition(new V(11.8, -1.55, 1.25), 'Señalización');
+              luminousAI.pointAtWorldPosition(new V(14.5, -1.95, 0.0), true);
               S.onIntroStageChange?.(
                 'escena7_spherex',
-                'La cubierta científica integra instrumentación inspirada en el telescopio infrarrojo NASA SPHEREx para analizar espectros estelares, hielos cósmicos e hipótesis astronómicas aún abiertas con rigor observacional.',
+                'La cubierta científica combina espectroscopía inspirada en NASA SPHEREx y bancos ópticos de calibración para investigar cada archivo real sin conjeturas.',
               );
             }
             if (u >= 0.704 && S.shouldHoldIntroStage?.('escena7_spherex', realTimeIntro.stageElapsed)) {
@@ -4705,16 +4781,23 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
             const t7 = Math.min(1, (u - 0.59) / 0.12);
             const ease7 = t7 * t7 * (3 - 2 * t7);
+            if (articulatedAstronaut) {
+              articulatedAstronaut.root.visible = true;
+              articulatedAstronaut.root.position.set(-13.4, -3.4, 0.0);
+              articulatedAstronaut.root.rotation.y = Math.PI / 2;
+              articulatedAstronaut.updateAnimation(dt, ASTRONAUT_ANIMATION_STATES.CONSOLE_WORK);
+            }
             localCam.position.copy(INTRO_CURVES.spherexPos.getPoint(ease7, _introTmpVec).clone().applyQuaternion(q));
             localCam.lookAt(INTRO_CURVES.spherexLook.getPoint(ease7, _introTmpLook).clone().applyQuaternion(q));
           } else if (u < 0.81) {
-            // ESCENA 8 — MÓDULO DE HABITABILIDAD (`escena8_habitabilidad`, Cubierta 03)
+            // ESCENA 8 — MÓDULO DE HABITABILIDAD EN MICROGRAVEDAD (`escena8_habitabilidad`, Cubierta 02)
             if (realTimeIntro.stageNotified < 7) {
               realTimeIntro.stageNotified = 7;
               realTimeIntro.stageElapsed = 0;
+              luminousAI.pointAtWorldPosition(null, false);
               S.onIntroStageChange?.(
                 'escena8_habitabilidad',
-                'El módulo de habitabilidad sostiene misiones científicas prolongadas mediante soportes vitales, cultivo botánico en microgravedad y áreas de descanso presurizadas.',
+                'El módulo de habitabilidad mantiene a la tripulación en microgravedad durante largas travesías con soporte vital de ciclo cerrado y gravedad anular asistida.',
               );
             }
             if (u >= 0.804 && S.shouldHoldIntroStage?.('escena8_habitabilidad', realTimeIntro.stageElapsed)) {
@@ -4723,16 +4806,28 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
             const t8 = Math.min(1, (u - 0.71) / 0.10);
             const ease8 = t8 * t8 * (3 - 2 * t8);
+            const swimX = THREE.MathUtils.lerp(4.4, -2.6, ease8);
+            const swimZ = -2.2 - Math.sin(ease8 * Math.PI) * 3.1;
+            const swimY = 0.18 + Math.sin(ease8 * Math.PI) * 0.34;
+            if (articulatedAstronaut) {
+              articulatedAstronaut.root.visible = true;
+              articulatedAstronaut.root.position.set(swimX, swimY, swimZ);
+              articulatedAstronaut.root.rotation.y = Math.atan2(3.5, Math.cos(ease8 * Math.PI) * 2.2) + Math.PI * 0.25;
+              articulatedAstronaut.updateAnimation(dt, ASTRONAUT_ANIMATION_STATES.CORRIDOR_SWIM);
+            }
+            luminousAI.setTargetPosition(new V(swimX - 1.25, swimY + 1.45, swimZ - 1.15), 'Acompañamiento');
             localCam.position.copy(INTRO_CURVES.habitatPos.getPoint(ease8, _introTmpVec).clone().applyQuaternion(q));
             localCam.lookAt(INTRO_CURVES.habitatLook.getPoint(ease8, _introTmpLook).clone().applyQuaternion(q));
           } else if (u < 0.90) {
-            // ESCENA 9 — INGENIERÍA Y REACTOR TOKAMAK (`escena9_ingenieria`, Cubierta 04)
+            // ESCENA 9 — INGENIERÍA Y REACTOR TOKAMAK (`escena9_ingenieria`, Cubierta 03)
             if (realTimeIntro.stageNotified < 8) {
               realTimeIntro.stageNotified = 8;
               realTimeIntro.stageElapsed = 0;
+              luminousAI.setTargetPosition(new V(1.65, -1.5, 5.6), 'Análisis');
+              luminousAI.pointAtWorldPosition(new V(0.0, -1.8, 9.0), true);
               S.onIntroStageChange?.(
                 'escena9_ingenieria',
-                'En ingeniería, el reactor toroidal de fusión y la propulsión magnetoplasmadinámica garantizan la energía y autonomía necesarias para viajar más allá de nuestro sistema.',
+                'En ingeniería, el reactor toroidal de fusión y sus propulsores magnetoplasmadinámicos suministran la energía limpia que impulsa a KRONOX entre mundos.',
               );
             }
             if (u >= 0.894 && S.shouldHoldIntroStage?.('escena9_ingenieria', realTimeIntro.stageElapsed)) {
@@ -4741,6 +4836,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
             const t9 = Math.min(1, (u - 0.81) / 0.09);
             const ease9 = t9 * t9 * (3 - 2 * t9);
+            if (articulatedAstronaut) {
+              articulatedAstronaut.root.visible = true;
+              articulatedAstronaut.root.position.set(0.0, -3.4, 5.4);
+              articulatedAstronaut.root.rotation.y = Math.PI;
+              articulatedAstronaut.updateAnimation(dt, ASTRONAUT_ANIMATION_STATES.REPAIR_INTERACT);
+            }
             localCam.position.copy(INTRO_CURVES.engPos.getPoint(ease9, _introTmpVec).clone().applyQuaternion(q));
             localCam.lookAt(INTRO_CURVES.engLook.getPoint(ease9, _introTmpLook).clone().applyQuaternion(q));
           } else {
@@ -4748,10 +4849,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             if (realTimeIntro.stageNotified < 9) {
               realTimeIntro.stageNotified = 9;
               realTimeIntro.stageElapsed = 0;
+              luminousAI.pointAtWorldPosition(null, false);
               luminousAI.setTargetPosition(new V(1.55, 5.05, -10.8), 'Bienvenida');
               S.onIntroStageChange?.(
                 'escena10_inicio',
-                'Soy KRONOX IA. Todos los sistemas científicos y de navegación están en línea bajo tu mando; comienza tu expedición analizando tu primer objetivo.',
+                'Soy KRONOX IA, tu inteligencia de a bordo. El puente es tuyo, comandante: calibra tus instrumentos y comienza tu primera investigación espacial.',
               );
             }
             if (u >= 0.992 && S.shouldHoldIntroStage?.('escena10_inicio', realTimeIntro.stageElapsed)) {
@@ -5417,12 +5519,22 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         }
         if (pv === 1) { const head = new THREE.Euler().setFromQuaternion(q.clone().invert().multiply(cam.quaternion), 'YXZ'); astronautYaw = targetYaw = head.y; astronautPitch = targetPitch = head.x; }
       }
-      const tt =
-        (mainMenuOrbitActive || realTimeIntro)
-          ? 0.08
-          : ti < 5
-            ? 1.2 * (1 - Math.min(1, Math.max(0, (ti - 3.2) / 1.8))) + 0.3
-            : Math.min(1.6, vel.length() / fs) + 0.15;
+      const inDeepCruiseShowcase = Boolean(
+        realTimeIntro &&
+          realTimeIntro.phase !== 'opening' &&
+          realTimeIntro.stageNotified >= 2 &&
+          realTimeIntro.stageNotified <= 4 &&
+          ship.visible,
+      );
+      const tt = mainMenuOrbitActive
+        ? 0.36 + 0.08 * Math.sin(ti * 2.1)
+        : inDeepCruiseShowcase
+          ? 0.94 + 0.14 * Math.sin(ti * 4.8)
+          : realTimeIntro
+            ? 0.08
+            : ti < 5
+              ? 1.2 * (1 - Math.min(1, Math.max(0, (ti - 3.2) / 1.8))) + 0.3
+              : Math.min(1.6, vel.length() / fs) + 0.15;
       th += (tt - th) * Math.min(1, dt * 6);
       if (!realTimeIntro && !sceneDirector.getState().activeSequence) {
         ship.visible =
@@ -5434,14 +5546,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       ship.position.set(0, 0, 0);
       ship.scale.setScalar(SHIP_METRIC_SCALE);
       ship.quaternion.copy(q).multiply(new THREE.Quaternion().setFromAxisAngle(new V(0, 0, 1), bk));
-      const idleOrbitalShowcase = Boolean(mainMenuOrbitActive || realTimeIntro);
-      fl2.visible = !idleOrbitalShowcase;
+      const hideOversizedLegacyPlumes = Boolean(mainMenuOrbitActive || realTimeIntro);
+      fl2.visible = !hideOversizedLegacyPlumes;
       fl2.scale.setScalar(0.6 + 1.2 * th);
-      if (modularShip) modularShip.update(dt, th, lastWarpAmount);
+      if (modularShip) modularShip.update(dt, th, inDeepCruiseShowcase ? 0.45 : lastWarpAmount);
       FL.forEach((o, i) => {
-        o.c.visible = !idleOrbitalShowcase;
-        o.k.visible = !idleOrbitalShowcase;
-        o.g.visible = !idleOrbitalShowcase || th > 0.12;
+        o.c.visible = !hideOversizedLegacyPlumes;
+        o.k.visible = !hideOversizedLegacyPlumes;
+        o.g.visible = !hideOversizedLegacyPlumes;
         const L = (0.3 + 1.7 * th) * (1 + 0.1 * Math.sin(ti * 45 + i * 2));
         o.c.scale.set(1 + 0.3 * th, L, 1 + 0.3 * th);
         o.c.position.z = o.z + 0.5 * L;

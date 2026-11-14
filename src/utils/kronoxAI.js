@@ -234,16 +234,19 @@ export function processKronoxQuery(userQuery = '', context = {}) {
     q.includes('historia de la nave') ||
     q.includes('lore') ||
     q.includes('que es kronox') ||
+    q.includes('aurora-120') ||
+    q.includes('aurora 120') ||
+    q.includes('proyecto horizonte') ||
     q.includes('proposito de la expedicion')
   ) {
     return {
       reply:
-        'La nave KRONOX es un crucero de investigación astrofísica concebido como puente entre la cartografía espacial 3D y los archivos científicos reales de IRSA y NASA SPHEREx. Importante distinción científica: la nave y este puente holográfico forman parte de nuestra narrativa de exploración, mientras que cada imagen FITS, coordenada Gaia DR3/CatWISE y medición fotométrica provienen íntegramente de observaciones espaciales reales.',
+        'El Proyecto Horizonte diseñó KRONOX Aurora-120 como un crucero científico modular de 120 metros con cuatro cubiertas presurizadas, reactor toroidal de fusión y anillos giroscópicos para llevar observación infrarroja al espacio profundo. Importante distinción científica: la nave Aurora-120, el Proyecto Horizonte y nuestra historia forman parte del marco narrativo del juego, mientras que cada coordenada Gaia DR3, espectro y observación de NASA SPHEREx/IRSA que analizamos a bordo son datos astronómicos reales.',
       action: null,
       role: 'Compañera de expedición',
       avatarState: 'EXPLAINING',
       pointDirection: 'forward',
-      epistemicCategory: 'Distinción: Lore narrativo vs. Datos reales SPHEREx',
+      epistemicCategory: 'Distinción: Lore Proyecto Horizonte vs. Datos reales SPHEREx',
     };
   }
 
@@ -787,6 +790,7 @@ export async function askKronoxDynamic(userQuery = '', context = {}, options = {
 }
 
 export const KRONOX_QUICK_PROMPTS = [
+  { label: '¿Qué es el Proyecto Horizonte?', query: '¿Qué es el Proyecto Horizonte y la nave KRONOX?' },
   { label: '¿Qué es SPHEREx?', query: '¿Qué es SPHEREx?' },
   { label: '¿Qué es una banda infrarroja?', query: '¿Qué es una banda infrarroja?' },
   {label:'¿Qué representa este eje?',query:'¿Qué representa este eje?'},

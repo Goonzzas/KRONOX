@@ -216,11 +216,12 @@ export default function App() {
     [showFullMainMenu, setShowFullMainMenu] = useState(false),
     [gameSettings, setGameSettings] = useState(() => {
       const defaults = {
+        settingsVersion: 2,
         cameraSensitivity: 'normal',
         showSubtitles: true,
         subtitleSize: 'normal',
         masterVolume: 0.85,
-        musicVolume: 0.7,
+        musicVolume: 0.38,
         sfxVolume: 0.65,
         voiceVolume: 0.95,
         voiceName: 'Charon',
@@ -229,7 +230,18 @@ export default function App() {
       try {
         const raw = localStorage.getItem('kronox-game-settings-v1');
         if (!raw) return defaults;
-        return { ...defaults, ...JSON.parse(raw) };
+        const parsed = JSON.parse(raw);
+        const migratedMusic =
+          !parsed.settingsVersion && Number(parsed.musicVolume) === 0.7
+            ? 0.38
+            : parsed.musicVolume ?? defaults.musicVolume;
+        return {
+          ...defaults,
+          ...parsed,
+          settingsVersion: 2,
+          musicVolume: migratedMusic,
+          voiceName: 'Charon',
+        };
       } catch {
         return defaults;
       }
@@ -247,6 +259,8 @@ export default function App() {
     voiceRef = useRef(true),
     voiceBlockedByAutoplayRef = useRef(false),
     voiceAudio = useRef(null),
+    voiceObjectUrlRef = useRef(null),
+    fishVoiceStatusRef = useRef(null),
     voiceToken = useRef(0),
     voiceQueueRef = useRef([]),
     activeSpeechTextRef = useRef(''),
@@ -512,6 +526,14 @@ export default function App() {
     };
     audioFrameRef.current = requestAnimationFrame(animateSyntheticLevels);
   };
+  const revokeVoiceObjectUrl = () => {
+    if (voiceObjectUrlRef.current) {
+      try {
+        URL.revokeObjectURL(voiceObjectUrlRef.current);
+      } catch { }
+      voiceObjectUrlRef.current = null;
+    }
+  };
   const stopVoiceAndClearQueue = () => {
     voiceToken.current++;
     voiceQueueRef.current = [];
@@ -527,6 +549,7 @@ export default function App() {
       voiceAudio.current.removeAttribute('src');
       voiceAudio.current = null;
     }
+    revokeVoiceObjectUrl();
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
@@ -710,21 +733,14 @@ export default function App() {
       window.speechSynthesis.speak(utterance);
     };
 
-    const createPreloadedAudio = (textSegment, useFallbackEndpoint = false) => {
+    const createPreloadedAudio = (textSegment) => {
       if (typeof Audio === 'undefined') return null;
-      const selectedVoice = options.voiceName || gameSettingsRef.current?.voiceName || 'Charon';
-      const audioUrl =
-        useFallbackEndpoint && voiceProvider.fallbackAudioUrl
-          ? voiceProvider.fallbackAudioUrl({
-            text: textSegment,
-            language: voiceAccentRef.current,
-            voiceId: selectedVoice,
-          })
-          : voiceProvider.audioUrl({
-            text: textSegment,
-            language: voiceAccentRef.current,
-            voiceId: selectedVoice,
-          });
+      const selectedVoice = 'Charon';
+      const audioUrl = voiceProvider.audioUrl({
+        text: textSegment,
+        language: voiceAccentRef.current,
+        voiceId: selectedVoice,
+      });
       const a = new Audio();
       a.src = audioUrl;
       a.preload = 'auto';
@@ -739,7 +755,7 @@ export default function App() {
         ),
       );
       a.muted = false;
-      return { audio: a, audioUrl, text: textSegment, usedFallbackEndpoint: useFallbackEndpoint };
+      return { audio: a, audioUrl, text: textSegment, retriedFetch: false };
     };
 
     let preloadedNext = parts.length > 0 ? createPreloadedAudio(parts[0]) : null;
@@ -751,27 +767,82 @@ export default function App() {
       const currentEntry = preloadedNext || createPreloadedAudio(parts[currentIndex]);
       preloadedNext = i < parts.length ? createPreloadedAudio(parts[i]) : null;
       if (!currentEntry) {
-        useBrowserVoice(parts.slice(currentIndex).join(' '));
+        if (fishVoiceStatusRef.current?.geminiTts?.configured !== true) {
+          useBrowserVoice(parts.slice(currentIndex).join(' '));
+        } else {
+          advanceQueueOrFinish();
+        }
         return;
       }
-      const { audio, audioUrl, text, usedFallbackEndpoint } = currentEntry;
+      const { audio, audioUrl, text } = currentEntry;
       voiceAudio.current = audio;
       let fallbackStarted = false;
-      const fallbackToBrowserVoice = () => {
+      const handleSegmentFailure = async (entry) => {
         if (fallbackStarted || token !== voiceToken.current) return;
+        // Reintento limpio con la misma voz oficial Gemini HD (Charon) mediante Blob antes de ceder.
+        if (!entry.retriedFetch && typeof fetch === 'function' && entry.audioUrl.startsWith('/')) {
+          entry.retriedFetch = true;
+          try {
+            const resp = await fetch(entry.audioUrl, { cache: 'force-cache' });
+            if (token !== voiceToken.current || !voiceRef.current) return;
+            if (resp.ok) {
+              const blob = await resp.blob();
+              if (token !== voiceToken.current || !voiceRef.current) return;
+              if (blob.size > 64) {
+                revokeVoiceObjectUrl();
+                const objUrl = URL.createObjectURL(blob);
+                voiceObjectUrlRef.current = objUrl;
+                const retryAudio = new Audio(objUrl);
+                retryAudio.preload = 'auto';
+                retryAudio.playbackRate = 1.0;
+                retryAudio.preservesPitch = true;
+                retryAudio.volume = Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    Number(gameSettingsRef.current?.masterVolume ?? 0.85) *
+                      Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
+                  ),
+                );
+                retryAudio.muted = false;
+                attachAndPlay({
+                  audio: retryAudio,
+                  audioUrl: objUrl,
+                  text: entry.text,
+                  retriedFetch: true,
+                });
+                return;
+              }
+            }
+          } catch {
+            /* continuar al manejo de cierre de segmento */
+          }
+        }
         fallbackStarted = true;
         voiceAudio.current = null;
         speakingRef.current = false;
         setSpeaking(false);
         stopAudioAnalysis();
-        useBrowserVoice([text, ...parts.slice(i)].join(' '));
+        const serverHasGeminiVoice =
+          fishVoiceStatusRef.current?.geminiTts?.configured === true ||
+          fishVoiceStatusRef.current?.activeProvider === 'gemini-2.5-flash-tts';
+        if (!serverHasGeminiVoice) {
+          useBrowserVoice([entry.text, ...parts.slice(i)].join(' '));
+        } else {
+          // Mantener coherencia de voz única: avanzar suavemente al siguiente tramo sin cambiar a otra voz.
+          playNext();
+        }
       };
       const attachAndPlay = (entry) => {
         const activeAudio = entry.audio;
         voiceAudio.current = activeAudio;
-        activeAudio.onended = playNext;
-        // The backend already tries the legacy service; do not repeat that network wait.
-        activeAudio.onerror = fallbackToBrowserVoice;
+        activeAudio.onended = () => {
+          if (entry.audioUrl.startsWith('blob:')) revokeVoiceObjectUrl();
+          playNext();
+        };
+        activeAudio.onerror = () => {
+          handleSegmentFailure(entry);
+        };
         speakingRef.current = true;
         setSpeaking(true);
         activeAudio
@@ -783,7 +854,9 @@ export default function App() {
               setVoiceError('');
               setSpeaking(true);
               speakingRef.current = true;
-              if (entry.audioUrl.startsWith('/')) startAudioAnalysis(activeAudio);
+              if (entry.audioUrl.startsWith('/') || entry.audioUrl.startsWith('blob:')) {
+                startAudioAnalysis(activeAudio);
+              }
             }
           })
           .catch((e) => {
@@ -798,11 +871,11 @@ export default function App() {
               setSpeaking(false);
               voiceAudio.current = null;
             } else {
-              fallbackToBrowserVoice();
+              handleSegmentFailure(entry);
             }
           });
       };
-      attachAndPlay({ audio, audioUrl, text, usedFallbackEndpoint });
+      attachAndPlay({ audio, audioUrl, text, retriedFetch: false });
     };
     playNext();
   },
@@ -841,14 +914,14 @@ export default function App() {
       setVoice(next);
       if (!next) stopVoiceAndClearQueue();
     },
-    handleTestVoice = (voiceNameToTest) => {
+    handleTestVoice = () => {
       voiceRef.current = true;
       setVoice(true);
       const testMsg =
         language === 'en'
           ? 'I am KRONOX AI. All navigation and SPHEREx scientific instruments are online.'
           : 'Soy KRONOX IA. Todos los sistemas científicos y de navegación están en línea bajo tu mando.';
-      speak(testMsg, { interrupt: true, voiceName: voiceNameToTest });
+      speak(testMsg, { interrupt: true, voiceName: 'Charon' });
     },
     toggleIntroPause = () => {
       const nextPaused = !introPausedRef.current;
@@ -1225,18 +1298,18 @@ export default function App() {
         !window.__KRONOX_SCENE_HARNESS__
       ) {
         const introTexts = [
-          'Durante siglos, contemplamos el universo desde un pequeño mundo, buscando respuestas entre las estrellas.',
-          'Observatorios como NASA SPHEREx abrieron una nueva ventana infrarroja, permitiéndonos ver aquello que nuestros ojos no pueden alcanzar.',
-          'En cada longitud de onda infrarroja, el cosmos revela hielos interestelares, viveros estelares y anomalías gravitacionales aún abiertas en los confines del sistema solar.',
-          'Estrellas, mundos y galaxias guardan una historia inconclusa. Para investigar estos misterios en el espacio profundo, la humanidad impulsó el Proyecto Horizonte.',
-          'El Proyecto Horizonte construyó KRONOX: un crucero científico de ciento veinte metros concebido para investigar el cosmos desde la órbita y el espacio profundo.',
-          'Desde el puente de mando supervisamos la navegación orbital, el trazado de trayectorias y los instrumentos principales de la misión.',
-          'La cubierta científica integra instrumentación inspirada en el telescopio infrarrojo NASA SPHEREx para analizar espectros estelares, hielos cósmicos e hipótesis astronómicas aún abiertas con rigor observacional.',
-          'El módulo de habitabilidad sostiene misiones científicas prolongadas mediante soportes vitales, cultivo botánico en microgravedad y áreas de descanso presurizadas.',
-          'En ingeniería, el reactor toroidal de fusión y la propulsión magnetoplasmadinámica garantizan la energía y autonomía necesarias para viajar más allá de nuestro sistema.',
-          'Soy KRONOX IA. Todos los sistemas científicos y de navegación están en línea bajo tu mando; comienza tu expedición analizando tu primer objetivo.',
+          'Durante siglos, contemplamos el universo desde un pequeño mundo azul, buscando respuestas sobre nuestro origen entre millones de estrellas.',
+          'Misiones reales como el telescopio espacial NASA SPHEREx abrieron una nueva ventana infrarroja al cosmos, revelando luces ocultas al ojo humano.',
+          'En cada longitud de onda infrarroja detectamos hielos primordiales, viveros de estrellas y enigmas gravitacionales más allá de los gigantes gaseosos.',
+          'Para descifrar esa historia escrita entre anillos planetarios y brazos galácticos, la humanidad puso en marcha el Proyecto Horizonte.',
+          'El Proyecto Horizonte construyó KRONOX Aurora-120: un crucero científico modular de ciento veinte metros diseñado para explorar desde la órbita hasta el espacio profundo.',
+          'En el puente de mando coordinamos la astrometría J2000, el rumbo interestelar y los sistemas de observación de toda la expedición.',
+          'La cubierta científica combina espectroscopía inspirada en NASA SPHEREx y bancos ópticos de calibración para investigar cada archivo real sin conjeturas.',
+          'El módulo de habitabilidad mantiene a la tripulación en microgravedad durante largas travesías con soporte vital de ciclo cerrado y gravedad anular asistida.',
+          'En ingeniería, el reactor toroidal de fusión y sus propulsores magnetoplasmadinámicos suministran la energía limpia que impulsa a KRONOX entre mundos.',
+          'Soy KRONOX IA, tu inteligencia de a bordo. El puente es tuyo, comandante: calibra tus instrumentos y comienza tu primera investigación espacial.',
         ];
-        const selectedVoice = gameSettingsRef.current?.voiceName || 'Charon';
+        const selectedVoice = 'Charon';
         (async () => {
           for (let idx = 0; idx < introTexts.length; idx += 3) {
             if (!voiceRef.current || !realTimeIntroActiveRef.current) break;
@@ -1271,10 +1344,10 @@ export default function App() {
       return undefined;
     }
     const warmupTexts = [
-      'Durante siglos, contemplamos el universo desde un pequeño mundo, buscando respuestas entre las estrellas.',
-      'Observatorios como NASA SPHEREx abrieron una nueva ventana infrarroja, permitiéndonos ver aquello que nuestros ojos no pueden alcanzar.',
+      'Durante siglos, contemplamos el universo desde un pequeño mundo azul, buscando respuestas sobre nuestro origen entre millones de estrellas.',
+      'Misiones reales como el telescopio espacial NASA SPHEREx abrieron una nueva ventana infrarroja al cosmos, revelando luces ocultas al ojo humano.',
     ];
-    const selectedVoice = gameSettingsRef.current?.voiceName || 'Charon';
+    const selectedVoice = 'Charon';
     const timer = setTimeout(() => {
       warmupTexts.forEach((text) => {
         fetch(
@@ -1295,7 +1368,7 @@ export default function App() {
       /* ignore */
     }
     const master = Number(gameSettings.masterVolume ?? 0.85);
-    const music = Number(gameSettings.musicVolume ?? 0.7);
+    const music = Number(gameSettings.musicVolume ?? 0.38);
     const sfx = Number(gameSettings.sfxVolume ?? 0.65);
     const vox = Number(gameSettings.voiceVolume ?? 0.95);
     introSoundtrackRef.current?.setSpeaking(speaking);
@@ -1309,9 +1382,19 @@ export default function App() {
     }
   }, [speaking, voice, gameSettings, ambientEnabled]);
   useEffect(() => {
+    const levelSum = audioLevels.reduce((acc, v) => acc + v, 0);
+    const normLevel = speaking
+      ? Math.max(0.18, Math.min(1.0, levelSum / Math.max(1, audioLevels.length) / 2.2))
+      : 0.08;
+    api.current?.setAiLuminousState?.(realTimeIntroActive ? null : aiAvatarState, speaking, normLevel);
+  }, [speaking, aiAvatarState, audioLevels, realTimeIntroActive]);
+  useEffect(() => {
     let cancelled = false;
     fetch(voiceProvider.statusUrl()).then(response => response.json()).then(status => {
-      if (!cancelled) setFishVoiceStatus(status);
+      if (!cancelled) {
+        fishVoiceStatusRef.current = status;
+        setFishVoiceStatus(status);
+      }
     }).catch(() => { });
     return () => { cancelled = true; };
   }, []);

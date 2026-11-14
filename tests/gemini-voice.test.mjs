@@ -52,8 +52,9 @@ function createMockRes() {
 
 test('Gemini TTS wraps 24 kHz linear PCM into valid RIFF/WAVE and supports HTTP byte ranges', () => {
   assert.equal(parseSampleRateFromMime('audio/L16;codec=pcm;rate=24000'), 24000);
-  assert.equal(sanitizeGeminiVoiceName('Orus'), 'Orus');
+  assert.equal(sanitizeGeminiVoiceName('Orus'), DEFAULT_GEMINI_VOICE_NAME);
   assert.equal(sanitizeGeminiVoiceName('UnknownVoice'), DEFAULT_GEMINI_VOICE_NAME);
+  assert.equal(SERVER_VOICES.length, 1);
   assert.deepEqual(
     CLIENT_VOICES.map((v) => v.id),
     SERVER_VOICES.map((v) => v.id),
@@ -103,7 +104,7 @@ test('Gemini TTS rotates across multiple configured keys on 429 and converts aud
         assert.deepEqual(parsedBody.generationConfig.responseModalities, ['AUDIO']);
         assert.equal(
           parsedBody.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName,
-          'Kore',
+          DEFAULT_GEMINI_VOICE_NAME,
         );
         if (attempts === 1) {
           return {
@@ -139,7 +140,7 @@ test('Gemini TTS rotates across multiple configured keys on 429 and converts aud
     assert.equal(seenUrls.length, 2);
     assert.notEqual(seenUrls[0], seenUrls[1]);
     assert.equal(result.provider, 'gemini-2.5-flash-tts');
-    assert.equal(result.voiceName, 'Kore');
+    assert.equal(result.voiceName, DEFAULT_GEMINI_VOICE_NAME);
     assert.equal(result.contentType, 'audio/wav');
     assert.equal(result.buffer.toString('ascii', 0, 4), 'RIFF');
   } finally {

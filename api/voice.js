@@ -31,20 +31,30 @@ export default async function handler(request, response) {
 
   const geminiStatus = getGeminiTtsStatus();
   if (geminiStatus.configured) {
-    try {
-      const synth = await synthesizeWithGeminiTts({
-        text,
-        voiceName,
-        language,
-      });
-      response.setHeader('X-Kronox-TTS-Provider', synth.provider);
-      response.setHeader('X-Kronox-Voice-Name', synth.voiceName);
-      response.setHeader('X-Kronox-TTS-Cache', synth.cached ? 'HIT' : 'MISS');
-      response.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
-      return sendAudioBufferWithRanges(request, response, synth.buffer, synth.contentType);
-    } catch {
-      // Si fallan todas las claves o la red hacia Gemini TTS, degradar de forma limpia al servicio heredado.
+    let lastErr = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const synth = await synthesizeWithGeminiTts({
+          text,
+          voiceName,
+          language,
+        });
+        response.setHeader('X-Kronox-TTS-Provider', synth.provider);
+        response.setHeader('X-Kronox-Voice-Name', synth.voiceName);
+        response.setHeader('X-Kronox-TTS-Cache', synth.cached ? 'HIT' : 'MISS');
+        response.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+        return sendAudioBufferWithRanges(request, response, synth.buffer, synth.contentType);
+      } catch (err) {
+        lastErr = err;
+      }
     }
+    response.setHeader('Cache-Control', 'no-store');
+    response.setHeader('X-Kronox-Voice-Name', voiceName);
+    return response.status(503).json({
+      error: lastErr?.message || 'Gemini TTS temporarily unavailable',
+      voiceName,
+      singleVoiceLocked: true,
+    });
   }
 
   const legacyText = text.slice(0, 200);

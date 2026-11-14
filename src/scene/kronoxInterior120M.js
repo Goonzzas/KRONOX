@@ -688,6 +688,7 @@ export function buildKronoxInterior120M() {
 
   const bridgeHoloProjector = auroraGroup.getObjectByName('BridgeHoloProjector');
   const reactorPlasmaCore = auroraGroup.getObjectByName('ReactorPlasmaCore');
+  const reactorAssembly = reactorPlasmaCore?.parent || null;
 
   function updateStations(
     elapsedTime = 0,
@@ -699,27 +700,52 @@ export function buildKronoxInterior120M() {
     repairStage = 0
   ) {
     const pulse = 0.75 + 0.25 * Math.sin(elapsedTime * 3.2);
-    stationMeshes.forEach((st) => {
+    stationMeshes.forEach((st, idx) => {
       const highlighted = st.id === activeId || st.id === focusedId || st.id === nearestId;
       if (st.floorBeacon) {
-        st.floorBeacon.scale.setScalar(highlighted ? 1.16 + 0.08 * pulse : 1.0);
+        const wave = 1.0 + 0.045 * Math.sin(elapsedTime * 2.4 + idx * 0.7);
+        st.floorBeacon.scale.setScalar(highlighted ? 1.18 + 0.08 * pulse : wave);
+      }
+      if (st.trimBarMat) {
+        st.trimBarMat.color.setHex(st.colorHex ?? 0x38bdf8);
+        if (highlighted) {
+          st.trimBarMat.color.offsetHSL(0, 0, 0.08 * Math.sin(elapsedTime * 5.0));
+        }
       }
     });
 
     if (bridgeHoloProjector) {
-      bridgeHoloProjector.rotation.y = elapsedTime * 0.45;
+      bridgeHoloProjector.rotation.y = elapsedTime * 0.65;
+      bridgeHoloProjector.rotation.z = Math.sin(elapsedTime * 0.9) * 0.12;
+      bridgeHoloProjector.position.y = 3.4 + 1.85 + Math.sin(elapsedTime * 1.9) * 0.085;
+      const orbRing = bridgeHoloProjector.children?.[1];
+      if (orbRing) {
+        orbRing.rotation.z = elapsedTime * 1.25;
+        orbRing.rotation.y = Math.cos(elapsedTime * 0.85) * 0.45;
+      }
     }
     if (reactorPlasmaCore) {
-      const s = 0.96 + 0.05 * Math.sin(elapsedTime * 4.0);
-      reactorPlasmaCore.scale.set(s, 1.0, s);
+      const s = 0.94 + 0.09 * Math.sin(elapsedTime * 4.4);
+      reactorPlasmaCore.scale.set(s, 1.0 + 0.03 * Math.cos(elapsedTime * 5.2), s);
+      reactorPlasmaCore.rotation.y = elapsedTime * 1.1;
+      if (reactorAssembly) {
+        reactorAssembly.children.forEach((child, cIdx) => {
+          if (child !== reactorPlasmaCore && child.geometry?.type === 'TorusGeometry') {
+            child.rotation.z = elapsedTime * (cIdx % 2 === 0 ? 0.55 : -0.65);
+          }
+        });
+      }
     }
 
     if (calibrationBenchParts) {
       const stage = Math.max(0, Math.min(4, Number(repairStage) || 0));
-      calibrationBenchParts.mirrorRing.rotation.z = stage >= 4 ? elapsedTime * 0.2 : Math.sin(elapsedTime * 2.2) * (0.35 - stage * 0.07);
-      calibrationBenchParts.lensCore.position.y = 0.35 + (stage >= 2 ? 0 : Math.sin(elapsedTime * 3.0) * 0.04);
+      const sweep = Math.sin(elapsedTime * 2.6);
+      calibrationBenchParts.mirrorRing.rotation.z = stage >= 4 ? elapsedTime * 0.35 : sweep * (0.42 - stage * 0.08);
+      calibrationBenchParts.mirrorRing.rotation.y = Math.cos(elapsedTime * 1.4) * 0.16;
+      calibrationBenchParts.lensCore.position.y = 0.48 + (stage >= 2 ? 0 : Math.sin(elapsedTime * 3.2) * 0.035);
+      calibrationBenchParts.lensCore.rotation.x = elapsedTime * 1.3;
       calibrationBenchParts.beamMat.color.setHex(stage >= 4 ? 0x58ff9c : stage >= 2 ? 0x45e8ff : 0xff9f43);
-      calibrationBenchParts.beamMat.opacity = 0.35 + stage * 0.14;
+      calibrationBenchParts.beamMat.opacity = 0.48 + stage * 0.11 + 0.14 * Math.sin(elapsedTime * 6.5);
     }
   }
 

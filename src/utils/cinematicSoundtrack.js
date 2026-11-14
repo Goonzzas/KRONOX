@@ -1,5 +1,5 @@
 /** One soundtrack for the whole intro; scene changes never recreate or restart it. */
-export function createCinematicSoundtrack({src, audioFactory, onBlocked = () => {}, volume = 0.35} = {}) {
+export function createCinematicSoundtrack({src, audioFactory, onBlocked = () => {}, volume = 0.24} = {}) {
   const factory = audioFactory || (typeof Audio !== 'undefined' ? () => new Audio() : null);
   if (!factory) return null;
   const audio = factory();
@@ -8,7 +8,7 @@ export function createCinematicSoundtrack({src, audioFactory, onBlocked = () => 
   audio.preload = 'auto';
   audio.loop = true;
   let active = false, disposed = false, playing = false, pending = null, speaking = false, generation = 0, fadeTimer = null;
-  const gain = () => {audio.volume = Math.max(0, Math.min(1, volume)) * (speaking ? 0.38 : 0.8);};
+  const gain = () => {audio.volume = Math.max(0, Math.min(1, volume)) * (speaking ? 0.16 : 0.44);};
   gain();
   const cancelFade = () => {
     if (fadeTimer) {

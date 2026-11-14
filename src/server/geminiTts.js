@@ -11,32 +11,10 @@ export const DEFAULT_GEMINI_VOICE_NAME = 'Charon';
 export const GEMINI_TTS_VOICES = Object.freeze([
   {
     id: 'Charon',
-    label: 'Charon · Documental Espacial',
-    description: 'Timbre grave, sereno y cinematográfico (predeterminado)',
-  },
-  {
-    id: 'Orus',
-    label: 'Orus · Mando Técnico',
-    description: 'Voz firme, clara y autoritativa de puente de mando',
-  },
-  {
-    id: 'Kore',
-    label: 'Kore · IA Femenina Clara',
-    description: 'Voz femenina nítida, precisa y de estudio',
-  },
-  {
-    id: 'Aoede',
-    label: 'Aoede · Narradora Serena',
-    description: 'Voz femenina cálida y fluida para crónicas astronómicas',
-  },
-  {
-    id: 'Iapetus',
-    label: 'Iapetus · Estudio Equilibrado',
-    description: 'Locución neutra de alta inteligibilidad científica',
+    label: 'Charon · Voz Oficial KRONOX IA',
+    description: 'Timbre neuronal oficial único de estudio para toda la expedición',
   },
 ]);
-
-const ALLOWED_VOICE_SET = new Set(GEMINI_TTS_VOICES.map((v) => v.id));
 
 const MAX_MEMORY_CACHE_ENTRIES = 140;
 const memoryCache = new Map();
@@ -49,9 +27,9 @@ const cacheDir =
     ? path.join(os.tmpdir(), 'kronox-cache', 'gemini-tts')
     : path.resolve(process.cwd(), '.cache', 'gemini-tts');
 
-export function sanitizeGeminiVoiceName(rawVoice) {
-  const clean = String(rawVoice || '').trim();
-  return ALLOWED_VOICE_SET.has(clean) ? clean : DEFAULT_GEMINI_VOICE_NAME;
+export function sanitizeGeminiVoiceName(_rawVoice) {
+  // Bloqueo estricto a una única voz oficial en toda la experiencia.
+  return DEFAULT_GEMINI_VOICE_NAME;
 }
 
 export function parseSampleRateFromMime(mimeType, fallbackRate = 24000) {
@@ -237,7 +215,7 @@ export async function synthesizeWithGeminiTts({
     for (const kIdx of order) {
       const apiKey = keys[kIdx];
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 14000);
+      const timer = setTimeout(() => controller.abort(), 18000);
 
       try {
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;

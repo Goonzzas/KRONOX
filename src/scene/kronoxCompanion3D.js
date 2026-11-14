@@ -214,22 +214,26 @@ export function createKronoxCompanionEntity3D({
       resetWake(group.position);
     }
 
-    const bob = Math.sin(clock * 2.2) * 0.045;
+    const bob = Math.sin(clock * 2.3) * 0.065;
     entityGroup.position.y = bob;
+    entityGroup.rotation.z = Math.sin(clock * 1.45) * 0.085;
+    entityGroup.rotation.x = Math.cos(clock * 1.15) * 0.055;
 
-    const pulseScale = 1 + (speaking ? Math.min(0.2, audioLevel * 0.3) + Math.sin(clock * 14) * 0.04 : Math.sin(clock * 3) * 0.025);
+    const vocalEnergy = speaking ? Math.min(0.28, Math.max(0.05, audioLevel * 0.36)) : 0;
+    const pulseScale = 1 + (speaking ? vocalEnergy + Math.sin(clock * 15) * 0.055 : Math.sin(clock * 3.1) * 0.03);
     coreSphere.scale.setScalar(pulseScale);
-    corona.scale.setScalar(0.42 * pulseScale + (speaking ? 0.08 : 0));
-    companionLight.intensity = 0.45 + (speaking ? 0.25 : 0);
+    corona.scale.setScalar(0.46 * pulseScale + (speaking ? 0.14 + vocalEnergy * 0.3 : 0));
+    companionLight.intensity = 0.52 + (speaking ? 0.45 + vocalEnergy * 0.8 : 0.08 * Math.sin(clock * 3.5));
     coreMat.emissive.setHex(pal.ring);
+    coreMat.emissiveIntensity = speaking ? 1.55 + vocalEnergy * 1.2 : 1.05;
 
-    const spin = safeDt * pal.speed;
-    ringA.rotation.x += spin * 1.1;
-    ringA.rotation.y += spin * 0.7;
-    ringB.rotation.y -= spin * 1.4;
-    ringB.rotation.z += spin * 0.6;
-    ringC.rotation.z -= spin * 0.9;
-    photonicShell.rotation.y += spin * 0.5;
+    const spin = safeDt * pal.speed * (speaking ? 1.45 : 1.0);
+    ringA.rotation.x += spin * 1.25;
+    ringA.rotation.y += spin * 0.85;
+    ringB.rotation.y -= spin * 1.55;
+    ringB.rotation.z += spin * 0.72;
+    ringC.rotation.z -= spin * 1.05;
+    photonicShell.rotation.y += spin * 0.65;
 
     // Shift wake points cleanly
     const arr = wakeGeo.attributes.position.array;
