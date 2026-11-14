@@ -1124,21 +1124,8 @@ export default function App() {
       onNavigationScale: setNavigationScale,
       onNearbyMapChange: setNearbyMapActive,
       reducedMotion: () => reducedMotion,
-      // Mantiene la toma cinematográfica mientras la introducción está pausada o KRONOX IA habla
-      shouldHoldIntroStage: (_stageKey, stageElapsed) => {
-        if (introPausedRef.current) return true;
-        const audioPlaying =
-          (voiceAudio.current &&
-            !voiceAudio.current.paused &&
-            voiceAudio.current.readyState >= 2 &&
-            voiceAudio.current.currentTime > 0) ||
-          browserVoiceActiveRef.current ||
-          Boolean(voiceGapTimerRef.current);
-        if (audioPlaying) {
-          return (stageElapsed || 0) < 15;
-        }
-        return false;
-      },
+      // Mantiene movimiento cinematográfico continuo sin pausas artificiales ni congelamientos de pantalla
+      shouldHoldIntroStage: () => Boolean(introPausedRef.current),
       onNearbyGalaxySelect: (key) => {
         setNearbyGalaxyKey(key);
         clearMissionOffer();
