@@ -143,7 +143,7 @@ test('KRONOX RECONSTRUCCIÓN INTEGRAL — Astronauta 3D Articulado y 8 Estados d
 
   // Verificar estados de animación
   const states = Object.keys(ASTRONAUT_ANIMATION_STATES);
-  assert.equal(states.length, 8, 'Debe implementar 8 estados de animación procedural');
+  assert.equal(states.length, 9, 'Debe implementar 9 estados de animación procedural (incluido SEATED_COMMAND)');
   assert.ok(states.includes('IDLE_FLOAT'));
   assert.ok(states.includes('HAND_PUSH'));
   assert.ok(states.includes('THRUSTER_BURST'));
@@ -152,6 +152,7 @@ test('KRONOX RECONSTRUCCIÓN INTEGRAL — Astronauta 3D Articulado y 8 Estados d
   assert.ok(states.includes('CONSOLE_WORK'));
   assert.ok(states.includes('REPAIR_INTERACT'));
   assert.ok(states.includes('CORRIDOR_SWIM'));
+  assert.ok(states.includes('SEATED_COMMAND'));
 
   // Aplicar animación
   astronaut.setState(ASTRONAUT_ANIMATION_STATES.THRUSTER_BURST);

@@ -1,43 +1,145 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import astralSentinelsLogoUrl from '../assets/astral-sentinels-logo.jpg';
 
-let cachedAstralPatchTexture = null;
+// Vectorial / DataURI asset representation for Astral Sentinels branding (100% Node ESM safe)
+const ASTRAL_SENTINELS_LOGO_SRC =
+  'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAIAAgADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD7KoNFFABRRRQAUUUUAFFFJQAtFFFABRRRQAUUUUAFFFFABRQaKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAoFJS0AFFFFABz7UUUfSgAooooAKKKKACiiigAooooAKKKKACiiigAooo5oAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKADmiiigAooooAKKKKACiiigAooooAKKKKACiiigAo7UUUAFFFFABRRRQAUcelFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUGgAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKDRQAUUUUAFFFFABRRRQAUUUUAFFFFABzRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUdqKACjtRRQAUGiigAooooAKKKKACiiigAooooAKKSloAKKKKACj1oooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKBQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRSUALRRRQAGiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKADn0ooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigApKWigAooooAKKKKACiiigAooooAKKKKACiiigAqK5nitreS4mYJHEhd2PZQMk1LXA/HbXV0fwBdQpJtudQP2SLB5w33z+Cg/mK1o0nVqRprqzmxmJjhaE60tops7m2mjuLeOeFt0ciB0b1BGQalrhfgfrY1jwBYq0m+exH2SYZ5+T7p/Fdtd1SrUnSqSg+jHhMRHE0IVo7SSYUUUVmdAUUUUAFFFFABRRRQAUUUUAFFFBoAKKKKAEpaKKACiiigAooooAKKKKACiiigAoooFABRRRQAUUUdqACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooASloooAKKKKACiiigAooooAKKKKACiiigAorjPiD4r1zw9bu2m+ENQ1RQM/aEdTGvuVXL/oPrV06cqklGO5jXxEKEHOey7Jv8jrL26t7K1kurueOCCJS0kkjBVUDuSa+WfjF4yXxd4nL2jk6bZgxWuQRvz958dskDHsBWd4y8beJPFUpGr3hFurZS0iXZEh916k+7ZNcwc55r6vLcq+rP2lR3l+R+acQcR/X4+woq0Ot93/APAvwv4yXwl4mYXkrDS71RHc9/LI+7Jj2yQfY+1fUVndQXdulzbTRzQyAMkiNuVh6g96+IQcHg10/gnxt4j8LXIXTL4/ZmbLWko3xOfYdQfdcUZllX1l+1pu0vzDIOJPqEPYVleHS26/zR9fUVxnw98V654ihVtT8I3+lrtz9odgIn+ith/0P1rsq+UqU5U5cst/vP0vD14YiCqQ2fdNfmLRRRUGwUUdqKACiiigAooooAKKSloAKKKKACiiigAoo/CigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACj8KKKACiig0AFFFFAAelIRmlooA4zx/8OtB8W2ztNCtnqGPkvIVAfPbcOjj68+hFfMXivQ73w3rtzo+oqBcQHqv3XU/dZfYj/PFfaFePftJ+HY7jQrbxJDH+/smEMxA5aJzxn6Nj/vo17eUY+dOoqU37r/A+O4pyWlVw8sTSjacdXbqup4j4S0G+8S69b6Np6jz5ifmb7sajqx9gP6DvX014A+HHh/wpbxyRwLe6iB895MoLZ/2B0QfTn1Ncp+zT4bS10C48STx/6RfsYoSRyIUPb6tn/vkV6+KM2x851XSg/dX4sfDGS0qOHjiasbzlqr9F0t5gBgYpaSlrxD7AKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigANFFHbNABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRR2ooAKKKKACiiigAooooAKKSloAKKKKACiiigAooooAKyfGHiHS/Cnhq/8Q6zOYbCxhMszAZbA4AA7kkgAdyRWtXyR+3b4/Z7jT/h3p03Cbb7U9p78+TGf1c/8ArSlT9pNRIqT5I3P/2Q==';
 
-function getAstralSentinelsPatchTexture() {
-  if (cachedAstralPatchTexture) return cachedAstralPatchTexture;
+let cachedAstralTexture = null;
+let cachedNasaTexture = null;
+let cachedCarbonTexture = null;
+let cachedHoseBumpTexture = null;
 
+function createCapsuleGeometry(r, len, radial = 8, cap = 6) {
+  if (typeof THREE.CapsuleGeometry === 'function') {
+    return new THREE.CapsuleGeometry(r, len, cap, radial);
+  }
+  return new THREE.CylinderGeometry(r, r, len + r * 1.2, radial);
+}
+
+/**
+ * Super-ellipsoid geometry generator for high-definition aerodynamic helmet shell & visor.
+ */
+function createSuperEllipsoidGeometry(r, e, wS = 36, hS = 24, ps = 0, pl = Math.PI * 2, ts = 0, tl = Math.PI) {
+  const g = new THREE.SphereGeometry(r, wS, hS, ps, pl, ts, tl);
+  const p = g.attributes.position;
+  const v = new THREE.Vector3();
+  const f = (a) => Math.sign(a) * Math.pow(Math.abs(a), e);
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    const l = v.length();
+    if (l > 1e-6) {
+      v.divideScalar(l);
+      p.setXYZ(i, f(v.x) * l, f(v.y) * l, f(v.z) * l);
+    }
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/**
+ * Procedural 2x2 carbon fiber weave texture for suit fabric.
+ */
+function getCarbonFiberTexture() {
+  if (cachedCarbonTexture) return cachedCarbonTexture;
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+    cachedCarbonTexture = new THREE.Texture();
+    return cachedCarbonTexture;
+  }
+  try {
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const g = c.getContext('2d');
+    if (g && typeof g.fillRect === 'function') {
+      for (let j = 0; j < 16; j++) {
+        for (let i = 0; i < 16; i++) {
+          const x = i * 16;
+          const y = j * 16;
+          const h = ((i + j) % 4) < 2;
+          const gr = h ? g.createLinearGradient(x, y, x, y + 16) : g.createLinearGradient(x, y, x + 16, y);
+          gr.addColorStop(0, '#26292e');
+          gr.addColorStop(0.5, '#4e5560');
+          gr.addColorStop(1, '#26292e');
+          g.fillStyle = gr;
+          g.fillRect(x, y, 16, 16);
+        }
+      }
+      const t = new THREE.CanvasTexture(c);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(4, 4);
+      t.anisotropy = 4;
+      cachedCarbonTexture = t;
+      return t;
+    }
+  } catch {
+    // fallback in headless harness
+  }
+  cachedCarbonTexture = new THREE.Texture();
+  return cachedCarbonTexture;
+}
+
+/**
+ * Ribbed life-support oxygen conduit bump texture.
+ */
+function getHoseBumpTexture() {
+  if (cachedHoseBumpTexture) return cachedHoseBumpTexture;
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+    return null;
+  }
+  try {
+    const c = document.createElement('canvas');
+    c.width = 32;
+    c.height = 4;
+    const g = c.getContext('2d');
+    if (g && typeof g.fillRect === 'function') {
+      const gr = g.createLinearGradient(0, 0, 32, 0);
+      gr.addColorStop(0, '#000000');
+      gr.addColorStop(0.5, '#ffffff');
+      gr.addColorStop(1, '#000000');
+      g.fillStyle = gr;
+      g.fillRect(0, 0, 32, 4);
+      const t = new THREE.CanvasTexture(c);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(48, 1);
+      cachedHoseBumpTexture = t;
+      return t;
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+}
+
+/**
+ * Official Astral Sentinels institutional patch texture.
+ */
+function getAstralSentinelsTexture() {
+  if (cachedAstralTexture) return cachedAstralTexture;
   let baseTex = null;
-  if (typeof document !== 'undefined') {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256;
-    const ctx = canvas.getContext('2d');
-    if (ctx && typeof ctx.fillRect === 'function') {
-      ctx.fillStyle = '#091322';
-      ctx.fillRect(0, 0, 256, 256);
-      if (typeof ctx.strokeRect === 'function') {
-        ctx.strokeStyle = '#d98a2b';
-        ctx.lineWidth = 10;
-        ctx.strokeRect(10, 10, 236, 236);
+
+  if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      if (ctx && typeof ctx.fillRect === 'function') {
+        ctx.fillStyle = '#080d1a';
+        ctx.fillRect(0, 0, 256, 256);
         ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(22, 22, 212, 212);
-      }
-      if (typeof ctx.fillText === 'function') {
+        ctx.lineWidth = 8;
+        ctx.strokeRect(12, 12, 232, 232);
         ctx.fillStyle = '#f8fafc';
-        ctx.font = 'bold 26px Orbitron, Segoe UI, sans-serif';
+        ctx.font = 'bold 24px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('ASTRAL', 128, 112);
+        ctx.fillText('ASTRAL', 128, 110);
         ctx.fillStyle = '#38bdf8';
-        ctx.font = 'bold 22px Orbitron, Segoe UI, sans-serif';
         ctx.fillText('SENTINELS', 128, 146);
-        ctx.fillStyle = '#f59e0b';
-        ctx.font = 'bold 16px Consolas, monospace';
-        ctx.fillText('KRX-120 · DIV. CIENCIA', 128, 186);
+        baseTex = new THREE.CanvasTexture(canvas);
+        baseTex.encoding = THREE.sRGBEncoding;
       }
-      baseTex = new THREE.CanvasTexture(canvas);
-      baseTex.encoding = THREE.sRGBEncoding;
+    } catch {
+      // ignore in test runners
     }
   }
 
@@ -50,34 +152,98 @@ function getAstralSentinelsPatchTexture() {
       typeof window !== 'undefined' &&
       typeof document !== 'undefined' &&
       typeof document.createElementNS === 'function' &&
-      astralSentinelsLogoUrl
+      ASTRAL_SENTINELS_LOGO_SRC
     ) {
       const loader = new THREE.TextureLoader();
       loader.load(
-        astralSentinelsLogoUrl,
-        (loadedTex) => {
-          loadedTex.encoding = THREE.sRGBEncoding;
-          loadedTex.anisotropy = 4;
-          loadedTex.needsUpdate = true;
-          baseTex.image = loadedTex.image;
+        ASTRAL_SENTINELS_LOGO_SRC,
+        (loaded) => {
+          loaded.encoding = THREE.sRGBEncoding;
+          loaded.anisotropy = 4;
+          baseTex.image = loaded.image;
           baseTex.needsUpdate = true;
         },
         undefined,
-        () => {
-          /* fallback canvas remains active */
-        },
+        () => {}
       );
     }
   } catch {
-    /* ignore loader errors in headless test runners */
+    // headless fallback
   }
 
-  cachedAstralPatchTexture = baseTex;
-  return cachedAstralPatchTexture;
+  cachedAstralTexture = baseTex;
+  return cachedAstralTexture;
 }
 
 /**
- * Procedural microgravity & bridge EVA astronaut animation states.
+ * Procedural circular NASA meatball mission insignia patch.
+ */
+function getNasaInsigniaTexture() {
+  if (cachedNasaTexture) return cachedNasaTexture;
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+    cachedNasaTexture = new THREE.Texture();
+    return cachedNasaTexture;
+  }
+  try {
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const g = c.getContext('2d');
+    if (g && typeof g.arc === 'function') {
+      g.beginPath();
+      g.arc(128, 128, 124, 0, Math.PI * 2);
+      g.fillStyle = '#0b3d91';
+      g.fill();
+      // Stars
+      for (let i = 0; i < 48; i++) {
+        const a = (i / 48) * Math.PI * 2 + Math.sin(i * 3.7);
+        const r = Math.sqrt((i + 1) / 50) * 105;
+        g.fillStyle = '#ffffff';
+        g.fillRect(128 + Math.cos(a) * r, 128 + Math.sin(a) * r, 2.5, 2.5);
+      }
+      // Vector orbit ring
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 5;
+      g.beginPath();
+      g.ellipse(128, 134, 110, 34, -0.42, 0, Math.PI * 2);
+      g.stroke();
+      // Red chevron
+      g.fillStyle = '#fc3d21';
+      g.beginPath();
+      g.moveTo(38, 188);
+      g.lineTo(120, 84);
+      g.lineTo(138, 128);
+      g.lineTo(222, 62);
+      g.lineTo(165, 176);
+      g.lineTo(140, 142);
+      g.lineTo(94, 202);
+      g.closePath();
+      g.fill();
+      // NASA typography
+      g.fillStyle = '#ffffff';
+      g.font = 'italic bold 74px Arial, Helvetica, sans-serif';
+      g.textAlign = 'center';
+      g.fillText('NASA', 128, 156);
+      // Outer border
+      g.lineWidth = 6;
+      g.strokeStyle = '#ffffff';
+      g.beginPath();
+      g.arc(128, 128, 122, 0, Math.PI * 2);
+      g.stroke();
+      const t = new THREE.CanvasTexture(c);
+      t.encoding = THREE.sRGBEncoding;
+      t.anisotropy = 4;
+      cachedNasaTexture = t;
+      return t;
+    }
+  } catch {
+    // headless fallback
+  }
+  cachedNasaTexture = new THREE.Texture();
+  return cachedNasaTexture;
+}
+
+/**
+ * Animation states for full astronaut locomotion, console ops and EVA maneuvers.
  */
 export const ASTRONAUT_ANIMATION_STATES = Object.freeze({
   IDLE_FLOAT: 'IDLE_FLOAT',
@@ -91,431 +257,568 @@ export const ASTRONAUT_ANIMATION_STATES = Object.freeze({
   SEATED_COMMAND: 'SEATED_COMMAND',
 });
 
+/**
+ * Creates coordinated procedural materials based on the Astral Sentinels technical palette.
+ */
 function createAstronautMaterials() {
+  const carbonTex = getCarbonFiberTexture();
+  const hoseBump = getHoseBumpTexture();
+  const hasCarbon = Boolean(carbonTex && carbonTex.image);
+  const hasHoseBump = Boolean(hoseBump && hoseBump.image);
+
   return {
     suitOuter: new THREE.MeshStandardMaterial({
-      color: 0xd8e0ea,
-      roughness: 0.62,
-      metalness: 0.08,
+      color: 0x141a24,
+      roughness: 0.52,
+      metalness: 0.28,
+      ...(hasCarbon ? { bumpMap: carbonTex, bumpScale: 0.04 } : {}),
     }),
     suitCrease: new THREE.MeshStandardMaterial({
-      color: 0x5c687a,
-      roughness: 0.74,
-      metalness: 0.16,
+      color: 0x222a38,
+      roughness: 0.68,
+      metalness: 0.2,
     }),
     armorPlate: new THREE.MeshStandardMaterial({
-      color: 0xc2ccd8,
-      roughness: 0.36,
-      metalness: 0.44,
+      color: 0xf0f2f6,
+      roughness: 0.3,
+      metalness: 0.18,
     }),
     jointDark: new THREE.MeshStandardMaterial({
-      color: 0x1b222c,
-      roughness: 0.58,
-      metalness: 0.38,
+      color: 0x0f1115,
+      roughness: 0.65,
+      metalness: 0.35,
     }),
     harnessWeb: new THREE.MeshStandardMaterial({
-      color: 0x2a3340,
-      roughness: 0.78,
+      color: 0x111214,
+      roughness: 0.58,
       metalness: 0.12,
     }),
     missionAccent: new THREE.MeshStandardMaterial({
-      color: 0xd96b27,
-      roughness: 0.4,
-      metalness: 0.28,
+      color: 0xdf5d14, // Vibrant Astral Orange
+      roughness: 0.38,
+      metalness: 0.25,
     }),
-    cyanTrim: new THREE.MeshStandardMaterial({
-      color: 0x38bdf8,
-      emissive: 0x0284c7,
-      emissiveIntensity: 0.65,
-      roughness: 0.28,
+    tealLED: new THREE.MeshStandardMaterial({
+      color: 0x19c9d0,
+      emissive: 0x19e0e8,
+      emissiveIntensity: 1.8,
+      roughness: 0.22,
+    }),
+    tealTrim: new THREE.MeshStandardMaterial({
+      color: 0x19c9d0,
+      emissive: 0x0aa8b0,
+      emissiveIntensity: 0.85,
+      roughness: 0.3,
+    }),
+    redBeacon: new THREE.MeshStandardMaterial({
+      color: 0xc02020,
+      roughness: 0.35,
+      metalness: 0.1,
+    }),
+    helmetShell: new THREE.MeshPhysicalMaterial({
+      color: 0xf4f5f7,
+      roughness: 0.26,
+      clearcoat: 0.85,
+      clearcoatRoughness: 0.12,
     }),
     visorGold: new THREE.MeshPhysicalMaterial({
-      color: 0xc98a22,
-      metalness: 0.9,
-      roughness: 0.12,
-      transparent: true,
-      opacity: 0.88,
+      color: 0x0b0905,
+      roughness: 0.03,
+      metalness: 0.85,
       clearcoat: 1.0,
-      clearcoatRoughness: 0.08,
+      clearcoatRoughness: 0.02,
+      envMapIntensity: 2.2,
+      emissive: 0xd49b28,
+      emissiveIntensity: 0.14,
     }),
     visorInnerTint: new THREE.MeshStandardMaterial({
-      color: 0x141b24,
-      metalness: 0.3,
-      roughness: 0.2,
+      color: 0x07090e,
+      roughness: 0.22,
+      metalness: 0.4,
     }),
-    helmetLamp: new THREE.MeshBasicMaterial({ color: 0xe0f2fe }),
+    chromeHardware: new THREE.MeshStandardMaterial({
+      color: 0x8a8e93,
+      roughness: 0.38,
+      metalness: 0.55,
+    }),
+    gloveMat: new THREE.MeshStandardMaterial({
+      color: 0x1a1b1e,
+      roughness: 0.55,
+    }),
+    bootMat: new THREE.MeshStandardMaterial({
+      color: 0x1d1e21,
+      roughness: 0.48,
+    }),
+    hoseMat: new THREE.MeshStandardMaterial({
+      color: 0x26282d,
+      roughness: 0.52,
+      ...(hasHoseBump ? { bumpMap: hoseBump, bumpScale: 0.12 } : {}),
+    }),
+    astralPatch: new THREE.MeshStandardMaterial({
+      map: getAstralSentinelsTexture(),
+      roughness: 0.4,
+      metalness: 0.15,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+    }),
+    nasaPatch: new THREE.MeshStandardMaterial({
+      map: getNasaInsigniaTexture(),
+      roughness: 0.4,
+      metalness: 0.15,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+    }),
     rcsPlumeMat: new THREE.MeshBasicMaterial({
-      color: 0xbae6fd,
+      color: 0xb8e2f8,
       transparent: true,
       opacity: 0,
       depthWrite: false,
     }),
-    chromeHardware: new THREE.MeshStandardMaterial({
-      color: 0x9aa8ba,
-      metalness: 0.86,
-      roughness: 0.24,
-    }),
-    astralPatch: new THREE.MeshStandardMaterial({
-      map: getAstralSentinelsPatchTexture(),
-      roughness: 0.42,
-      metalness: 0.14,
-      emissive: 0x0b1929,
-      emissiveIntensity: 0.22,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-    }),
   };
 }
 
-function buildSculptedSegmentProfile(topR, midR, botR, length) {
-  const pts = [
-    new THREE.Vector2(topR * 0.84, 0),
-    new THREE.Vector2(topR, -length * 0.14),
-    new THREE.Vector2(midR, -length * 0.48),
-    new THREE.Vector2(botR * 1.04, -length * 0.82),
-    new THREE.Vector2(botR * 0.88, -length),
-  ];
-  return new THREE.LatheGeometry(pts, 18);
-}
+/**
+ * Builds the articulated 5-finger tactical EVA glove with capsule joints.
+ */
+function buildArticulatedHand(mats, sideSign) {
+  const g = new THREE.Group();
+  g.scale.set(sideSign, 1, 1);
 
-function addPleatedBellows(parent, radius, yCenter, rings, mats) {
-  for (let i = 0; i < rings; i++) {
-    const offset = (i - (rings - 1) * 0.5) * 0.02;
-    const pleat = new THREE.Mesh(
-      new THREE.TorusGeometry(radius, 0.011, 8, 16),
-      i % 2 === 0 ? mats.jointDark : mats.suitCrease,
-    );
-    pleat.rotation.x = Math.PI / 2;
-    pleat.position.y = yCenter + offset;
-    parent.add(pleat);
-  }
-}
+  // Palm base
+  const palm = new THREE.Mesh(createSuperEllipsoidGeometry(1, 0.6, 20, 14), mats.gloveMat);
+  palm.scale.set(0.024, 0.058, 0.048);
+  palm.position.set(0, -0.062, 0);
+  palm.castShadow = true;
+  g.add(palm);
 
-function buildSegmentedLimb(mats, upperR, upperL, lowerR, lowerL, endType = 'glove', side = -1) {
-  const hipOrShoulder = new THREE.Group();
+  // Knuckle pad
+  const knucklePad = new THREE.Mesh(createSuperEllipsoidGeometry(1, 0.55, 16, 10), mats.jointDark);
+  knucklePad.scale.set(0.01, 0.04, 0.036);
+  knucklePad.position.set(0.02, -0.058, 0);
+  knucklePad.castShadow = true;
+  g.add(knucklePad);
 
-  // Machined scye / hip bearing rotary ring + contoured cap
-  const socketRing = new THREE.Mesh(new THREE.TorusGeometry(upperR * 1.12, 0.015, 10, 20), mats.chromeHardware);
-  socketRing.rotation.x = Math.PI / 2;
-  hipOrShoulder.add(socketRing);
+  // 4 fingers with 3 articulated phalanges each
+  const fingerZOffsets = [0.032, 0.011, -0.011, -0.032];
+  const fingerScales = [1.0, 1.07, 1.0, 0.82];
+  fingerZOffsets.forEach((fz, i) => {
+    const L = fingerScales[i];
+    let parentNode = g;
+    let localPos = [0, -0.115, fz];
+    const segs = [
+      [0.036 * L, 0.0125, -0.2],
+      [0.027 * L, 0.0115, -0.55],
+      [0.02 * L, 0.0105, -0.55],
+    ];
+    segs.forEach(([len, r, c]) => {
+      const joint = new THREE.Group();
+      joint.position.set(...localPos);
+      joint.rotation.z = c;
+      parentNode.add(joint);
+      const cap = new THREE.Mesh(createCapsuleGeometry(r, len, 8, 6), mats.gloveMat);
+      cap.position.y = -len * 0.5 - r * 0.5;
+      cap.castShadow = true;
+      joint.add(cap);
+      parentNode = joint;
+      localPos = [0, -len - r * 0.6, 0];
+    });
+  });
 
-  if (endType === 'glove') {
-    const pauldron = new THREE.Mesh(
-      new RoundedBoxGeometry(upperR * 2.25, upperL * 0.34, upperR * 2.1, 3, 0.025),
-      mats.armorPlate,
-    );
-    pauldron.position.set(side * 0.008, -upperL * 0.14, 0);
-    const band = new THREE.Mesh(
-      new RoundedBoxGeometry(upperR * 2.32, 0.026, upperR * 1.9, 2, 0.008),
-      mats.missionAccent,
-    );
-    band.position.set(side * 0.008, -upperL * 0.25, 0);
+  // Opposed thumb
+  const thumbNode = new THREE.Group();
+  thumbNode.position.set(-0.012, -0.04, 0.04);
+  thumbNode.rotation.set(-0.9, 0, -0.25);
+  g.add(thumbNode);
 
-    // Emblema institucional Astral Sentinels integrado en las hombreras del traje EVA
-    const shoulderBadgeRim = new THREE.Mesh(
-      new RoundedBoxGeometry(0.006, 0.062, 0.062, 2, 0.003),
-      mats.chromeHardware,
-    );
-    shoulderBadgeRim.position.set(side * (upperR * 1.13 + 0.008), -upperL * 0.135, 0);
-    const shoulderPatch = new THREE.Mesh(new THREE.PlaneGeometry(0.054, 0.054), mats.astralPatch);
-    shoulderPatch.name = side > 0 ? 'AstralSentinelsShoulderPatchR' : 'AstralSentinelsShoulderPatchL';
-    shoulderPatch.position.set(side * (upperR * 1.135 + 0.01), -upperL * 0.135, 0);
-    shoulderPatch.rotation.y = side > 0 ? Math.PI * 0.5 : -Math.PI * 0.5;
-    hipOrShoulder.add(pauldron, band, shoulderBadgeRim, shoulderPatch);
-  }
+  let thumbParent = thumbNode;
+  let thumbPos = [0, 0, 0];
+  [
+    [0.03, 0.015, -0.1],
+    [0.024, 0.013, -0.45],
+  ].forEach(([len, r, c]) => {
+    const j = new THREE.Group();
+    j.position.set(...thumbPos);
+    j.rotation.z = c;
+    thumbParent.add(j);
+    const cap = new THREE.Mesh(createCapsuleGeometry(r, len, 8, 6), mats.missionAccent);
+    cap.position.y = -len * 0.5 - r * 0.5;
+    cap.castShadow = true;
+    j.add(cap);
+    thumbParent = j;
+    thumbPos = [0, -len - r * 0.6, 0];
+  });
 
-  const upperSeg = new THREE.Mesh(
-    buildSculptedSegmentProfile(upperR * 1.02, upperR * 1.08, upperR * 0.88, upperL),
-    mats.suitOuter,
-  );
-  hipOrShoulder.add(upperSeg);
-
-  // Articulated ribbed bellows joint at elbow / knee
-  const midJoint = new THREE.Group();
-  midJoint.position.y = -upperL;
-  const flexCore = new THREE.Mesh(new THREE.SphereGeometry(upperR * 0.9, 14, 12), mats.jointDark);
-  midJoint.add(flexCore);
-  addPleatedBellows(midJoint, lowerR * 1.05, 0, 4, mats);
-
-  if (endType === 'boot') {
-    // Contoured knee armor pad on legs
-    const kneePad = new THREE.Mesh(
-      new RoundedBoxGeometry(lowerR * 1.9, 0.1, 0.055, 3, 0.02),
-      mats.armorPlate,
-    );
-    kneePad.position.set(0, 0, -lowerR * 0.96);
-    midJoint.add(kneePad);
-  }
-
-  const lowerSeg = new THREE.Mesh(
-    buildSculptedSegmentProfile(lowerR * 0.98, lowerR * 1.05, lowerR * 0.84, lowerL),
-    endType === 'boot' ? mats.suitOuter : mats.suitOuter,
-  );
-  if (endType === 'boot') {
-    // Protective gaiter calf shell & webbing strap on legs
-    const gaiter = new THREE.Mesh(
-      new RoundedBoxGeometry(lowerR * 2.08, lowerL * 0.42, lowerR * 2.05, 3, 0.025),
-      mats.suitCrease,
-    );
-    gaiter.position.y = -lowerL * 0.72;
-    const calfStrap = new THREE.Mesh(
-      new RoundedBoxGeometry(lowerR * 2.15, 0.026, lowerR * 2.12, 2, 0.008),
-      mats.harnessWeb,
-    );
-    calfStrap.position.y = -lowerL * 0.56;
-    midJoint.add(gaiter, calfStrap);
-  } else {
-    // Protective forearm cuff band
-    const armBand = new THREE.Mesh(
-      new THREE.TorusGeometry(lowerR * 0.98, 0.01, 8, 16),
-      mats.harnessWeb,
-    );
-    armBand.rotation.x = Math.PI / 2;
-    armBand.position.y = -lowerL * 0.55;
-    midJoint.add(armBand);
-  }
-  midJoint.add(lowerSeg);
-
-  if (endType === 'glove') {
-    // Forearm tactical wrist telemetry pad on port sleeve + sculpted EVA gauntlet glove
-    if (side < 0) {
-      const wristPad = new THREE.Mesh(new RoundedBoxGeometry(0.068, 0.095, 0.028, 2, 0.008), mats.jointDark);
-      wristPad.position.set(-0.048, -lowerL * 0.48, 0.01);
-      const wristScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.048, 0.068), mats.cyanTrim);
-      wristScreen.position.set(-0.064, -lowerL * 0.48, 0.01);
-      wristScreen.rotation.y = -Math.PI / 2;
-      midJoint.add(wristPad, wristScreen);
-    }
-    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(lowerR * 0.96, lowerR * 0.88, 0.042, 16), mats.chromeHardware);
-    cuff.position.y = -lowerL;
-    const palm = new THREE.Mesh(new RoundedBoxGeometry(0.068, 0.075, 0.046, 3, 0.014), mats.armorPlate);
-    palm.position.y = -lowerL - 0.048;
-    const fingers = new THREE.Mesh(new RoundedBoxGeometry(0.062, 0.042, 0.036, 3, 0.012), mats.jointDark);
-    fingers.position.set(0, -lowerL - 0.092, -0.008);
-    fingers.rotation.x = -0.24;
-    const thumb = new THREE.Mesh(new RoundedBoxGeometry(0.022, 0.046, 0.022, 2, 0.008), mats.missionAccent);
-    thumb.position.set(-side * 0.036, -lowerL - 0.048, -0.018);
-    thumb.rotation.z = side * 0.52;
-    midJoint.add(cuff, palm, fingers, thumb);
-  } else {
-    // Sculpted Magnetic EVA Pressure Boot
-    const ankleCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.072, 0.082, 0.052, 16), mats.chromeHardware);
-    ankleCollar.position.y = -lowerL;
-    const bootUpper = new THREE.Mesh(new RoundedBoxGeometry(0.118, 0.088, 0.2, 3, 0.026), mats.armorPlate);
-    bootUpper.position.set(0, -lowerL - 0.048, -0.03);
-    const toeCap = new THREE.Mesh(new RoundedBoxGeometry(0.112, 0.068, 0.085, 3, 0.024), mats.suitCrease);
-    toeCap.position.set(0, -lowerL - 0.06, -0.105);
-    const magSole = new THREE.Mesh(new RoundedBoxGeometry(0.126, 0.034, 0.232, 2, 0.01), mats.jointDark);
-    magSole.position.set(0, -lowerL - 0.102, -0.034);
-    const magStripe = new THREE.Mesh(new RoundedBoxGeometry(0.13, 0.012, 0.09, 1, 0.004), mats.missionAccent);
-    magStripe.position.set(0, -lowerL - 0.082, -0.048);
-    midJoint.add(ankleCollar, bootUpper, toeCap, magSole, magStripe);
-  }
-
-  hipOrShoulder.add(midJoint);
-  return { root: hipOrShoulder, midJoint, upperSeg, lowerSeg };
+  return g;
 }
 
 /**
- * Builds an articulated, anatomically proportioned 1.75m 3D EVA astronaut with:
- * - Sculpted Hard Upper Torso (HUT) + Chest DCM Control Unit & harness webbing
- * - Molded Portable Life Support System (PLSS) with recessed O2 bays, radiator louvers & micro-RCS nozzles
- * - Contoured Helmet Assembly with brow sunshield, neck lock disconnect collar & gold metallic visor
- * - Articulated pleated bellows arms (forearm wrist pad + gauntlet gloves) & legs (knee pads + EVA boots)
+ * Builds the high-detail magnetic pressure boot with lathe calf collar, instep, toe cap, and tread sole.
+ */
+function buildArticulatedBoot(mats) {
+  const g = new THREE.Group();
+  const ellGeo = () => createSuperEllipsoidGeometry(1, 0.6, 24, 16);
+
+  // Contoured calf collar
+  const lathePts = [
+    [0, 0.46],
+    [0.092, 0.46],
+    [0.104, 0.455],
+    [0.106, 0.43],
+    [0.099, 0.4],
+    [0.09, 0.26],
+    [0.086, 0.15],
+    [0.09, 0.09],
+    [0, 0.09],
+  ].map(([r, y]) => new THREE.Vector2(r, y));
+  const collar = new THREE.Mesh(new THREE.LatheGeometry(lathePts, 32), mats.bootMat);
+  collar.castShadow = true;
+  g.add(collar);
+
+  // Instep upper
+  const instep = new THREE.Mesh(ellGeo(), mats.bootMat);
+  instep.position.set(0, 0.075, 0.065);
+  instep.scale.set(0.096, 0.064, 0.2);
+  instep.castShadow = true;
+  g.add(instep);
+
+  // Protective toe cap
+  const toeCap = new THREE.Mesh(ellGeo(), mats.jointDark);
+  toeCap.position.set(0, 0.062, 0.2);
+  toeCap.scale.set(0.09, 0.052, 0.085);
+  toeCap.castShadow = true;
+  g.add(toeCap);
+
+  // Heel cup
+  const heel = new THREE.Mesh(ellGeo(), mats.jointDark);
+  heel.position.set(0, 0.12, -0.07);
+  heel.scale.set(0.075, 0.07, 0.045);
+  heel.castShadow = true;
+  g.add(heel);
+
+  // White shock midsole
+  const midSole = new THREE.Mesh(ellGeo(), mats.armorPlate);
+  midSole.position.set(0, 0.027, 0.06);
+  midSole.scale.set(0.108, 0.03, 0.215);
+  midSole.castShadow = true;
+  g.add(midSole);
+
+  // Black magnetic tread outsole
+  const outSole = new THREE.Mesh(ellGeo(), mats.jointDark);
+  outSole.position.set(0, 0.008, 0.06);
+  outSole.scale.set(0.11, 0.012, 0.22);
+  outSole.castShadow = true;
+  g.add(outSole);
+
+  // Shin armor plate and buckle hardware
+  const shinArmor = new THREE.Mesh(new RoundedBoxGeometry(0.055, 0.17, 0.012, 2, 0.003), mats.jointDark);
+  shinArmor.position.set(0, 0.27, 0.098);
+  shinArmor.rotation.x = -0.12;
+  const tealBuckle = new THREE.Mesh(new RoundedBoxGeometry(0.04, 0.03, 0.02, 1, 0.003), mats.tealTrim);
+  tealBuckle.position.set(0, 0.2, 0.1);
+  const grayBuckle = new THREE.Mesh(new RoundedBoxGeometry(0.04, 0.03, 0.02, 1, 0.003), mats.chromeHardware);
+  grayBuckle.position.set(0, 0.32, 0.106);
+  g.add(shinArmor, tealBuckle, grayBuckle);
+
+  return g;
+}
+
+/**
+ * Builds an articulated limb (arm or leg) with joints and end effector.
+ */
+function buildArticulatedLimb(mats, upperR, upperL, lowerR, lowerL, limbType = 'glove', sideSign = -1) {
+  const hipOrShoulder = new THREE.Group();
+
+  // Socket bearing ring
+  const socketRing = new THREE.Mesh(new THREE.TorusGeometry(upperR * 1.15, 0.015, 8, 20), mats.chromeHardware);
+  socketRing.rotation.x = Math.PI / 2;
+  hipOrShoulder.add(socketRing);
+
+  // Upper segment mesh
+  const upperGeo = new THREE.CylinderGeometry(upperR * 0.94, upperR * 1.08, upperL, 18);
+  const upperMesh = new THREE.Mesh(upperGeo, mats.suitOuter);
+  upperMesh.position.y = -upperL * 0.5;
+  upperMesh.castShadow = true;
+  hipOrShoulder.add(upperMesh);
+
+  // Arm/shoulder specifics
+  if (limbType === 'glove') {
+    // Shoulder pauldron
+    const pauldron = new THREE.Mesh(
+      new RoundedBoxGeometry(upperR * 2.3, upperL * 0.36, upperR * 2.1, 2, 0.02),
+      mats.armorPlate
+    );
+    pauldron.position.set(sideSign * 0.01, -upperL * 0.16, 0);
+    hipOrShoulder.add(pauldron);
+
+    // Colombian flag stripe on left shoulder/arm
+    if (sideSign < 0) {
+      const flagGroup = new THREE.Group();
+      flagGroup.position.set(sideSign * (upperR * 1.12 + 0.008), -upperL * 0.22, 0);
+      flagGroup.rotation.y = -Math.PI / 2;
+      const fYellow = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.05, 0.024),
+        new THREE.MeshStandardMaterial({ color: 0xf8bf12, roughness: 0.5 })
+      );
+      fYellow.position.y = 0.012;
+      const fBlue = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.05, 0.012),
+        new THREE.MeshStandardMaterial({ color: 0x0c2577, roughness: 0.5 })
+      );
+      fBlue.position.y = -0.006;
+      const fRed = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.05, 0.012),
+        new THREE.MeshStandardMaterial({ color: 0xcd191e, roughness: 0.5 })
+      );
+      fRed.position.y = -0.018;
+      flagGroup.add(fYellow, fBlue, fRed);
+      hipOrShoulder.add(flagGroup);
+    }
+  }
+
+  // Mid joint (Elbow or Knee)
+  const midJoint = new THREE.Group();
+  midJoint.position.y = -upperL;
+  const jointCore = new THREE.Mesh(new THREE.SphereGeometry(upperR * 0.92, 14, 12), mats.jointDark);
+  jointCore.castShadow = true;
+  midJoint.add(jointCore);
+
+  if (limbType === 'boot') {
+    // Thigh cargo utility pocket on upper segment
+    const cargoPocket = new THREE.Mesh(new RoundedBoxGeometry(0.085, 0.11, 0.03, 2, 0.008), mats.jointDark);
+    cargoPocket.position.set(sideSign * 0.14, -upperL * 0.45, 0.06);
+    cargoPocket.rotation.y = sideSign * 0.4;
+    const pocketTrim = new THREE.Mesh(new RoundedBoxGeometry(0.05, 0.012, 0.034, 1, 0.003), mats.tealTrim);
+    pocketTrim.position.set(sideSign * 0.14, -upperL * 0.42, 0.06);
+    pocketTrim.rotation.y = sideSign * 0.4;
+    hipOrShoulder.add(cargoPocket, pocketTrim);
+
+    // Contoured knee armor pad
+    const kneePad = new THREE.Mesh(new RoundedBoxGeometry(lowerR * 1.9, 0.11, 0.06, 2, 0.015), mats.armorPlate);
+    kneePad.position.set(0, 0, -lowerR * 0.95);
+    kneePad.castShadow = true;
+    midJoint.add(kneePad);
+  }
+
+  // Lower segment mesh
+  const lowerGeo = new THREE.CylinderGeometry(lowerR * 1.02, lowerR * 0.88, lowerL, 18);
+  const lowerMesh = new THREE.Mesh(lowerGeo, mats.suitOuter);
+  lowerMesh.position.y = -lowerL * 0.5;
+  lowerMesh.castShadow = true;
+  midJoint.add(lowerMesh);
+
+  // Outer LED light strip
+  const stripGeo = new THREE.BoxGeometry(0.01, lowerL * 0.85, 0.014);
+  const ledStrip = new THREE.Mesh(stripGeo, mats.tealLED);
+  ledStrip.position.set(sideSign * (lowerR * 0.98 + 0.004), -lowerL * 0.5, 0);
+  midJoint.add(ledStrip);
+
+  // End effector
+  if (limbType === 'glove') {
+    const hand = buildArticulatedHand(mats, sideSign);
+    hand.position.set(0, -lowerL - 0.02, 0);
+    midJoint.add(hand);
+  } else {
+    const boot = buildArticulatedBoot(mats);
+    boot.position.set(0, -lowerL - 0.38, -0.05);
+    midJoint.add(boot);
+  }
+
+  hipOrShoulder.add(midJoint);
+  return { root: hipOrShoulder, midJoint, upperMesh, lowerMesh };
+}
+
+/**
+ * Creates the high-definition articulated 3D astronaut character (1.75 m stature).
  */
 export function createAstronautCharacter3D() {
   const root = new THREE.Group();
-  root.name = 'KronoxArticulatedAstronaut175cm';
+  root.name = 'KronoxAstronautHighDetail';
   const mats = createAstronautMaterials();
 
-  // Hip pelvis root at y = 0.90m (exact 1.75m total standing stature from sole y=0 to crown y=1.75m)
+  // Root Pelvis at y = 0.90 m
   const pelvis = new THREE.Group();
   pelvis.position.set(0, 0.9, 0);
-  const pelvisShell = new THREE.Mesh(new RoundedBoxGeometry(0.32, 0.18, 0.24, 3, 0.055), mats.suitCrease);
-  const beltBuckle = new THREE.Mesh(new RoundedBoxGeometry(0.085, 0.055, 0.035, 2, 0.01), mats.chromeHardware);
-  beltBuckle.position.set(0, 0.055, -0.118);
-  const waistBearing = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.018, 10, 24), mats.missionAccent);
-  waistBearing.rotation.x = Math.PI / 2;
-  waistBearing.scale.set(1.06, 0.78, 1.0);
-  waistBearing.position.y = 0.075;
-  pelvis.add(pelvisShell, beltBuckle, waistBearing);
   root.add(pelvis);
 
-  // HARD UPPER TORSO (HUT): y = 0.96 .. 1.44m
+  const pelvisShell = new THREE.Mesh(new RoundedBoxGeometry(0.34, 0.22, 0.24, 3, 0.05), mats.suitCrease);
+  pelvisShell.castShadow = true;
+  pelvis.add(pelvisShell);
+
+  // Utility belt with front buckle
+  const beltBuckle = new THREE.Mesh(new RoundedBoxGeometry(0.06, 0.045, 0.03, 2, 0.006), mats.tealTrim);
+  beltBuckle.position.set(0, 0.07, -0.125);
+  pelvis.add(beltBuckle);
+
+  // HARD UPPER TORSO (HUT)
   const torso = new THREE.Group();
   torso.position.set(0, 0.24, 0);
   pelvis.add(torso);
 
-  const chestShell = new THREE.Mesh(new RoundedBoxGeometry(0.37, 0.42, 0.26, 4, 0.065), mats.armorPlate);
+  const chestShell = new THREE.Mesh(new RoundedBoxGeometry(0.38, 0.44, 0.28, 4, 0.06), mats.armorPlate);
+  chestShell.castShadow = true;
   torso.add(chestShell);
 
-  const shoulderYoke = new THREE.Mesh(new RoundedBoxGeometry(0.43, 0.13, 0.25, 4, 0.048), mats.armorPlate);
-  shoulderYoke.position.y = 0.155;
-  torso.add(shoulderYoke);
-
-  // Torso load-bearing harness webbing straps over shoulders & waist
-  [-0.105, 0.105].forEach((sx) => {
-    const chestStrap = new THREE.Mesh(new RoundedBoxGeometry(0.042, 0.42, 0.275, 2, 0.01), mats.harnessWeb);
-    chestStrap.position.set(sx, 0.02, 0);
-    const buckle = new THREE.Mesh(new RoundedBoxGeometry(0.052, 0.032, 0.282, 1, 0.005), mats.chromeHardware);
-    buckle.position.set(sx, 0.09, 0);
-    torso.add(chestStrap, buckle);
+  // Crossed X-harness with teal buckles
+  [-1, 1].forEach((s) => {
+    const strap = new THREE.Mesh(new RoundedBoxGeometry(0.04, 0.46, 0.295, 2, 0.008), mats.harnessWeb);
+    strap.position.set(s * 0.1, 0.02, 0);
+    const buckle = new THREE.Mesh(new RoundedBoxGeometry(0.045, 0.035, 0.305, 1, 0.005), mats.tealTrim);
+    buckle.position.set(s * 0.1, 0.09, 0);
+    torso.add(strap, buckle);
   });
 
-  // Display & Control Module (DCM) mounted cleanly on chest
-  const dcmBox = new THREE.Mesh(new RoundedBoxGeometry(0.185, 0.145, 0.088, 3, 0.02), mats.jointDark);
-  dcmBox.position.set(0, 0.05, -0.158);
-  const dcmScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.115, 0.068), mats.cyanTrim);
-  dcmScreen.position.set(-0.022, 0.06, -0.204);
-  dcmScreen.rotation.y = Math.PI;
-  const dcmKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.018, 0.028, 12), mats.missionAccent);
-  dcmKnob.rotation.x = Math.PI / 2;
-  dcmKnob.position.set(0.06, 0.04, -0.205);
+  // Chest central glowing core (energy ring)
+  const coreRing = new THREE.Mesh(new THREE.TorusGeometry(0.038, 0.008, 12, 32), mats.tealLED);
+  coreRing.position.set(0, 0.14, -0.145);
+  const coreDisk = new THREE.Mesh(new THREE.CircleGeometry(0.028, 24), mats.tealLED);
+  coreDisk.position.set(0, 0.14, -0.144);
+  coreDisk.rotation.y = Math.PI;
+  torso.add(coreRing, coreDisk);
 
-  // Parche institucional Astral Sentinels en el pectoral superior del torso rígido (HUT)
-  const chestBadgeFrame = new THREE.Mesh(
-    new RoundedBoxGeometry(0.066, 0.066, 0.008, 2, 0.003),
-    mats.chromeHardware,
-  );
-  chestBadgeFrame.position.set(-0.125, 0.138, -0.132);
-  const chestAstralPatch = new THREE.Mesh(new THREE.PlaneGeometry(0.058, 0.058), mats.astralPatch);
-  chestAstralPatch.name = 'AstralSentinelsChestPatch';
-  chestAstralPatch.position.set(-0.125, 0.138, -0.137);
-  chestAstralPatch.rotation.y = Math.PI;
-  torso.add(dcmBox, dcmScreen, dcmKnob, chestBadgeFrame, chestAstralPatch);
+  // Chest telemetry control panel
+  const chestDcm = new THREE.Mesh(new RoundedBoxGeometry(0.075, 0.055, 0.02, 2, 0.004), mats.jointDark);
+  chestDcm.position.set(-0.06, 0.04, -0.146);
+  const dcmScreen = new THREE.Mesh(new RoundedBoxGeometry(0.03, 0.012, 0.022, 1, 0.002), mats.tealTrim);
+  dcmScreen.position.set(-0.06, 0.04, -0.152);
+  torso.add(chestDcm, dcmScreen);
 
-  // MOLDED PORTABLE LIFE SUPPORT SYSTEM (PLSS) BACKPACK + INTEGRATED MICRO-RCS THRUSTER NOZZLES
+  // PORTABLE LIFE SUPPORT SYSTEM (PLSS) BACKPACK
   const backpack = new THREE.Group();
-  backpack.position.set(0, 0.05, 0.205);
-  const plssBody = new THREE.Mesh(new RoundedBoxGeometry(0.32, 0.47, 0.17, 4, 0.042), mats.armorPlate);
-  const plssTopHood = new THREE.Mesh(new RoundedBoxGeometry(0.29, 0.085, 0.16, 3, 0.028), mats.jointDark);
-  plssTopHood.position.y = 0.245;
+  backpack.position.set(0, 0.06, 0.21);
+  const plssBody = new THREE.Mesh(new RoundedBoxGeometry(0.33, 0.48, 0.18, 3, 0.035), mats.armorPlate);
+  plssBody.castShadow = true;
+  backpack.add(plssBody);
 
-  // Molded side rail frame & dorsal amber EVA recovery grab handle
-  [-0.145, 0.145].forEach((rx) => {
-    const rail = new THREE.Mesh(new RoundedBoxGeometry(0.036, 0.46, 0.185, 2, 0.01), mats.harnessWeb);
-    rail.position.x = rx;
-    backpack.add(rail);
-  });
-  const topGrabHandle = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.012, 8, 16, Math.PI), mats.missionAccent);
-  topGrabHandle.position.set(0, 0.285, 0.035);
-  backpack.add(topGrabHandle);
+  const plssHood = new THREE.Mesh(new RoundedBoxGeometry(0.29, 0.09, 0.16, 2, 0.02), mats.jointDark);
+  plssHood.position.y = 0.25;
+  backpack.add(plssHood);
 
-  // Recessed O2 composite bottle bay + cooling radiator louvers (no crude pipes glued onto box)
-  const backBayRecess = new THREE.Mesh(new RoundedBoxGeometry(0.22, 0.36, 0.04, 2, 0.012), mats.jointDark);
-  backBayRecess.position.set(0, -0.02, 0.075);
-  backpack.add(backBayRecess);
-  [-0.062, 0.062].forEach((ox) => {
-    const o2Bottle = new THREE.Mesh(
-      buildSculptedSegmentProfile(0.032, 0.034, 0.032, 0.28),
-      mats.chromeHardware,
-    );
-    o2Bottle.position.set(ox, 0.125, 0.08);
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.033, 0.006, 6, 12), mats.missionAccent);
-    collar.rotation.x = Math.PI / 2;
-    collar.position.set(ox, 0.035, 0.08);
-    backpack.add(o2Bottle, collar);
-  });
-  for (let ly = -0.14; ly <= 0.1; ly += 0.045) {
-    const fin = new THREE.Mesh(new RoundedBoxGeometry(0.05, 0.012, 0.024, 1, 0.003), mats.suitCrease);
-    fin.position.set(0, ly, 0.086);
-    backpack.add(fin);
-  }
+  // Astral Sentinels emblem mounting on backpack
+  const astralFrame = new THREE.Mesh(new RoundedBoxGeometry(0.2, 0.2, 0.016, 2, 0.004), mats.armorPlate);
+  astralFrame.position.set(0, 0.08, 0.095);
+  const astralPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.18), mats.astralPatch);
+  astralPlane.position.set(0, 0.08, 0.104);
+  astralPlane.rotation.y = Math.PI;
+  backpack.add(astralFrame, astralPlane);
 
-  const antennaMast = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.008, 0.24, 8), mats.chromeHardware);
-  antennaMast.position.set(-0.125, 0.36, 0.035);
-  const antennaTip = new THREE.Mesh(new THREE.SphereGeometry(0.01, 8, 8), mats.missionAccent);
-  antennaTip.position.set(-0.125, 0.48, 0.035);
-  backpack.add(plssBody, plssTopHood, antennaMast, antennaTip);
+  // NASA circular patch mounting on backpack
+  const nasaRim = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.016, 28), mats.armorPlate);
+  nasaRim.rotation.x = Math.PI / 2;
+  nasaRim.position.set(0, -0.11, 0.095);
+  const nasaPlane = new THREE.Mesh(new THREE.CircleGeometry(0.048, 28), mats.nasaPatch);
+  nasaPlane.position.set(0, -0.11, 0.104);
+  nasaPlane.rotation.y = Math.PI;
+  backpack.add(nasaRim, nasaPlane);
 
-  // Compact corner RCS nozzle thrusters (plumes remain hidden unless firing in THRUSTER_BURST / STABILIZE)
+  // Antenna mast with red sphere tip
+  const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.008, 0.16, 8), mats.chromeHardware);
+  antenna.position.set(-0.13, 0.32, 0.03);
+  const antennaTip = new THREE.Mesh(new THREE.SphereGeometry(0.018, 12, 10), mats.redBeacon);
+  antennaTip.position.set(-0.13, 0.41, 0.03);
+  backpack.add(antenna, antennaTip);
+
+  // Oxygen port connectors with teal torus rings
+  const port = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.025, 20), mats.chromeHardware);
+  port.position.set(0.1, 0.18, 0.095);
+  port.rotation.x = Math.PI / 2;
+  const portRing = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.006, 8, 20), mats.tealTrim);
+  portRing.position.set(0.1, 0.18, 0.108);
+  backpack.add(port, portRing);
+
+  // Ribbed life-support oxygen conduit hose looping from chest to backpack over right shoulder
+  const hoseCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.11, 0.06, -0.14),
+    new THREE.Vector3(0.19, 0.16, -0.1),
+    new THREE.Vector3(0.23, 0.26, -0.02),
+    new THREE.Vector3(0.22, 0.28, 0.08),
+    new THREE.Vector3(0.16, 0.25, 0.18),
+    new THREE.Vector3(0.1, 0.18, 0.18),
+  ]);
+  const hoseMesh = new THREE.Mesh(new THREE.TubeGeometry(hoseCurve, 36, 0.02, 10, false), mats.hoseMat);
+  hoseMesh.castShadow = true;
+  torso.add(hoseMesh);
+
+  // Micro-RCS thrusters
   const rcsPlumes = [];
   [
-    [-0.165, 0.19, 0.055],
-    [0.165, 0.19, 0.055],
-    [-0.165, -0.18, 0.055],
-    [0.165, -0.18, 0.055],
+    [-0.17, 0.18, 0.07],
+    [0.17, 0.18, 0.07],
+    [-0.17, -0.17, 0.07],
+    [0.17, -0.17, 0.07],
   ].forEach(([qx, qy, qz]) => {
-    const quad = new THREE.Mesh(new RoundedBoxGeometry(0.052, 0.052, 0.058, 2, 0.012), mats.jointDark);
+    const quad = new THREE.Mesh(new RoundedBoxGeometry(0.045, 0.045, 0.05, 1, 0.008), mats.jointDark);
     quad.position.set(qx, qy, qz);
-    const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.02, 0.028, 10), mats.chromeHardware);
-    bell.rotation.x = Math.PI / 2;
-    bell.position.set(qx, qy, qz + 0.034);
-    const plume = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.11, 10), mats.rcsPlumeMat.clone());
+    const plume = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.1, 10), mats.rcsPlumeMat.clone());
     plume.rotation.x = Math.PI / 2;
-    plume.position.set(qx, qy, qz + 0.095);
+    plume.position.set(qx, qy, qz + 0.08);
     plume.visible = false;
-    backpack.add(quad, bell, plume);
+    backpack.add(quad, plume);
     rcsPlumes.push(plume);
   });
   torso.add(backpack);
 
-  // CONTOURED HELMET ASSEMBLY & GOLD SOLAR VISOR (crown y = 1.75m)
+  // SUPER-ELLIPSOID AERODYNAMIC HELMET
   const headGroup = new THREE.Group();
-  headGroup.position.set(0, 0.29, 0);
-  const neckRing = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.018, 12, 24), mats.chromeHardware);
-  neckRing.rotation.x = Math.PI / 2;
-  const neckSeal = new THREE.Mesh(new THREE.TorusGeometry(0.118, 0.011, 8, 20), mats.missionAccent);
-  neckSeal.rotation.x = Math.PI / 2;
-  neckSeal.position.y = 0.016;
-  headGroup.add(neckRing, neckSeal);
+  headGroup.position.set(0, 0.3, 0);
 
-  const helmetMesh = new THREE.Mesh(new THREE.SphereGeometry(0.164, 24, 20), mats.suitOuter);
-  helmetMesh.position.y = 0.14;
-  helmetMesh.scale.set(0.95, 1.06, 1.04);
-  headGroup.add(helmetMesh);
+  const helm = new THREE.Group();
+  helm.position.set(0, 0.15, 0);
 
-  // Sunvisor protective cowling hood & rear neck bumper ring (reads distinctly from rear & 3/4 angles!)
-  const sunHood = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.172, 0.175, 0.09, 20, 1, false, -Math.PI * 0.65, Math.PI * 1.3),
-    mats.armorPlate,
+  const helmetShellMesh = new THREE.Mesh(
+    createSuperEllipsoidGeometry(0.16, 0.92, 36, 28, 0, Math.PI * 2, 0, Math.PI),
+    mats.helmetShell
   );
-  sunHood.position.set(0, 0.195, -0.01);
-  sunHood.rotation.x = 0.16;
-  const rearPatch = new THREE.Mesh(new RoundedBoxGeometry(0.14, 0.06, 0.04, 2, 0.012), mats.jointDark);
-  rearPatch.position.set(0, 0.11, 0.155);
-  const rearStripe = new THREE.Mesh(new RoundedBoxGeometry(0.1, 0.016, 0.044, 1, 0.004), mats.missionAccent);
-  rearStripe.position.set(0, 0.185, 0.148);
-  headGroup.add(sunHood, rearPatch, rearStripe);
-
-  // Dark inner tinted pressure dome + reflective gold outer solar visor
-  const innerHead = new THREE.Mesh(new THREE.SphereGeometry(0.148, 18, 14), mats.visorInnerTint);
-  innerHead.position.set(0, 0.142, -0.024);
-  headGroup.add(innerHead);
+  helmetShellMesh.castShadow = true;
+  helm.add(helmetShellMesh);
 
   const visorMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(0.165, 22, 18, Math.PI * 1.06, Math.PI * 0.88, Math.PI * 0.16, Math.PI * 0.58),
-    mats.visorGold,
+    createSuperEllipsoidGeometry(0.1635, 0.92, 36, 28, Math.PI / 2 - 1.2, 2.4, 0.45, 1.85),
+    mats.visorGold
   );
-  visorMesh.position.set(0, 0.144, -0.022);
-  headGroup.add(visorMesh);
+  visorMesh.castShadow = true;
+  helm.add(visorMesh);
 
-  // Visor bezel seal & dual helmet LED work headlamp nacelles
-  [-0.162, 0.162].forEach((lx) => {
-    const pod = new THREE.Mesh(new RoundedBoxGeometry(0.036, 0.044, 0.09, 2, 0.012), mats.jointDark);
-    pod.position.set(lx, 0.155, -0.012);
-    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.013, 12), mats.helmetLamp);
-    lens.position.set(lx, 0.155, -0.058);
-    lens.rotation.y = Math.PI;
-    headGroup.add(pod, lens);
+  // Neck collar ring
+  const neckRing = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.035, 12, 36), mats.helmetShell);
+  neckRing.position.y = -0.13;
+  neckRing.rotation.x = Math.PI / 2;
+  helm.add(neckRing);
+
+  // Side ear communication cylinders with cyan LED lights
+  [-1, 1].forEach((s) => {
+    const ear = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.035, 24), mats.helmetShell);
+    ear.rotation.z = Math.PI / 2;
+    ear.position.set(s * 0.165, 0, -0.01);
+    const earLed = new THREE.Mesh(new THREE.SphereGeometry(0.014, 10, 8), mats.tealLED);
+    earLed.position.set(s * 0.182, 0, -0.01);
+    helm.add(ear, earLed);
   });
+
+  // Top aerodynamic crest
+  const crest = new THREE.Mesh(createSuperEllipsoidGeometry(1, 0.6, 20, 14), mats.chromeHardware);
+  crest.scale.set(0.02, 0.02, 0.12);
+  crest.position.set(0, 0.158, -0.02);
+  helm.add(crest);
+
+  headGroup.add(helm);
   torso.add(headGroup);
 
-  // ARTICULATED ARMS & LEGS
-  const leftArmRig = buildSegmentedLimb(mats, 0.058, 0.27, 0.048, 0.25, 'glove', -1);
-  leftArmRig.root.position.set(-0.235, 0.15, 0);
-  const rightArmRig = buildSegmentedLimb(mats, 0.058, 0.27, 0.048, 0.25, 'glove', 1);
-  rightArmRig.root.position.set(0.235, 0.15, 0);
+  // ARTICULATED ARMS AND LEGS
+  const leftArmRig = buildArticulatedLimb(mats, 0.06, 0.28, 0.05, 0.26, 'glove', -1);
+  leftArmRig.root.position.set(-0.25, 0.17, 0);
+  const rightArmRig = buildArticulatedLimb(mats, 0.06, 0.28, 0.05, 0.26, 'glove', 1);
+  rightArmRig.root.position.set(0.25, 0.17, 0);
   torso.add(leftArmRig.root, rightArmRig.root);
 
-  const leftLegRig = buildSegmentedLimb(mats, 0.088, 0.42, 0.074, 0.4, 'boot', -1);
-  leftLegRig.root.position.set(-0.105, -0.05, 0);
-  const rightLegRig = buildSegmentedLimb(mats, 0.088, 0.42, 0.074, 0.4, 'boot', 1);
-  rightLegRig.root.position.set(0.105, -0.05, 0);
+  const leftLegRig = buildArticulatedLimb(mats, 0.09, 0.42, 0.076, 0.4, 'boot', -1);
+  leftLegRig.root.position.set(-0.11, -0.06, 0);
+  const rightLegRig = buildArticulatedLimb(mats, 0.09, 0.42, 0.076, 0.4, 'boot', 1);
+  rightLegRig.root.position.set(0.11, -0.06, 0);
   pelvis.add(leftLegRig.root, rightLegRig.root);
 
   let currentState = ASTRONAUT_ANIMATION_STATES.IDLE_FLOAT;
   let clockT = 0;
+  let walkPhase = 0;
 
   function setState(nextState) {
     if (Object.values(ASTRONAUT_ANIMATION_STATES).includes(nextState)) {
@@ -523,43 +826,45 @@ export function createAstronautCharacter3D() {
     }
   }
 
+  /**
+   * Refined locomotion and posture animation:
+   * Provides clean, straight, controlled walking with proper leg strides and grounded foot placement.
+   */
   function updateAnimation(dt = 0.016, stateOverride = null, motionMeta = null) {
     if (stateOverride) setState(stateOverride);
     const safeDt = Math.max(0.001, Math.min(0.08, Number(dt) || 0.016));
     clockT += safeDt;
 
     const speed = Math.max(0, Number(motionMeta?.speed ?? 0));
-    const speedRatio = Math.min(1.4, speed / 3.2);
-    const bankRoll = Math.max(-0.22, Math.min(0.22, Number(motionMeta?.bankRoll ?? 0)));
-    const headPitch = Math.max(-0.45, Math.min(0.45, Number(motionMeta?.headPitch ?? 0)));
-    const isElevatorRide = Boolean(motionMeta?.isElevatorRide);
+    const speedRatio = Math.min(1.4, speed / 2.8);
+    const isWalking = speed > 0.08;
     const isSeatedCommand =
-      Boolean(motionMeta?.isSeatedCommand) ||
-      currentState === ASTRONAUT_ANIMATION_STATES.SEATED_COMMAND;
+      Boolean(motionMeta?.isSeatedCommand) || currentState === ASTRONAUT_ANIMATION_STATES.SEATED_COMMAND;
+    const isElevatorRide = Boolean(motionMeta?.isElevatorRide);
+    const bankRoll = Math.max(-0.15, Math.min(0.15, Number(motionMeta?.bankRoll ?? 0)));
+    const headPitch = Math.max(-0.4, Math.min(0.4, Number(motionMeta?.headPitch ?? 0)));
 
-    // Objetivos articulares por estado con mezcla suave en microgravedad
-    let bobY = Math.sin(clockT * 1.45) * 0.032;
-    let bodyPitch = 0.05 * Math.sin(clockT * 1.1);
-    let bodyYaw = 0.0;
-    let laX = 0.18,
-      laZ = 0.14,
-      leX = -0.35;
-    let raX = 0.18,
-      raZ = -0.14,
-      reX = -0.35;
-    let llX = -0.12,
-      lkX = 0.24;
-    let rlX = 0.08,
-      rkX = 0.18;
+    let bobY = 0;
+    let bodyPitch = 0.02;
+    let bodyYaw = 0;
+    let laX = 0.14,
+      laZ = 0.12,
+      leX = -0.32;
+    let raX = 0.14,
+      raZ = -0.12,
+      reX = -0.32;
+    let llX = 0,
+      lkX = 0.06;
+    let rlX = 0,
+      rkX = 0.06;
     let rcsOpacity = 0.0;
 
     if (isSeatedCommand) {
-      // Postura de mando sentado en el sillón central del puente (C01) frente a los instrumentos
-      bobY = -0.34 + Math.sin(clockT * 1.25) * 0.003;
-      bodyPitch = -0.04 + Math.sin(clockT * 0.9) * 0.008;
-      bodyYaw = Math.sin(clockT * 0.55) * 0.025;
-      laX = 0.38 + Math.sin(clockT * 1.4) * 0.018;
-      raX = 0.42 + Math.cos(clockT * 1.5) * 0.02;
+      // Ergonomic bridge seated pose
+      bobY = -0.34;
+      bodyPitch = -0.04;
+      laX = 0.38;
+      raX = 0.42;
       laZ = 0.16;
       raZ = -0.16;
       leX = 0.92;
@@ -568,128 +873,111 @@ export function createAstronautCharacter3D() {
       rlX = 1.38;
       lkX = -1.32;
       rkX = -1.32;
-      rcsOpacity = 0.0;
     } else if (isElevatorRide) {
-      bobY = 0.008 * Math.sin(clockT * 2.1);
-      bodyPitch = 0.02;
-      laX = 0.16;
+      bobY = 0.005 * Math.sin(clockT * 2.0);
       raX = 0.42;
-      raZ = -0.22;
-      reX = -0.62;
-      leX = -0.28;
-      llX = -0.05;
-      rlX = 0.05;
-      lkX = 0.14;
-      rkX = 0.14;
-      rcsOpacity = 0.0;
+      raZ = -0.2;
+      reX = -0.6;
+      laX = 0.14;
+    } else if (isWalking) {
+      // Straight, controlled bipedal walk cycle
+      walkPhase += safeDt * (5.8 + speedRatio * 3.2);
+      const strideAngle = Math.min(0.68, 0.32 + speedRatio * 0.32);
+      const armSwing = Math.min(0.48, 0.22 + speedRatio * 0.25);
+
+      // Legs stride in alternating opposition
+      llX = Math.sin(walkPhase) * strideAngle;
+      rlX = -Math.sin(walkPhase) * strideAngle;
+
+      // Knees flex naturally on swing phase
+      lkX = Math.max(0, -Math.sin(walkPhase + 0.3)) * 0.72;
+      rkX = Math.max(0, Math.sin(walkPhase + 0.3)) * 0.72;
+
+      // Arms swing in counter-phase to legs
+      laX = -Math.sin(walkPhase) * armSwing + 0.12;
+      raX = Math.sin(walkPhase) * armSwing + 0.12;
+      leX = -0.32 - Math.max(0, Math.sin(walkPhase)) * 0.25;
+      reX = -0.32 - Math.max(0, -Math.sin(walkPhase)) * 0.25;
+
+      // Subtle, stable hip bobbing
+      bobY = Math.abs(Math.sin(walkPhase)) * 0.022;
+      bodyPitch = 0.03 + speedRatio * 0.03;
+      bodyYaw = Math.sin(walkPhase) * 0.028;
     } else {
       switch (currentState) {
-        case ASTRONAUT_ANIMATION_STATES.IDLE_FLOAT: {
-          laX = 0.22 + Math.sin(clockT * 1.3) * 0.08;
-          raX = 0.18 + Math.cos(clockT * 1.2) * 0.08;
-          leX = -0.45 + Math.sin(clockT * 1.1) * 0.05;
-          reX = -0.42 + Math.cos(clockT * 1.15) * 0.05;
-          llX = -0.14 + Math.sin(clockT * 1.1) * 0.06;
-          rlX = 0.11 - Math.sin(clockT * 1.1) * 0.06;
-          break;
-        }
-        case ASTRONAUT_ANIMATION_STATES.HAND_PUSH: {
-          const s = Math.sin(clockT * (4.4 + speedRatio * 1.8));
-          bobY = Math.abs(s) * 0.024;
-          bodyPitch = 0.1 + speedRatio * 0.14;
-          bodyYaw = s * 0.06;
-          laX = 0.38 + s * (0.28 + speedRatio * 0.15);
-          raX = 0.38 - s * (0.28 + speedRatio * 0.15);
-          leX = -0.48;
-          reX = -0.48;
-          llX = -0.18 + s * (0.22 + speedRatio * 0.12);
-          rlX = -0.18 - s * (0.22 + speedRatio * 0.12);
-          lkX = 0.34;
-          rkX = 0.34;
-          break;
-        }
         case ASTRONAUT_ANIMATION_STATES.THRUSTER_BURST: {
-          bodyPitch = 0.18 + speedRatio * 0.14;
-          bobY = Math.sin(clockT * 7.2) * 0.016;
+          bodyPitch = 0.16;
           laX = -0.12;
-          laZ = 0.3;
+          laZ = 0.28;
           raX = -0.12;
-          raZ = -0.3;
-          llX = 0.18;
-          rlX = 0.26;
-          lkX = 0.32;
-          rkX = 0.42;
-          rcsOpacity = 0.45 + 0.18 * Math.sin(clockT * 24);
+          raZ = -0.28;
+          llX = 0.16;
+          rlX = 0.22;
+          lkX = 0.28;
+          rkX = 0.36;
+          rcsOpacity = 0.45;
+          break;
+        }
+        case ASTRONAUT_ANIMATION_STATES.CONSOLE_WORK: {
+          bodyPitch = 0.04;
+          laX = 0.82 + Math.sin(clockT * 4.0) * 0.06;
+          raX = 0.86 + Math.cos(clockT * 4.5) * 0.06;
+          leX = -0.72;
+          reX = -0.72;
+          break;
+        }
+        case ASTRONAUT_ANIMATION_STATES.REPAIR_INTERACT: {
+          bodyPitch = 0.1;
+          raX = 1.02 + Math.sin(clockT * 6.0) * 0.12;
+          reX = -0.6;
+          laX = 0.74;
+          leX = -0.78;
           break;
         }
         case ASTRONAUT_ANIMATION_STATES.GRAB_RAIL: {
-          bobY = 0.008 * Math.sin(clockT * 1.8);
-          bodyPitch = 0.06;
-          raX = 1.24;
+          raX = 1.2;
           raZ = 0.08;
           reX = -0.45;
-          laX = 0.32;
-          leX = -0.35;
-          llX = -0.1;
-          rlX = 0.12;
           break;
         }
         case ASTRONAUT_ANIMATION_STATES.STABILIZE: {
           bodyPitch = 0.02;
-          laZ = 0.68;
-          raZ = -0.68;
-          laX = 0.28;
-          raX = 0.28;
-          llX = -0.22;
-          rlX = -0.22;
-          lkX = 0.42;
-          rkX = 0.42;
-          rcsOpacity = 0.38 + 0.16 * Math.cos(clockT * 20);
-          break;
-        }
-        case ASTRONAUT_ANIMATION_STATES.CONSOLE_WORK: {
-          bodyPitch = 0.05;
-          laX = 0.85 + Math.sin(clockT * 4.2) * 0.08;
-          raX = 0.88 + Math.cos(clockT * 4.8) * 0.08;
-          laZ = -0.12;
-          raZ = 0.12;
-          leX = -0.75;
-          reX = -0.75;
-          break;
-        }
-        case ASTRONAUT_ANIMATION_STATES.REPAIR_INTERACT: {
-          bodyPitch = 0.12;
-          raX = 1.05 + Math.sin(clockT * 6.5) * 0.14;
-          reX = -0.62 + Math.cos(clockT * 6.5) * 0.12;
-          laX = 0.78;
-          leX = -0.82;
+          laZ = 0.65;
+          raZ = -0.65;
+          rcsOpacity = 0.35;
           break;
         }
         case ASTRONAUT_ANIMATION_STATES.CORRIDOR_SWIM: {
-          const sw = Math.sin(clockT * (4.6 + speedRatio * 2.0));
-          bodyPitch = 0.16 + Math.min(0.26, speedRatio * 0.24);
-          bodyYaw = sw * 0.07;
-          bobY = 0.03 + sw * 0.026;
-          laX = 0.85 + sw * 0.3;
-          raX = 0.85 - sw * 0.3;
-          leX = -0.4;
-          reX = -0.4;
-          llX = 0.22 - sw * (0.24 + speedRatio * 0.1);
-          rlX = 0.22 + sw * (0.24 + speedRatio * 0.1);
-          lkX = 0.28;
-          rkX = 0.28;
-          rcsOpacity = speedRatio > 1.05 ? 0.25 : 0.0;
+          const sw = Math.sin(clockT * 5.0);
+          bodyPitch = 0.18;
+          laX = 0.8 + sw * 0.25;
+          raX = 0.8 - sw * 0.25;
+          llX = 0.2 - sw * 0.2;
+          rlX = 0.2 + sw * 0.2;
+          break;
+        }
+        default: {
+          // Standing idle grounded
+          bobY = Math.sin(clockT * 1.5) * 0.008;
+          laX = 0.14 + Math.sin(clockT * 1.2) * 0.02;
+          raX = 0.14 + Math.cos(clockT * 1.2) * 0.02;
+          leX = -0.32;
+          reX = -0.32;
+          llX = -0.02;
+          rlX = 0.02;
+          lkX = 0.06;
+          rkX = 0.06;
           break;
         }
       }
     }
 
-    const k = Math.min(1, Math.max(0.08, safeDt * 10));
+    const k = Math.min(1, Math.max(0.1, safeDt * 10));
     pelvis.position.y += (0.9 + bobY - pelvis.position.y) * k;
     pelvis.rotation.x += (bodyPitch - pelvis.rotation.x) * k;
     pelvis.rotation.y += (bodyYaw - pelvis.rotation.y) * k;
     pelvis.rotation.z += (bankRoll - pelvis.rotation.z) * k;
-    headGroup.rotation.x += (-bodyPitch * 0.6 + headPitch * 0.48 - headGroup.rotation.x) * k;
+    headGroup.rotation.x += (-bodyPitch * 0.5 + headPitch * 0.45 - headGroup.rotation.x) * k;
 
     leftArmRig.root.rotation.x += (laX - leftArmRig.root.rotation.x) * k;
     leftArmRig.root.rotation.z += (laZ - leftArmRig.root.rotation.z) * k;
@@ -706,10 +994,9 @@ export function createAstronautCharacter3D() {
     rightLegRig.midJoint.rotation.x += (rkX - rightLegRig.midJoint.rotation.x) * k;
 
     rcsPlumes.forEach((pl, i) => {
-      const nextOp = Math.min(0.28, rcsOpacity * (0.58 + 0.18 * Math.sin(clockT * 18 + i)));
-      pl.material.opacity = nextOp;
-      pl.visible = nextOp > 0.02;
-      pl.scale.y = 0.45 + rcsOpacity * 0.5;
+      const op = Math.min(0.28, rcsOpacity * (0.6 + 0.2 * Math.sin(clockT * 18 + i)));
+      pl.material.opacity = op;
+      pl.visible = op > 0.02;
     });
   }
 
@@ -717,7 +1004,7 @@ export function createAstronautCharacter3D() {
     root,
     torso,
     headGroup,
-    helmetMesh,
+    helmetMesh: helmetShellMesh,
     visorMesh,
     backpack,
     leftArm: leftArmRig.root,
@@ -733,8 +1020,7 @@ export function createAstronautCharacter3D() {
 }
 
 /**
- * First-person EVA spacesuit forearms, armored gauntlets, wrist pressure rings,
- * and dockable handheld 3D tools (mounted below eye line to preserve sightlines).
+ * First-person spacesuit forearms and dockable handheld 3D tools.
  */
 export function createFirstPersonHandsRig() {
   const mats = createAstronautMaterials();
@@ -746,21 +1032,9 @@ export function createFirstPersonHandsRig() {
     arm.position.set(sideSign * 0.22, -0.205, -0.22);
     arm.rotation.set(0.22, sideSign * 0.2, sideSign * -0.14);
 
-    // El perfil se extruye de y=0 a y=-0.24: rotar +90° en X proyecta el antebrazo hacia -Z (adelante)
-    const forearm = new THREE.Mesh(
-      buildSculptedSegmentProfile(0.048, 0.043, 0.036, 0.24),
-      mats.suitOuter
-    );
+    const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.04, 0.24, 16), mats.suitOuter);
     forearm.rotation.x = Math.PI * 0.5;
     arm.add(forearm);
-
-    const elbowBand = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.045, 0.046, 0.032, 16),
-      mats.jointDark
-    );
-    elbowBand.rotation.x = Math.PI * 0.5;
-    elbowBand.position.set(0, 0, -0.055);
-    arm.add(elbowBand);
 
     const cuffCollar = new THREE.Mesh(
       new THREE.CylinderGeometry(0.038, 0.041, 0.026, 18),
@@ -770,16 +1044,9 @@ export function createFirstPersonHandsRig() {
     cuffCollar.position.set(0, 0, -0.215);
     arm.add(cuffCollar);
 
-    const wristLed = new THREE.Mesh(new RoundedBoxGeometry(0.022, 0.008, 0.02, 2, 0.003), mats.cyanTrim);
+    const wristLed = new THREE.Mesh(new RoundedBoxGeometry(0.022, 0.008, 0.02, 2, 0.003), mats.tealLED);
     wristLed.position.set(sideSign * -0.014, 0.036, -0.215);
     arm.add(wristLed);
-
-    // Insignia institucional Astral Sentinels en el antebrazo para vista en primera persona
-    const cuffPatch = new THREE.Mesh(new THREE.PlaneGeometry(0.026, 0.026), mats.astralPatch);
-    cuffPatch.name = sideSign > 0 ? 'FirstPersonAstralPatchR' : 'FirstPersonAstralPatchL';
-    cuffPatch.position.set(sideSign * -0.012, 0.044, -0.145);
-    cuffPatch.rotation.set(-Math.PI * 0.5, 0, sideSign * 0.15);
-    arm.add(cuffPatch);
 
     const gauntlet = new THREE.Group();
     gauntlet.position.set(0, 0.004, -0.255);
@@ -809,34 +1076,28 @@ export function createFirstPersonHandsRig() {
   const rightSide = makeArmSide(1);
   root.add(leftSide.arm, rightSide.arm);
 
-  // Socket de herramienta física sostenida en el guantelete derecho
   const toolSocket = new THREE.Group();
   toolSocket.position.set(-0.012, 0.022, -0.046);
   rightSide.gauntlet.add(toolSocket);
 
   const multitoolMesh = new THREE.Group();
   const mtBody = new THREE.Mesh(new RoundedBoxGeometry(0.024, 0.028, 0.145, 2, 0.005), mats.armorPlate);
-  const mtTip = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.01, 0.055, 10), mats.cyanTrim);
+  const mtTip = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.01, 0.055, 10), mats.tealTrim);
   mtTip.rotation.x = Math.PI * 0.5;
   mtTip.position.set(0, 0.004, -0.092);
-  const mtGrip = new THREE.Mesh(new RoundedBoxGeometry(0.026, 0.042, 0.036, 2, 0.004), mats.missionAccent);
-  mtGrip.position.set(0, -0.016, 0.028);
-  multitoolMesh.add(mtBody, mtTip, mtGrip);
+  multitoolMesh.add(mtBody, mtTip);
   multitoolMesh.visible = false;
 
   const scannerMesh = new THREE.Group();
   const scCase = new THREE.Mesh(new RoundedBoxGeometry(0.046, 0.018, 0.105, 2, 0.005), mats.jointDark);
-  const scScreen = new THREE.Mesh(new RoundedBoxGeometry(0.034, 0.004, 0.054, 1, 0.001), mats.cyanTrim);
+  const scScreen = new THREE.Mesh(new RoundedBoxGeometry(0.034, 0.004, 0.054, 1, 0.001), mats.tealTrim);
   scScreen.position.set(0, 0.01, 0.008);
-  const scLens = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.02, 12), mats.missionAccent);
-  scLens.rotation.x = Math.PI * 0.5;
-  scLens.position.set(0, 0.002, -0.058);
-  scannerMesh.add(scCase, scScreen, scLens);
+  scannerMesh.add(scCase, scScreen);
   scannerMesh.visible = false;
 
   const couplerMesh = new THREE.Group();
   const cpRing = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.007, 8, 18), mats.visorGold);
-  const cpCore = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.08, 12), mats.cyanTrim);
+  const cpCore = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.08, 12), mats.tealTrim);
   cpCore.rotation.x = Math.PI * 0.5;
   couplerMesh.add(cpRing, cpCore);
   couplerMesh.visible = false;
@@ -865,8 +1126,8 @@ export function createFirstPersonHandsRig() {
     reachWeight += (targetReach - reachWeight) * k;
     anchorWeight += (targetAnchor - anchorWeight) * k;
 
-    const bobFreq = isMoving ? 3.8 + Math.min(3.0, speed * 1.4) : 1.5;
-    const bobAmp = isMoving ? Math.min(0.014, 0.004 + speed * 0.004) : 0.0025;
+    const bobFreq = isMoving ? 4.2 + Math.min(3.0, speed * 1.5) : 1.5;
+    const bobAmp = isMoving ? Math.min(0.012, 0.004 + speed * 0.004) : 0.0025;
     const bobY = Math.sin(clockT * bobFreq) * bobAmp;
     const swayX = Math.cos(clockT * bobFreq * 0.5) * bobAmp * 0.8;
 
@@ -891,12 +1152,6 @@ export function createFirstPersonHandsRig() {
       0.2 + reachWeight * 0.1,
       -0.14 + reachWeight * 0.06
     );
-
-    if (heldToolId === 'scanner') {
-      scannerMesh.rotation.x = Math.sin(clockT * 2.2) * 0.03;
-    } else if (heldToolId === 'multitool') {
-      multitoolMesh.rotation.z = reachWeight * Math.sin(clockT * 14) * 0.18;
-    }
   }
 
   return {
