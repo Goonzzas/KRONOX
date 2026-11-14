@@ -1,563 +1,566 @@
 import * as THREE from 'three';
 
 /**
- * KRONOX 120-Meter Modular Research Cruiser 3D Architecture.
+ * AURORA-120 / KRONOX 120-Meter Modular Exploration Cruiser Exterior 3D Architecture.
  *
- * Implements a high-fidelity, scientifically credible deep-space exploration vessel:
- * - Reference Length: Strictly 120.0 meters (Z: -60.0m to +60.0m).
- * - Beam (Width): 18.0m (hull) / 32.0m (with deployed heat radiators).
- * - Draft (Height): 20.0m (hull) / 24.0m (with communication masts).
- * - Internal pressurized core: 14.0m wide x 16.0m high x 76.0m long,
- *   housing the 4 connected habitable decks within the armored hull.
- *
- * Architecture Modules (separated semantically):
- * 1. Command Module (Bow, Z: -42m to -60m)
- * 2. Structural Spine / Central Truss (Z: -42m to +35m)
- * 3. Pressurized Science Modules & SPHEREx Bay (Z: -20m to -42m)
- * 4. Habitat Modules & Crew Drums (Z: -18m to +12m)
- * 5. Engineering & Tokamak Plasma Core (Z: +12m to +44m)
- * 6. Radiator Thermal Arrays (32m span, Z: +8m to +32m)
- * 7. Engine Cluster (3 primary MPD plasma/ion nozzles + 8 RCS quad thrusters, Z: +44m to +60m)
- * 8. Auxiliary EVA Airlocks, Docking Collar & High-Gain Communications Dish
+ * Coordinate Convention in KRONOX (`1 unit = 1.00 meter` in Local Metric World):
+ * - Reference Length: Strictly 120.0 meters (`Z: -60.0m` Bow/Proa to `+60.0m` Stern/Popa).
+ * - Habitable Sphere Radius: `20.0m` (Diameter `40.0m`), housing 4 stacked interior decks.
+ * - Outer Structural Rings: `R = 28.0m` (Diameter `~58.2m` including ring gauge).
+ * - Internal Aurora geometry is authored along `+X` (bow) / `-X` (stern) and rotated `+Math.PI / 2`
+ *   around `Y` so local bow points strictly along `-Z` and stern plumes trail along `+Z`.
  */
 
 export const SHIP_METRIC_DIMENSIONS = Object.freeze({
   LENGTH_METERS: 120.0,
-  HULL_BEAM_METERS: 18.0,
-  RADIATOR_BEAM_METERS: 32.0,
-  HULL_HEIGHT_METERS: 20.0,
-  PRESSURIZED_VOLUME_M3: 16500.0,
+  HULL_BEAM_METERS: 40.0,
+  RADIATOR_BEAM_METERS: 58.24,
+  HULL_HEIGHT_METERS: 58.24,
+  PRESSURIZED_VOLUME_M3: 33510.0,
+  SPHERE_RADIUS_METERS: 20.0,
   DECK_COUNT: 4,
-  MAX_CREW_CAPACITY: 12,
-  PROPULSION_TYPE: 'Magnetoplasmadynamic / Dual Ion Thruster Cluster',
-  STRUCTURAL_ALLOY: 'Titanium-Aluminide / Carbon-Nanotube Reinforced Matrix',
+  MAX_CREW_CAPACITY: 16,
+  PROPULSION_TYPE: 'Main Plasma Engine + 4 Pylon Thrusters + Alcubierre Warp Bubble',
+  STRUCTURAL_ALLOY: 'Aerospace Steel Paneling & Gold MLI Thermal Rings',
 });
+
+function createProceduralTexture(width, height, drawFn, fallbackRgba = [123, 132, 142, 255]) {
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+    const tex = new THREE.DataTexture(new Uint8Array(fallbackRgba), 1, 1, THREE.RGBAFormat);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.needsUpdate = true;
+    return tex;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext?.('2d');
+  if (ctx) drawFn(ctx, width, height);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = 8;
+  return tex;
+}
 
 export function buildModularShip120M() {
   const root = new THREE.Group();
   root.name = 'KronoxModularResearchCruiser120M';
 
-  // Master PBR Materials with aerospace surface differentiation
-  const primaryArmorMat = new THREE.MeshStandardMaterial({
-    color: 0x1e2738,
-    metalness: 0.78,
-    roughness: 0.38,
-    name: 'ShipPrimaryArmorPlates',
-  });
-
-  const secondaryHullMat = new THREE.MeshStandardMaterial({
-    color: 0x2d3a4f,
-    metalness: 0.65,
-    roughness: 0.46,
-    name: 'SecondaryPlatingCeramic',
-  });
-
-  const structuralTrussMat = new THREE.MeshStandardMaterial({
-    color: 0x161d2b,
-    metalness: 0.90,
-    roughness: 0.28,
-    name: 'TitaniumSpineTruss',
-  });
-
-  // Multi-Layer Insulation (MLI) gold thermal foil for cryogenic science pods
-  const goldFoilMliMat = new THREE.MeshStandardMaterial({
-    color: 0xd4a017,
-    emissive: 0x3d2806,
-    emissiveIntensity: 0.18,
-    metalness: 0.88,
-    roughness: 0.24,
-    name: 'MliGoldThermalInsulation',
-  });
-
-  const copperConduitMat = new THREE.MeshStandardMaterial({
-    color: 0xb8652d,
-    metalness: 0.82,
-    roughness: 0.32,
-    name: 'CryoCoolantPipesCopper',
-  });
-
-  const glassObservationMat = new THREE.MeshPhysicalMaterial({
-    color: 0xcfe2ff,
-    transparent: true,
-    opacity: 0.22,
-    roughness: 0.04,
-    metalness: 0.08,
-    transmission: 0.92,
-    ior: 1.52,
-    side: THREE.DoubleSide,
-    name: 'ReinforcedObservationQuartzGlass',
-  });
-
-  const radiatorGrapheneMat = new THREE.MeshStandardMaterial({
-    color: 0x090d16,
-    emissive: 0x2e1104,
-    emissiveIntensity: 0.28,
-    metalness: 0.92,
-    roughness: 0.58,
-    name: 'GrapheneThermalDissipationMatrix',
-  });
-
-  const hazardChevronMat = new THREE.MeshStandardMaterial({
-    color: 0xf59e0b,
-    roughness: 0.42,
-    metalness: 0.25,
-    name: 'HazardAirlockYellow',
-  });
-
-  const ionGlowMat = new THREE.MeshBasicMaterial({
-    color: 0x38bdf8,
-    transparent: true,
-    opacity: 0.88,
-    name: 'MpdIonPlasmaGlow',
-  });
-
-  const tokamakGlowMat = new THREE.MeshBasicMaterial({
-    color: 0x818cf8,
-    transparent: true,
-    opacity: 0.75,
-    name: 'TokamakCherenkovField',
-  });
-
-  const beaconRedMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
-  const beaconGreenMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
-  const beaconWhiteMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
-
-  // -------------------------------------------------------------
-  // 1. MÓDULO DE MANDO Y NAVEGACIÓN (Proa, Z: -60.0m a -42.0m)
-  // -------------------------------------------------------------
-  const commandModule = new THREE.Group();
-  commandModule.name = 'CommandModule';
-
-  // Cuña frontal aerodinámica/deflectora facetada de titanio
-  // Nariz afilada con punta exacta en Z = -60.0m
-  const prowShape = new THREE.CylinderGeometry(0.12, 4.8, 12.0, 8);
-  prowShape.rotateX(Math.PI / 2);
-  const prowCone = new THREE.Mesh(prowShape, primaryArmorMat);
-  prowCone.position.set(0, 0.4, -54.0); // Z de -60.0m a -48.0m
-  commandModule.add(prowCone);
-
-  // Cuerpo principal del puente de mando (Z: -48.0m a -42.0m)
-  const bridgeHullGeo = new THREE.BoxGeometry(9.6, 5.8, 7.0);
-  const bridgeHull = new THREE.Mesh(bridgeHullGeo, secondaryHullMat);
-  bridgeHull.position.set(0, 0.8, -45.5);
-  commandModule.add(bridgeHull);
-
-  // Cúpula acristalada de observación (Mirador del puente con ventanales facetados)
-  const cupolaGeo = new THREE.CylinderGeometry(3.6, 4.4, 2.8, 8, 1, false, 0, Math.PI);
-  cupolaGeo.rotateZ(Math.PI);
-  cupolaGeo.rotateX(Math.PI / 2);
-  const cupolaGlass = new THREE.Mesh(cupolaGeo, glassObservationMat);
-  cupolaGlass.position.set(0, 2.6, -46.5);
-  commandModule.add(cupolaGlass);
-
-  // Marco estructural de los ventanales de proa
-  const mullionGeo = new THREE.BoxGeometry(0.24, 0.28, 3.8);
-  [-1.8, 0, 1.8].forEach((x) => {
-    const mullion = new THREE.Mesh(mullionGeo, structuralTrussMat);
-    mullion.position.set(x, 3.4, -46.5);
-    commandModule.add(mullion);
-  });
-
-  // Mástil dorsal de aviónica, antenas phased array y sensores LIDAR
-  const avionicsMast = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.32, 5.2, 6), structuralTrussMat);
-  avionicsMast.position.set(0, 4.8, -43.5);
-  commandModule.add(avionicsMast);
-
-  const lidarBlister = new THREE.Mesh(new THREE.SphereGeometry(0.75, 12, 8), copperConduitMat);
-  lidarBlister.position.set(0, 7.2, -43.5);
-  commandModule.add(lidarBlister);
-
-  // Cuadricópteros RCS de proa (babor y estribor)
-  [-4.8, 4.8].forEach((x, i) => {
-    const rcsBlock = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), structuralTrussMat);
-    rcsBlock.position.set(x, 0.6, -48.5);
-    commandModule.add(rcsBlock);
-
-    // Balizas de navegación: Babor (Rojo), Estribor (Verde)
-    const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), i === 0 ? beaconRedMat : beaconGreenMat);
-    beacon.position.set(x * 1.05, 1.2, -48.5);
-    commandModule.add(beacon);
-  });
-
-  // Baliza blanca estroboscópica de proa
-  const bowStrobe = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), beaconWhiteMat);
-  bowStrobe.position.set(0, 0.5, -59.8);
-  commandModule.add(bowStrobe);
-
-  root.add(commandModule);
-
-  // -------------------------------------------------------------
-  // 2. ESPINA DORSAL ESTRUCTURAL Y CELOSÍA (Z: -42.0m a +35.0m)
-  // -------------------------------------------------------------
-  const structuralSpine = new THREE.Group();
-  structuralSpine.name = 'StructuralSpine';
-
-  // Túnel cilíndrico presurizado interno de circulación (Z: -42.0m a +35.0m = 77.0m)
-  const coreTubeGeo = new THREE.CylinderGeometry(2.2, 2.2, 77.0, 16);
-  coreTubeGeo.rotateX(Math.PI / 2);
-  const coreTube = new THREE.Mesh(coreTubeGeo, primaryArmorMat);
-  coreTube.position.set(0, 0, -3.5);
-  structuralSpine.add(coreTube);
-
-  // Celosía triangular externa de titanio (cercha estructural espacial con costillas)
-  const ribCount = 14;
-  for (let i = 0; i < ribCount; i++) {
-    const z = -38.0 + (i * 70.0) / (ribCount - 1);
-    const outerRingGeo = new THREE.TorusGeometry(3.6, 0.22, 6, 8);
-    const ring = new THREE.Mesh(outerRingGeo, structuralTrussMat);
-    ring.position.set(0, 0, z);
-    structuralSpine.add(ring);
-
-    // Tirantes de arriostramiento en X
-    const braceGeo = new THREE.CylinderGeometry(0.12, 0.12, 7.2, 4);
-    const brace1 = new THREE.Mesh(braceGeo, structuralTrussMat);
-    brace1.rotation.z = Math.PI / 4;
-    brace1.position.set(0, 0, z);
-    const brace2 = new THREE.Mesh(braceGeo, structuralTrussMat);
-    brace2.rotation.z = -Math.PI / 4;
-    brace2.position.set(0, 0, z);
-    structuralSpine.add(brace1, brace2);
-  }
-
-  // Tuberías externas de helio líquido y líneas criogénicas
-  [-2.6, 2.6].forEach((x) => {
-    const pipeGeo = new THREE.CylinderGeometry(0.18, 0.18, 74.0, 8);
-    pipeGeo.rotateX(Math.PI / 2);
-    const pipe = new THREE.Mesh(pipeGeo, copperConduitMat);
-    pipe.position.set(x, 2.4, -3.5);
-    structuralSpine.add(pipe);
-  });
-
-  // Pasarela exterior de servicio con pasamanos amarillos EVA
-  const catwalkGeo = new THREE.BoxGeometry(1.6, 0.15, 72.0);
-  const catwalk = new THREE.Mesh(catwalkGeo, secondaryHullMat);
-  catwalk.position.set(0, -2.6, -3.5);
-  structuralSpine.add(catwalk);
-
-  const railGeo = new THREE.CylinderGeometry(0.04, 0.04, 72.0, 6);
-  railGeo.rotateX(Math.PI / 2);
-  [-0.75, 0.75].forEach((rx) => {
-    const rail = new THREE.Mesh(railGeo, hazardChevronMat);
-    rail.position.set(rx, -2.1, -3.5);
-    structuralSpine.add(rail);
-  });
-
-  root.add(structuralSpine);
-
-  // -------------------------------------------------------------
-  // 3. MÓDULOS CIENTÍFICOS Y BAHÍA SPHEREX (Z: -40.0m a -18.0m)
-  // -------------------------------------------------------------
-  const scienceModules = new THREE.Group();
-  scienceModules.name = 'ScienceModules';
-
-  // Vainas presurizadas laterales de investigación (Laboratorios de espectrometría IR)
-  [-5.6, 5.6].forEach((x, idx) => {
-    const podGeo = new THREE.CylinderGeometry(2.6, 2.6, 18.0, 10);
-    podGeo.rotateX(Math.PI / 2);
-    const pod = new THREE.Mesh(podGeo, secondaryHullMat);
-    pod.position.set(x, 0, -29.0);
-    scienceModules.add(pod);
-
-    // Manto térmico dorado de protección criogénica (MLI)
-    const mliGeo = new THREE.CylinderGeometry(2.7, 2.7, 10.0, 10);
-    mliGeo.rotateX(Math.PI / 2);
-    const mliWrap = new THREE.Mesh(mliGeo, goldFoilMliMat);
-    mliWrap.position.set(x, 0, -29.0);
-    scienceModules.add(mliWrap);
-
-    // Tanques esféricos de rocío criogénico de helio/nitrógeno líquido
-    const dewarGeo = new THREE.SphereGeometry(1.4, 12, 10);
-    const dewar = new THREE.Mesh(dewarGeo, goldFoilMliMat);
-    dewar.position.set(x * 1.35, 1.9, -29.0);
-    scienceModules.add(dewar);
-
-    // Soportes estructurales hacia la espina dorsal
-    const pylonGeo = new THREE.BoxGeometry(Math.abs(x) - 2.2, 0.8, 3.2);
-    const pylon = new THREE.Mesh(pylonGeo, structuralTrussMat);
-    pylon.position.set(x / 2, 0, -29.0);
-    scienceModules.add(pylon);
-  });
-
-  // Telescopio Criogénico SPHEREx montado en la bahía dorsal (Z: -26.0m)
-  const spherexBaffleGeo = new THREE.ConeGeometry(2.2, 4.6, 12, 1, true);
-  spherexBaffleGeo.rotateX(Math.PI / 2);
-  const spherexBaffle = new THREE.Mesh(spherexBaffleGeo, primaryArmorMat);
-  spherexBaffle.position.set(0, 4.6, -26.0);
-  scienceModules.add(spherexBaffle);
-
-  // Apertura óptica con filtro de cuarzo aluminizado
-  const opticAperture = new THREE.Mesh(new THREE.CircleGeometry(1.4, 16), glassObservationMat);
-  opticAperture.position.set(0, 4.6, -28.2);
-  opticAperture.rotation.y = Math.PI;
-  scienceModules.add(opticAperture);
-
-  // Parasol desplegable hexagonal de protección radiométrica
-  const sunshieldGeo = new THREE.CylinderGeometry(3.2, 3.2, 0.12, 6);
-  sunshieldGeo.rotateX(Math.PI / 2);
-  const sunshield = new THREE.Mesh(sunshieldGeo, goldFoilMliMat);
-  sunshield.position.set(0, 4.6, -23.8);
-  scienceModules.add(sunshield);
-
-  root.add(scienceModules);
-
-  // -------------------------------------------------------------
-  // 4. MÓDULO DE HABITABILIDAD Y TAMBORES DE TRIPULACIÓN (Z: -18.0m a +12.0m)
-  // -------------------------------------------------------------
-  const habitatModule = new THREE.Group();
-  habitatModule.name = 'HabitatModule';
-
-  // Dos tambores de habitabilidad gemelos (Babor / Estribor)
-  [-6.2, 6.2].forEach((x) => {
-    const drumGeo = new THREE.CylinderGeometry(4.2, 4.2, 22.0, 16);
-    drumGeo.rotateX(Math.PI / 2);
-    const drum = new THREE.Mesh(drumGeo, primaryArmorMat);
-    drum.position.set(x, 0, -3.0);
-    habitatModule.add(drum);
-
-    // Anillos de refuerzo estructural antiblindaje contra micrometeoritos
-    [-8.0, 0, 8.0].forEach((dz) => {
-      const rib = new THREE.Mesh(new THREE.TorusGeometry(4.35, 0.18, 6, 16), secondaryHullMat);
-      rib.position.set(x, 0, -3.0 + dz);
-      habitatModule.add(rib);
-    });
-
-    // Ojos de buey iluminados para habitáculos de tripulación
-    for (let p = 0; p < 6; p++) {
-      const pz = -10.0 + p * 2.8;
-      const porthole = new THREE.Mesh(new THREE.CircleGeometry(0.38, 12), glassObservationMat);
-      porthole.position.set(x + (x > 0 ? 4.22 : -4.22), 0.8, pz);
-      porthole.rotation.y = x > 0 ? Math.PI / 2 : -Math.PI / 2;
-      habitatModule.add(porthole);
-    }
-  });
-
-  // Esclusa ventral de acceso EVA (Z: -6.0m) con señalización de seguridad
-  const airlockBayGeo = new THREE.BoxGeometry(4.4, 2.6, 5.0);
-  const airlockBay = new THREE.Mesh(airlockBayGeo, secondaryHullMat);
-  airlockBay.position.set(0, -3.4, -6.0);
-  habitatModule.add(airlockBay);
-
-  // Marco de escotilla con franja de peligro
-  const airlockHatchGeo = new THREE.BoxGeometry(2.4, 0.15, 2.8);
-  const airlockHatch = new THREE.Mesh(airlockHatchGeo, hazardChevronMat);
-  airlockHatch.position.set(0, -4.75, -6.0);
-  habitatModule.add(airlockHatch);
-
-  root.add(habitatModule);
-
-  // -------------------------------------------------------------
-  // 5. INGENIERÍA Y NÚCLEO TOKAMAK DE PLASMA (Z: +12.0m a +44.0m)
-  // -------------------------------------------------------------
-  const engineeringModule = new THREE.Group();
-  engineeringModule.name = 'EngineeringModule';
-
-  // Casco acorazado de ingeniería
-  const engHullGeo = new THREE.CylinderGeometry(5.2, 5.8, 30.0, 12);
-  engHullGeo.rotateX(Math.PI / 2);
-  const engHull = new THREE.Mesh(engHullGeo, primaryArmorMat);
-  engHull.position.set(0, 0, 27.0);
-  engineeringModule.add(engHull);
-
-  // Cámara toroidal de confinamiento magnético Tokamak (Z = +24.0m)
-  const tokamakTorusGeo = new THREE.TorusGeometry(6.4, 1.4, 12, 24);
-  const tokamakTorus = new THREE.Mesh(tokamakTorusGeo, structuralTrussMat);
-  tokamakTorus.position.set(0, 0, 24.0);
-  engineeringModule.add(tokamakTorus);
-
-  // Bobinas superconductoras de campo magnético (6 bobinas poloidales)
-  for (let c = 0; c < 6; c++) {
-    const angle = (c * Math.PI) / 3;
-    const coilGeo = new THREE.BoxGeometry(0.8, 2.4, 1.2);
-    const coil = new THREE.Mesh(coilGeo, copperConduitMat);
-    coil.position.set(Math.cos(angle) * 6.4, Math.sin(angle) * 6.4, 24.0);
-    coil.rotation.z = angle;
-    engineeringModule.add(coil);
-  }
-
-  // Núcleo de plasma visible con radiación Cherenkov
-  const plasmaCore = new THREE.Mesh(new THREE.TorusGeometry(6.4, 0.7, 8, 20), tokamakGlowMat);
-  plasmaCore.position.set(0, 0, 24.0);
-  plasmaCore.name = 'TokamakPlasmaGlowRing';
-  engineeringModule.add(plasmaCore);
-
-  root.add(engineeringModule);
-
-  // -------------------------------------------------------------
-  // 6. MATRIZ DE RADIADORES TÉRMICOS DE GRAFENO (Envergadura 32.0m, Z: +8.0m a +32.0m)
-  // -------------------------------------------------------------
-  const radiatorArrays = new THREE.Group();
-  radiatorArrays.name = 'RadiatorArrays';
-
-  // Dos alas de radiadores térmicos desplegados simétricamente (Babor y Estribor)
-  // Envergadura total desde x = -16.0m hasta x = +16.0m (32.0m)
-  [-1, 1].forEach((side) => {
-    const wingGroup = new THREE.Group();
-    wingGroup.name = side < 0 ? 'RadiatorPortWing' : 'RadiatorStarboardWing';
-
-    // Panel disipador de calor plano con ranurado de grafeno
-    const panelGeo = new THREE.BoxGeometry(8.5, 0.14, 22.0);
-    const panel = new THREE.Mesh(panelGeo, radiatorGrapheneMat);
-    panel.position.set(side * 11.2, 0, 20.0);
-    wingGroup.add(panel);
-
-    // Mástil de despliegue en tijera y tuberías colectoras de freón/sodio líquido
-    const pylonGeo = new THREE.CylinderGeometry(0.32, 0.38, 5.8, 6);
-    pylonGeo.rotateZ(Math.PI / 2);
-    const pylon = new THREE.Mesh(pylonGeo, structuralTrussMat);
-    pylon.position.set(side * 5.8, 0, 20.0);
-    wingGroup.add(pylon);
-
-    // Colectores térmicos de alta temperatura
-    const headerPipeGeo = new THREE.CylinderGeometry(0.24, 0.24, 22.0, 8);
-    headerPipeGeo.rotateX(Math.PI / 2);
-    const headerPipe = new THREE.Mesh(headerPipeGeo, copperConduitMat);
-    headerPipe.position.set(side * 7.2, 0.25, 20.0);
-    wingGroup.add(headerPipe);
-
-    radiatorArrays.add(wingGroup);
-  });
-
-  root.add(radiatorArrays);
-
-  // -------------------------------------------------------------
-  // 7. CLÚSTER DE PROPULSIÓN MPD / IÓNICO (Popa, Z: +44.0m a +60.0m)
-  // -------------------------------------------------------------
-  const engineCluster = new THREE.Group();
-  engineCluster.name = 'EngineCluster';
-
-  // Placa trasera de empuje y montaje de motores
-  const thrustStructureGeo = new THREE.CylinderGeometry(5.8, 6.2, 6.0, 12);
-  thrustStructureGeo.rotateX(Math.PI / 2);
-  const thrustStructure = new THREE.Mesh(thrustStructureGeo, structuralTrussMat);
-  thrustStructure.position.set(0, 0, 46.0);
-  engineCluster.add(thrustStructure);
-
-  // 3 Toberas principales de plasma MPD dispuestas en triángulo
-  // Longitud de tobera: 9.0m (Z: +51.0m a +60.0m)
-  const nozzlePositions = [
-    { x: 0, y: 2.6, z: 55.5 },
-    { x: -2.8, y: -2.1, z: 55.5 },
-    { x: 2.8, y: -2.1, z: 55.5 },
-  ];
-
-  const plasmaPlumes = [];
-
-  nozzlePositions.forEach((pos, idx) => {
-    const nozzleGroup = new THREE.Group();
-    nozzleGroup.position.set(pos.x, pos.y, pos.z);
-
-    // Campana de tobera con chaqueta de enfriamiento regenerativo
-    const bellGeo = new THREE.CylinderGeometry(1.2, 2.8, 9.0, 16, 1, true);
-    bellGeo.rotateX(Math.PI / 2);
-    const bell = new THREE.Mesh(bellGeo, primaryArmorMat);
-    nozzleGroup.add(bell);
-
-    // Anillo exterior de titanio en el borde de salida de la tobera (Z = +60.0m)
-    const rimGeo = new THREE.TorusGeometry(2.8, 0.16, 6, 16);
-    const rim = new THREE.Mesh(rimGeo, secondaryHullMat);
-    rim.position.set(0, 0, 4.5); // 55.5 + 4.5 = 60.0m exactos
-    nozzleGroup.add(rim);
-
-    // Rejilla de aceleración interna
-    const gridGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.6, 8);
-    gridGeo.rotateX(Math.PI / 2);
-    const grid = new THREE.Mesh(gridGeo, structuralTrussMat);
-    grid.position.set(0, 0, -3.8);
-    nozzleGroup.add(grid);
-
-    // Penacho dinámico de plasma MPD que pulsa con el acelerador
-    // En reposo se aloja dentro de la tobera (Z <= 60.0m) para preservar la eslora métrica exacta de 120m
-    const plumeGeo = new THREE.ConeGeometry(1.8, 1.8, 16, 1, true);
-    plumeGeo.rotateX(-Math.PI / 2);
-    const plume = new THREE.Mesh(plumeGeo, ionGlowMat);
-    plume.position.set(0, 0, 3.6); // max Z = 3.6 + 0.9 = 4.5 rel -> 55.5 + 4.5 = 60.0m exactos
-    plume.name = `MpdPlasmaPlume_${idx}`;
-    nozzleGroup.add(plume);
-    plasmaPlumes.push(plume);
-
-    // Actuadores de empuje vectorial montados en cardán
-    [-1.8, 1.8].forEach((ax) => {
-      const actuator = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4.2, 4), structuralTrussMat);
-      actuator.position.set(ax, 0, -2.0);
-      actuator.rotation.x = Math.PI / 2;
-      nozzleGroup.add(actuator);
-    });
-
-    engineCluster.add(nozzleGroup);
-  });
-
-  // 4 Bloques RCS cuádruples en las esquinas de popa
-  [
-    { x: -5.4, y: 3.4 },
-    { x: 5.4, y: 3.4 },
-    { x: -5.4, y: -3.4 },
-    { x: 5.4, y: -3.4 },
-  ].forEach((pos) => {
-    const rcs = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 1.4), structuralTrussMat);
-    rcs.position.set(pos.x, pos.y, 48.0);
-    engineCluster.add(rcs);
-  });
-
-  root.add(engineCluster);
-
-  // -------------------------------------------------------------
-  // 8. GRUPO DE ANTENA DE ALTA GANANCIA Y ANILLO DE ATRAQUE
-  // -------------------------------------------------------------
-  const antennaGroup = new THREE.Group();
-  antennaGroup.name = 'AntennaGroup';
-
-  // Antena parabólica orientable de comunicaciones de espacio profundo (Z: -36.0m)
-  const dishSupport = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.35, 4.4, 6), structuralTrussMat);
-  dishSupport.position.set(0, 5.0, -36.0);
-  antennaGroup.add(dishSupport);
-
-  const dishGeo = new THREE.CylinderGeometry(3.6, 0.4, 1.2, 16, 1, true);
-  dishGeo.rotateX(Math.PI / 2);
-  const dish = new THREE.Mesh(dishGeo, secondaryHullMat);
-  dish.position.set(0, 7.4, -36.0);
-  dish.rotation.x = -Math.PI / 5;
-  antennaGroup.add(dish);
-
-  const feedHorn = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.2, 2.0, 6), copperConduitMat);
-  feedHorn.position.set(0, 7.8, -37.2);
-  feedHorn.rotation.x = -Math.PI / 5;
-  antennaGroup.add(feedHorn);
-
-  // Anillo de atraque estándar internacional (IDSS) en el costado de estribor
-  const dockingRingGeo = new THREE.TorusGeometry(1.6, 0.28, 8, 16);
-  const dockingRing = new THREE.Mesh(dockingRingGeo, primaryArmorMat);
-  dockingRing.position.set(2.4, 0, -14.0);
-  dockingRing.rotation.y = Math.PI / 2;
-  antennaGroup.add(dockingRing);
-
-  root.add(antennaGroup);
-
-  // Función de actualización de animaciones de vuelo (penachos MPD, plasma y rotación sutil de antenas)
-  const update = (dt, throttle = 0) => {
-    const time = performance.now() * 0.001;
-    const pulse = 0.85 + Math.sin(time * 12.0) * 0.15;
-    const throttleScale = Math.max(0.2, throttle);
-
-    plasmaPlumes.forEach((plume, i) => {
-      const flicker = 1.0 + Math.sin(time * 24.0 + i * 2.0) * 0.08;
-      plume.scale.set(
-        1.0 + throttle * 0.4,
-        1.0 + throttle * 0.4,
-        (throttleScale * 1.6 + pulse * 0.4) * flicker,
-      );
-      if (plume.material) {
-        plume.material.opacity = Math.min(0.95, 0.35 + throttle * 0.6);
+  // Orientation wrapper: Aurora-120 X-axis (+60 bow, -60 stern) -> KRONOX Z-axis (-60 bow, +60 stern)
+  const shipFrame = new THREE.Group();
+  shipFrame.name = 'Aurora120ExteriorFrame';
+  shipFrame.rotation.y = Math.PI / 2;
+  root.add(shipFrame);
+
+  // Deterministic PRNG matching Aurora-120 procedural hull panel & window layout
+  const rnd = ((s) => () => ((s = (s * 16807) % 2147483647) / 2147483647))(11);
+
+  const sectionClipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e4);
+
+  const panels = createProceduralTexture(512, 512, (g) => {
+    g.fillStyle = '#7b848e';
+    g.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 14; i++) {
+      for (let j = 0; j < 14; j++) {
+        const v = (125 + rnd() * 75) | 0;
+        g.fillStyle = `rgb(${v},${v + 4},${v + 10})`;
+        g.fillRect(i * 36 + 1, j * 36 + 1, 34, 34);
+        if (rnd() < 0.14) {
+          g.fillStyle = '#2a2f36';
+          g.fillRect(i * 36 + 8, j * 36 + 9, 18, 6);
+        }
       }
-    });
-
-    if (plasmaCore?.material) {
-      plasmaCore.material.opacity = 0.55 + Math.sin(time * 4.0) * 0.25;
     }
+  });
+  panels.repeat.set(3, 3);
 
-    if (dish) {
-      dish.rotation.z = Math.sin(time * 0.15) * 0.18;
+  const makeStdMat = (opts) => {
+    const m = new THREE.MeshStandardMaterial(opts);
+    m.clippingPlanes = [sectionClipPlane];
+    return m;
+  };
+  const makeBasicMat = (color, extra = {}) => {
+    const m = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, ...extra });
+    m.clippingPlanes = [sectionClipPlane];
+    return m;
+  };
+
+  const hullMat = makeStdMat({
+    color: 0xdde3e9,
+    map: panels,
+    bumpMap: panels,
+    bumpScale: 1.4,
+    metalness: 0.55,
+    roughness: 0.5,
+  });
+  const hullDoubleMat = makeStdMat({
+    color: 0xdde3e9,
+    map: panels,
+    bumpMap: panels,
+    bumpScale: 1.4,
+    metalness: 0.5,
+    roughness: 0.55,
+    side: THREE.DoubleSide,
+  });
+  const darkMat = makeStdMat({ color: 0x39404a, metalness: 0.7, roughness: 0.4 });
+  const goldMat = makeStdMat({ color: 0xc9a24b, metalness: 0.9, roughness: 0.32 });
+  const finMat = makeStdMat({ color: 0xcfd6dc, metalness: 0.3, roughness: 0.6 });
+  const cyanMat = makeBasicMat(0x9be7ff);
+  const warmMat = makeBasicMat(0xffe6b0);
+
+  const addMesh = (parent, geo, mat, x = 0, y = 0, z = 0, shadow = true) => {
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = shadow;
+    mesh.receiveShadow = shadow;
+    parent.add(mesh);
+    return mesh;
+  };
+  const boxGeo = (a, b, c) => new THREE.BoxGeometry(a, b, c);
+  const cylGeo = (a, b, l, s = 32) => new THREE.CylinderGeometry(a, b, l, s);
+  const cylX = (parent, r1, r2, l, x, mat, s = 40) => {
+    const o = addMesh(parent, cylGeo(r1, r2, l, s), mat, x);
+    o.rotation.z = Math.PI / 2;
+    return o;
+  };
+  const torusX = (parent, R, t, x, mat) => {
+    const o = addMesh(parent, new THREE.TorusGeometry(R, t, 12, 96), mat, x);
+    o.rotation.y = Math.PI / 2;
+    return o;
+  };
+  const torusY = (parent, R, t, y, mat) => {
+    const o = addMesh(parent, new THREE.TorusGeometry(R, t, 10, 96), mat, 0, y, 0, false);
+    o.rotation.x = Math.PI / 2;
+    return o;
+  };
+  const addGreebles = (parent, x0, x1, radius, count) => {
+    for (let i = 0; i < count; i++) {
+      const a = rnd() * 2 * Math.PI;
+      const x = x0 + rnd() * (x1 - x0);
+      const w = 0.8 + rnd() * 3;
+      const l = 0.8 + rnd() * 2.4;
+      const h = 0.3 + rnd() * 1.2;
+      const m = addMesh(
+        parent,
+        boxGeo(l, h, w),
+        rnd() < 0.22 ? goldMat : darkMat,
+        x,
+        Math.cos(a) * (radius + h / 2 - 0.1),
+        Math.sin(a) * (radius + h / 2 - 0.1),
+      );
+      m.rotation.x = a;
     }
   };
+
+  // Semantic sub-groups expected by callers & telemetry
+  const engineCluster = new THREE.Group();
+  engineCluster.name = 'EngineCluster';
+  const structuralSpine = new THREE.Group();
+  structuralSpine.name = 'StructuralSpine';
+  const commandModule = new THREE.Group();
+  commandModule.name = 'CommandModule';
+  const antennaGroup = new THREE.Group();
+  antennaGroup.name = 'CommunicationsDish';
+  const radiatorArrays = new THREE.Group();
+  radiatorArrays.name = 'StructuralRingsAndOrbits';
+  const habitatModule = new THREE.Group();
+  habitatModule.name = 'HabitatSphereModule';
+  const scienceModules = new THREE.Group();
+  scienceModules.name = 'ScienceSphereSector';
+  const engineeringModule = new THREE.Group();
+  engineeringModule.name = 'EngineeringReactorSector';
+
+  shipFrame.add(
+    engineCluster,
+    structuralSpine,
+    commandModule,
+    antennaGroup,
+    radiatorArrays,
+    habitatModule,
+    scienceModules,
+    engineeringModule,
+  );
+
+  // =========================================================================
+  // 1. POPA · MOTOR PRINCIPAL Y 4 MOTORES AUXILIARES EN PILONES (X: -60..-35)
+  // =========================================================================
+  cylX(engineCluster, 9, 9, 18, -43, hullMat);
+  [-36, -50].forEach((x) => cylX(engineCluster, 9.4, 9.4, 2.2, x, goldMat));
+  cylX(engineCluster, 8, 4.6, 8, -56, darkMat);
+  addGreebles(engineCluster, -51, -35, 9, 60);
+  [-52.8, -55, -57.2, -59.2].forEach((x) =>
+    torusX(engineCluster, 4.6 + (-52 - x) * 0.425 + 0.35, 0.3, x, goldMat),
+  );
+  torusX(engineCluster, 9.6, 0.2, -51, cyanMat);
+  torusX(engineCluster, 9.6, 0.2, -35, cyanMat);
+
+  for (let i = 0; i < 8; i++) {
+    const g = new THREE.Group();
+    g.rotation.x = (i * Math.PI) / 4;
+    engineCluster.add(g);
+    addMesh(g, boxGeo(14, 0.2, 0.5), cyanMat, -43, 9.1, 0, false);
+  }
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2 + Math.PI / 4;
+    const y = 8.3 * Math.cos(a);
+    const z = 8.3 * Math.sin(a);
+    cylX(engineCluster, 1.6, 1, 4, -54, darkMat, 16).position.set(-54, y, z);
+    const gg = new THREE.Mesh(
+      new THREE.CircleGeometry(1.4, 20),
+      new THREE.MeshBasicMaterial({ color: 0xbfe3ff, side: THREE.DoubleSide }),
+    );
+    gg.rotation.y = -Math.PI / 2;
+    gg.position.set(-56.05, y, z);
+    engineCluster.add(gg);
+  }
+  for (let i = 0; i < 4; i++) {
+    const f = new THREE.Group();
+    f.rotation.x = (i * Math.PI) / 2 + Math.PI / 4;
+    engineCluster.add(f);
+    addMesh(f, boxGeo(14, 10, 0.2), finMat, -43, 14, 0);
+  }
+
+  const mainGlow = new THREE.Mesh(
+    new THREE.CircleGeometry(7.4, 40),
+    new THREE.MeshBasicMaterial({ color: 0xffe6b0, side: THREE.DoubleSide }),
+  );
+  mainGlow.rotation.y = -Math.PI / 2;
+  mainGlow.position.x = -59.9;
+  engineCluster.add(mainGlow);
+
+  const makePlumeMat = () =>
+    new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      side: THREE.FrontSide,
+      blending: THREE.AdditiveBlending,
+      uniforms: { t: { value: 0 }, w: { value: 0 } },
+      vertexShader:
+        'varying vec2 vu;void main(){vu=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+      fragmentShader:
+        'uniform float t,w;varying vec2 vu;void main(){float a=pow(1.-vu.y,1.8);float f=.78+.22*sin(vu.y*28.-t*20.)*sin(t*6.);vec3 c=mix(vec3(1.,.58,.22),vec3(.45,.78,1.),w);c=mix(c,vec3(1.,.95,.88),a*.35);gl_FragColor=vec4(c*f*a*(.54+w*.95),a*.82);}',
+    });
+
+  const plumes = [
+    [6.5, 32],
+    [3.2, 22],
+  ].map(([r, h]) => {
+    const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 32, 1, true), makePlumeMat());
+    m.rotation.z = Math.PI / 2;
+    m.userData.h = h;
+    m.userData.isPlume = true;
+    engineCluster.add(m);
+    return m;
+  });
+
+  // 4 motores auxiliares radiales sobre pilones
+  for (let i = 0; i < 4; i++) {
+    const g = new THREE.Group();
+    g.rotation.x = (i * Math.PI) / 2;
+    engineCluster.add(g);
+    addMesh(g, boxGeo(9, 7, 0.9), hullMat, -45, 12.5, 0);
+    cylX(g, 2.5, 2.5, 14, -46, hullMat, 24).position.y = 16;
+    cylX(g, 3.5, 2, 5, -53.5, darkMat, 24).position.y = 16;
+    [
+      [-52.5, 2.7],
+      [-54, 3.15],
+      [-55.5, 3.6],
+    ].forEach(([x, R]) => {
+      torusX(g, R, 0.2, x, goldMat).position.y = 16;
+    });
+    torusX(g, 2.6, 0.1, -41, cyanMat).position.y = 16;
+    torusX(g, 2.6, 0.1, -49, cyanMat).position.y = 16;
+
+    const gl = new THREE.Mesh(
+      new THREE.CircleGeometry(3.3, 28),
+      new THREE.MeshBasicMaterial({ color: 0xffe6b0, side: THREE.DoubleSide }),
+    );
+    gl.rotation.y = -Math.PI / 2;
+    gl.position.set(-56.05, 16, 0);
+    g.add(gl);
+
+    const m = new THREE.Mesh(new THREE.ConeGeometry(3.2, 18, 24, 1, true), makePlumeMat());
+    m.rotation.z = Math.PI / 2;
+    m.userData.h = 18;
+    m.userData.isPlume = true;
+    m.position.y = 16;
+    g.add(m);
+    plumes.push(m);
+  }
+
+  const engineLight = new THREE.PointLight(0xffa860, 2.8, 70);
+  engineLight.position.set(-64, 0, 0);
+  engineCluster.add(engineLight);
+
+  // =========================================================================
+  // 2. TRONCOS ESTRUCTURALES, PROA (MÓDULO DE CARGA/ACOPLE) Y BRAZOS DE SUJECIÓN
+  // =========================================================================
+  cylX(structuralSpine, 3.6, 3.6, 17, -27.5, hullMat);
+  cylX(structuralSpine, 3.6, 3.6, 22, 30, hullMat);
+  [-34, -30, -26, -22].forEach((x) => torusX(structuralSpine, 3.75, 0.4, x, goldMat));
+  [22, 26, 30, 34, 38].forEach((x) => torusX(structuralSpine, 3.75, 0.4, x, goldMat));
+  for (let i = 0; i < 6; i++) {
+    const g = new THREE.Group();
+    g.rotation.x = (i * Math.PI) / 3 + Math.PI / 6;
+    structuralSpine.add(g);
+    cylX(g, 0.3, 0.3, 17, -27.5, darkMat, 8).position.y = 4;
+    cylX(g, 0.3, 0.3, 22, 30, darkMat, 8).position.y = 4;
+  }
+
+  // Proa: módulo cilíndrico de carga / acople (`+41..+60` en Aurora -> `-41..-60` en KRONOX)
+  cylX(commandModule, 6.5, 6.5, 19, 50.5, hullMat);
+  [44, 48, 52, 56].forEach((x) => torusX(commandModule, 6.6, 0.28, x, goldMat));
+  addGreebles(commandModule, 42, 59, 6.5, 70);
+  torusX(commandModule, 3.2, 0.45, 59.5, goldMat);
+  torusX(commandModule, 2.4, 0.12, 59.85, cyanMat);
+
+  // Antenas de comunicaciones y plato parabólico
+  [
+    [52, 0],
+    [47, 0.9],
+  ].forEach(([x, a]) => {
+    const m = addMesh(antennaGroup, cylGeo(0.12, 0.12, 13, 8), darkMat, x, 6.5 + 5, 0);
+    m.rotation.x = a * 0.4;
+  });
+  addMesh(
+    antennaGroup,
+    new THREE.SphereGeometry(2.6, 24, 12, 0, 2 * Math.PI, 0, 0.9),
+    finMat,
+    -28,
+    5.4,
+    0,
+  );
+  addMesh(antennaGroup, cylGeo(0.15, 0.15, 2.4, 8), darkMat, -28, 4.2, 0);
+
+  // Brazos estructurales diagonales desde ringA hacia proa
+  const addStrutBeam = (a, b, radius, mat) => {
+    const d = b.clone().sub(a);
+    const len = d.length();
+    const o = addMesh(structuralSpine, cylGeo(radius, radius, len, 12), mat);
+    o.position.copy(a).add(b).multiplyScalar(0.5);
+    o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+  };
+  for (const s of [1, -1]) {
+    const P0 = new THREE.Vector3(4, 0, s * 28);
+    const P1 = new THREE.Vector3(44, 0, s * 3.5);
+    const Y = new THREE.Vector3(0, 2.6, 0);
+    const D = P1.clone().sub(P0).normalize();
+    const Lt = D.clone().cross(Y).normalize().multiplyScalar(2.3);
+    const ts = [0.06, 0.23, 0.4, 0.57, 0.74, 0.91];
+    const at = (t, k) => P0.clone().lerp(P1, t).addScaledVector(Y, k);
+
+    [1, -1].forEach((k) => addStrutBeam(at(0, k), at(1, k), 1.6, hullMat));
+    addStrutBeam(P0, P1, 0.7, goldMat);
+    [1, -1].forEach((k) =>
+      addStrutBeam(P0.clone().addScaledVector(Lt, k), P1.clone().addScaledVector(Lt, k), 0.35, goldMat),
+    );
+    ts.forEach((t, i) => {
+      [1, -1].forEach((k) =>
+        addStrutBeam(
+          at(t, k).addScaledVector(D, -0.45),
+          at(t, k).addScaledVector(D, 0.45),
+          2.1,
+          goldMat,
+        ),
+      );
+      addStrutBeam(at(t, 1), at(t, -1), 0.55, darkMat);
+      const q = at(t, 1);
+      addMesh(structuralSpine, new THREE.SphereGeometry(0.22, 8, 6), cyanMat, q.x, q.y + 1.9, q.z, false);
+      if (i < 5) {
+        const u = ts[i + 1];
+        addStrutBeam(at(t, 1), at(u, -1), 0.4, darkMat);
+        addStrutBeam(at(t, -1), at(u, 1), 0.4, darkMat);
+      }
+    });
+  }
+
+  // =========================================================================
+  // 3. ANILLOS ESTRUCTURALES GIRATORIOS, ÓRBITAS TIPO ÁTOMO Y ESFERA HABITABLE
+  // =========================================================================
+  const ringA = new THREE.Group();
+  const ringB = new THREE.Group();
+  radiatorArrays.add(ringA, ringB);
+
+  [-4, 4].forEach((x) => {
+    torusX(ringA, 28, 1.1, x, hullMat);
+    torusX(ringA, 29.12, 0.1, x, cyanMat);
+  });
+  [-10.5, -14.5].forEach((x) => {
+    torusX(ringB, 24.3, 0.7, x, goldMat);
+    torusX(ringB, 25.05, 0.1, x, cyanMat);
+  });
+  for (let i = 0; i < 6; i++) {
+    const g = new THREE.Group();
+    g.rotation.x = (i / 6) * 2 * Math.PI;
+    ringB.add(g);
+    addMesh(g, boxGeo(4.4, 0.8, 0.8), darkMat, -12.5, 24.3, 0);
+  }
+  for (const s of [1, -1]) {
+    addMesh(radiatorArrays, boxGeo(4.6, 7.8, 4.6), darkMat, 4, 0, s * 28);
+    addMesh(radiatorArrays, boxGeo(5, 0.6, 5), goldMat, 4, 3.6, s * 28);
+    addMesh(radiatorArrays, boxGeo(5, 0.6, 5), goldMat, 4, -3.6, s * 28);
+  }
+  for (let i = 0; i < 12; i++) {
+    const g = new THREE.Group();
+    g.rotation.x = (i / 12) * 2 * Math.PI;
+    ringA.add(g);
+    addMesh(g, boxGeo(8, 1.2, 1.2), darkMat, 0, 28, 0);
+    addMesh(g, boxGeo(1.4, 8.6, 1.4), hullMat, 0, 24, 0);
+  }
+
+  // Órbitas tipo átomo inclinadas 60° con sondas ("electrones") en revolución
+  const atomG = new THREE.Group();
+  atomG.name = 'AtomOrbitalRings';
+  radiatorArrays.add(atomG);
+  const atomOrbs = [];
+  [
+    [21.8, hullMat, 1.3],
+    [22.6, darkMat, -1],
+    [23.4, goldMat, 1.7],
+  ].forEach(([r, mt, sp], i) => {
+    const g = new THREE.Group();
+    g.rotation.y = (i * Math.PI) / 3;
+    atomG.add(g);
+    addMesh(g, new THREE.TorusGeometry(r, 0.45, 12, 128), mt, 0, 0, 0);
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * 2 * Math.PI;
+      const m = addMesh(
+        g,
+        boxGeo(1.5, 1.6, 1.6),
+        k % 3 ? darkMat : goldMat,
+        r * Math.cos(a),
+        r * Math.sin(a),
+        0,
+      );
+      m.rotation.z = a;
+    }
+    const orb = new THREE.Group();
+    g.add(orb);
+    atomOrbs.push([orb, sp]);
+
+    [r, -r].forEach((x) => {
+      const e = new THREE.Group();
+      e.position.x = x;
+      orb.add(e);
+      addMesh(e, new THREE.SphereGeometry(1.4, 24, 16), hullMat, 0, 0, 0);
+      addMesh(e, new THREE.TorusGeometry(1.45, 0.18, 8, 24), goldMat, 0, 0, 0);
+      addMesh(e, boxGeo(0.5, 0.5, 3.6), darkMat, 0, 0, 0);
+    });
+  });
+  [1, -1].forEach((s) =>
+    addMesh(atomG, cylGeo(1.1, 1.1, 3.6, 16), goldMat, 0, s * 22.6, 0),
+  );
+
+  // Esfera habitable central (`R = 20.0 m`) con ventanas iluminadas y jaula exterior
+  const SPHERE_R = 20;
+  const hubG = new THREE.Group();
+  const cageG = new THREE.Group();
+  habitatModule.add(hubG, cageG);
+
+  addMesh(hubG, new THREE.SphereGeometry(SPHERE_R, 64, 48), hullDoubleMat, 0, 0, 0, false);
+  for (let i = 0; i < 8; i++) {
+    const o = addMesh(cageG, new THREE.TorusGeometry(SPHERE_R + 0.25, 0.3, 8, 96), darkMat, 0, 0, 0, false);
+    o.rotation.y = (i * Math.PI) / 8;
+  }
+  [-15, -10, 10, 15].forEach((y) =>
+    torusY(cageG, Math.sqrt(SPHERE_R * SPHERE_R - y * y) + 0.1, 0.3, y, darkMat),
+  );
+
+  {
+    const inst = new THREE.InstancedMesh(boxGeo(1.6, 0.9, 0.2), warmMat, 200);
+    const dummy = new THREE.Object3D();
+    let count = 0;
+    for (let n = 1; n <= 4; n++) {
+      const y = 6.8 - n * 3.4 + 1.7;
+      const r = Math.sqrt(SPHERE_R * SPHERE_R - y * y) + 0.05;
+      for (let i = 0; i < 40; i++) {
+        if (rnd() < 0.15) continue;
+        const a = (i / 40) * 2 * Math.PI;
+        dummy.position.set(r * Math.cos(a), y, r * Math.sin(a));
+        dummy.lookAt(dummy.position.x * 2, y * 2, dummy.position.z * 2);
+        dummy.updateMatrix();
+        inst.setMatrixAt(count++, dummy.matrix);
+      }
+    }
+    inst.count = count;
+    inst.instanceMatrix.needsUpdate = true;
+    hubG.add(inst);
+  }
+
+  // Ventana frontal de proa saliente (tolva facetada del puente sobre el ecuador de la esfera)
+  {
+    const w = addMesh(scienceModules, cylGeo(2, 4.2, 2.8, 4), hullMat, 20.7, 5, 0);
+    w.rotation.z = -Math.PI / 2;
+    w.rotation.x = Math.PI / 4;
+    addMesh(scienceModules, boxGeo(0.15, 1.2, 2.4), cyanMat, 22.15, 5, 0, false);
+    addMesh(scienceModules, boxGeo(0.3, 0.25, 3.2), goldMat, 21.9, 6.5, 0);
+    addMesh(scienceModules, boxGeo(0.3, 0.25, 3.2), goldMat, 21.9, 3.5, 0);
+  }
+
+  // Marcador estructural de cámara de reactor exterior / bahía ventral
+  {
+    const ventRing = new THREE.Mesh(new THREE.TorusGeometry(6.2, 0.32, 10, 48), goldMat);
+    ventRing.rotation.x = Math.PI / 2;
+    ventRing.position.set(0, -SPHERE_R + 0.4, 0);
+    engineeringModule.add(ventRing);
+  }
+
+  // Burbuja Alcubierre de curvatura (visible cuando warpAmount > 0.01 durante saltos)
+  const warpColorBlue = new THREE.Color(0x8fcaff);
+  const warpColorAmber = new THREE.Color(0xffa860);
+  const bubbleMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: { w: { value: 0 } },
+    vertexShader:
+      'varying vec3 n;varying vec3 v;varying vec3 p;void main(){n=normalize(normalMatrix*normal);vec4 q=modelViewMatrix*vec4(position,1.);v=normalize(-q.xyz);p=position;gl_Position=projectionMatrix*q;}',
+    fragmentShader:
+      'uniform float w;varying vec3 n;varying vec3 v;varying vec3 p;void main(){float f=pow(1.-abs(dot(n,v)),3.);float b=.6+.4*sin(p.x*9.);gl_FragColor=vec4(.45,.75,1.,1.)*f*w*b*.9;}',
+  });
+  const bubble = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), bubbleMat);
+  bubble.scale.set(95, 55, 55);
+  bubble.visible = false;
+  bubble.userData.isWarpBubble = true;
+  shipFrame.add(bubble);
+
+  let simClock = 0;
+  let smoothWarp = 0;
+
+  function update(dt = 0.016, throttle = 0.25, targetWarp = 0) {
+    const safeDt = Math.max(0, Math.min(0.1, Number(dt) || 0.016));
+    simClock += safeDt;
+
+    const wGoal = Math.max(0, Math.min(1, Number(targetWarp) || 0));
+    smoothWarp += (wGoal - smoothWarp) * Math.min(1, safeDt * (wGoal > smoothWarp ? 1.8 : 2.6));
+
+    hubG.rotation.y += safeDt * 0.12;
+    cageG.rotation.y -= safeDt * 0.2;
+    ringA.rotation.x += safeDt * (0.18 + smoothWarp * 0.5);
+    ringB.rotation.x -= safeDt * (0.3 + smoothWarp * 0.6);
+    atomOrbs.forEach(([orb, sp]) => {
+      orb.rotation.z += safeDt * sp * (1 + smoothWarp * 2);
+    });
+    atomG.rotation.y += safeDt * 0.25;
+    atomG.rotation.x = Math.sin(simClock * 0.4) * 0.45;
+
+    const thr = Math.max(0.05, Math.min(2.0, Number(throttle) || 0.2));
+    plumes.forEach((m) => {
+      const s = 0.36 + thr * 0.55 + smoothWarp * 1.4 + Math.sin(simClock * 12.0) * 0.03;
+      m.scale.y = s;
+      m.position.x = -60 - (m.userData.h * s) / 2;
+      m.material.uniforms.t.value = simClock;
+      m.material.uniforms.w.value = smoothWarp;
+    });
+
+    engineLight.intensity = 2.0 + thr * 1.2 + smoothWarp * 5.0;
+    engineLight.color.copy(warpColorAmber).lerp(warpColorBlue, smoothWarp);
+
+    bubble.material.uniforms.w.value = smoothWarp;
+    bubble.visible = sectionClipPlane.constant > 1e3 && smoothWarp > 0.01;
+  }
 
   return {
     root,
@@ -570,25 +573,20 @@ export function buildModularShip120M() {
     radiatorArrays,
     engineCluster,
     antennaGroup,
-    plasmaPlumes,
+    atomOrbits: atomG,
+    bubble,
+    setSectionCutaway: (yPlane = null) => {
+      sectionClipPlane.constant = Number.isFinite(yPlane) ? yPlane : 1e4;
+    },
     update,
   };
 }
 
-/**
- * Serializador a GLB para entornos Three.js y validación de assets.
- */
-export async function exportModularShipToGLB() {
-  const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js');
+export function createModularShipHull() {
   const shipData = buildModularShip120M();
-  const exporter = new GLTFExporter();
-
-  return new Promise((resolve, reject) => {
-    exporter.parse(
-      shipData.root,
-      (gltf) => resolve(gltf),
-      (error) => reject(error),
-      { binary: true },
-    );
-  });
+  return {
+    group: shipData.root,
+    update: shipData.update,
+    dimensions: shipData.dimensions,
+  };
 }

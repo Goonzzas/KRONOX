@@ -57,21 +57,21 @@ const LORE_CHAPTERS = [
     title: 'El Crucero Científico de 120 Metros',
     quote: '«Para llevar el observatorio y la experimentación directa al espacio profundo, el Proyecto Horizonte ensambló KRONOX.»',
     paragraphs: [
-      'Estructurado en cuatro cubiertas habitables en microgravedad 6-DOF, KRONOX combina el Puente de Mando (C01), Laboratorio y Criostato SPHEREx (C02), Hábitat y Fitotrón (C03) e Ingeniería con Reactor Tokamak D-³He (C04).',
-      'Junto a la entidad luminosa KRONOX IA, tu misión comienza calibrando el acoplador óptico averiado y analizando espectros reales en la frontera interestelar.',
+      'Con un casco de 120 metros centrado en una gran esfera habitable de 20 m de radio y tres anillos atómicos orbitales, Aurora-120 integra cuatro cubiertas verticales conectadas por un núcleo central de ascensores.',
+      'Desde el Puente en punta de flecha (C01) hasta el Hangar inferior (C04), pasas por Habitacional (C02) e Ingeniería y SPHEREx (C03), acompañado por KRONOX IA.',
     ],
     facts: [
-      { label: 'Arquitectura', value: '120 m · 4 Cubiertas Modulares' },
-      { label: 'Asistencia', value: 'KRONOX IA + Propulsión MPD' },
+      { label: 'Arquitectura', value: '120 m · Esfera Central + 4 Cubiertas' },
+      { label: 'Asistencia', value: 'KRONOX IA + 5 Motores Plasma' },
     ],
   },
 ];
 
 const KRONOX_DECK_HOTSPOTS = [
-  { id: 'c01', code: 'C01', name: 'Puente y Timón', desc: 'Astrografía J2000.0, timón orbital y enlace con KRONOX IA.', svgX: 478 },
-  { id: 'c02', code: 'C02', name: 'Lab SPHEREx', desc: 'Criostato 40 K, banco óptico FITS y espectrometría 102 canales.', svgX: 390 },
-  { id: 'c03', code: 'C03', name: 'Habitabilidad', desc: 'Anillo modular presurizado, camarotes y fitotrón hidropónico.', svgX: 280 },
-  { id: 'c04', code: 'C04', name: 'Reactor Tokamak', desc: 'Fusión toroidal D-³He y tobera magnetoplasmadinámica (MPD).', svgX: 176 },
+  { id: 'c01', code: 'C01', name: 'Puente de Mando', desc: 'Recinto en punta de flecha a proa, ventanales facetados, chevrón y mesa holográfica.', svgX: 430, svgY: 96, deckLineY: 96 },
+  { id: 'c02', code: 'C02', name: 'Habitacional', desc: 'Ocho camarotes radiales con litera y comedor circular alrededor del núcleo central.', svgX: 430, svgY: 118, deckLineY: 115 },
+  { id: 'c03', code: 'C03', name: 'Ingeniería y SPHEREx', desc: 'Reactor principal, tanques criogénicos, estación SPHEREx y banco óptico de calibración.', svgX: 430, svgY: 140, deckLineY: 134 },
+  { id: 'c04', code: 'C04', name: 'Bodega y Hangar', desc: 'Contenedores apilados en bodega y transbordador de servicio estacionado a proa.', svgX: 430, svgY: 162, deckLineY: 152 },
 ];
 
 function LoreArtworkCosmos() {
@@ -346,54 +346,71 @@ function LoreArtworkKronox({ activeDeckId, onSelectDeck }) {
         {/* Silueta modular de la nave KRONOX flotando (wrapper sin animar para mantener offset exacto) */}
         <g transform="translate(0, -14)">
           <g className="lore-float-gentle">
-            {/* Flujo de plasma ionizado en popa (izquierda) */}
-            <ellipse cx="66" cy="140" rx="56" ry="20" fill="url(#plasmaPlume)" className="lore-pulse-soft" />
-            <polygon points="94,124 132,118 132,162 94,156" fill="#475569" stroke="#94a3b8" strokeWidth="1.3" />
-            {/* Anillo magnético MPD de popa */}
-            <ellipse cx="102" cy="140" rx="12" ry="36" fill="none" stroke="#38bdf8" strokeWidth="4" strokeOpacity="0.72" />
+            {/* Estela de plasma en popa (izquierda) y 5 motores Aurora-120 */}
+            <ellipse cx="62" cy="126" rx="48" ry="18" fill="url(#plasmaPlume)" className="lore-pulse-soft" />
+            <ellipse cx="64" cy="94" rx="28" ry="8" fill="url(#plasmaPlume)" className="lore-pulse-soft" />
+            <ellipse cx="64" cy="158" rx="28" ry="8" fill="url(#plasmaPlume)" className="lore-pulse-soft" />
+            <polygon points="88,116 138,110 138,142 88,136" fill="#475569" stroke="#cbd5e1" strokeWidth="1.3" />
+            <rect x="86" y="86" width="22" height="16" rx="2" fill="#334155" stroke="#94a3b8" strokeWidth="1.1" />
+            <rect x="86" y="150" width="22" height="16" rx="2" fill="#334155" stroke="#94a3b8" strokeWidth="1.1" />
+            <line x1="108" y1="94" x2="178" y2="120" stroke="#64748b" strokeWidth="3.5" />
+            <line x1="108" y1="158" x2="178" y2="132" stroke="#64748b" strokeWidth="3.5" />
 
-            {/* Sección C04 Ingeniería & Tokamak */}
-            <rect x="132" y="120" width="96" height="40" rx="4" fill="url(#kronoxHullGrad)" stroke="#cbd5e1" strokeWidth="1.2" />
-            <ellipse cx="176" cy="140" rx="14" ry="11" fill="rgba(56,189,248,0.28)" stroke="#f97316" strokeWidth="2.2" className="lore-pulse-soft" />
+            {/* Mástil dorsal y radiadores traseros */}
+            <rect x="138" y="114" width="66" height="24" rx="4" fill="url(#kronoxHullGrad)" stroke="#cbd5e1" strokeWidth="1.2" />
 
-            {/* Sección C03 Anillo centrífugo / Habitabilidad */}
-            <rect x="228" y="124" width="110" height="32" rx="3" fill="#64748b" stroke="#cbd5e1" strokeWidth="1.2" />
-            <ellipse cx="280" cy="140" rx="16" ry="46" fill="none" stroke="#e2e8f0" strokeWidth="7.5" />
-            <ellipse cx="280" cy="140" rx="16" ry="46" fill="none" stroke="#38bdf8" strokeWidth="1.4" strokeOpacity="0.65" />
+            {/* Anillos orbitales atómicos inclinados + anillo ecuatorial */}
+            <ellipse cx="268" cy="126" rx="94" ry="26" transform="rotate(-18 268 126)" fill="none" stroke="#38bdf8" strokeWidth="2.0" strokeOpacity="0.6" />
+            <ellipse cx="268" cy="126" rx="94" ry="26" transform="rotate(18 268 126)" fill="none" stroke="#7dd3fc" strokeWidth="1.8" strokeOpacity="0.52" />
+            <ellipse cx="268" cy="126" rx="84" ry="20" fill="none" stroke="#f59e0b" strokeWidth="2.0" strokeOpacity="0.58" />
 
-            {/* Sección C02 Laboratorio y escudo térmico SPHEREx */}
-            <rect x="338" y="126" width="118" height="28" rx="3" fill="#475569" stroke="#94a3b8" strokeWidth="1.2" />
-            <rect x="364" y="120" width="52" height="40" rx="5" fill="#ca8a04" fillOpacity="0.75" stroke="#fde047" strokeWidth="1.2" />
-            <polygon points="390,118 406,96 422,118" fill="#94a3b8" stroke="#e2e8f0" strokeWidth="1.2" />
+            {/* Esfera habitable central R = 20 m con las 4 cubiertas apiladas */}
+            <circle cx="268" cy="126" r="58" fill="rgba(15,23,42,0.88)" stroke="#e2e8f0" strokeWidth="2" />
+            <line x1="268" y1="74" x2="268" y2="178" stroke="#38bdf8" strokeWidth="2.2" strokeOpacity="0.45" />
+            <line x1="216" y1="104" x2="320" y2="104" stroke="#38bdf8" strokeWidth="1.2" strokeOpacity="0.55" />
+            <line x1="210" y1="126" x2="326" y2="126" stroke="#f59e0b" strokeWidth="1.2" strokeOpacity="0.55" />
+            <line x1="216" y1="146" x2="320" y2="146" stroke="#7fcfff" strokeWidth="1.2" strokeOpacity="0.55" />
+            {/* Ventanal panorámico de proa del Puente C01 */}
+            <polygon points="314,90 338,96 332,108 314,108" fill="#38bdf8" opacity="0.7" stroke="#fde047" strokeWidth="1.2" />
 
-            {/* Sección C01 Puente de Mando + Escudo deflector de proa */}
-            <rect x="456" y="122" width="44" height="36" rx="4" fill="#e2e8f0" stroke="#7dd3fc" strokeWidth="1.3" />
-            <polygon points="500,118 522,140 500,162" fill="#94a3b8" stroke="#f8fafc" strokeWidth="1.3" />
+            {/* Celosía delantera y módulo cilíndrico de proa */}
+            <rect x="326" y="116" width="52" height="20" rx="3" fill="#475569" stroke="#cbd5e1" strokeWidth="1.2" />
+            <rect x="378" y="108" width="58" height="36" rx="5" fill="url(#kronoxHullGrad)" stroke="#e2e8f0" strokeWidth="1.4" />
+            <path d="M436,116 L456,110 L456,142 L436,136 Z" fill="#1e293b" stroke="#38bdf8" strokeWidth="1.4" />
+            <line x1="456" y1="126" x2="478" y2="126" stroke="#f59e0b" strokeWidth="2" />
 
             {/* Entidad luminosa KRONOX IA sobre el puente */}
-            <g transform="translate(478, 86)">
+            <g transform="translate(268, 56)">
               <g className="lore-pulse-soft">
-                <circle cx="0" cy="0" r="6" fill="#e0f2fe" />
-                <ellipse cx="0" cy="0" rx="16" ry="5" transform="rotate(28)" fill="none" stroke="#38bdf8" strokeWidth="1.2" />
-                <ellipse cx="0" cy="0" rx="16" ry="5" transform="rotate(-32)" fill="none" stroke="#7dd3fc" strokeWidth="1.2" />
+                <circle cx="0" cy="0" r="5" fill="#e0f2fe" />
+                <ellipse cx="0" cy="0" rx="13" ry="4" transform="rotate(28)" fill="none" stroke="#38bdf8" strokeWidth="1.1" />
+                <ellipse cx="0" cy="0" rx="13" ry="4" transform="rotate(-32)" fill="none" stroke="#7dd3fc" strokeWidth="1.1" />
               </g>
             </g>
 
-            {/* Indicadores interactivos alineados exactamente con cada cubierta */}
+            {/* Indicadores interactivos verticales de las 4 cubiertas */}
             {KRONOX_DECK_HOTSPOTS.map((d) => {
               const selected = d.id === activeDeckId;
               return (
                 <g
                   key={d.id}
-                  transform={`translate(${d.svgX}, 196)`}
                   style={{ cursor: 'pointer' }}
                   onClick={() => onSelectDeck(d.id)}
                 >
-                  <line x1="0" y1="-34" x2="0" y2="-4" stroke={selected ? '#38bdf8' : 'rgba(148,163,184,0.45)'} strokeDasharray="3 3" />
-                  <circle cx="0" cy="0" r={selected ? 11 : 8} fill={selected ? '#0ea5e9' : 'rgba(15,23,42,0.9)'} stroke={selected ? '#e0f2fe' : '#64748b'} strokeWidth="1.5" />
-                  <text x="0" y="3.5" textAnchor="middle" fontFamily="ui-monospace, monospace" fontSize="8" fontWeight="700" fill="#f8fafc">
-                    {d.code}
-                  </text>
+                  <line
+                    x1="316"
+                    y1={d.deckLineY}
+                    x2={d.svgX + 54}
+                    y2={d.svgY}
+                    stroke={selected ? '#38bdf8' : 'rgba(148,163,184,0.45)'}
+                    strokeDasharray="3 3"
+                  />
+                  <g transform={`translate(${d.svgX + 66}, ${d.svgY})`}>
+                    <circle cx="0" cy="0" r={selected ? 10 : 8} fill={selected ? '#0ea5e9' : 'rgba(15,23,42,0.92)'} stroke={selected ? '#e0f2fe' : '#64748b'} strokeWidth="1.5" />
+                    <text x="0" y="3.2" textAnchor="middle" fontFamily="ui-monospace, monospace" fontSize="7.5" fontWeight="700" fill="#f8fafc">
+                      {d.code}
+                    </text>
+                  </g>
                 </g>
               );
             })}

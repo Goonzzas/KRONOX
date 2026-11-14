@@ -1,344 +1,488 @@
-import * as THREE from 'three';
-
 /**
- * Spatial coordinate convention (matches approved KronoxExteriorShip120m in modularShipHull3D.js):
- * - 1 unit = 1.00 meter in KronoxLocalMetricWorld (`localShipScene`)
- * - -Z = Bow (Proa, nose cone tip at Z = -60.0m)
- * - +Z = Stern (Popa, main thruster cluster at Z = +60.0m)
- * - +Y = Dorsal (up), -Y = Ventral (down)
- * - -X = Port (Babor), +X = Starboard (Estribor)
+ * Modelo espacial geométrico del interior de la nave Aurora-120 (KRONOX).
+ *
+ * Sistema de coordenadas local (1 unidad = 1 metro):
+ * - Centro del casco esférico habitable (R = 20 m): (0, 0, 0)
+ * - Proa (Puente facetado, Tanques y Hangar de proa): -Z (hasta -15.5 m)
+ * - Popa (Reactor, Bodega y Puertas traseras): +Z (hasta +17.5 m)
+ * - Estribor: +X | Babor: -X
+ * - Cubiertas apiladas verticalmente dentro de la esfera central R = 20 m:
+ *   - Cubierta 01 · Puente de Mando:       Y = +3.4 m  (techo Y = +6.8 m)
+ *   - Cubierta 02 · Habitacional:          Y =  0.0 m  (techo Y = +3.4 m)
+ *   - Cubierta 03 · Ingeniería y SPHEREx:  Y = -3.4 m  (techo Y =  0.0 m)
+ *   - Cubierta 04 · Bodega y Hangar:       Y = -6.8 m  (techo Y = -3.4 m)
+ * - Núcleo vertical de ascensores / pozo microgravedad compartido en (X = 0, Z = 0, R = 1.25 m).
  */
 
-export const ASTRONAUT_HEIGHT_METERS = 1.75;
-export const ASTRONAUT_EYE_METERS = 1.65;
-export const ASTRONAUT_RADIUS_METERS = 0.36;
+export const ASTRONAUT_HEIGHT_METERS = 1.72;
+export const ASTRONAUT_EYE_METERS = 1.60;
+export const ASTRONAUT_RADIUS_METERS = 0.34;
 
-export const CABIN_DECKS = Object.freeze([
+export const AURORA_SPHERE_RADIUS = 20.0;
+export const ELEVATOR_SHAFT_RADIUS = 1.24;
+export const DECK_HEIGHT_METERS = 3.4;
+
+export const CABIN_DECKS = [
   {
     id: 'deck-01',
-    deckNumber: 1,
-    name: 'Puente de Mando y Mirador de Proa',
-    elevationY: -1.6,
-    ceilingY: 3.1,
-    zRange: [-51.4, -42.0],
-    color: '#38bdf8',
-    description: 'Timón orbital, mirador panorámico de proa, KRONOX IA y tablero de campaña.',
+    code: 'C01',
+    name: 'Puente de Mando',
+    shortName: 'Puente',
+    elevationY: 3.4,
+    zRange: [-15.2, 11.8],
+    halfWidth: 11.6,
+    accentHex: 0x38d8ff,
+    description: 'Cabina en punta de flecha a proa: ventanales facetados, consolas en chevrón, estrado del capitán y mesa holográfica.',
   },
   {
     id: 'deck-02',
-    deckNumber: 2,
-    name: 'Cubierta Científica SPHEREx y Banco Óptico',
-    elevationY: -1.55,
-    ceilingY: 2.05,
-    zRange: [-37.2, -20.8],
-    color: '#34d399',
-    description: 'Criostato SPHEREx en babor, banco óptico reparable en estribor y cúpula dorsal.',
+    code: 'C02',
+    name: 'Cubierta Habitacional',
+    shortName: 'Habitacional',
+    elevationY: 0.0,
+    zRange: [-18.2, 18.2],
+    halfWidth: 18.2,
+    accentHex: 0xffb857,
+    description: 'Ocho camarotes radiales con litera y armario alrededor del comedor circular y del núcleo central de ascensores.',
   },
   {
     id: 'deck-03',
-    deckNumber: 3,
-    name: 'Cubierta de Habitabilidad y Esclusa EVA',
-    elevationY: -1.75,
-    ceilingY: 2.2,
-    zRange: [-13.2, 7.2],
-    color: '#f59e0b',
-    description: 'Tambores presurizados con ojos de buey, literas, botánica y esclusa ventral EVA.',
+    code: 'C03',
+    name: 'Ingeniería y SPHEREx',
+    shortName: 'Ingeniería',
+    elevationY: -3.4,
+    zRange: [-18.2, 18.2],
+    halfWidth: 18.2,
+    accentHex: 0x7fcfff,
+    description: 'Reactor principal a popa, tanques criogénicos dorados, laboratorio espectral SPHEREx (babor) y banco óptico de calibración (estribor).',
   },
   {
     id: 'deck-04',
-    deckNumber: 4,
-    name: 'Cubierta de Ingeniería y Reactor Tokamak',
-    elevationY: -0.25,
-    ceilingY: 4.15,
-    zRange: [12.5, 40.2],
-    color: '#fb7185',
-    description: 'Pasarela superior, núcleo de confinamiento Tokamak (Z=+24 m) y bahía MPD.',
+    code: 'C04',
+    name: 'Bodega y Hangar',
+    shortName: 'Hangar',
+    elevationY: -6.8,
+    zRange: [-17.4, 17.4],
+    halfWidth: 17.4,
+    accentHex: 0x58e2a4,
+    description: 'Bahía de contenedores modulares en bodega y transbordador de servicio estacionado en el hangar de proa.',
   },
-]);
+];
 
-/**
- * Strict hull-conforming interior zone bounds (guaranteed >= 0.25m clearance inside modularShipHull3D.js).
- */
-export const HULL_INTERIOR_ZONES = Object.freeze({
-  bridgeMain: { minX: -4.25, maxX: 4.25, minY: -1.6, maxY: 3.1, minZ: -48.6, maxZ: -42.0 },
-  bridgeProw: { centerY: 0.2, radiusBase: 3.6, minY: -1.35, maxY: 2.6, minZ: -51.2, maxZ: -48.4 },
-  spineCorridor: { minX: -1.42, maxX: 1.42, minY: -1.55, maxY: 1.42, minZ: -42.2, maxZ: 12.6 },
-  scienceCrosswalk: { minX: -4.1, maxX: 4.1, minY: -1.55, maxY: 1.32, minZ: -30.1, maxZ: -27.9 },
-  sciencePortPod: { centerX: -5.6, radius: 2.08, minY: -1.55, maxY: 1.98, minZ: -37.0, maxZ: -21.0 },
-  scienceStarboardPod: { centerX: 5.6, radius: 2.08, minY: -1.55, maxY: 1.98, minZ: -37.0, maxZ: -21.0 },
-  dorsalCupolaShaft: { minX: -1.12, maxX: 1.12, minY: 1.0, maxY: 3.55, minZ: -27.2, maxZ: -24.8 },
-  habitatCrosswalkBow: { minX: -3.2, maxX: 3.2, minY: -1.7, maxY: 1.35, minZ: -7.2, maxZ: -4.8 },
-  habitatCrosswalkAft: { minX: -3.2, maxX: 3.2, minY: -1.7, maxY: 1.35, minZ: 1.3, maxZ: 3.7 },
-  habitatPortDrum: { centerX: -6.2, radius: 3.55, minY: -1.75, maxY: 2.35, minZ: -13.1, maxZ: 7.1 },
-  habitatStarboardDrum: { centerX: 6.2, radius: 3.55, minY: -1.75, maxY: 2.35, minZ: -13.1, maxZ: 7.1 },
-  ventralAirlockShaft: { minX: -1.25, maxX: 1.25, minY: -4.2, maxY: -1.0, minZ: -7.5, maxZ: -4.5 },
-  engineeringMain: { centerX: 0.0, radius: 4.35, minY: -0.25, maxY: 4.05, minZ: 12.5, maxZ: 39.8 },
-  engineeringShaft: { minX: -1.25, maxX: 1.25, minY: -3.25, maxY: 0.25, minZ: 15.1, maxZ: 18.1 },
-  engineeringLower: { centerX: 0.0, radius: 3.15, minY: -3.25, maxY: -0.65, minZ: 13.0, maxZ: 31.0 },
-  spineToEngRamp: { minX: -1.32, maxX: 1.32, minY: -1.45, maxY: 1.4, minZ: 9.6, maxZ: 12.9 },
-});
+export const HULL_INTERIOR_ZONES = {
+  bridgeMain: {
+    id: 'deck-01',
+    name: 'Puente de Mando · Proa',
+    floorY: 3.4,
+    minY: 3.4,
+    maxY: 6.45,
+    minX: -11.4,
+    maxX: 11.4,
+    minZ: -14.6,
+    maxZ: 11.6,
+    radiusLimit: 18.2,
+  },
+  habRing: {
+    id: 'deck-02',
+    name: 'Cubierta Habitacional',
+    floorY: 0.0,
+    minY: 0.0,
+    maxY: 3.05,
+    minX: -17.6,
+    maxX: 17.6,
+    minZ: -17.6,
+    maxZ: 17.6,
+    radiusLimit: 17.6,
+  },
+  engineeringLab: {
+    id: 'deck-03',
+    name: 'Ingeniería y Laboratorio SPHEREx',
+    floorY: -3.4,
+    minY: -3.4,
+    maxY: -0.35,
+    minX: -17.8,
+    maxX: 17.8,
+    minZ: -17.8,
+    maxZ: 17.8,
+    radiusLimit: 17.8,
+  },
+  cargoHangar: {
+    id: 'deck-04',
+    name: 'Bodega y Hangar de Proa',
+    floorY: -6.8,
+    minY: -6.8,
+    maxY: -3.75,
+    minX: -16.8,
+    maxX: 16.8,
+    minZ: -16.8,
+    maxZ: 16.8,
+    radiusLimit: 16.8,
+  },
+  verticalShaft: {
+    id: 'elevator-core',
+    name: 'Núcleo Vertical de Ascensores',
+    centerX: 0.0,
+    centerZ: 0.0,
+    radius: ELEVATOR_SHAFT_RADIUS,
+    minY: -6.8,
+    maxY: 6.2,
+  },
+};
 
-/**
- * Canonical interactive 3D consoles and stations mounted strictly inside the 120m hull.
- */
-export const SHIP_INTERIOR_STATIONS = Object.freeze([
+export const SHIP_INTERIOR_STATIONS = [
+  // Cubierta 01 · Puente de mando (Y = +3.4)
   {
     id: 'windows',
+    label: 'Ventanal Panorámico de Proa',
+    tag: 'OBSERVACIÓN',
+    deckId: 'deck-01',
     deckLevel: 1,
-    zoneLabel: 'CUBIERTA 01 · MIRADOR PANORÁMICO DE PROA (Z -50.6 m)',
-    label: 'Mirador Panorámico de Proa',
-    description: 'Ventana espacial principal orientada en rumbo -Z con retícula 3D de blancos.',
-    position: { x: 0.0, y: -1.6, z: -49.1 },
-    consolePos: { x: 0.0, y: -0.45, z: -50.5 },
-    aiHoverPos: { x: 1.15, y: 0.15, z: -49.4 },
-    colliderRadius: 0.55,
-    accent: '#38bdf8',
+    position: { x: 0.0, y: 3.4, z: -12.6 },
+    consolePos: { x: 0.0, y: 4.95, z: -14.2 },
+    aiHoverPos: { x: 1.45, y: 5.05, z: -12.8 },
+    lookTarget: { x: 0.0, y: 4.9, z: -28.0 },
+    maxInteractDistance: 3.3,
+    colorHex: 0x38d8ff,
   },
   {
     id: 'nav',
+    label: 'Consola de Navegación en Chevrón',
+    tag: 'NAVEGACIÓN',
+    deckId: 'deck-01',
     deckLevel: 1,
-    zoneLabel: 'CUBIERTA 01 · TIMÓN Y NAVEGACIÓN ORBITAL (Z -46.8 m)',
-    label: 'Consola de Navegación y Propulsión',
-    description: 'Pupitre curvo de vuelo con holograma estelar 3D, selector de destinos y timón.',
-    position: { x: 0.0, y: -1.6, z: -45.3 },
-    consolePos: { x: 0.0, y: -0.58, z: -46.8 },
-    aiHoverPos: { x: 1.25, y: 0.15, z: -46.1 },
-    colliderRadius: 0.85,
-    accent: '#6ff0ff',
+    position: { x: 0.0, y: 3.4, z: -9.2 },
+    consolePos: { x: 0.0, y: 4.75, z: -10.1 },
+    aiHoverPos: { x: 1.55, y: 5.05, z: -9.8 },
+    lookTarget: { x: 0.0, y: 4.5, z: -13.0 },
+    maxInteractDistance: 3.1,
+    colorHex: 0x2fd6ff,
   },
   {
     id: 'comms',
+    label: 'Puesto Táctico y Enlace KRONOX',
+    tag: 'SISTEMAS',
+    deckId: 'deck-01',
     deckLevel: 1,
-    zoneLabel: 'CUBIERTA 01 · NÚCLEO KRONOX IA (X -3.2 m, Z -45.2 m)',
-    label: 'Estación Cuántica KRONOX IA',
-    description: 'Pedestal de enlace neuronal con KRONOX IA, bitácora y recorrido guiado.',
-    position: { x: -2.05, y: -1.6, z: -45.2 },
-    consolePos: { x: -3.25, y: -0.55, z: -45.2 },
-    aiHoverPos: { x: -2.15, y: 0.25, z: -44.2 },
-    colliderRadius: 0.72,
-    accent: '#38bdf8',
+    position: { x: -7.4, y: 3.4, z: -2.5 },
+    consolePos: { x: -8.3, y: 4.7, z: -2.0 },
+    aiHoverPos: { x: -6.4, y: 5.05, z: -2.8 },
+    lookTarget: { x: -11.5, y: 4.4, z: -1.5 },
+    maxInteractDistance: 3.1,
+    colorHex: 0xffb84d,
   },
   {
     id: 'missions',
+    label: 'Mesa Holográfica Táctica',
+    tag: 'ÓRBITAS Y MISIONES',
+    deckId: 'deck-01',
     deckLevel: 1,
-    zoneLabel: 'CUBIERTA 01 · TABLERO DE CAMPAÑA (X +3.2 m, Z -45.2 m)',
-    label: 'Consola Táctica de Misiones',
-    description: 'Selector de expediciones astronómicas, inventario técnico y progreso.',
-    position: { x: 2.05, y: -1.6, z: -45.2 },
-    consolePos: { x: 3.25, y: -0.55, z: -45.2 },
-    aiHoverPos: { x: 2.15, y: 0.25, z: -44.2 },
-    colliderRadius: 0.72,
-    accent: '#fbbf24',
+    position: { x: 0.0, y: 3.4, z: 6.0 },
+    consolePos: { x: 0.0, y: 4.85, z: 6.0 },
+    aiHoverPos: { x: 1.65, y: 5.15, z: 5.4 },
+    lookTarget: { x: 0.0, y: 5.1, z: 6.0 },
+    maxInteractDistance: 3.2,
+    colorHex: 0x8ae8ff,
   },
-  {
-    id: 'science',
-    deckLevel: 2,
-    zoneLabel: 'CUBIERTA 02 · VAINA BABOR SPHEREx (X -5.6 m, Z -32.2 m)',
-    label: 'Laboratorio Espectroscopía SPHEREx',
-    description: 'Criostato real NASA SPHEREx (0.75–5.0 μm) y análisis fotométrico de FITS.',
-    position: { x: -5.6, y: -1.55, z: -30.5 },
-    consolePos: { x: -5.6, y: -0.52, z: -32.2 },
-    aiHoverPos: { x: -4.45, y: 0.2, z: -31.2 },
-    colliderRadius: 0.85,
-    accent: '#34d399',
-  },
-  {
-    id: 'sensor-calibration',
-    deckLevel: 2,
-    zoneLabel: 'CUBIERTA 02 · VAINA ESTRIBOR ÓPTICA (X +5.6 m, Z -30.5 m)',
-    label: 'Banco Óptico de Calibración (4 Fases)',
-    description: 'Conjunto espejo/dicroico infrarrojo para escaneo, desmontaje, repuesto y calibración.',
-    position: { x: 5.6, y: -1.55, z: -28.8 },
-    consolePos: { x: 5.6, y: -0.52, z: -30.5 },
-    aiHoverPos: { x: 4.45, y: 0.2, z: -29.8 },
-    colliderRadius: 0.88,
-    accent: '#10b981',
-  },
-  {
-    id: 'archive',
-    deckLevel: 2,
-    zoneLabel: 'CUBIERTA 02 · CÚPULA DORSAL (Y +1.55 m, Z -26.0 m)',
-    label: 'Cúpula Dorsal de Archivo Estelar',
-    description: 'Bóveda superior de catalogación astronómica y registro de hallazgos.',
-    position: { x: 0.0, y: 1.65, z: -25.1 },
-    consolePos: { x: 0.0, y: 2.35, z: -26.2 },
-    aiHoverPos: { x: 0.72, y: 2.75, z: -25.6 },
-    colliderRadius: 0.62,
-    accent: '#60a5fa',
-  },
+
+  // Cubierta 02 · Habitacional (Y = 0.0)
   {
     id: 'galley',
-    deckLevel: 3,
-    zoneLabel: 'CUBIERTA 03 · TAMBOR HABITACIONAL BABOR (X -6.2 m, Z -5.8 m)',
-    label: 'Estación de Habitabilidad e Hidratación',
-    description: 'Módulo residencial cero-G con literas presurizadas, cocina y soporte vital.',
-    position: { x: -5.0, y: -1.75, z: -5.8 },
-    consolePos: { x: -6.25, y: -0.72, z: -5.8 },
-    aiHoverPos: { x: -4.9, y: 0.15, z: -4.7 },
-    colliderRadius: 0.78,
-    accent: '#f59e0b',
+    label: 'Comedor Circular y Camarotes',
+    tag: 'HABITABILIDAD',
+    deckId: 'deck-02',
+    deckLevel: 2,
+    position: { x: 3.9, y: 0.0, z: -2.2 },
+    consolePos: { x: 3.2, y: 1.35, z: -1.6 },
+    aiHoverPos: { x: 4.6, y: 1.75, z: -2.6 },
+    lookTarget: { x: 0.0, y: 0.85, z: 0.0 },
+    maxInteractDistance: 3.2,
+    colorHex: 0xffc66d,
   },
   {
     id: 'airlock',
+    label: 'Esclusa Radial EVA',
+    tag: 'ESCLUSA',
+    deckId: 'deck-02',
+    deckLevel: 2,
+    position: { x: 0.0, y: 0.0, z: -14.2 },
+    consolePos: { x: 0.0, y: 1.35, z: -15.4 },
+    aiHoverPos: { x: 1.45, y: 1.75, z: -13.6 },
+    lookTarget: { x: 0.0, y: 1.3, z: -18.5 },
+    maxInteractDistance: 3.2,
+    colorHex: 0x5be3aa,
+  },
+
+  // Cubierta 03 · Ingeniería y Laboratorio SPHEREx (Y = -3.4)
+  {
+    id: 'science',
+    label: 'Estación Espectral SPHEREx',
+    tag: 'CIENCIA SPHEREX',
+    deckId: 'deck-03',
     deckLevel: 3,
-    zoneLabel: 'CUBIERTA 03 · ESCLUSA VENTRAL EVA (Y -4.2 m, Z -6.0 m)',
-    label: 'Esclusa Ventral EVA y Bahía de Trajes',
-    description: 'Cámara de despresurización inferior con soportes de trajes orbitales.',
-    position: { x: 0.0, y: -4.2, z: -5.4 },
-    consolePos: { x: 0.0, y: -3.2, z: -6.8 },
-    aiHoverPos: { x: 0.75, y: -2.4, z: -5.8 },
-    colliderRadius: 0.65,
-    accent: '#ef4444',
+    position: { x: -13.4, y: -3.4, z: 0.0 },
+    consolePos: { x: -14.4, y: -2.05, z: 0.0 },
+    aiHoverPos: { x: -12.1, y: -1.65, z: -1.2 },
+    lookTarget: { x: -16.0, y: -2.1, z: 0.0 },
+    maxInteractDistance: 3.3,
+    colorHex: 0xffbe55,
+  },
+  {
+    id: 'sensor-calibration',
+    label: 'Banco Óptico de Calibración',
+    tag: 'REPARACIÓN',
+    deckId: 'deck-03',
+    deckLevel: 3,
+    position: { x: 13.4, y: -3.4, z: 0.0 },
+    consolePos: { x: 14.5, y: -1.95, z: 0.0 },
+    aiHoverPos: { x: 12.1, y: -1.65, z: 1.2 },
+    lookTarget: { x: 16.0, y: -2.1, z: 0.0 },
+    maxInteractDistance: 3.5,
+    colorHex: 0x45e8ff,
+  },
+  {
+    id: 'archive',
+    label: 'Archivo Espectral IRSA',
+    tag: 'ARCHIVO',
+    deckId: 'deck-03',
+    deckLevel: 3,
+    position: { x: -8.2, y: -3.4, z: 10.6 },
+    consolePos: { x: -9.0, y: -2.05, z: 11.4 },
+    aiHoverPos: { x: -7.2, y: -1.65, z: 9.6 },
+    lookTarget: { x: -12.0, y: -2.2, z: 13.5 },
+    maxInteractDistance: 3.2,
+    colorHex: 0xa2b6ff,
   },
   {
     id: 'engineering',
-    deckLevel: 4,
-    zoneLabel: 'CUBIERTA 04 · REACTOR TOKAMAK POPA (Z +21.6 m)',
-    label: 'Control de Reactor Tokamak e Impulso MPD',
-    description: 'Visor blindado del anillo toroidal de confinamiento y bucle criogénico He.',
-    position: { x: 0.0, y: -0.25, z: 19.9 },
-    consolePos: { x: 0.0, y: 0.75, z: 21.6 },
-    aiHoverPos: { x: 1.25, y: 1.45, z: 20.6 },
-    colliderRadius: 0.9,
-    accent: '#fb7185',
+    label: 'Núcleo del Reactor Aurora',
+    tag: 'INGENIERÍA',
+    deckId: 'deck-03',
+    deckLevel: 3,
+    position: { x: 0.0, y: -3.4, z: 5.4 },
+    consolePos: { x: 0.0, y: -1.9, z: 6.4 },
+    aiHoverPos: { x: 1.55, y: -1.65, z: 5.2 },
+    lookTarget: { x: 0.0, y: -1.9, z: 9.0 },
+    maxInteractDistance: 3.3,
+    colorHex: 0x6ce0ff,
   },
-]);
 
-export const INTERIOR_GRAB_RAILS = Object.freeze([
-  { id: 'rail-bridge-port', pos: [-3.4, -0.35, -45.2], span: 5.0 },
-  { id: 'rail-bridge-stbd', pos: [3.4, -0.35, -45.2], span: 5.0 },
-  { id: 'rail-spine-fore', pos: [-1.25, 0.0, -34.0], span: 12.0 },
-  { id: 'rail-spine-mid', pos: [1.25, 0.0, -18.0], span: 16.0 },
-  { id: 'rail-spine-aft', pos: [-1.25, 0.0, 2.0], span: 14.0 },
-  { id: 'rail-science-port', pos: [-3.8, -0.45, -29.0], span: 10.0 },
-  { id: 'rail-science-stbd', pos: [3.8, -0.45, -29.0], span: 10.0 },
-  { id: 'rail-ventral-shaft', pos: [1.05, -2.6, -6.0], span: 2.6 },
-  { id: 'rail-eng-shaft', pos: [1.05, -1.8, 16.5], span: 3.4 },
-]);
+  // Cubierta 04 · Bodega y Hangar (Y = -6.8)
+  {
+    id: 'hangar',
+    label: 'Hangar del Transbordador',
+    tag: 'BODEGA Y HANGAR',
+    deckId: 'deck-04',
+    deckLevel: 4,
+    position: { x: 3.2, y: -6.8, z: -8.5 },
+    consolePos: { x: 2.2, y: -5.4, z: -9.4 },
+    aiHoverPos: { x: 4.2, y: -5.05, z: -8.2 },
+    lookTarget: { x: 0.0, y: -5.4, z: -11.5 },
+    maxInteractDistance: 3.6,
+    colorHex: 0x5be3aa,
+  },
+];
 
-function clampBox(pos, box, r, h) {
-  const cx = Math.max(box.minX + r, Math.min(box.maxX - r, pos.x));
-  const cy = Math.max(box.minY, Math.min(box.maxY - h, pos.y));
-  const cz = Math.max(box.minZ + r, Math.min(box.maxZ - r, pos.z));
-  return new THREE.Vector3(cx, cy, cz);
-}
+export const INTERIOR_GRAB_RAILS = [
+  // Pasamanos verticales y de acceso en el núcleo central (permite anclaje EVA en las 4 cubiertas)
+  { id: 'rail-core-c01', pos: [1.05, 4.5, 0.0], span: 2.4, axis: 'y', side: 'starboard', deckId: 'deck-01' },
+  { id: 'rail-core-c02', pos: [1.05, 1.1, 0.0], span: 2.4, axis: 'y', side: 'starboard', deckId: 'deck-02' },
+  { id: 'rail-core-c03', pos: [1.05, -2.3, 0.0], span: 2.4, axis: 'y', side: 'starboard', deckId: 'deck-03' },
+  { id: 'rail-core-c04', pos: [1.05, -5.7, 0.0], span: 2.4, axis: 'y', side: 'starboard', deckId: 'deck-04' },
+  // Pasamanos de cubierta
+  { id: 'rail-bridge-bow', pos: [0.0, 4.45, -10.5], span: 4.5, axis: 'x', side: 'bow', deckId: 'deck-01' },
+  { id: 'rail-bridge-port', pos: [-6.8, 4.45, -2.5], span: 6.0, axis: 'z', side: 'port', deckId: 'deck-01' },
+  { id: 'rail-hab-ring', pos: [3.6, 1.1, -2.0], span: 5.0, axis: 'z', side: 'starboard', deckId: 'deck-02' },
+  { id: 'rail-lab-spherex', pos: [-12.2, -2.3, 0.0], span: 6.0, axis: 'z', side: 'port', deckId: 'deck-03' },
+  { id: 'rail-lab-bench', pos: [14.0, -2.3, 3.0], span: 6.0, axis: 'z', side: 'starboard', deckId: 'deck-03' },
+  { id: 'rail-eng-reactor', pos: [2.4, -2.3, 5.4], span: 4.4, axis: 'x', side: 'aft', deckId: 'deck-03' },
+  { id: 'rail-hangar-bay', pos: [5.4, -5.65, -6.8], span: 5.5, axis: 'z', side: 'starboard', deckId: 'deck-04' },
+];
 
-function clampCylX(pos, cyl, r, h) {
-  const cz = Math.max(cyl.minZ + r, Math.min(cyl.maxZ - r, pos.z));
-  const dx = pos.x - cyl.centerX;
-  const maxDx = Math.max(0.2, Math.sqrt(Math.max(0.09, cyl.radius * cyl.radius - 0.15)) - r);
-  const cx = cyl.centerX + Math.max(-maxDx, Math.min(maxDx, dx));
-  const distFrac = Math.min(1, Math.abs(cx - cyl.centerX) / Math.max(0.5, cyl.radius));
-  const localMaxY = cyl.maxY - distFrac * distFrac * 0.55;
-  const cy = Math.max(cyl.minY, Math.min(localMaxY - h, pos.y));
-  return new THREE.Vector3(cx, cy, cz);
-}
+const ZONE_LIST = [
+  HULL_INTERIOR_ZONES.bridgeMain,
+  HULL_INTERIOR_ZONES.habRing,
+  HULL_INTERIOR_ZONES.engineeringLab,
+  HULL_INTERIOR_ZONES.cargoHangar,
+];
 
-function clampProwCone(pos, r, h) {
-  const z = Math.max(
-    HULL_INTERIOR_ZONES.bridgeProw.minZ + r,
-    Math.min(HULL_INTERIOR_ZONES.bridgeProw.maxZ, pos.z),
-  );
-  const t = Math.max(0, Math.min(1, (-48.4 - z) / 2.8));
-  const halfW = 3.65 - t * 1.65;
-  const cx = Math.max(-halfW + r, Math.min(halfW - r, pos.x));
-  const cy = Math.max(-1.6, Math.min(2.65 - t * 0.4 - h, pos.y));
-  return new THREE.Vector3(cx, cy, z);
+function pushOutCylinder2D(pos, cx, cz, obstacleRadius) {
+  const dx = pos.x - cx;
+  const dz = pos.z - cz;
+  const dist = Math.hypot(dx, dz);
+  if (dist < obstacleRadius) {
+    if (dist > 1e-4) {
+      const k = obstacleRadius / dist;
+      pos.x = cx + dx * k;
+      pos.z = cz + dz * k;
+    } else {
+      pos.z = cz - obstacleRadius;
+    }
+  }
 }
 
 /**
- * Exact 3D union containment inside the 120m approved hull interior volume.
- * Evaluates all connected zones and projects any outside coordinate to the nearest valid interior point.
+ * Determina la cubierta actual a partir de la posición 3D dentro de la esfera habitable.
  */
-export function clampAstronautPosition(pos, astronautHeight = 1.65, radius = ASTRONAUT_RADIUS_METERS) {
-  if (!pos) return pos;
-  const z = HULL_INTERIOR_ZONES;
-  const headClear = Math.max(0.4, Math.min(1.68, astronautHeight));
-  const candidates = [
-    clampBox(pos, z.bridgeMain, radius, headClear),
-    clampProwCone(pos, radius, headClear),
-    clampBox(pos, z.spineCorridor, radius, headClear * 0.65),
-    clampBox(pos, z.scienceCrosswalk, radius, headClear * 0.65),
-    clampCylX(pos, z.sciencePortPod, radius, headClear * 0.8),
-    clampCylX(pos, z.scienceStarboardPod, radius, headClear * 0.8),
-    clampBox(pos, z.dorsalCupolaShaft, radius, 0.85),
-    clampBox(pos, z.habitatCrosswalkBow, radius, headClear * 0.72),
-    clampBox(pos, z.habitatCrosswalkAft, radius, headClear * 0.72),
-    clampCylX(pos, z.habitatPortDrum, radius, headClear * 0.85),
-    clampCylX(pos, z.habitatStarboardDrum, radius, headClear * 0.85),
-    clampBox(pos, z.ventralAirlockShaft, radius, 0.9),
-    clampCylX(pos, z.engineeringMain, radius, headClear * 0.88),
-    clampBox(pos, z.spineToEngRamp, radius, headClear * 0.65),
-    clampBox(pos, z.engineeringShaft, radius, 0.9),
-    clampCylX(pos, z.engineeringLower, radius, headClear * 0.75),
-  ];
+export function resolveCurrentDeck(position) {
+  if (!position) return CABIN_DECKS[0];
+  const y = Number(position.y || 0);
+  let best = CABIN_DECKS[0];
+  let bestDist = Infinity;
+  for (let i = 0; i < CABIN_DECKS.length; i++) {
+    const d = CABIN_DECKS[i];
+    // Banda principal centrada sobre la altura del suelo -> cabeza de cada cubierta
+    const midY = d.elevationY + 1.5;
+    const dist = Math.abs(y - midY);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = d;
+    }
+  }
+  return best;
+}
 
-  const cur = new THREE.Vector3(pos.x || 0, pos.y || 0, pos.z || 0);
-  let best = candidates[0];
-  let bestDistSq = cur.distanceToSquared(best);
-  for (let i = 1; i < candidates.length; i++) {
-    const dSq = cur.distanceToSquared(candidates[i]);
-    if (dSq < bestDistSq) {
-      bestDistSq = dSq;
-      best = candidates[i];
+function getBridgeHalfWidthAtZ(z) {
+  // Heptágono Punta de Flecha (rotado +90° Y):
+  // P_KRONOX = [[0,-15.5], [6.2,-11], [12,-1], [10.5,12], [-10.5,12], [-12,-1], [-6.2,-11]]
+  if (z <= -11.0) {
+    const t = Math.max(0.05, Math.min(1, (z + 15.5) / 4.5));
+    return t * 6.2;
+  }
+  if (z <= -1.0) {
+    const t = (z + 11.0) / 10.0;
+    return 6.2 + t * 5.8;
+  }
+  const t = Math.max(0, Math.min(1, (z + 1.0) / 13.0));
+  return 12.0 - t * 1.5;
+}
+
+/**
+ * Restringe la posición del astronauta, cámara 1P o IA KRONOX dentro de las cubiertas
+ * reales y el núcleo vertical compartido de Aurora-120.
+ */
+export function clampAstronautPosition(
+  pos,
+  radius = ASTRONAUT_RADIUS_METERS,
+  clearance = 0.24
+) {
+  if (!pos) return pos;
+  const pad = radius + clearance;
+  const radialFromCenter = Math.hypot(pos.x, pos.z);
+  const inVerticalShaft = radialFromCenter <= ELEVATOR_SHAFT_RADIUS + 0.08;
+  const isEyeOrProbe = radius <= 0.28 || radius === 0.35;
+
+  if (inVerticalShaft) {
+    // Dentro del pozo central de ascensores se permite tránsito continuo entre todas las cubiertas
+    pos.y = Math.max(
+      HULL_INTERIOR_ZONES.verticalShaft.minY,
+      Math.min(HULL_INTERIOR_ZONES.verticalShaft.maxY - (isEyeOrProbe ? 0.25 : 1.4), pos.y)
+    );
+    const maxShaftR = Math.max(0.25, ELEVATOR_SHAFT_RADIUS - Math.min(0.32, radius * 0.65));
+    if (radialFromCenter > maxShaftR && radialFromCenter > 1e-4) {
+      // Permitir salida libre hacia proa (-Z) o popa (+Z) alineado con las portezuelas del pozo
+      if (Math.abs(pos.x) > 0.72) {
+        const s = maxShaftR / radialFromCenter;
+        pos.x *= s;
+        pos.z *= s;
+      }
+    }
+    return pos;
+  }
+
+  // Determinar zona de cubierta correspondiente a Y
+  let zone = HULL_INTERIOR_ZONES.bridgeMain;
+  if (pos.y < -5.1) {
+    zone = HULL_INTERIOR_ZONES.cargoHangar;
+  } else if (pos.y < -1.7) {
+    zone = HULL_INTERIOR_ZONES.engineeringLab;
+  } else if (pos.y < 1.7) {
+    zone = HULL_INTERIOR_ZONES.habRing;
+  } else {
+    zone = HULL_INTERIOR_ZONES.bridgeMain;
+  }
+
+  const maxFeetY = isEyeOrProbe ? zone.maxY : zone.floorY + 1.58;
+  const minAllowedY = isEyeOrProbe ? zone.minY + 0.25 : zone.minY;
+  pos.y = Math.max(minAllowedY, Math.min(maxFeetY, pos.y));
+
+  if (zone.id === 'deck-01') {
+    // Contorno heptagonal de proa a popa
+    pos.z = Math.max(-14.3 + pad * 0.4, Math.min(11.3 - pad * 0.4, pos.z));
+    const maxX = Math.max(0.55, getBridgeHalfWidthAtZ(pos.z) - pad);
+    pos.x = Math.max(-maxX, Math.min(maxX, pos.x));
+
+    // Colisión con la mesa holográfica en (0, 6.0) y núcleo estrado central del capitán (0, -5.5)
+    pushOutCylinder2D(pos, 0.0, 6.0, 1.55 + radius);
+    pushOutCylinder2D(pos, 0.0, -5.5, 0.95 + radius);
+  } else {
+    // Recinto circular conforme al radio esférico real de cada cubierta
+    const rMax = Math.max(2.5, zone.radiusLimit - pad);
+    const r = Math.hypot(pos.x, pos.z);
+    if (r > rMax && r > 1e-4) {
+      const k = rMax / r;
+      pos.x *= k;
+      pos.z *= k;
+    }
+
+    if (zone.id === 'deck-02') {
+      // Mesada circular del comedor alrededor del núcleo (con pasillos libres hacia ±Z)
+      if (Math.abs(pos.x) > 0.85) {
+        const rInner = 1.48 + radius;
+        const rOuter = 3.55 + radius;
+        const rc = Math.hypot(pos.x, pos.z);
+        if (rc > rInner && rc < rOuter && rc > 1e-4) {
+          const targetR = rc < 2.55 ? rInner : rOuter;
+          pos.x = (pos.x / rc) * targetR;
+          pos.z = (pos.z / rc) * targetR;
+        }
+      }
+    } else if (zone.id === 'deck-03') {
+      // Reactor principal en popa (0, +9.0) y tanques dorados en (-6, -9) / (+6, -9)
+      pushOutCylinder2D(pos, 0.0, 9.0, 2.55 + radius);
+      pushOutCylinder2D(pos, -6.0, -9.0, 1.38 + radius);
+      pushOutCylinder2D(pos, 6.0, -9.0, 1.38 + radius);
+    } else if (zone.id === 'deck-04') {
+      // Fuselaje del transbordador de servicio estacionado en proa (0, -11.5)
+      if (pos.z < -7.2 && pos.z > -15.4 && Math.abs(pos.x) < 3.6 + radius) {
+        if (Math.abs(pos.x) < 2.4) {
+          pos.x = pos.x >= 0 ? 2.4 + radius : -(2.4 + radius);
+        }
+      }
     }
   }
 
-  pos.x = best.x;
-  pos.y = best.y;
-  pos.z = best.z;
-
-  // Solid radial collision pushback around physical console pedestals
-  for (const st of SHIP_INTERIOR_STATIONS) {
-    if (st.id === 'windows') continue;
-    if (Math.abs(pos.y - st.position.y) > 1.8) continue;
-    const dx = pos.x - st.consolePos.x;
-    const dz = pos.z - st.consolePos.z;
-    const minDist = st.colliderRadius + radius * 0.85;
-    const distSq = dx * dx + dz * dz;
-    if (distSq < minDist * minDist) {
-      const dist = Math.max(0.001, Math.sqrt(distSq));
-      pos.x = st.consolePos.x + (dx / dist) * minDist;
-      pos.z = st.consolePos.z + (dz / dist) * minDist;
-    }
+  // Paredes laterales del núcleo de ascensores (entradas abiertas en -Z y +Z, paredes sólidas en ±X)
+  if (Math.abs(pos.z) < 1.15 && Math.abs(pos.x) >= ELEVATOR_SHAFT_RADIUS - 0.15 && Math.abs(pos.x) < 1.62 + radius) {
+    pos.x = pos.x >= 0 ? 1.62 + radius : -(1.62 + radius);
   }
 
   return pos;
 }
 
 /**
- * Finds the closest interactive station within range (2.65m default).
+ * Encuentra la estación interactiva más cercana dentro del radio de interacción y cubierta actual.
  */
-export function findNearestInteractiveStation(astronautPos, maxDistMeters = 2.65) {
-  if (!astronautPos) return null;
-  let nearest = null;
+export function findNearestInteractiveStation(position, overrideRange = null) {
+  if (!position) return null;
+  const currentDeck = resolveCurrentDeck(position);
+  let best = null;
   let bestDist = Infinity;
 
-  for (const st of SHIP_INTERIOR_STATIONS) {
-    const dx = (astronautPos.x || 0) - st.position.x;
-    const dy = (astronautPos.y || 0) - st.position.y;
-    const dz = (astronautPos.z || 0) - st.position.z;
+  for (let i = 0; i < SHIP_INTERIOR_STATIONS.length; i++) {
+    const st = SHIP_INTERIOR_STATIONS[i];
+    const sx = Array.isArray(st.position) ? st.position[0] : st.position.x;
+    const sy = Array.isArray(st.position) ? st.position[1] : st.position.y;
+    const sz = Array.isArray(st.position) ? st.position[2] : st.position.z;
+    if (Math.abs(sy - currentDeck.elevationY) > 1.8) continue;
+    const dx = position.x - sx;
+    const dy = (position.y || 0) - sy;
+    const dz = position.z - sz;
     const dist = Math.hypot(dx, dy * 0.65, dz);
-    if (dist <= maxDistMeters && dist < bestDist) {
+    const limit = overrideRange ? Math.max(st.maxInteractDistance, overrideRange) : st.maxInteractDistance;
+    if (dist <= limit && dist < bestDist) {
       bestDist = dist;
-      nearest = {
-        ...st,
-        station: st,
-        distance: Number(dist.toFixed(2)),
-      };
+      best = { ...st, station: st, distance: dist };
     }
   }
-  return nearest;
-}
-
-/**
- * Determines which of the 4 decks/sectors the astronaut is currently occupying.
- */
-export function resolveCurrentDeck(astronautPos) {
-  if (!astronautPos) return CABIN_DECKS[0];
-  const z = astronautPos.z ?? -45.3;
-  if (z <= -40.5) return CABIN_DECKS[0];
-  if (z <= -19.5) return CABIN_DECKS[1];
-  if (z <= 10.5) return CABIN_DECKS[2];
-  return CABIN_DECKS[3];
+  return best;
 }

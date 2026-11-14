@@ -45,7 +45,7 @@ test('KRONOX RECONSTRUCCIÓN INTEGRAL — Casco Modular de 120 Metros y PBR', ()
   const shipData = buildModularShip120M();
   assert.ok(shipData.root instanceof THREE.Group, 'La nave modular debe retornar un grupo Three.js');
   assert.equal(shipData.dimensions.LENGTH_METERS, 120.0, 'Longitud física de referencia debe ser exactamente 120.0 m');
-  assert.equal(shipData.dimensions.RADIATOR_BEAM_METERS, 32.0, 'Envergadura con radiadores desplegados debe ser 32.0 m');
+  assert.equal(shipData.dimensions.RADIATOR_BEAM_METERS, 58.24, 'Envergadura exterior Aurora-120 con anillos atómicos debe ser 58.24 m');
   assert.equal(shipData.dimensions.DECK_COUNT, 4, 'La nave debe soportar 4 cubiertas operativas');
 
   // Verificar módulos semánticos
@@ -59,7 +59,12 @@ test('KRONOX RECONSTRUCCIÓN INTEGRAL — Casco Modular de 120 Metros y PBR', ()
   assert.ok(shipData.antennaGroup, 'Antena parabólica orientable de alta ganancia');
 
   // Calcular caja envolvente del casco modular
-  const bbox = new THREE.Box3().setFromObject(shipData.root);
+  shipData.root.updateMatrixWorld(true);
+  const bbox = new THREE.Box3();
+  shipData.root.traverse((obj) => {
+    if (!obj.isMesh || !obj.geometry || obj.userData?.isPlume || obj.userData?.isWarpBubble) return;
+    bbox.expandByObject(obj);
+  });
   const size = bbox.getSize(new THREE.Vector3());
   assert.ok(Math.abs(size.z - 120.0) < 2.0, `Longitud real en Z debe aproximar 120 m (obtenido: ${size.z.toFixed(2)})`);
   assert.ok(size.x >= 28.0, `Anchura con radiadores debe ser al menos 28 m (obtenido: ${size.x.toFixed(2)})`);
@@ -76,41 +81,41 @@ test('KRONOX RECONSTRUCCIÓN INTEGRAL — Interior Completo de 4 Cubiertas Conec
   assert.ok(interior.root instanceof THREE.Group);
   assert.equal(CABIN_DECKS.length, 4, 'Debe haber exactamente 4 cubiertas habitables');
 
-  // Elevaciones unificadas conformes al eje longitudinal real del casco aprobado (`modularShipHull3D.js`)
-  assert.equal(CABIN_DECKS[0].elevationY, -1.6, 'Cubierta 01 en Y = -1.6m (Mando Proa Z -51..-42m)');
-  assert.equal(CABIN_DECKS[1].elevationY, -1.55, 'Cubierta 02 en Y = -1.55m (Ciencia SPHEREx Z -37..-21m)');
-  assert.equal(CABIN_DECKS[2].elevationY, -1.75, 'Cubierta 03 en Y = -1.75m (Habitabilidad Z -13..+7m)');
-  assert.equal(CABIN_DECKS[3].elevationY, -0.25, 'Cubierta 04 en Y = -0.25m (Ingeniería/Tokamak Z +12..+40m)');
+  // Elevaciones verticales apiladas dentro de la esfera central R = 20 m de Aurora-120
+  assert.equal(CABIN_DECKS[0].elevationY, 3.4, 'Cubierta 01 en Y = +3.4 m (Puente de Mando en punta de flecha)');
+  assert.equal(CABIN_DECKS[1].elevationY, 0.0, 'Cubierta 02 en Y = 0.0 m (Habitacional · 8 camarotes radiales)');
+  assert.equal(CABIN_DECKS[2].elevationY, -3.4, 'Cubierta 03 en Y = -3.4 m (Ingeniería y Laboratorio SPHEREx)');
+  assert.equal(CABIN_DECKS[3].elevationY, -6.8, 'Cubierta 04 en Y = -6.8 m (Bodega y Hangar de Proa)');
 
-  // Contención geométrica estricta: el interior completo no debe sobresalir fuera del casco habitable
+  // Contención geométrica estricta dentro de la esfera habitable R = 20 m
   const interiorBbox = new THREE.Box3().setFromObject(interior.root);
-  assert.ok(interiorBbox.min.z >= -52.2 && interiorBbox.max.z <= 41.2, `Interior en Z debe mantenerse dentro del casco habitable ([-52.2, 41.2], obtenido [${interiorBbox.min.z.toFixed(2)}, ${interiorBbox.max.z.toFixed(2)}])`);
-  assert.ok(interiorBbox.min.x >= -10.35 && interiorBbox.max.x <= 10.35, `Interior en X debe mantenerse dentro de pods/tambores ([-10.35, 10.35], obtenido [${interiorBbox.min.x.toFixed(2)}, ${interiorBbox.max.x.toFixed(2)}])`);
-  assert.ok(interiorBbox.min.y >= -4.8 && interiorBbox.max.y <= 4.6, `Interior en Y debe mantenerse dentro del casco/cúpula ([-4.8, 4.6], obtenido [${interiorBbox.min.y.toFixed(2)}, ${interiorBbox.max.y.toFixed(2)}])`);
+  assert.ok(interiorBbox.min.z >= -21.0 && interiorBbox.max.z <= 21.0, `Interior en Z debe mantenerse dentro de la esfera R=20 m ([-21.0, 21.0], obtenido [${interiorBbox.min.z.toFixed(2)}, ${interiorBbox.max.z.toFixed(2)}])`);
+  assert.ok(interiorBbox.min.x >= -21.0 && interiorBbox.max.x <= 21.0, `Interior en X debe mantenerse dentro de la esfera R=20 m ([-21.0, 21.0], obtenido [${interiorBbox.min.x.toFixed(2)}, ${interiorBbox.max.x.toFixed(2)}])`);
+  assert.ok(interiorBbox.min.y >= -7.6 && interiorBbox.max.y <= 7.6, `Interior en Y debe mantenerse dentro de la esfera R=20 m ([-7.6, 7.6], obtenido [${interiorBbox.min.y.toFixed(2)}, ${interiorBbox.max.y.toFixed(2)}])`);
   assert.ok(SHIP_INTERIOR_STATIONS.length >= 10, 'Las 4 cubiertas deben alojar estaciones diegéticas distribuidas');
 
   // Estaciones interactivas principales
   const sciStation = interior.interactiveStations.find((s) => s.id === 'sensor-calibration');
-  assert.ok(sciStation, 'Estación de calibración óptica SPHEREx en Cubierta 02');
-  assert.equal(sciStation.deckLevel, 2);
+  assert.ok(sciStation, 'Estación de calibración óptica SPHEREx en Cubierta 03');
+  assert.equal(sciStation.deckLevel, 3);
 
-  // Colisiones de microgravedad dentro del puente, pods laterales, pasillo espinal y esclusa EVA
-  const testPosInsideDeck1 = new THREE.Vector3(0, -1.6, -44.2);
+  // Colisiones de microgravedad dentro del puente (C01) y tránsito vertical por núcleo central (0, Y, 0)
+  const testPosInsideDeck1 = new THREE.Vector3(0, 3.4, -10.4);
   interior.clampAstronautPosition(testPosInsideDeck1);
   assert.ok(testPosInsideDeck1.y >= HULL_INTERIOR_ZONES.bridgeMain.minY && testPosInsideDeck1.y <= HULL_INTERIOR_ZONES.bridgeMain.maxY);
 
-  // En el pasillo longitudinal central (Z = -20m, X = 0), permite tránsito continuo en Y
-  const testPosInSpine = new THREE.Vector3(0, -0.5, -20.0);
-  interior.clampAstronautPosition(testPosInSpine);
-  assert.equal(testPosInSpine.y, -0.5, 'La espina longitudinal central permite flotar en microgravedad entre cubiertas');
+  // En el núcleo central de ascensores (X = 0, Z = 0), permite tránsito vertical continuo entre cubiertas
+  const testPosInShaftMid = new THREE.Vector3(0, 1.2, 0);
+  interior.clampAstronautPosition(testPosInShaftMid);
+  assert.equal(testPosInShaftMid.y, 1.2, 'El núcleo central permite flotar en microgravedad entre cubiertas');
 
-  // En Cubierta 03 (Z = -6.0, X = 0), el pozo de esclusa ventral EVA permite descenso vertical
-  const testPosInAirlock = new THREE.Vector3(0, -3.2, -6.0);
-  interior.clampAstronautPosition(testPosInAirlock);
-  assert.equal(testPosInAirlock.y, -3.2, 'La esclusa ventral EVA permite tránsito vertical completo');
+  // Descenso por el núcleo central hacia Cubierta 03 / 04
+  const testPosInShaftLow = new THREE.Vector3(0, -4.5, 0);
+  interior.clampAstronautPosition(testPosInShaftLow);
+  assert.equal(testPosInShaftLow.y, -4.5, 'El núcleo central permite tránsito vertical completo hasta Bodega');
 
-  // Buscar estación interactiva cercana en Banco Óptico de Cubierta 02 (estribor X=+5.6, Z=-29)
-  const nearest = interior.findNearestInteractiveStation(new THREE.Vector3(5.2, -1.55, -29.0));
+  // Buscar estación interactiva cercana en Banco Óptico de Cubierta 03 (Estribor X = +13.4, Y = -3.4, Z = 0)
+  const nearest = interior.findNearestInteractiveStation(new THREE.Vector3(12.8, -3.4, 0.2));
   assert.ok(nearest);
   assert.equal(nearest.id, 'sensor-calibration');
   assert.ok(shipData.root instanceof THREE.Group);
