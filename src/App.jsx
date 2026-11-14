@@ -35,12 +35,12 @@ import { loadFindingsFromStorage } from './utils/findingsStorage.js';
 import { recordJournalActivity, loadGameState } from './utils/expeditionJournal.js';
 import { detectLanguage, hasSavedLanguage, LANGUAGES, t, voiceLanguage } from './i18n.js';
 import { createGameAudio } from './utils/gameAudio.js';
-import { INVENTORY_ITEMS, addInventoryItem, equipInventoryItem } from './utils/playerInventory.js';
 import { createCinematicSoundtrack } from './utils/cinematicSoundtrack.js';
 import { installFloatingOverlayLayout } from './utils/floatingOverlayLayout.js';
 import { createNarrativeMessage, narrativeQueue } from './state/kronoxMessages.ts';
 import './styles.css';
 import './styles/cinematicNavigation.css';
+import './styles/flightDeckMenus.css';
 
 const voiceProvider = createFishAudioVoiceProvider({
   endpoint: import.meta.env.BASE_URL + 'api/fish-tts',
@@ -148,8 +148,6 @@ export default function App() {
     [cabinFirstPerson, setCabinFirstPerson] = useState(true),
     [elevatorState, setElevatorState] = useState(null),
     [mechanismsState, setMechanismsState] = useState(null),
-    [interactionFeedback, setInteractionFeedback] = useState(null),
-    [heldToolId, setHeldToolId] = useState(null),
     [astronautCoords, setAstronautCoords] = useState({ x: 0, z: -44.2 }),
     [astronautSectorState, setAstronautSectorState] = useState({
       deckId: 'deck-01',
@@ -235,10 +233,8 @@ export default function App() {
         initialPreset = 'auto';
       }
       const defaults = {
-        settingsVersion: 4,
+        settingsVersion: 3,
         cameraSensitivity: 'normal',
-        cameraDistance3P: 'normal',
-        microgravityMode: 'ASSISTED',
         showSubtitles: true,
         subtitleSize: 'normal',
         masterVolume: 0.85,
@@ -426,15 +422,7 @@ export default function App() {
       /* Preference stays in memory. */
     }
   }, [quality]);
-  const playCue = (kind) => {
-    if (!gameAudioRef.current) {
-      const master = Number(gameSettingsRef.current?.masterVolume ?? 0.85);
-      const sfx = Number(gameSettingsRef.current?.sfxVolume ?? 0.65);
-      gameAudioRef.current = createGameAudio();
-      gameAudioRef.current?.setVolume?.(Math.max(0, Math.min(1, master * sfx)));
-    }
-    gameAudioRef.current?.cue?.(kind);
-  };
+  const playCue = (kind) => gameAudioRef.current?.cue(kind);
   const ensureGameplayAudioStarted = () => {
     const master = Number(gameSettingsRef.current?.masterVolume ?? 0.85);
     const sfx = Number(gameSettingsRef.current?.sfxVolume ?? 0.65);
@@ -746,7 +734,7 @@ export default function App() {
         Math.min(
           1,
           Number(gameSettingsRef.current?.masterVolume ?? 0.85) *
-            Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
+          Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
         ),
       );
       utterance.onstart = () => {
@@ -815,7 +803,7 @@ export default function App() {
         Math.min(
           1,
           Number(gameSettingsRef.current?.masterVolume ?? 0.85) *
-            Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
+          Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
         ),
       );
       a.muted = false;
@@ -865,7 +853,7 @@ export default function App() {
                   Math.min(
                     1,
                     Number(gameSettingsRef.current?.masterVolume ?? 0.85) *
-                      Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
+                    Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
                   ),
                 );
                 retryAudio.muted = false;
@@ -1178,14 +1166,6 @@ export default function App() {
       },
       onElevatorStateChange: (elState) => setElevatorState(elState || null),
       onMechanismsChange: (mechState) => setMechanismsState(mechState || null),
-      onSfxCue: (kind) => playCue(kind),
-      onInteractionFeedback: (fb) => setInteractionFeedback(fb || null),
-      onToolCollected: (itemId) => {
-        const itemDef = Object.values(INVENTORY_ITEMS).find((it) => it.id === itemId);
-        if (itemDef) addInventoryItem(itemDef);
-        equipInventoryItem(itemId);
-        setHeldToolId(itemId || null);
-      },
       onViewChange: (v) => setPv(v),
       onIntroStageChange: (stageKey, captionText, stageOpts = {}) => {
         setCinematicStage(stageKey);
@@ -1413,7 +1393,7 @@ export default function App() {
                     language: voiceAccentRef.current,
                     voiceId: selectedVoice,
                   }),
-                ).catch(() => {}),
+                ).catch(() => { }),
               ),
             );
           }
@@ -1447,12 +1427,11 @@ export default function App() {
             language: voiceAccentRef.current,
             voiceId: selectedVoice,
           }),
-        ).catch(() => {});
+        ).catch(() => { });
       });
     }, 900);
     return () => clearTimeout(timer);
   }, [welcomeOpen, showFullMainMenu]);
-  const prevSettingMgRef = useRef(gameSettings.microgravityMode);
   useEffect(() => {
     try {
       localStorage.setItem('kronox-game-settings-v1', JSON.stringify(gameSettings));
@@ -1476,21 +1455,11 @@ export default function App() {
       sensitivity: gameSettings.cameraSensitivity || 'normal',
       distance3P: gameSettings.cameraDistance3P || 'normal',
     });
-    if (gameSettings.graphics) {
-      const nextPreset = normalizeGraphicsPreset(gameSettings.graphics.preset, 'auto');
-      if (nextPreset !== quality) setQualityState(nextPreset);
-      api.current?.setGraphicsSettings?.(gameSettings.graphics);
-    }
     if (gameSettings.microgravityMode && prevSettingMgRef.current !== gameSettings.microgravityMode) {
       prevSettingMgRef.current = gameSettings.microgravityMode;
       api.current?.setMicrogravityMode?.(gameSettings.microgravityMode);
     }
   }, [speaking, voice, gameSettings, ambientEnabled]);
-  useEffect(() => {
-    if (!interactionFeedback) return undefined;
-    const tId = setTimeout(() => setInteractionFeedback(null), 2600);
-    return () => clearTimeout(tId);
-  }, [interactionFeedback]);
   useEffect(() => {
     const levelSum = audioLevels.reduce((acc, v) => acc + v, 0);
     const normLevel = speaking
@@ -1934,63 +1903,6 @@ export default function App() {
         nm[k],
       ),
     pi = f && P.find((x) => x.n == f);
-
-  const handleToggleCabinPerspective = (firstP) => {
-    const nextVal = firstP !== undefined ? Boolean(firstP) : !cabinFirstPerson;
-    setCabinFirstPerson(nextVal);
-    A().setCabinPerspective?.(nextVal);
-  };
-
-  const handleChangeViewMode = (nextMode) => {
-    if (nextMode === 'cockpit') {
-      if (spec) {
-        A().board();
-        setSpec(false);
-      }
-      if (!fr) {
-        setFr(true);
-        A().free(true, false);
-      }
-      setPv(1);
-      A().view(1);
-    } else if (nextMode === 'exterior') {
-      if (spec) {
-        A().board();
-        setSpec(false);
-      }
-      if (!fr) {
-        setFr(true);
-        A().free(true, false);
-      }
-      setPv(3);
-      A().view(3);
-    } else {
-      if (spec) {
-        A().exitSpectator();
-        setSpec(false);
-      }
-      setFr(false);
-      clearMissionOffer();
-      setSelectedObject(null);
-      A().setNavigationScale(
-        ['stellar', 'regional', 'milkyway', 'extragalactic'].includes(navigationScale.id)
-          ? navigationScale.id
-          : 'stellar',
-      );
-    }
-  };
-
-  const handleSetOpticalTelescope = (enabled, magnification = 150, targetBody = null) => {
-    const targetName = targetBody || observationModeInfo?.opticalTargetBody || f || near || 'Júpiter';
-    const obsRes = A()?.setOpticalTelescope?.(enabled, magnification, targetName);
-    if (obsRes) setObservationModeInfo(obsRes);
-    if (enabled && A()?.getPlanetaryObservationalTelemetry) {
-      setPlanetaryTelemetry(A().getPlanetaryObservationalTelemetry(targetName));
-    } else {
-      setPlanetaryTelemetry(null);
-    }
-  };
-
   return h(
     'div',
     {
@@ -3223,7 +3135,11 @@ export default function App() {
       navigationActive: !!navigation && navigation.phase !== 'countdown',
       cabinFirstPerson,
       astronautSectorState,
-      onToggleCabinPerspective: handleToggleCabinPerspective,
+      onToggleCabinPerspective: (firstP) => {
+        const nextVal = firstP !== undefined ? Boolean(firstP) : !cabinFirstPerson;
+        setCabinFirstPerson(nextVal);
+        A().setCabinPerspective?.(nextVal);
+      },
       onToggleMicrogravityMode: () => {
         const nextMode = astronautSectorState.microgravityMode === 'FREE' ? 'ASSISTED' : 'FREE';
         A().setMicrogravityMode?.(nextMode);
@@ -3253,8 +3169,6 @@ export default function App() {
       activeStation: activeCockpitStation,
       elevatorState,
       mechanismsState,
-      interactionFeedback,
-      heldToolId,
       onSelectElevatorFloor: (deckId) => A().selectElevatorFloor?.(deckId),
       onTriggerMechanism: (actionId, value = null) => A().interactStationMechanism?.(actionId, value),
       onActivateNearestStation: () => A().activateNearestStation?.(),
@@ -3277,7 +3191,44 @@ export default function App() {
       },
       viewMode: !fr ? 'navigation' : pv == 1 ? 'cockpit' : 'exterior',
       onResetExteriorView: () => A().inspectExterior?.(),
-      onChangeViewMode: handleChangeViewMode,
+      onChangeViewMode: (nextMode) => {
+        if (nextMode === 'cockpit') {
+          if (spec) {
+            A().board();
+            setSpec(false);
+          }
+          if (!fr) {
+            setFr(true);
+            A().free(true, false);
+          }
+          setPv(1);
+          A().view(1);
+        } else if (nextMode === 'exterior') {
+          if (spec) {
+            A().board();
+            setSpec(false);
+          }
+          if (!fr) {
+            setFr(true);
+            A().free(true, false);
+          }
+          setPv(3);
+          A().view(3);
+        } else {
+          if (spec) {
+            A().exitSpectator();
+            setSpec(false);
+          }
+          setFr(false);
+          clearMissionOffer();
+          setSelectedObject(null);
+          A().setNavigationScale(
+            ['stellar', 'regional', 'milkyway', 'extragalactic'].includes(navigationScale.id)
+              ? navigationScale.id
+              : 'stellar',
+          );
+        }
+      },
       flightSpeed: fv,
       onSpeedPreset: (v) => {
         A().speed(v);
@@ -3367,7 +3318,16 @@ export default function App() {
         api.current?.setSimulationPaused?.(true);
       },
       observationModeInfo,
-      onSetOpticalTelescope: handleSetOpticalTelescope,
+      onSetOpticalTelescope: (enabled, magnification = 150, targetBody = null) => {
+        const targetName = targetBody || observationModeInfo?.opticalTargetBody || f || near || 'Júpiter';
+        const obsRes = A()?.setOpticalTelescope?.(enabled, magnification, targetName);
+        if (obsRes) setObservationModeInfo(obsRes);
+        if (enabled && A()?.getPlanetaryObservationalTelemetry) {
+          setPlanetaryTelemetry(A().getPlanetaryObservationalTelemetry(targetName));
+        } else {
+          setPlanetaryTelemetry(null);
+        }
+      },
       planetaryTelemetry:
         gameSettings.showTelescopeTelemetry === false ? null : planetaryTelemetry,
       pointerLockState,
@@ -3410,18 +3370,9 @@ export default function App() {
         setShowFullMainMenu(true);
       },
       currentBody: f || near || 'Tierra',
-      cameraView: !fr ? 'Mapa Cartográfico' : pv == 1 ? (cabinFirstPerson ? 'Cabina 1P' : '3P EVA') : 'Exterior Nave 120 m',
+      cameraView: !fr ? 'Mapa Cartográfico' : pv == 1 ? 'Cabina 1P' : 'Exterior Nave 120 m',
       observationMode: observationModeInfo?.mode?.id || 'naked-eye',
       opticalMagnification: observationModeInfo?.opticalMagnification || 1,
-      viewMode: !fr ? 'navigation' : pv == 1 ? 'cockpit' : 'exterior',
-      cabinFirstPerson,
-      navigationActive: !!navigation && navigation.phase !== 'countdown',
-      onChangeViewMode: handleChangeViewMode,
-      onToggleCabinPerspective: handleToggleCabinPerspective,
-      onResetExteriorView: () => A().inspectExterior?.(),
-      onSetOpticalTelescope: handleSetOpticalTelescope,
-      microgravityMode: astronautSectorState?.microgravityMode || 'ASSISTED',
-      onChangeMicrogravityMode: (nextMode) => A().setMicrogravityMode?.(nextMode),
       scaleMode: real ? 'real' : 'visual',
       visualProfile,
       onToggleVisualProfile: () => {

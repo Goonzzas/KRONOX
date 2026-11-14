@@ -1,0 +1,882 @@
+/* Flight-deck visual system for title, pause, navigation and mission menus. */
+@font-face {
+  font-family: 'Oxanium';
+  src: url('../assets/fonts/Oxanium-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Oxanium';
+  src: url('../assets/fonts/Oxanium-Bold.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Rajdhani';
+  src: url('../assets/fonts/Rajdhani-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Rajdhani';
+  src: url('../assets/fonts/Rajdhani-Bold.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  --flight-cyan: #acd8d4;
+  --flight-amber: #e1b56f;
+}
+
+.kronox-main-menu-overlay,
+.kronox-pause-overlay,
+.kronox-menu-panel,
+.spherexSelector,
+.infoCard,
+.navigationDock,
+.nearbyGalaxyControls {
+  color: #edf0e8;
+  font-family: 'Rajdhani', 'Arial Narrow', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: .025em;
+}
+.kronox-main-menu-overlay { perspective: 1400px; }
+.kronox-menu-vignette {
+  background:
+    linear-gradient(90deg, rgba(5, 9, 11, .93), rgba(6, 11, 13, .74) 25%, rgba(6, 11, 13, .32) 48%, transparent 78%),
+    linear-gradient(0deg, rgba(4, 8, 10, .63), transparent 37%),
+    radial-gradient(ellipse at 77% 41%, rgba(200, 222, 211, .12), transparent 40%);
+}
+
+/* Keep the vessel and scenery open while the menu sits low at the left. */
+.kronox-title-stage {
+  position: relative;
+  align-items: stretch;
+  justify-content: flex-start;
+  perspective: 1400px;
+  perspective-origin: 15% 58%;
+  padding: clamp(24px, 4.6vw, 68px);
+}
+.kronox-title-rail {
+  position: static;
+  width: min(410px, 42vw);
+  height: 100%;
+  justify-content: flex-end;
+  gap: 15px;
+}
+.kronox-title-header {
+  position: absolute;
+  top: clamp(28px, 5vh, 58px);
+  right: clamp(28px, 5.5vw, 82px);
+  align-items: flex-end;
+  width: min(350px, 38vw);
+  gap: 8px;
+  text-align: right;
+}
+.kronox-main-menu-badge {
+  border: 0;
+  border-right: 2px solid var(--flight-cyan);
+  border-radius: 0;
+  background: rgba(7, 14, 16, .56);
+  color: #b7d9d6;
+}
+.kronox-main-title {
+  font-family: 'Oxanium', 'Rajdhani', sans-serif;
+  font-size: clamp(34px, 4.5vw, 54px);
+  letter-spacing: .28em;
+}
+.kronox-main-subtitle { max-width: 310px; font-size: 11px; }
+.kronox-title-nav { gap: 7px; padding-left: 0; border: 0; counter-reset: flight-menu; }
+.kronox-title-btn {
+  min-height: 60px;
+  gap: 12px;
+  padding: 10px 38px 10px 12px;
+  border: 1px solid rgba(190, 218, 216, .4);
+  border-radius: 0;
+  background: linear-gradient(100deg, rgba(19, 34, 37, .9), rgba(7, 14, 16, .7));
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, calc(100% - 8px) 100%, 0 100%);
+  overflow: hidden;
+  transform: perspective(900px) rotateY(8deg) rotateX(1deg);
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  transition: transform 260ms cubic-bezier(.2, .8, .2, 1), border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+.kronox-title-btn::before {
+  position: absolute;
+  inset: 1px;
+  border-top: 1px solid rgba(236, 247, 237, .4);
+  border-left: 1px solid rgba(236, 247, 237, .18);
+  background: linear-gradient(112deg, rgba(216, 242, 230, .1), transparent 35% 78%, rgba(150, 202, 197, .08));
+  content: '';
+  pointer-events: none;
+}
+.kronox-title-btn::after {
+  position: absolute;
+  right: 17px;
+  content: '↗';
+  color: rgba(184, 215, 211, .58);
+  font-size: 13px;
+  transition: transform 180ms ease, color 180ms ease;
+}
+.kronox-title-btn:hover,
+.kronox-title-btn:focus-visible {
+  transform: perspective(900px) rotateY(0deg) rotateX(0deg) translateX(9px) translateZ(14px);
+  border-color: rgba(190, 224, 220, .86);
+  background: linear-gradient(100deg, rgba(42, 70, 69, .92), rgba(8, 20, 22, .92));
+  box-shadow: inset 3px 0 var(--flight-cyan), 0 12px 32px rgba(0, 0, 0, .3);
+}
+.kronox-title-btn:hover::after,
+.kronox-title-btn:focus-visible::after { color: #dcebe2; transform: translate(2px, -2px); }
+.kronox-title-btn.is-primary {
+  border-color: rgba(190, 224, 220, .78);
+  background: linear-gradient(100deg, rgba(83, 125, 122, .58), rgba(8, 20, 22, .86) 76%);
+  box-shadow: inset 3px 0 var(--flight-cyan), 0 8px 30px rgba(0, 0, 0, .18);
+}
+.kronox-title-btn-marker {
+  display: grid;
+  width: 26px;
+  height: 25px;
+  flex: 0 0 26px;
+  place-items: center;
+  border: 1px solid rgba(175, 210, 207, .38);
+  border-radius: 0;
+  background: rgba(5, 12, 14, .42);
+  color: rgba(203, 224, 217, .72);
+  font: 9px ui-monospace, monospace;
+  counter-increment: flight-menu;
+}
+.kronox-title-btn-marker::before { content: counter(flight-menu, decimal-leading-zero); }
+.kronox-title-btn.is-primary .kronox-title-btn-marker,
+.kronox-title-btn:hover .kronox-title-btn-marker,
+.kronox-title-btn:focus-visible .kronox-title-btn-marker {
+  border-color: var(--flight-cyan);
+  background: rgba(120, 171, 166, .24);
+  color: #e5f0e8;
+  box-shadow: 0 0 15px rgba(169, 215, 213, .24);
+}
+.kronox-title-btn-body strong {
+  font-family: 'Oxanium', 'Rajdhani', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .13em;
+}
+.kronox-title-btn-body small { max-width: 290px; font-size: 12px; font-weight: 500; }
+.kronox-title-footer { padding-top: 8px; border-top: 1px solid rgba(177, 211, 207, .18); font-size: 7px; }
+.kronox-title-hero-caption {
+  margin: 0 0 2px auto;
+  border-right-color: rgba(226, 180, 109, .82);
+  background: linear-gradient(270deg, rgba(7, 13, 15, .78), transparent);
+}
+
+/* Repeated submenus use the same glass, edge-light and compact typography. */
+.kronox-menu-panel,
+.kronox-lore-codex-panel,
+.spherexSelector,
+.infoCard {
+  position: relative;
+  transform: perspective(1400px) rotateY(-1.1deg) rotateX(.45deg);
+  border: 1px solid rgba(166, 208, 207, .4);
+  border-radius: 2px;
+  background: linear-gradient(145deg, rgba(16, 29, 31, .96), rgba(5, 11, 13, .96));
+  box-shadow: 0 24px 72px rgba(0, 0, 0, .66), inset 0 1px rgba(226, 241, 232, .08);
+  backdrop-filter: blur(18px) saturate(.76);
+  animation: flightDeckEnter 300ms cubic-bezier(.2, .8, .2, 1) both;
+}
+.kronox-menu-panel::before,
+.kronox-lore-codex-panel::before,
+.spherexSelector::before,
+.infoCard::before {
+  position: absolute;
+  top: 0; right: 0; left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--flight-cyan) 22%, var(--flight-amber) 77%, transparent);
+  content: '';
+  pointer-events: none;
+}
+.kronox-menu-panel-header h2,
+.kronox-lore-codex-panel h2,
+.spherexSelectorHeader h2,
+.infoHeader h2,
+.kronox-pause-brand h2,
+.kronox-pause-header h3,
+.kronox-pause-card h4,
+.spherexMissionChoice h3,
+.navigationDock header b,
+.pn h1 {
+  color: #f0efe8;
+  font-family: 'Oxanium', 'Rajdhani', sans-serif;
+  font-weight: 600;
+  letter-spacing: .075em;
+}
+.kronox-settings-tabs button,
+.kronox-settings-tab,
+.menuTabs button,
+.kronox-pause-secondary-btn,
+.kronox-pause-action-btn,
+.kronox-repair-btn,
+.spherexTargetChoices button,
+.infoActions button {
+  border-radius: 1px;
+  transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+.kronox-settings-tabs button:hover,
+.kronox-settings-tab:hover,
+.menuTabs button:hover,
+.kronox-pause-secondary-btn:hover,
+.kronox-pause-action-btn:hover,
+.kronox-repair-btn:hover,
+.spherexTargetChoices button:hover,
+.infoActions button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 7px 18px rgba(0, 0, 0, .3), 0 0 18px rgba(169, 215, 213, .1);
+}
+.kronox-settings-tabs button.is-active,
+.kronox-settings-tab.active,
+.menuTabs button.active {
+  border-color: rgba(169, 215, 213, .84);
+  background: linear-gradient(100deg, rgba(95, 140, 136, .3), rgba(169, 215, 213, .08));
+  box-shadow: inset 0 -2px var(--flight-cyan);
+  color: #eff4ed;
+}
+
+.kronox-pause-overlay {
+  background: linear-gradient(90deg, rgba(4, 8, 10, .65), rgba(4, 8, 10, .42));
+  backdrop-filter: blur(5px);
+}
+.kronox-pause-shell {
+  width: min(1160px, 96vw);
+  height: min(740px, 90vh);
+  grid-template-columns: minmax(220px, 270px) minmax(0, 1fr);
+  border-color: rgba(173, 214, 211, .48);
+  border-radius: 2px;
+  transform: perspective(1600px) rotateY(-1.2deg) rotateX(.4deg);
+  transform-style: preserve-3d;
+  background: linear-gradient(112deg, rgba(11, 21, 23, .97), rgba(7, 13, 16, .95) 48%, rgba(8, 13, 16, .9));
+  animation: flightDeckEnter 300ms cubic-bezier(.2, .8, .2, 1) both;
+}
+.kronox-pause-sidebar {
+  position: relative;
+  border-right-color: rgba(177, 211, 207, .24);
+  background: linear-gradient(180deg, rgba(21, 34, 35, .7), rgba(5, 11, 13, .86)), repeating-linear-gradient(0deg, transparent 0 34px, rgba(164, 200, 194, .035) 35px 36px);
+}
+.kronox-pause-sidebar::after {
+  position: absolute; top: 0; right: 0; width: 2px; height: 32%;
+  background: linear-gradient(var(--flight-cyan), transparent);
+  content: ''; pointer-events: none;
+}
+.kronox-pause-kicker,
+.kronox-pause-eyebrow { color: var(--flight-cyan); letter-spacing: .17em; }
+.kronox-pause-brand h2 { color: #f0efe8; letter-spacing: .25em; }
+.kronox-pause-nav-btn {
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-left: 2px solid rgba(162, 202, 198, .28);
+  border-radius: 0;
+  background: linear-gradient(90deg, rgba(146, 182, 177, .04), transparent);
+  transform: perspective(700px) rotateY(4deg);
+  transform-origin: left center;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+.kronox-pause-nav-btn:hover,
+.kronox-pause-nav-btn.is-active {
+  transform: perspective(700px) rotateY(0deg) translateX(5px) translateZ(9px);
+  border-color: rgba(169, 215, 213, .42);
+  border-left-color: var(--flight-cyan);
+  background: linear-gradient(90deg, rgba(96, 147, 143, .26), rgba(29, 55, 54, .1));
+}
+.kronox-pause-nav-btn.is-primary-resume { border-left-color: var(--flight-amber); }
+.kronox-pause-nav-title { color: #ecf1eb; letter-spacing: .08em; text-transform: uppercase; }
+.kronox-pause-nav-sub,
+.kronox-pause-footer-hint { color: rgba(193, 207, 201, .64); }
+.kronox-pause-header { padding-bottom: 15px; border-bottom: 1px solid rgba(173, 214, 211, .2); }
+.kronox-pause-header h3 { color: #f0efe8; letter-spacing: .025em; }
+.kronox-pause-card,
+.kronox-pause-schema-card,
+.kronox-pause-stat-box,
+.kronox-lore-fact-card,
+.infoItem,
+.spherexMissionChoice {
+  border: 1px solid rgba(169, 207, 201, .24);
+  border-radius: 2px;
+  background: linear-gradient(145deg, rgba(24, 39, 39, .72), rgba(7, 14, 16, .76));
+  box-shadow: inset 0 1px rgba(225, 239, 230, .05);
+  transform: perspective(1000px) rotateY(-1.5deg) rotateX(.8deg);
+  transform-style: preserve-3d;
+  transition: transform 180ms ease, border-color 180ms ease;
+}
+.kronox-pause-card:hover,
+.kronox-pause-schema-card:hover,
+.kronox-lore-fact-card:hover,
+.spherexMissionChoice:hover {
+  transform: perspective(1000px) rotateY(0deg) rotateX(0deg) translateY(-3px) translateZ(12px);
+  border-color: rgba(169, 215, 213, .62);
+}
+.kronox-pause-card h4,
+.spherexMissionChoice h3 { color: #e5ece4; letter-spacing: .08em; text-transform: uppercase; }
+.kronox-pause-action-btn,
+.kronox-repair-btn.primary,
+.infoActions .infoExploreButton {
+  border-color: rgba(177, 218, 214, .65);
+  background: linear-gradient(100deg, rgba(110, 161, 154, .72), rgba(34, 66, 65, .86));
+  color: #f2f4e9;
+}
+
+.pn,
+.qpanel,
+.in,
+.navigationDock,
+.nearbyGalaxyControls {
+  border-color: rgba(166, 208, 207, .4);
+  border-radius: 2px;
+  background: linear-gradient(145deg, rgba(14, 25, 27, .96), rgba(5, 11, 13, .94));
+  box-shadow: 0 15px 48px rgba(0, 0, 0, .52), inset 0 1px rgba(231, 240, 230, .08);
+  backdrop-filter: blur(16px) saturate(.8);
+  transform: perspective(1300px) rotateY(2deg) rotateX(.5deg);
+  transform-origin: left top;
+}
+.pn button,
+.bd button,
+.qpanel button,
+.navigationDock button,
+.navigationDock select,
+.nearbyGalaxyControls button,
+.nearbyGalaxyControls select {
+  border-color: rgba(172, 209, 206, .3);
+  border-radius: 1px;
+  background: rgba(152, 194, 189, .08);
+  color: #e7efeb;
+  transition: transform 150ms ease, background-color 150ms ease, border-color 150ms ease;
+}
+.pn button:hover,
+.bd button:hover,
+.qpanel button:hover,
+.navigationDock button:hover,
+.nearbyGalaxyControls button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(177, 222, 217, .74);
+  background: rgba(135, 188, 181, .21);
+}
+.pn button.on,
+.qpanel button.on {
+  border-color: var(--flight-amber);
+  background: rgba(179, 132, 62, .24);
+  color: #fff1d6;
+  box-shadow: inset 0 -2px var(--flight-amber);
+}
+.spherexSelectorShade,
+.modalShade { background: rgba(2, 6, 8, .58); backdrop-filter: blur(5px); }
+.spherexTargetChoices button { border-color: rgba(169, 207, 201, .25); border-radius: 1px; background: rgba(7, 15, 17, .9); }
+.spherexTargetChoices button:hover,
+.spherexTargetChoices button:focus-visible { border-color: var(--flight-cyan); background: rgba(34, 62, 61, .85); }
+.spherexTargetChoices em { color: var(--flight-amber); }
+
+@keyframes flightDeckEnter {
+  from { opacity: 0; transform: perspective(1400px) translateY(8px) rotateY(-1.1deg) rotateX(.45deg) scale(.99); }
+  to { opacity: 1; transform: perspective(1400px) translateY(0) rotateY(-1.1deg) rotateX(.45deg) scale(1); }
+}
+
+@media (max-width: 780px) {
+  .kronox-title-stage { align-items: flex-end; padding: 20px 16px max(20px, env(safe-area-inset-bottom)); }
+  .kronox-title-rail { width: min(100%, 430px); height: auto; gap: 12px; }
+  .kronox-title-header { position: static; align-items: flex-start; width: 100%; text-align: left; }
+  .kronox-main-title { font-size: clamp(34px, 10vw, 48px); }
+  .kronox-title-btn { transform: none; }
+  .kronox-title-btn:hover,
+  .kronox-title-btn:focus-visible { transform: translateX(4px); }
+  .kronox-pause-overlay { align-items: stretch; padding: 10px; }
+  .kronox-pause-shell { width: 100%; height: 100%; min-height: 0; grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .kronox-pause-sidebar { gap: 8px; padding: 12px; border-right: 0; border-bottom: 1px solid rgba(177, 211, 207, .24); }
+  .kronox-pause-brand { padding-bottom: 8px; }
+  .kronox-pause-nav { flex-direction: row; overflow-x: auto; margin: 0; padding-bottom: 3px; }
+  .kronox-pause-nav-btn { min-width: 128px; }
+  .kronox-pause-nav-sub,
+  .kronox-pause-footer-hint { display: none; }
+  .kronox-pause-content { min-height: 0; padding: 16px; }
+  .kronox-pause-shell,
+  .kronox-menu-panel,
+  .kronox-lore-codex-panel,
+  .spherexSelector,
+  .infoCard,
+  .pn,
+  .qpanel,
+  .in,
+  .navigationDock,
+  .nearbyGalaxyControls { transform: none; }
+  .kronox-pause-nav-btn { transform: none; }
+  .kronox-pause-nav-btn:hover,
+  .kronox-pause-nav-btn.is-active { transform: translateX(2px); }
+  .kronox-pause-card,
+  .kronox-pause-schema-card,
+  .kronox-pause-stat-box,
+  .kronox-lore-fact-card,
+  .infoItem,
+  .spherexMissionChoice { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kronox-menu-panel,
+  .kronox-lore-codex-panel,
+  .kronox-pause-shell,
+  .spherexSelector,
+  .infoCard { animation: none; }
+  .kronox-title-btn,
+  .kronox-pause-nav-btn,
+  .kronox-pause-card,
+  .kronox-settings-tabs button,
+  .spherexTargetChoices button { transition: none; }
+  .kronox-pause-nav-btn { transform: none; }
+}
+.reduceMotion .kronox-title-btn,
+.reduceMotion .kronox-pause-nav-btn,
+.reduceMotion .kronox-pause-card { transition: none; }
+
+/* Stronger perspective: menus read as floating control plates, not flat cards. */
+.kronox-title-stage {
+  perspective: 920px;
+  perspective-origin: 0% 62%;
+}
+.kronox-title-nav { transform-style: preserve-3d; }
+.kronox-title-btn {
+  transform: perspective(820px) rotateY(17deg) rotateX(2.5deg) translateZ(8px);
+  box-shadow:
+    5px 6px 0 rgba(5, 10, 11, .72),
+    11px 13px 0 rgba(4, 8, 9, .48),
+    22px 28px 34px rgba(0, 0, 0, .5),
+    inset 0 1px rgba(238, 247, 234, .34);
+}
+.kronox-title-btn::before {
+  transform: translateZ(5px);
+  border-right: 1px solid rgba(222, 239, 231, .16);
+  background: linear-gradient(112deg, rgba(216, 242, 230, .15), transparent 34% 72%, rgba(150, 202, 197, .16));
+}
+.kronox-title-btn::after { transform: translateZ(14px); }
+.kronox-title-btn-marker,
+.kronox-title-btn-body { position: relative; transform: translateZ(13px); }
+.kronox-title-btn:hover,
+.kronox-title-btn:focus-visible {
+  transform: perspective(820px) rotateY(7deg) rotateX(0deg) translateX(12px) translateZ(34px);
+  box-shadow:
+    4px 5px 0 rgba(5, 10, 11, .65),
+    9px 10px 0 rgba(4, 8, 9, .4),
+    24px 30px 38px rgba(0, 0, 0, .62),
+    inset 3px 0 var(--flight-cyan),
+    inset 0 1px rgba(238, 247, 234, .42);
+}
+.kronox-title-btn.is-primary {
+  box-shadow:
+    5px 6px 0 rgba(5, 10, 11, .68),
+    11px 13px 0 rgba(4, 8, 9, .44),
+    22px 28px 34px rgba(0, 0, 0, .52),
+    inset 3px 0 var(--flight-cyan),
+    inset 0 1px rgba(238, 247, 234, .4);
+}
+.kronox-pause-shell {
+  transform: perspective(1250px) rotateY(-5deg) rotateX(1.6deg) translateZ(4px);
+  box-shadow:
+    12px 16px 0 rgba(0, 0, 0, .24),
+    27px 34px 62px rgba(0, 0, 0, .7),
+    inset 0 1px rgba(238, 247, 234, .14);
+}
+.kronox-pause-nav-btn {
+  transform: perspective(680px) rotateY(8deg) rotateX(1.8deg) translateZ(4px);
+  box-shadow: 4px 5px 0 rgba(0, 0, 0, .32);
+}
+.kronox-pause-nav-btn:hover,
+.kronox-pause-nav-btn.is-active {
+  transform: perspective(680px) rotateY(2deg) rotateX(0deg) translateX(7px) translateZ(18px);
+  box-shadow: 6px 9px 16px rgba(0, 0, 0, .4), inset 2px 0 var(--flight-cyan);
+}
+.kronox-pause-card,
+.kronox-pause-schema-card,
+.kronox-pause-stat-box,
+.kronox-lore-fact-card,
+.infoItem,
+.spherexMissionChoice {
+  transform: perspective(900px) rotateY(-4.5deg) rotateX(1.8deg) translateZ(8px);
+  box-shadow: 5px 7px 0 rgba(0, 0, 0, .26), 13px 18px 26px rgba(0, 0, 0, .3), inset 0 1px rgba(235, 246, 234, .1);
+}
+.kronox-pause-card:hover,
+.kronox-pause-schema-card:hover,
+.kronox-lore-fact-card:hover,
+.spherexMissionChoice:hover {
+  transform: perspective(900px) rotateY(-1deg) rotateX(0deg) translateY(-4px) translateZ(24px);
+  box-shadow: 4px 6px 0 rgba(0, 0, 0, .24), 16px 24px 34px rgba(0, 0, 0, .44), inset 0 1px rgba(235, 246, 234, .16);
+}
+.kronox-menu-panel,
+.kronox-lore-codex-panel,
+.spherexSelector,
+.infoCard {
+  transform: perspective(1300px) rotateY(-4deg) rotateX(1.4deg) translateZ(6px);
+  box-shadow: 11px 14px 0 rgba(0, 0, 0, .2), 24px 34px 64px rgba(0, 0, 0, .68), inset 0 1px rgba(226, 241, 232, .12);
+}
+.pn,
+.qpanel,
+.in,
+.navigationDock,
+.nearbyGalaxyControls {
+  transform: perspective(980px) rotateY(6deg) rotateX(1.6deg) translateZ(10px);
+  box-shadow: 8px 10px 0 rgba(0, 0, 0, .28), 20px 27px 42px rgba(0, 0, 0, .6), inset 0 1px rgba(231, 240, 230, .14);
+}
+.spherexTargetChoices button {
+  transform: perspective(740px) rotateY(-3deg) rotateX(1deg) translateZ(3px);
+  box-shadow: 3px 4px 0 rgba(0, 0, 0, .32);
+}
+.spherexTargetChoices button:hover,
+.spherexTargetChoices button:focus-visible {
+  transform: perspective(740px) rotateY(0deg) translateX(4px) translateZ(12px);
+  box-shadow: 6px 9px 18px rgba(0, 0, 0, .42);
+}
+@keyframes flightDeckEnter {
+  from { opacity: 0; transform: perspective(1300px) translateY(9px) rotateY(-4deg) rotateX(1.4deg) scale(.985); }
+  to { opacity: 1; transform: perspective(1300px) translateY(0) rotateY(-4deg) rotateX(1.4deg) scale(1); }
+}
+@media (max-width: 780px) {
+  .kronox-title-stage { perspective: none; }
+  .kronox-title-btn,
+  .kronox-title-btn.is-primary,
+  .kronox-title-btn:hover,
+  .kronox-title-btn:focus-visible { transform: none; box-shadow: 0 8px 24px rgba(0, 0, 0, .42), inset 0 1px rgba(238, 247, 234, .24); }
+  .kronox-title-btn-marker,
+  .kronox-title-btn-body,
+  .kronox-title-btn::before,
+  .kronox-title-btn::after { transform: none; }
+  .kronox-pause-shell,
+  .kronox-pause-nav-btn,
+  .kronox-pause-nav-btn:hover,
+  .kronox-pause-nav-btn.is-active,
+  .kronox-pause-card,
+  .kronox-pause-schema-card,
+  .kronox-pause-stat-box,
+  .kronox-lore-fact-card,
+  .infoItem,
+  .spherexMissionChoice,
+  .spherexMissionChoice:hover,
+  .kronox-menu-panel,
+  .kronox-lore-codex-panel,
+  .spherexSelector,
+  .infoCard,
+  .pn,
+  .qpanel,
+  .in,
+  .navigationDock,
+  .nearbyGalaxyControls,
+  .spherexTargetChoices button,
+  .spherexTargetChoices button:hover,
+  .spherexTargetChoices button:focus-visible { transform: none; }
+}
+.reduceMotion .kronox-title-btn,
+.reduceMotion .kronox-pause-nav-btn,
+.reduceMotion .kronox-pause-card,
+.reduceMotion .spherexTargetChoices button { transition: none; }
+
+/* Main menu options: translucent angled mission plates, like a ship display. */
+.kronox-title-nav {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px 8px;
+  transform-style: preserve-3d;
+}
+.kronox-title-btn {
+  grid-column: 1 / -1;
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  touch-action: manipulation;
+  min-height: 67px;
+  padding: 11px 44px 11px 14px;
+  border: 1px solid rgba(128, 221, 240, .78);
+  border-right-color: rgba(171, 236, 247, .42);
+  background:
+    linear-gradient(100deg, rgba(10, 38, 52, .44), rgba(11, 28, 38, .27) 62%, rgba(8, 20, 27, .19)),
+    linear-gradient(180deg, rgba(213, 246, 248, .12), transparent 34%, rgba(22, 110, 137, .12));
+  backdrop-filter: blur(4px) saturate(1.3);
+  -webkit-backdrop-filter: blur(4px) saturate(1.3);
+  clip-path: polygon(0 3%, 91% 0, 100% 16%, 98% 84%, 91% 100%, 0 95%);
+  transform: perspective(850px) rotateY(14deg) rotateX(3deg) rotateZ(-.65deg) translateZ(9px);
+  box-shadow:
+    3px 4px 0 rgba(4, 19, 27, .72),
+    9px 13px 22px rgba(0, 0, 0, .38),
+    inset 0 0 18px rgba(81, 204, 225, .11),
+    0 0 13px rgba(81, 204, 225, .18);
+}
+.kronox-title-btn:nth-child(2) {
+  margin-left: 6px;
+  transform: perspective(850px) rotateY(12deg) rotateX(3deg) rotateZ(-.35deg) translateZ(5px);
+}
+.kronox-title-btn:nth-child(3) {
+  margin-left: 12px;
+  transform: perspective(850px) rotateY(10deg) rotateX(3deg) translateZ(1px);
+}
+.kronox-title-btn::before {
+  inset: 1px;
+  border-top: 1px solid rgba(218, 250, 255, .6);
+  border-left: 1px solid rgba(193, 243, 250, .35);
+  background:
+    linear-gradient(110deg, rgba(175, 237, 246, .18), transparent 28% 74%, rgba(89, 199, 220, .11)),
+    linear-gradient(0deg, rgba(108, 220, 235, .08), transparent 40%);
+  transform: translateZ(5px);
+  pointer-events: none;
+}
+.kronox-title-btn::after {
+  right: 19px;
+  color: rgba(173, 239, 248, .92);
+  text-shadow: 0 0 10px rgba(84, 217, 241, .8);
+  transform: translateZ(14px);
+  pointer-events: none;
+}
+.kronox-title-btn:nth-child(1) { z-index: 5; }
+.kronox-title-btn:nth-child(2) { z-index: 4; }
+.kronox-title-btn:nth-child(3) { z-index: 3; }
+.kronox-title-btn:nth-child(4) { z-index: 2; }
+.kronox-title-btn:nth-child(5) { z-index: 1; }
+.kronox-title-btn:hover,
+.kronox-title-btn:focus-visible { z-index: 8; }
+.kronox-title-btn-marker {
+  border-color: rgba(140, 226, 241, .62);
+  background: rgba(6, 28, 39, .38);
+  color: #d0f5f7;
+  box-shadow: inset 0 0 9px rgba(74, 205, 229, .17), 0 0 8px rgba(74, 205, 229, .14);
+}
+.kronox-title-btn-body { position: relative; transform: translateZ(13px); }
+.kronox-title-btn-body strong {
+  color: #e7f8fa;
+  font-size: 12px;
+  letter-spacing: .16em;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, .85);
+}
+.kronox-title-btn-body small {
+  color: rgba(199, 230, 235, .86);
+  font-size: 11px;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, .9);
+}
+.kronox-title-btn.is-primary {
+  border-color: rgba(147, 231, 246, .96);
+  background:
+    linear-gradient(100deg, rgba(24, 75, 94, .56), rgba(13, 39, 52, .3) 64%, rgba(10, 27, 36, .22)),
+    linear-gradient(180deg, rgba(211, 248, 250, .16), transparent 34%, rgba(42, 160, 185, .16));
+  box-shadow:
+    3px 4px 0 rgba(4, 19, 27, .68),
+    10px 14px 24px rgba(0, 0, 0, .4),
+    inset 3px 0 rgba(137, 231, 244, .78),
+    inset 0 0 22px rgba(91, 216, 238, .16),
+    0 0 18px rgba(81, 204, 225, .28);
+}
+.kronox-title-btn:hover,
+.kronox-title-btn:focus-visible {
+  transform: perspective(850px) rotateY(5deg) rotateX(0deg) rotateZ(0deg) translateX(12px) translateZ(29px);
+  border-color: rgba(185, 245, 251, .98);
+  background:
+    linear-gradient(100deg, rgba(32, 97, 115, .62), rgba(14, 47, 61, .38) 68%, rgba(9, 29, 40, .25)),
+    linear-gradient(180deg, rgba(218, 250, 250, .2), transparent 36%, rgba(42, 174, 196, .17));
+  box-shadow:
+    2px 3px 0 rgba(4, 19, 27, .6),
+    17px 22px 31px rgba(0, 0, 0, .52),
+    inset 3px 0 rgba(170, 241, 248, .9),
+    inset 0 0 24px rgba(91, 216, 238, .23),
+    0 0 22px rgba(81, 204, 225, .42);
+}
+.kronox-title-btn.is-primary:hover,
+.kronox-title-btn.is-primary:focus-visible {
+  transform: perspective(850px) rotateY(4deg) rotateX(0deg) translateX(12px) translateZ(31px);
+}
+.kronox-title-btn:nth-child(n + 4) {
+  grid-column: span 3;
+  min-height: 39px;
+  padding: 7px 29px 7px 9px;
+  margin-left: 0;
+  border-color: rgba(124, 211, 229, .64);
+  background: linear-gradient(100deg, rgba(9, 35, 47, .42), rgba(7, 19, 27, .25));
+  transform: perspective(850px) rotateY(10deg) rotateX(2deg) translateZ(0);
+  box-shadow: 3px 4px 0 rgba(4, 19, 27, .58), 8px 11px 18px rgba(0, 0, 0, .32), inset 0 0 12px rgba(81, 204, 225, .09);
+}
+.kronox-title-btn:nth-child(n + 4) .kronox-title-btn-marker {
+  width: 21px;
+  height: 20px;
+  flex-basis: 21px;
+  font-size: 8px;
+}
+.kronox-title-btn:nth-child(n + 4) .kronox-title-btn-body strong { font-size: 9px; }
+.kronox-title-btn:nth-child(n + 4) .kronox-title-btn-body small { display: none; }
+.kronox-title-btn:nth-child(n + 4)::after { right: 12px; font-size: 11px; }
+.kronox-title-btn:nth-child(n + 4):hover,
+.kronox-title-btn:nth-child(n + 4):focus-visible {
+  transform: perspective(850px) rotateY(2deg) translateX(5px) translateZ(20px);
+}
+
+.kronox-pause-nav-btn,
+.spherexTargetChoices button {
+  border-color: rgba(124, 211, 229, .45);
+  background: linear-gradient(105deg, rgba(14, 48, 60, .48), rgba(7, 20, 27, .3));
+  backdrop-filter: blur(5px) saturate(1.2);
+  -webkit-backdrop-filter: blur(5px) saturate(1.2);
+}
+.kronox-pause-nav-btn.is-active,
+.kronox-pause-nav-btn.is-primary-resume {
+  border-color: rgba(147, 231, 246, .8);
+  background: linear-gradient(100deg, rgba(33, 100, 116, .52), rgba(10, 31, 42, .35));
+  box-shadow: inset 3px 0 rgba(137, 231, 244, .82), 7px 11px 18px rgba(0, 0, 0, .38), inset 0 0 17px rgba(81, 204, 225, .15);
+}
+.kronox-pause-card,
+.kronox-pause-schema-card,
+.kronox-pause-stat-box,
+.kronox-lore-fact-card,
+.infoItem,
+.spherexMissionChoice {
+  background: linear-gradient(135deg, rgba(25, 63, 70, .38), rgba(7, 19, 24, .32));
+  backdrop-filter: blur(5px) saturate(1.15);
+  -webkit-backdrop-filter: blur(5px) saturate(1.15);
+}
+@media (max-width: 780px) {
+  .kronox-title-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kronox-title-btn:nth-child(-n + 3) { grid-column: 1 / -1; margin-left: 0; }
+  .kronox-title-btn:nth-child(n + 4) { grid-column: span 1; }
+  .kronox-title-stage { perspective: 980px; perspective-origin: 0 68%; }
+  .kronox-title-btn {
+    transform: perspective(760px) rotateY(12deg) rotateX(2deg) rotateZ(-.45deg) translateZ(6px);
+    box-shadow: 4px 5px 0 rgba(4, 19, 27, .7), 10px 14px 22px rgba(0, 0, 0, .38), inset 0 0 16px rgba(81, 204, 225, .12), 0 0 12px rgba(81, 204, 225, .2);
+  }
+  .kronox-title-btn:nth-child(2) { transform: perspective(760px) rotateY(10deg) rotateX(2deg) translateZ(4px); }
+  .kronox-title-btn:nth-child(3) { transform: perspective(760px) rotateY(8deg) rotateX(1.5deg) translateZ(2px); }
+  .kronox-title-btn:nth-child(n + 4) { transform: perspective(760px) rotateY(7deg) rotateX(1.5deg) translateZ(1px); }
+  .kronox-title-btn:hover,
+  .kronox-title-btn:focus-visible,
+  .kronox-title-btn.is-primary:hover,
+  .kronox-title-btn.is-primary:focus-visible { transform: perspective(760px) rotateY(3deg) translateX(6px) translateZ(18px); }
+}
+
+/* Keep the hit target visually clear; the pseudo-element alone draws and animates the glass face. */
+.kronox-title-btn,
+.kronox-title-btn:nth-child(2),
+.kronox-title-btn:nth-child(3),
+.kronox-title-btn:nth-child(n + 4),
+.kronox-title-btn.is-primary,
+.kronox-title-btn:hover,
+.kronox-title-btn:focus-visible,
+.kronox-title-btn.is-primary:hover,
+.kronox-title-btn.is-primary:focus-visible,
+.kronox-title-btn:nth-child(n + 4):hover,
+.kronox-title-btn:nth-child(n + 4):focus-visible {
+  z-index: 1;
+  transform: none;
+  transform-style: preserve-3d;
+  isolation: isolate;
+  clip-path: none;
+  overflow: visible;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: auto;
+}
+.kronox-title-btn:hover,
+.kronox-title-btn:focus-visible,
+.kronox-title-btn.is-primary:hover,
+.kronox-title-btn.is-primary:focus-visible,
+.kronox-title-btn:nth-child(n + 4):hover,
+.kronox-title-btn:nth-child(n + 4):focus-visible { z-index: 6; }
+.kronox-title-btn::before {
+  position: absolute;
+  inset: 2px 8px 5px 1px;
+  z-index: 0;
+  border: 1px solid rgba(128, 221, 240, .82);
+  border-right-color: rgba(171, 236, 247, .46);
+  background:
+    linear-gradient(100deg, rgba(10, 38, 52, .43), rgba(11, 28, 38, .25) 62%, rgba(8, 20, 27, .16)),
+    linear-gradient(180deg, rgba(213, 246, 248, .12), transparent 34%, rgba(22, 110, 137, .1));
+  backdrop-filter: blur(4px) saturate(1.3);
+  -webkit-backdrop-filter: blur(4px) saturate(1.3);
+  clip-path: polygon(0 3%, 91% 0, 100% 16%, 98% 84%, 91% 100%, 0 95%);
+  transform: perspective(850px) rotateY(14deg) rotateX(3deg) rotateZ(-.65deg) translateZ(3px);
+  transform-origin: left center;
+  box-shadow: 4px 5px 0 rgba(4, 19, 27, .64), 10px 14px 22px rgba(0, 0, 0, .36), inset 0 0 18px rgba(81, 204, 225, .12), 0 0 13px rgba(81, 204, 225, .2);
+  transition: transform 260ms cubic-bezier(.2, .8, .2, 1), border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+  content: '';
+  pointer-events: none;
+}
+.kronox-title-btn:nth-child(2)::before { transform: perspective(850px) rotateY(12deg) rotateX(3deg) rotateZ(-.35deg) translateZ(2px); }
+.kronox-title-btn:nth-child(3)::before { transform: perspective(850px) rotateY(10deg) rotateX(2deg) translateZ(1px); }
+.kronox-title-btn.is-primary::before {
+  border-color: rgba(147, 231, 246, .96);
+  background:
+    linear-gradient(100deg, rgba(24, 75, 94, .52), rgba(13, 39, 52, .28) 64%, rgba(10, 27, 36, .18)),
+    linear-gradient(180deg, rgba(211, 248, 250, .17), transparent 34%, rgba(42, 160, 185, .14));
+  box-shadow: 4px 5px 0 rgba(4, 19, 27, .62), 11px 15px 24px rgba(0, 0, 0, .4), inset 3px 0 rgba(137, 231, 244, .78), inset 0 0 22px rgba(91, 216, 238, .17), 0 0 18px rgba(81, 204, 225, .28);
+}
+.kronox-title-btn:hover::before,
+.kronox-title-btn:focus-visible::before {
+  transform: perspective(850px) rotateY(5deg) rotateX(0deg) translateX(9px) translateZ(22px);
+  border-color: rgba(185, 245, 251, .98);
+  background:
+    linear-gradient(100deg, rgba(32, 97, 115, .58), rgba(14, 47, 61, .34) 68%, rgba(9, 29, 40, .2)),
+    linear-gradient(180deg, rgba(218, 250, 250, .2), transparent 36%, rgba(42, 174, 196, .17));
+  box-shadow: 3px 4px 0 rgba(4, 19, 27, .58), 17px 22px 31px rgba(0, 0, 0, .5), inset 3px 0 rgba(170, 241, 248, .9), inset 0 0 24px rgba(91, 216, 238, .24), 0 0 22px rgba(81, 204, 225, .42);
+}
+.kronox-title-btn.is-primary:hover::before,
+.kronox-title-btn.is-primary:focus-visible::before { transform: perspective(850px) rotateY(4deg) rotateX(0deg) translateX(9px) translateZ(24px); }
+.kronox-title-btn:nth-child(n + 4)::before {
+  inset: 1px 6px 4px 1px;
+  border-color: rgba(124, 211, 229, .68);
+  background: linear-gradient(100deg, rgba(9, 35, 47, .4), rgba(7, 19, 27, .2));
+  transform: perspective(850px) rotateY(9deg) rotateX(2deg) translateZ(1px);
+  box-shadow: 3px 4px 0 rgba(4, 19, 27, .55), 8px 11px 18px rgba(0, 0, 0, .32), inset 0 0 12px rgba(81, 204, 225, .1);
+}
+.kronox-title-btn:nth-child(n + 4):hover::before,
+.kronox-title-btn:nth-child(n + 4):focus-visible::before { transform: perspective(850px) rotateY(2deg) translateX(5px) translateZ(16px); }
+.kronox-title-btn-marker,
+.kronox-title-btn-body {
+  position: relative;
+  z-index: 2;
+  transform: translateZ(32px);
+}
+.kronox-title-btn::after { z-index: 3; transform: translateZ(34px); pointer-events: none; }
+.kronox-title-btn:focus-visible { outline: 2px solid rgba(180, 244, 250, .92); outline-offset: 2px; }
+
+/* Menu destinations open as straight reading panels; tilt belongs to the home options. */
+.kronox-menu-panel,
+.kronox-lore-codex-panel,
+.spherexSelector,
+.infoCard,
+.kronox-pause-shell,
+.pn,
+.qpanel,
+.in,
+.navigationDock,
+.nearbyGalaxyControls {
+  transform: none;
+  animation: flightDeckFlatEnter 260ms ease both;
+}
+.kronox-pause-nav-btn,
+.kronox-pause-nav-btn:hover,
+.kronox-pause-nav-btn.is-active,
+.kronox-pause-nav-btn.is-primary-resume,
+.kronox-pause-card,
+.kronox-pause-card:hover,
+.kronox-pause-schema-card,
+.kronox-pause-schema-card:hover,
+.kronox-pause-stat-box,
+.kronox-pause-stat-box:hover,
+.kronox-lore-fact-card,
+.kronox-lore-fact-card:hover,
+.infoItem,
+.infoItem:hover,
+.spherexMissionChoice,
+.spherexMissionChoice:hover,
+.spherexTargetChoices button,
+.spherexTargetChoices button:hover,
+.spherexTargetChoices button:focus-visible {
+  transform: none;
+}
+.kronox-pause-card:hover,
+.kronox-pause-schema-card:hover,
+.kronox-lore-fact-card:hover,
+.spherexMissionChoice:hover { box-shadow: 0 10px 24px rgba(0, 0, 0, .32), inset 0 1px rgba(235, 246, 234, .12); }
+@keyframes flightDeckFlatEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
