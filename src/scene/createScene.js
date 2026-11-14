@@ -3237,6 +3237,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     bk = bankRad;
   }
 
+  function snapCompanionTo(x, y, z, mood, aimAt = null) {
+    const pos = new V(x, y, z);
+    luminousAI.group.position.copy(pos);
+    luminousAI.setTargetPosition(pos, mood);
+    luminousAI.resetWake(pos);
+    luminousAI.pointAtWorldPosition(aimAt, Boolean(aimAt));
+  }
+
   function buildIntroCurve(pts) {
     return new THREE.CatmullRomCurve3(
       pts.map(([x, y, z]) => new V(x, y, z)),
@@ -3248,24 +3256,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
   const INTRO_CURVES = {
     extPos: buildIntroCurve([
-      [98, 26, -74],
-      [88, 12, 16],
-      [44, 24, 68],
-      [-38, 18, 54],
+      [122, 32, -96],
+      [132, 16, 22],
+      [92, 28, 114],
+      [-86, 22, 92],
       [6.2, 5.3, -24.5],
     ]),
     extLook: buildIntroCurve([
       [0, 1.5, -8],
       [0, 0.5, 4],
-      [0, 1.0, 10],
+      [0, 1.0, 6],
       [0, 1.5, -6],
       [0, 4.85, -14.2],
     ]),
     bridgePos: buildIntroCurve([
-      [4.8, 5.15, -5.8],
-      [3.6, 5.1, -12.4],
-      [-3.4, 5.15, -12.6],
-      [-4.6, 5.15, -5.6],
+      [4.8, 5.68, -5.8],
+      [3.6, 5.65, -11.4],
+      [-3.4, 5.65, -11.6],
+      [-4.6, 5.68, -5.8],
     ]),
     bridgeLook: buildIntroCurve([
       [0.2, 4.45, -10.2],
@@ -3274,11 +3282,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       [0.2, 4.5, -10.2],
     ]),
     spherexPos: buildIntroCurve([
-      [-9.6, -1.65, -4.6],
-      [-9.2, -1.6, 3.8],
-      [-2.8, -1.55, 8.8],
-      [8.6, -1.6, 4.2],
-      [9.4, -1.65, -3.2],
+      [-9.6, -1.5, -2.6],
+      [-6.8, -1.45, -5.4],
+      [0.0, -1.4, -5.8],
+      [6.8, -1.45, -5.2],
+      [9.6, -1.5, -2.6],
     ]),
     spherexLook: buildIntroCurve([
       [-13.4, -2.15, 0.0],
@@ -3288,30 +3296,30 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       [14.0, -1.95, 0.0],
     ]),
     habitatPos: buildIntroCurve([
-      [5.4, 1.85, -5.2],
-      [3.0, 1.9, -6.4],
-      [-2.8, 1.88, -6.2],
-      [-5.2, 1.85, -4.4],
+      [6.6, 1.95, -3.2],
+      [3.8, 1.95, -5.4],
+      [-3.6, 1.95, -5.6],
+      [-6.4, 1.95, -3.0],
     ]),
     habitatLook: buildIntroCurve([
-      [3.2, 0.95, -2.4],
-      [1.2, 1.0, -3.4],
-      [-0.8, 1.0, -3.8],
-      [-2.4, 0.95, -3.4],
+      [1.8, 0.72, -3.0],
+      [0.6, 0.75, -3.6],
+      [-0.6, 0.75, -3.8],
+      [-1.8, 0.72, -3.2],
     ]),
     engPos: buildIntroCurve([
-      [4.6, -1.35, 2.2],
-      [3.8, -1.25, 6.4],
-      [-3.8, -1.25, 6.4],
-      [-4.6, -1.35, 2.2],
-      [0.0, -1.55, 2.6],
+      [5.2, -1.45, 2.0],
+      [3.2, -1.4, 3.1],
+      [-3.2, -1.4, 3.1],
+      [-5.2, -1.45, 2.0],
+      [0.0, -1.55, 2.4],
     ]),
     engLook: buildIntroCurve([
-      [0.0, -1.9, 6.8],
-      [0.0, -1.8, 7.6],
-      [0.0, -1.85, 7.8],
-      [0.0, -1.9, 6.8],
-      [0.0, -1.85, 7.2],
+      [0.0, -2.05, 6.2],
+      [0.0, -1.95, 6.8],
+      [0.0, -1.95, 6.8],
+      [0.0, -2.05, 6.2],
+      [0.0, -1.95, 6.6],
     ]),
   };
   // Guided In-World Tour State (Section 6)
@@ -4571,8 +4579,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           const sideDir = new V().crossVectors(upRef, sunDir).normalize();
 
           const flyAng = THREE.MathUtils.lerp(-0.82, 0.48, ease3);
-          const flyDist = jr * THREE.MathUtils.lerp(2.45, 2.05, ease3);
-          const flyElev = jr * THREE.MathUtils.lerp(0.32, -0.14, ease3);
+          const flyDist = jr * THREE.MathUtils.lerp(2.65, 2.15, ease3);
+          const flyElev = jr * THREE.MathUtils.lerp(0.28, -0.1, ease3);
           const shipWorldPos = (ang) =>
             jPos
               .clone()
@@ -4582,7 +4590,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
           sp.copy(shipWorldPos(flyAng));
           const fwdVec = shipWorldPos(flyAng + 0.05).sub(sp).normalize();
-          setShipOrientationFromForward(q, fwdVec, 0.18 * Math.sin(ease3 * Math.PI));
+          setShipOrientationFromForward(q, fwdVec, 0.16 * Math.sin(ease3 * Math.PI));
 
           ship.visible = true;
           localCabinWorld.visible = false;
@@ -4590,17 +4598,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
           const toJupiter = jPos.clone().sub(sp).normalize();
           const latDir = new V().crossVectors(toJupiter, upRef).normalize();
-          const heroRange = THREE.MathUtils.lerp(138, 108, ease3);
-          // Cámara en costado derecho respecto a Júpiter (~25° de separación) -> Nave limpia a la izquierda, Júpiter grande a la derecha
+          const heroRange = THREE.MathUtils.lerp(168, 138, ease3);
+          // Amplia separación angular (~47° entre KRONOX a la izquierda y Júpiter completamente libre a la derecha)
           const camLocal = toJupiter
             .clone()
-            .multiplyScalar(-heroRange * 0.88)
-            .addScaledVector(latDir, heroRange * 0.42)
-            .addScaledVector(upRef, THREE.MathUtils.lerp(18, 6, ease3));
+            .multiplyScalar(-heroRange * 0.72)
+            .addScaledVector(latDir, heroRange * 0.72)
+            .addScaledVector(upRef, THREE.MathUtils.lerp(20, 6, ease3));
           const lookLocal = toJupiter
             .clone()
-            .multiplyScalar(32)
-            .addScaledVector(latDir, heroRange * 0.14)
+            .multiplyScalar(heroRange * 0.46)
+            .addScaledVector(latDir, heroRange * 0.24)
             .addScaledVector(upRef, 4);
 
           localCam.near = 0.25;
@@ -4644,8 +4652,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           const sideDir = new V().crossVectors(upRef, sunDir).normalize();
 
           const satAng = THREE.MathUtils.lerp(-0.95, 0.45, easeGal);
-          const satDist = sr * THREE.MathUtils.lerp(3.15, 3.65, easeGal);
-          const satElev = sr * THREE.MathUtils.lerp(1.25, 1.85, easeGal);
+          const satDist = sr * THREE.MathUtils.lerp(2.55, 2.95, easeGal);
+          const satElev = sr * THREE.MathUtils.lerp(1.05, 1.45, easeGal);
           const shipSatPos = (ang) =>
             sPos
               .clone()
@@ -4655,7 +4663,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
           sp.copy(shipSatPos(satAng));
           const fwdVec = shipSatPos(satAng + 0.05).sub(sp).normalize();
-          setShipOrientationFromForward(q, fwdVec, -0.18 * Math.sin(easeGal * Math.PI));
+          setShipOrientationFromForward(q, fwdVec, -0.16 * Math.sin(easeGal * Math.PI));
 
           ship.visible = true;
           localCabinWorld.visible = false;
@@ -4664,19 +4672,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           const toSaturn = sPos.clone().sub(sp).normalize();
           const latDir = new V().crossVectors(toSaturn, upRef).normalize();
           const galCenterDir = new V().fromArray(SOLAR_GALACTIC_ANCHOR).applyQuaternion(gal.quaternion).negate().normalize();
-          const heroRange = THREE.MathUtils.lerp(136, 154, easeGal);
-          // Separar ~25° la nave de Saturno para lucir ambos anillos y la Vía Láctea sin obstrucciones
+          const heroRange = THREE.MathUtils.lerp(166, 152, easeGal);
+          // Amplia separación lateral (~47°) para mostrar Aurora-120 a la izquierda y Saturno con sus anillos libre a la derecha
           const camLocalRing = toSaturn
             .clone()
-            .multiplyScalar(-heroRange * 0.88)
-            .addScaledVector(latDir, heroRange * 0.44)
-            .addScaledVector(upRef, THREE.MathUtils.lerp(22, -14, easeGal));
+            .multiplyScalar(-heroRange * 0.72)
+            .addScaledVector(latDir, heroRange * 0.72)
+            .addScaledVector(upRef, THREE.MathUtils.lerp(22, -10, easeGal));
           const lookRing = toSaturn
             .clone()
-            .multiplyScalar(34)
-            .addScaledVector(latDir, heroRange * 0.14)
-            .addScaledVector(upRef, -2)
-            .lerp(galCenterDir.clone().multiplyScalar(48), Math.max(0, (tGal - 0.65) / 0.35) * 0.42);
+            .multiplyScalar(heroRange * 0.46)
+            .addScaledVector(latDir, heroRange * 0.24)
+            .addScaledVector(upRef, -1)
+            .lerp(galCenterDir.clone().multiplyScalar(56), Math.max(0, (tGal - 0.72) / 0.28) * 0.26);
 
           localCam.near = 0.25;
           localCam.far = 6000;
@@ -4742,8 +4750,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             if (realTimeIntro.stageNotified < 5) {
               realTimeIntro.stageNotified = 5;
               realTimeIntro.stageElapsed = 0;
-              luminousAI.setTargetPosition(new V(1.45, 5.15, -10.2), 'Señalización');
-              luminousAI.pointAtWorldPosition(new V(0.0, 4.75, -10.1), true);
+              snapCompanionTo(1.45, 5.15, -10.2, 'Señalización', new V(0.0, 4.75, -10.1));
               S.onIntroStageChange?.(
                 'escena6_puente',
                 'En el puente de mando coordinamos la astrometría J2000, el rumbo interestelar y los sistemas de observación de toda la expedición.',
@@ -4768,8 +4775,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             if (realTimeIntro.stageNotified < 6) {
               realTimeIntro.stageNotified = 6;
               realTimeIntro.stageElapsed = 0;
-              luminousAI.setTargetPosition(new V(11.8, -1.55, 1.25), 'Señalización');
-              luminousAI.pointAtWorldPosition(new V(14.5, -1.95, 0.0), true);
+              snapCompanionTo(11.6, -1.55, -0.85, 'Señalización', new V(14.5, -1.95, 0.0));
               S.onIntroStageChange?.(
                 'escena7_spherex',
                 'La cubierta científica combina espectroscopía inspirada en NASA SPHEREx y bancos ópticos de calibración para investigar cada archivo real sin conjeturas.',
@@ -4794,7 +4800,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             if (realTimeIntro.stageNotified < 7) {
               realTimeIntro.stageNotified = 7;
               realTimeIntro.stageElapsed = 0;
-              luminousAI.pointAtWorldPosition(null, false);
+              snapCompanionTo(2.4, 1.55, -3.9, 'Acompañamiento');
               S.onIntroStageChange?.(
                 'escena8_habitabilidad',
                 'El módulo de habitabilidad mantiene a la tripulación en microgravedad durante largas travesías con soporte vital de ciclo cerrado y gravedad anular asistida.',
@@ -4806,16 +4812,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
             const t8 = Math.min(1, (u - 0.71) / 0.10);
             const ease8 = t8 * t8 * (3 - 2 * t8);
-            const swimX = THREE.MathUtils.lerp(4.4, -2.6, ease8);
-            const swimZ = -2.2 - Math.sin(ease8 * Math.PI) * 3.1;
-            const swimY = 0.18 + Math.sin(ease8 * Math.PI) * 0.34;
+            const swimX = THREE.MathUtils.lerp(3.4, -2.6, ease8);
+            const swimZ = -2.8 - Math.sin(ease8 * Math.PI) * 1.4;
+            const swimY = 0.18 + Math.sin(ease8 * Math.PI) * 0.28;
             if (articulatedAstronaut) {
               articulatedAstronaut.root.visible = true;
               articulatedAstronaut.root.position.set(swimX, swimY, swimZ);
               articulatedAstronaut.root.rotation.y = Math.atan2(3.5, Math.cos(ease8 * Math.PI) * 2.2) + Math.PI * 0.25;
               articulatedAstronaut.updateAnimation(dt, ASTRONAUT_ANIMATION_STATES.CORRIDOR_SWIM);
             }
-            luminousAI.setTargetPosition(new V(swimX - 1.25, swimY + 1.45, swimZ - 1.15), 'Acompañamiento');
+            luminousAI.setTargetPosition(new V(swimX - 1.1, swimY + 1.35, swimZ - 0.85), 'Acompañamiento');
             localCam.position.copy(INTRO_CURVES.habitatPos.getPoint(ease8, _introTmpVec).clone().applyQuaternion(q));
             localCam.lookAt(INTRO_CURVES.habitatLook.getPoint(ease8, _introTmpLook).clone().applyQuaternion(q));
           } else if (u < 0.90) {
@@ -4823,8 +4829,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             if (realTimeIntro.stageNotified < 8) {
               realTimeIntro.stageNotified = 8;
               realTimeIntro.stageElapsed = 0;
-              luminousAI.setTargetPosition(new V(1.65, -1.5, 5.6), 'Análisis');
-              luminousAI.pointAtWorldPosition(new V(0.0, -1.8, 9.0), true);
+              snapCompanionTo(1.65, -1.6, 5.2, 'Análisis', new V(0.0, -1.8, 9.0));
               S.onIntroStageChange?.(
                 'escena9_ingenieria',
                 'En ingeniería, el reactor toroidal de fusión y sus propulsores magnetoplasmadinámicos suministran la energía limpia que impulsa a KRONOX entre mundos.',
@@ -4838,7 +4843,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             const ease9 = t9 * t9 * (3 - 2 * t9);
             if (articulatedAstronaut) {
               articulatedAstronaut.root.visible = true;
-              articulatedAstronaut.root.position.set(0.0, -3.4, 5.4);
+              articulatedAstronaut.root.position.set(0.0, -3.4, 4.7);
               articulatedAstronaut.root.rotation.y = Math.PI;
               articulatedAstronaut.updateAnimation(dt, ASTRONAUT_ANIMATION_STATES.REPAIR_INTERACT);
             }
@@ -4849,8 +4854,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             if (realTimeIntro.stageNotified < 9) {
               realTimeIntro.stageNotified = 9;
               realTimeIntro.stageElapsed = 0;
-              luminousAI.pointAtWorldPosition(null, false);
-              luminousAI.setTargetPosition(new V(1.55, 5.05, -10.8), 'Bienvenida');
+              snapCompanionTo(1.55, 5.05, -10.8, 'Bienvenida');
               S.onIntroStageChange?.(
                 'escena10_inicio',
                 'Soy KRONOX IA, tu inteligencia de a bordo. El puente es tuyo, comandante: calibra tus instrumentos y comienza tu primera investigación espacial.',
@@ -5549,7 +5553,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       const hideOversizedLegacyPlumes = Boolean(mainMenuOrbitActive || realTimeIntro);
       fl2.visible = !hideOversizedLegacyPlumes;
       fl2.scale.setScalar(0.6 + 1.2 * th);
-      if (modularShip) modularShip.update(dt, th, inDeepCruiseShowcase ? 0.45 : lastWarpAmount);
+      if (modularShip) modularShip.update(dt, th, inDeepCruiseShowcase ? 0.88 : lastWarpAmount);
       FL.forEach((o, i) => {
         o.c.visible = !hideOversizedLegacyPlumes;
         o.k.visible = !hideOversizedLegacyPlumes;
