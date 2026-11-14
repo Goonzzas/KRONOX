@@ -835,7 +835,7 @@
   transform: translateZ(32px);
 }
 .kronox-title-btn::after { z-index: 3; transform: translateZ(34px); pointer-events: none; }
-.kronox-title-btn:focus-visible { outline: 2px solid rgba(180, 244, 250, .92); outline-offset: 2px; }
+.kronox-title-btn:focus-visible { outline: none; }
 
 /* Menu destinations open as straight reading panels; tilt belongs to the home options. */
 .kronox-menu-panel,
