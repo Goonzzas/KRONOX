@@ -21,6 +21,7 @@ export function createMicrogravityPhysicsController({
   const velocity = new THREE.Vector3(0, 0, 0);
   let activeMode = mode;
   let anchoredRailId = null;
+  let isGrounded = true;
 
   const baseAccelMps2 = 5.4;
   const boostMult = 2.05;
@@ -88,14 +89,42 @@ export function createMicrogravityPhysicsController({
     const strafe = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
     const vert = (keys[' '] || keys.space ? 1 : 0) - (keys.control || keys.ctrl || keys.q ? 1 : 0);
 
-    _fwdVec.set(0, 0, -1).applyQuaternion(viewQuat).normalize();
-    _rightVec.set(1, 0, 0).applyQuaternion(viewQuat).normalize();
+    const isDeckWalking = typeof clampPositionFn === 'function' && activeMode === MICROGRAVITY_MODES.ASSISTED;
 
-    _thrustDir
-      .set(0, 0, 0)
-      .addScaledVector(_fwdVec, fwd)
-      .addScaledVector(_rightVec, strafe)
-      .addScaledVector(_upVec, vert);
+    if (isDeckWalking) {
+      // Movimiento horizontal en el plano de la cubierta: mirar hacia arriba o abajo no levanta al astronauta
+      _fwdVec.set(0, 0, -1).applyQuaternion(viewQuat);
+      _fwdVec.y = 0;
+      if (_fwdVec.lengthSq() > 1e-4) _fwdVec.normalize();
+      else _fwdVec.set(0, 0, -1);
+
+      _rightVec.set(1, 0, 0).applyQuaternion(viewQuat);
+      _rightVec.y = 0;
+      if (_rightVec.lengthSq() > 1e-4) _rightVec.normalize();
+      else _rightVec.set(1, 0, 0);
+
+      _thrustDir
+        .set(0, 0, 0)
+        .addScaledVector(_fwdVec, fwd)
+        .addScaledVector(_rightVec, strafe);
+
+      // Salto controlado únicamente si las botas están apoyadas en el suelo (evita salir despedido al cielo)
+      if ((keys[' '] || keys.space) && isGrounded) {
+        velocity.y = 2.4;
+        isGrounded = false;
+      }
+      // Gravedad artificial simulada del casco: atrae firmemente las botas magnéticas a la cubierta
+      velocity.y = Math.max(-8.0, velocity.y - 12.0 * safeDt);
+    } else {
+      _fwdVec.set(0, 0, -1).applyQuaternion(viewQuat).normalize();
+      _rightVec.set(1, 0, 0).applyQuaternion(viewQuat).normalize();
+
+      _thrustDir
+        .set(0, 0, 0)
+        .addScaledVector(_fwdVec, fwd)
+        .addScaledVector(_rightVec, strafe)
+        .addScaledVector(_upVec, vert);
+    }
 
     const hasThrust = _thrustDir.lengthSq() > 1e-4;
     if (hasThrust) {
@@ -105,7 +134,11 @@ export function createMicrogravityPhysicsController({
     }
 
     if (isStabilizing) {
-      velocity.multiplyScalar(Math.max(0, Math.exp(-safeDt * 6.8)));
+      velocity.multiplyScalar(Math.max(0, Math.exp(-safeDt * 8.5)));
+    } else if (isDeckWalking && !hasThrust) {
+      // Frenado horizontal inmediato y controlado al soltar las teclas de marcha
+      velocity.x *= Math.max(0, Math.exp(-safeDt * 7.5));
+      velocity.z *= Math.max(0, Math.exp(-safeDt * 7.5));
     } else if (activeMode === MICROGRAVITY_MODES.ASSISTED && !hasThrust) {
       // Amortiguación progresiva suave al soltar impulsores
       velocity.multiplyScalar(Math.max(0, Math.exp(-safeDt * 3.1)));
@@ -134,6 +167,15 @@ export function createMicrogravityPhysicsController({
         position.addScaledVector(velocity, subStepDt);
         _intended.copy(position);
         clampPositionFn(position, _prevPos);
+
+        // Si la posición vertical fue restringida desde abajo, las botas tocaron el suelo
+        if (position.y >= _intended.y - 1e-4 && velocity.y <= 0) {
+          isGrounded = true;
+          velocity.y = 0;
+        } else if (position.y < _intended.y - 1e-4 && velocity.y > 0) {
+          velocity.y = -0.2; // Tope contra el techo del puente/cubierta
+        }
+
         _pushDelta.subVectors(position, _intended);
         const pushLenSq = _pushDelta.lengthSq();
         if (pushLenSq > 1e-8) {
