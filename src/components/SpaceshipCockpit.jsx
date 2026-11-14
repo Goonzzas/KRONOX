@@ -77,6 +77,7 @@ export default function SpaceshipCockpit({
   onSelectElevatorFloor,
   onTriggerMechanism,
   onActivateNearestStation,
+  onSitInCommandSeat,
   interactionFeedback = null,
   heldToolId = null,
   pointerLockState = null,
@@ -384,7 +385,7 @@ export default function SpaceshipCockpit({
       )}
 
       {/* INDICADOR DISCRETO E INDEPENDIENTE DE OBJETIVO ACTIVO */}
-      {!freeHelmMode && hasPendingObjective && (
+      {!freeHelmMode && !guideState?.active && hasPendingObjective && (
         <div className="kronoxObjectiveCornerDock">
           <button
             type="button"
@@ -602,12 +603,28 @@ export default function SpaceshipCockpit({
                   Magnitud V: <b>{planetaryTelemetry.apparentMagnitudeV?.toFixed(2)}</b> · Fase:{' '}
                   <b>{Math.round((planetaryTelemetry.illuminatedFraction || 1) * 100)}%</b>
                 </span>
-                {Array.isArray(planetaryTelemetry.resolvableMoons) &&
-                  planetaryTelemetry.resolvableMoons.length > 0 && (
-                    <span>
-                      Lunas resueltas: <b>{planetaryTelemetry.resolvableMoons.join(', ')}</b>
-                    </span>
-                  )}
+                <span>
+                  Lunas resueltas:{' '}
+                  <b>
+                    {Array.isArray(planetaryTelemetry.resolvableMoons) &&
+                    planetaryTelemetry.resolvableMoons.length > 0
+                      ? planetaryTelemetry.resolvableMoons
+                          .map((moon) => {
+                            if (typeof moon === 'string') return moon;
+                            if (!moon || typeof moon !== 'object') return null;
+                            const label = moon.name || 'Satélite';
+                            const sep = Number(moon.maxAngularSeparationArcsec ?? moon.angularSeparationArcsec);
+                            const dia = Number(moon.angularDiameterArcsec);
+                            if (Number.isFinite(sep) && sep > 0) {
+                              return `${label} (${sep.toFixed(1)}″${Number.isFinite(dia) && dia >= 0.05 ? `, Ø ${dia.toFixed(2)}″` : ''})`;
+                            }
+                            return label;
+                          })
+                          .filter(Boolean)
+                          .join(' · ')
+                      : `Ninguna resuelta a ${observationModeInfo?.opticalMagnification || 10}×`}
+                  </b>
+                </span>
               </div>
             </div>
           </div>
@@ -866,6 +883,17 @@ export default function SpaceshipCockpit({
                 <strong>✈ Timón libre</strong>
                 <span>Cambiar a vista exterior y pilotar la nave directamente en el espacio.</span>
               </button>
+              {!astronautSectorState?.seated && onSitInCommandSeat && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSitInCommandSeat();
+                  }}
+                >
+                  <strong>💺 Sentarse en puesto de mando</strong>
+                  <span>Ocupar el asiento de mando en Cabina 1 frente al ventanal panorámico.</span>
+                </button>
+              )}
             </div>
           ) : (
             <>

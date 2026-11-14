@@ -975,7 +975,8 @@
 /* =========================================================================
    TERMINAL PERSONAL DEL ASTRONAUTA — DIARIO, MANUAL E INVENTARIO [J]
    ========================================================================= */
-.kronoxPersonalHubBackdrop {
+.kronoxPersonalHubBackdrop,
+.kronoxHubBackdrop {
   position: fixed;
   inset: 0;
   z-index: 155;
@@ -985,6 +986,13 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
+}
+
+.kronoxHubTitleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .kronoxPersonalHubModal {
@@ -1696,6 +1704,25 @@
   grid-template-columns: 1.45fr 0.85fr;
   gap: 18px;
   height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  align-items: start;
+}
+
+.kronoxMcSlotIconWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+}
+
+.kronoxMcSlotEmptyMark {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1px dashed rgba(100, 116, 139, 0.35);
 }
 
 .kronoxMcGridColumn {

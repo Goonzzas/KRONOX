@@ -24,6 +24,7 @@ export function createSceneLabel(
   options = null
 ) {
   const isBadge = Boolean(options?.badge);
+  const isPlanetTag = Boolean(options?.planetTag);
   const accentColor = options?.accentColor || '#6be2ff';
   const canvas = documentRef.createElement('canvas');
   canvas.width = 512;
@@ -33,42 +34,55 @@ export function createSceneLabel(
   let pixelHeight = isBadge ? 30 : 28;
   let pillHalfRatioX = 0.5;
 
-  if (ctx && isBadge) {
-    const font = `600 ${Math.min(30, Math.max(24, fontSize))}px "Segoe UI", system-ui, sans-serif`;
+  if (ctx && (isBadge || isPlanetTag)) {
+    const pxFont = isPlanetTag ? 24 : Math.min(30, Math.max(24, fontSize));
+    const font = `600 ${pxFont}px "Segoe UI", system-ui, sans-serif`;
     ctx.font = font;
-    const textWidth = Math.min(390, Math.ceil(ctx.measureText?.(text)?.width || text.length * 16));
-    const dotSpace = 24;
-    const padX = 22;
-    const pillW = Math.min(496, Math.max(148, textWidth + dotSpace + padX * 2));
-    const pillH = 54;
+    const textWidth = Math.min(340, Math.ceil(ctx.measureText?.(text)?.width || text.length * 14));
+    const dotSpace = isPlanetTag ? 18 : 24;
+    const padX = isPlanetTag ? 10 : 22;
+    const pillW = isPlanetTag
+      ? Math.min(400, Math.max(52, textWidth + dotSpace + padX * 2))
+      : Math.min(496, Math.max(148, textWidth + dotSpace + padX * 2));
+    const pillH = isPlanetTag ? 40 : 54;
 
-    canvas.width = Math.max(164, Math.ceil(pillW + 12));
-    canvas.height = 72;
+    canvas.width = Math.max(68, Math.ceil(pillW + 8));
+    canvas.height = isPlanetTag ? 46 : 72;
     const badgeCtx = canvas.getContext('2d');
     if (badgeCtx) {
       const pillX = (canvas.width - pillW) * 0.5;
       const pillY = (canvas.height - pillH) * 0.5;
-      badgeCtx.fillStyle = 'rgba(7, 15, 29, 0.82)';
-      drawRoundedRectPath(badgeCtx, pillX, pillY, pillW, pillH, 24);
-      badgeCtx.fill();
-      badgeCtx.lineWidth = 2.4;
-      badgeCtx.strokeStyle = options?.borderColor || 'rgba(126, 218, 255, 0.64)';
-      drawRoundedRectPath(badgeCtx, pillX + 1.2, pillY + 1.2, pillW - 2.4, pillH - 2.4, 23);
-      badgeCtx.stroke();
+      if (!isPlanetTag) {
+        badgeCtx.fillStyle = 'rgba(7, 15, 29, 0.82)';
+        drawRoundedRectPath(badgeCtx, pillX, pillY, pillW, pillH, 24);
+        badgeCtx.fill();
+        badgeCtx.lineWidth = 2.4;
+        badgeCtx.strokeStyle = options?.borderColor || 'rgba(126, 218, 255, 0.64)';
+        drawRoundedRectPath(badgeCtx, pillX + 1.2, pillY + 1.2, pillW - 2.4, pillH - 2.4, 23);
+        badgeCtx.stroke();
+      }
       badgeCtx.beginPath();
-      badgeCtx.arc(pillX + padX + 4, canvas.height * 0.5, 5.5, 0, Math.PI * 2);
+      badgeCtx.arc(pillX + padX + (isPlanetTag ? 3.5 : 4), canvas.height * 0.5, isPlanetTag ? 3.5 : 5.5, 0, Math.PI * 2);
       badgeCtx.fillStyle = accentColor;
       badgeCtx.fill();
       badgeCtx.font = font;
       badgeCtx.textAlign = 'left';
       badgeCtx.textBaseline = 'middle';
-      badgeCtx.fillStyle = '#f2f8ff';
-      badgeCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      badgeCtx.shadowBlur = 4;
+      if (isPlanetTag) {
+        badgeCtx.lineJoin = 'round';
+        badgeCtx.lineWidth = 4.5;
+        badgeCtx.strokeStyle = 'rgba(2, 6, 18, 0.92)';
+        badgeCtx.strokeText(text, pillX + padX + dotSpace, canvas.height * 0.5 + 1);
+      }
+      badgeCtx.fillStyle = '#eaf6ff';
+      badgeCtx.shadowColor = 'rgba(0, 0, 0, 0.92)';
+      badgeCtx.shadowBlur = isPlanetTag ? 5 : 4;
       badgeCtx.fillText(text, pillX + padX + dotSpace, canvas.height * 0.5 + 1);
     }
-    pixelWidth = Math.max(76, Math.round(pillW * 0.52));
-    pixelHeight = 29;
+    pixelWidth = isPlanetTag
+      ? Math.max(42, Math.round(pillW * 0.54))
+      : Math.max(76, Math.round(pillW * 0.52));
+    pixelHeight = isPlanetTag ? 20 : 29;
     pillHalfRatioX = 0.5;
     const badgeMap = new THREE.CanvasTexture(canvas);
     badgeMap.needsUpdate = true;
@@ -223,8 +237,8 @@ export function placeSpacePlanetLabels(
       anchorPxX,
       anchorPxY,
       apparentRadiusPx,
-      boxW: (sprite.userData.pixelWidth || 120) + 10,
-      boxH: (sprite.userData.pixelHeight || 28) + 6,
+      boxW: (sprite.userData.pixelWidth || 72) + 8,
+      boxH: (sprite.userData.pixelHeight || 20) + 4,
     });
   }
 
@@ -237,24 +251,24 @@ export function placeSpacePlanetLabels(
     const item = visibleItems[i];
     const hw = item.boxW * 0.5;
     const hh = item.boxH * 0.5;
-    const liftY = item.apparentRadiusPx + hh + 10;
-    const sideX = item.apparentRadiusPx + hw + 10;
+    const edgeGap = Math.min(24, item.apparentRadiusPx + 5);
+    const liftY = edgeGap + hh;
+    const sideX = edgeGap + hw;
 
+    // Candidatos cercanos abrazando el borde del planeta sin taparlo ni desconectarse
     const candidateOffsets = [
       [0, -liftY],
-      [sideX * 0.72, -(liftY * 0.65)],
-      [-sideX * 0.72, -(liftY * 0.65)],
-      [0, liftY],
+      [sideX * 0.72, -(edgeGap * 0.55 + hh)],
+      [-sideX * 0.72, -(edgeGap * 0.55 + hh)],
       [sideX, 0],
       [-sideX, 0],
-      [0, -(liftY + 34)],
-      [0, liftY + 34],
-      [sideX * 0.85, liftY * 0.75],
-      [-sideX * 0.85, liftY * 0.75],
-      [0, -(liftY + 68)],
-      [0, liftY + 68],
-      [sideX * 1.45, -(liftY + 26)],
-      [-sideX * 1.45, -(liftY + 26)],
+      [0, liftY],
+      [sideX * 0.72, edgeGap * 0.55 + hh],
+      [-sideX * 0.72, edgeGap * 0.55 + hh],
+      [0, -(liftY + 22)],
+      [0, liftY + 22],
+      [sideX + 26, -hh],
+      [-(sideX + 26), -hh],
     ];
 
     let bestBox = null;
@@ -284,31 +298,31 @@ export function placeSpacePlanetLabels(
     }
 
     if (!bestBox) {
-      // Buscar desplazamiento vertical progresivo para garantizar 0 superposiciones incluso en alineaciones planetarias
-      let fallbackY = item.anchorPxY - liftY;
-      for (let step = 0; step < 12; step++) {
-        const tryY = Math.min(
-          safeH - bottom - hh,
-          Math.max(top + hh, item.anchorPxY + (step % 2 === 0 ? -1 : 1) * (liftY + 28 * Math.ceil((step + 1) / 2)))
-        );
-        const cx = Math.min(safeW - right - hw, Math.max(left + hw, item.anchorPxX));
-        const candidate = { left: cx - hw, right: cx + hw, top: tryY - hh, bottom: tryY + hh, cx, cy: tryY };
-        const overlapsLabel = placedBoxes.some(
-          (b) =>
-            candidate.left < b.right &&
-            candidate.right > b.left &&
-            candidate.top < b.bottom &&
-            candidate.bottom > b.top
-        );
-        if (!overlapsLabel) {
-          bestBox = candidate;
-          break;
+      // Espiral radial compacta alrededor del astro para resolver aglomeraciones cercanas sin alejar demasiado el nombre
+      for (let ring = 1; ring <= 4 && !bestBox; ring++) {
+        for (let step = 0; step < 8; step++) {
+          const ang = (step / 8) * Math.PI * 2 - Math.PI / 2;
+          const distX = sideX + ring * 18;
+          const distY = liftY + ring * 18;
+          const cx = Math.min(safeW - right - hw, Math.max(left + hw, item.anchorPxX + Math.cos(ang) * distX));
+          const cy = Math.min(safeH - bottom - hh, Math.max(top + hh, item.anchorPxY + Math.sin(ang) * distY));
+          const candidate = { left: cx - hw, right: cx + hw, top: cy - hh, bottom: cy + hh, cx, cy };
+          const overlapsLabel = placedBoxes.some(
+            (b) =>
+              candidate.left < b.right &&
+              candidate.right > b.left &&
+              candidate.top < b.bottom &&
+              candidate.bottom > b.top
+          );
+          if (!overlapsLabel) {
+            bestBox = candidate;
+            break;
+          }
         }
-        fallbackY = tryY;
       }
       if (!bestBox) {
         const cx = Math.min(safeW - right - hw, Math.max(left + hw, item.anchorPxX));
-        const cy = Math.min(safeH - bottom - hh, Math.max(top + hh, fallbackY));
+        const cy = Math.min(safeH - bottom - hh, Math.max(top + hh, item.anchorPxY - liftY));
         bestBox = { left: cx - hw, right: cx + hw, top: cy - hh, bottom: cy + hh, cx, cy };
       }
     }

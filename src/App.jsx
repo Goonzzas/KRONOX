@@ -170,6 +170,7 @@ export default function App() {
       deckName: 'Puente de Mando y Mirador de Proa',
       microgravityMode: 'ASSISTED',
       anchoredRailId: null,
+      seated: false,
     }),
     [aiProjection, setAiProjection] = useState(null),
     [consoleProjection, setConsoleProjection] = useState(null),
@@ -1150,24 +1151,27 @@ export default function App() {
       onStationInteract: (stationId) => {
         setActiveCockpitStation(stationId);
         if (!stationId && !A()?.isFreeHelmActive?.()) setFreeHelmMode(false);
-        A().onGuidedStationInteraction?.(stationId);
+        const awardInventoryItem = (id) => {
+          const res = grantInventoryItem(id);
+          if (res?.inventory) setInventoryState(res.inventory);
+        };
         if (stationId === 'comms') {
           kronoxDialogHiddenRef.current = false;
           setKronoxDialogHidden(false);
           setKronoxOpen(true);
         } else if (stationId === 'science') {
-          setInventoryState(grantInventoryItem('data-spherex-calibration'));
+          awardInventoryItem('data-spherex-calibration');
           setMissionOpen(true);
         } else if (stationId === 'missions') {
           setMissionSelectorOpen(true);
         } else if (stationId === 'bioponics') {
-          setInventoryState(grantInventoryItem('sample-bioponic-flora'));
+          awardInventoryItem('sample-bioponic-flora');
         } else if (stationId === 'engineering') {
-          setInventoryState(grantInventoryItem('sample-cryo-he3'));
+          awardInventoryItem('sample-cryo-he3');
         } else if (stationId === 'storage-c02' || stationId === 'galley') {
-          setInventoryState(grantInventoryItem('eva-ration-pack'));
+          awardInventoryItem('eva-ration-pack');
         } else if (stationId === 'optical-bench' || stationId === 'sensor-calibration') {
-          setInventoryState(grantInventoryItem('optical-coupler'));
+          awardInventoryItem('optical-coupler');
         }
       },
       onToolCollected: (toolId) => {
@@ -1179,7 +1183,8 @@ export default function App() {
               : toolId === 'scanner'
                 ? 'scanner'
                 : 'optical-coupler';
-          setInventoryState(grantInventoryItem(itemKey));
+          const res = grantInventoryItem(itemKey);
+          if (res?.inventory) setInventoryState(res.inventory);
         }
       },
       onInteractionFeedback: (fb) => {
@@ -1191,6 +1196,8 @@ export default function App() {
           }, 3200);
         }
       },
+      onSeatedStateChange: (seated) =>
+        setAstronautSectorState((prev) => ({ ...prev, seated: Boolean(seated) })),
       onFreeHelmChange: (enabled) => setFreeHelmMode(Boolean(enabled)),
       onCabinFirstPersonChange: (firstP) => setCabinFirstPerson(Boolean(firstP)),
       onMicrogravityStateChange: (mg) => {
@@ -1582,11 +1589,20 @@ export default function App() {
       }
       if (kronoxOpen) {
         setKronoxOpen(false);
+        if (activeCockpitStation === 'comms') {
+          setActiveCockpitStation(null);
+          api.current?.setActiveCabinStation?.(null);
+        }
         return;
       }
       if (pauseMenuOpen) {
         setPauseMenuOpen(false);
         api.current?.setSimulationPaused?.(false);
+        return;
+      }
+      if (api.current?.isFreeHelmActive?.()) {
+        api.current?.setFreeHelmMode?.(false);
+        setFreeHelmMode(false);
         return;
       }
       if (activeCockpitStation) {
@@ -1600,6 +1616,10 @@ export default function App() {
       }
       if (missionSelectorOpen) {
         setMissionSelectorOpen(false);
+        if (activeCockpitStation === 'missions') {
+          setActiveCockpitStation(null);
+          api.current?.setActiveCabinStation?.(null);
+        }
         return;
       }
       if (more) {
@@ -2835,6 +2855,10 @@ export default function App() {
       panelOpen: kronoxOpen,
       onClose: () => {
         setKronoxOpen(false);
+        if (activeCockpitStation === 'comms') {
+          setActiveCockpitStation(null);
+          A().setActiveCabinStation?.(null);
+        }
       },
       voice,
       language,
@@ -2900,6 +2924,10 @@ export default function App() {
           setKronoxOpen(true);
         } else {
           setKronoxOpen(false);
+          if (activeCockpitStation === 'comms') {
+            setActiveCockpitStation(null);
+            A().setActiveCabinStation?.(null);
+          }
         }
       },
       onToggleVoice: () => {
@@ -3059,7 +3087,13 @@ export default function App() {
     missionSelectorOpen &&
     h(SpherexMissionSelector, {
       language,
-      onClose: () => setMissionSelectorOpen(false),
+      onClose: () => {
+        setMissionSelectorOpen(false);
+        if (activeCockpitStation === 'missions') {
+          setActiveCockpitStation(null);
+          A().setActiveCabinStation?.(null);
+        }
+      },
       onSelect: chooseSpherexTarget,
       onDirectOpen: (target) => {
         setMissionSelectorOpen(false);
@@ -3082,7 +3116,13 @@ export default function App() {
         initialTargetKey: missionTargetKey,
         initialStage: missionInitialStage,
         aiHighlightActive: aiHighlightField,
-        onClose: () => setMissionOpen(false),
+        onClose: () => {
+          setMissionOpen(false);
+          if (activeCockpitStation === 'science') {
+            setActiveCockpitStation(null);
+            A().setActiveCabinStation?.(null);
+          }
+        },
         onStateSync: ({ targetKey, stage, records, findings, scienceContext }) => {
           setMissionScienceSync(scienceContext || null);
           if (targetKey && targetKey !== missionTargetKey) setMissionTargetKey(targetKey);
@@ -3285,6 +3325,7 @@ export default function App() {
       onSelectElevatorFloor: (deckId) => A().selectElevatorFloor?.(deckId),
       onTriggerMechanism: (actionId, value = null) => A().interactStationMechanism?.(actionId, value),
       onActivateNearestStation: () => A().activateNearestStation?.(),
+      onSitInCommandSeat: () => A().sitInCommandSeat?.(),
       freeHelmMode,
       onToggleFreeHelm: (enabled) => {
         setFreeHelmMode(Boolean(enabled));
@@ -3314,6 +3355,8 @@ export default function App() {
             setFr(true);
             A().free(true, false);
           }
+          setFreeHelmMode(false);
+          A().setFreeHelmMode?.(false);
           setPv(1);
           A().view(1);
         } else if (nextMode === 'exterior') {
@@ -3635,11 +3678,7 @@ export default function App() {
         setFr(true);
         setPv(wantExterior ? 3 : 1);
         setAiAvatarState('Acompañamiento');
-        if (save.activeObjective) {
-          setGuideObjective(save.activeObjective);
-        } else {
-          setGuideObjective('OBJETIVO: Explora el puente de mando (WASD). Usa [E] en cada consola o avanza por la espina a C02-C04.');
-        }
+        setGuideObjective(save.activeObjective || '');
         notify(
           `Partida cargada en ${save.currentBody || 'Tierra'} (${save.cameraView || 'Cabina 1P'}).`,
           'Partida reanudada',
@@ -3674,6 +3713,7 @@ export default function App() {
       open: personalHubOpen,
       initialTab: personalHubTab,
       onClose: () => setPersonalHubOpen(false),
+      onTabChange: (tabId) => A()?.onGuidedInventoryOpen?.(tabId),
       journal: loadExpeditionJournal(),
       findings: missionFindingsSync,
       inventoryState,

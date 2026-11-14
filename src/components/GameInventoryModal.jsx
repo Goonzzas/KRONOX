@@ -104,12 +104,26 @@ const HUB_TABS = [
   { id: 'systems', label: 'Sistemas', icon: '⚙️' },
 ];
 
-const TOTAL_SLOTS = 28;
+const SHORT_ITEM_LABELS = {
+  'astral-suit-mk4': 'Traje EVA',
+  'command-keycard': 'Credencial',
+  'dosimeter-ir': 'Dosímetro',
+  'optical-coupler': 'Acoplador',
+  multitool: 'Multiherr.',
+  scanner: 'Escáner IR',
+  'sample-bioponic-flora': 'Biomasa',
+  'data-spherex-calibration': 'SPHEREx',
+  'sample-cryo-he3': 'Helio-3',
+  'eva-ration-pack': 'Ración EVA',
+};
+
+const TOTAL_SLOTS = 14;
 
 export default function GameInventoryModal({
   open = false,
   initialTab = 'inventory',
   onClose,
+  onTabChange,
   inventoryState,
   journal,
   findings = [],
@@ -160,25 +174,59 @@ export default function GameInventoryModal({
     }
   }, [open, initialTab]);
 
+  React.useEffect(() => {
+    if (open) {
+      onTabChange?.(activeTab);
+    }
+  }, [open, activeTab, onTabChange]);
+
   const inventoryItems = useMemo(() => {
-    const ownedIds = inventoryState?.items || [];
+    const inv = inventoryState?.inventory || inventoryState;
+    const rawIds = Array.isArray(inv?.ownedIds)
+      ? inv.ownedIds
+      : Array.isArray(inv?.items)
+        ? inv.items
+            .filter((entry) => (typeof entry === 'string' ? true : entry?.owned !== false))
+            .map((entry) => (typeof entry === 'string' ? entry : entry?.id))
+            .filter(Boolean)
+        : [];
+    const ownedSet = new Set(rawIds);
+    const hasExplicitInventory = Array.isArray(inv?.ownedIds) || Array.isArray(inv?.items);
     const baseItems = CATALOG_INVENTORY_ITEMS.map((item) => ({
       ...item,
-      owned: ownedIds.includes(item.id),
+      shortName: item.shortName || SHORT_ITEM_LABELS[item.id] || item.name.split('(')[0].trim().slice(0, 14),
+      owned: hasExplicitInventory ? ownedSet.has(item.id) : Boolean(item.defaultOwned),
       equipped: Boolean(item.toolId && heldToolId === item.toolId),
     })).filter((i) => i.owned);
     return baseItems;
-  }, [inventoryState?.items, heldToolId]);
+  }, [inventoryState, heldToolId]);
 
   const filteredItems = useMemo(() => {
     if (categoryFilter === 'Todos') return inventoryItems;
     if (categoryFilter === 'Herramientas') {
-      return inventoryItems.filter((i) => Boolean(i.toolId) || i.category === 'Equipo' || i.category === 'Instrumento');
+      return inventoryItems.filter(
+        (i) =>
+          Boolean(i.toolId) ||
+          i.category === 'Herramientas Técnicas' ||
+          i.category === 'Equipo' ||
+          i.category === 'Instrumento',
+      );
     }
     if (categoryFilter === 'Muestras') {
-      return inventoryItems.filter((i) => i.category === 'Muestra' || i.category === 'Datos');
+      return inventoryItems.filter(
+        (i) =>
+          i.category === 'Muestras Científicas' ||
+          i.category === 'Muestra' ||
+          i.category === 'Datos',
+      );
     }
-    return inventoryItems.filter((i) => i.category === 'Acceso' || i.category === 'Consumible');
+    return inventoryItems.filter(
+      (i) =>
+        i.category === 'Equipamiento EVA' ||
+        i.category === 'Credenciales y Suministros' ||
+        i.category === 'Acceso' ||
+        i.category === 'Consumible',
+    );
   }, [inventoryItems, categoryFilter]);
 
   const slotsGrid = useMemo(() => {
@@ -272,7 +320,7 @@ export default function GameInventoryModal({
                   </span>
                 </div>
 
-                {/* Cuadrícula de slots (7x4 estilo videojuego) */}
+                {/* Cuadrícula de slots (7x2 estilo videojuego) */}
                 <div className="kronoxMcSlotGrid" role="grid" aria-label="Espacios de inventario">
                   {slotsGrid.map((item, idx) => {
                     const isSelected = Boolean(item && selectedItem?.id === item.id);
@@ -347,10 +395,10 @@ export default function GameInventoryModal({
                     <h3 className="kronoxMcInspectorTitle">{selectedItem.name}</h3>
                     <p className="kronoxMcInspectorDesc">{selectedItem.description}</p>
 
-                    {selectedItem.scientificNote && (
+                    {(selectedItem.scientificNote || selectedItem.specs) && (
                       <div className="kronoxMcInspectorNote">
                         <strong>Nota técnica / científica:</strong>
-                        <p>{selectedItem.scientificNote}</p>
+                        <p>{selectedItem.scientificNote || selectedItem.specs}</p>
                       </div>
                     )}
 
@@ -360,8 +408,8 @@ export default function GameInventoryModal({
                         <strong>{selectedItem.equipped ? 'Equipado en 1P' : 'Almacenado'}</strong>
                       </div>
                       <div>
-                        <span>Cantidad:</span>
-                        <strong>1 unidad</strong>
+                        <span>Origen:</span>
+                        <strong>{selectedItem.deckOrigin || 'KRONOX'}</strong>
                       </div>
                     </div>
 
@@ -381,14 +429,20 @@ export default function GameInventoryModal({
                           type="button"
                           className="kronoxInvPrimaryBtn"
                           onClick={() => {
-                            if (selectedItem.category === 'Muestra' || selectedItem.category === 'Datos') {
+                            if (
+                              selectedItem.category === 'Muestras Científicas' ||
+                              selectedItem.category === 'Muestra' ||
+                              selectedItem.category === 'Datos'
+                            ) {
                               onInspectSampleWithAi?.(selectedItem);
                             } else {
                               onUseInventoryItem?.(selectedItem);
                             }
                           }}
                         >
-                          {selectedItem.category === 'Muestra' || selectedItem.category === 'Datos'
+                          {selectedItem.category === 'Muestras Científicas' ||
+                          selectedItem.category === 'Muestra' ||
+                          selectedItem.category === 'Datos'
                             ? '🤖 Analizar con KRONOX IA'
                             : '⚡ Usar / Verificar estado'}
                         </button>
