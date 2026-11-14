@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 
 function getAssetUrl(p) {
   if (!p) return null;
@@ -136,7 +136,6 @@ export default function SpherexDocumentary({
 }) {
   const [currentSceneIdx, setCurrentSceneIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [progress, setProgress] = useState(0);
   const scene = SPHEREX_DOCUMENTARY_SCENES[currentSceneIdx];
   const totalScenes = SPHEREX_DOCUMENTARY_SCENES.length;
 
@@ -169,10 +168,7 @@ export default function SpherexDocumentary({
     const startTime = Date.now();
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
-      const pct = Math.min(100, (elapsed / currentSlideDuration) * 100);
-      setProgress(pct);
       if (elapsed >= currentSlideDuration) {
-        setProgress(0);
         setCurrentSceneIdx((prev) => {
           if (prev < totalScenes - 1) return prev + 1;
           setIsPlaying(false);
@@ -184,7 +180,6 @@ export default function SpherexDocumentary({
   }, [currentSceneIdx, isPlaying, totalScenes, currentSlideDuration]);
 
   const handleNext = () => {
-    setProgress(0);
     if (currentSceneIdx < totalScenes - 1) {
       setCurrentSceneIdx((prev) => prev + 1);
     } else {
@@ -193,7 +188,6 @@ export default function SpherexDocumentary({
   };
 
   const handlePrev = () => {
-    setProgress(0);
     if (currentSceneIdx > 0) {
       setCurrentSceneIdx((prev) => prev - 1);
     }
@@ -316,7 +310,6 @@ export default function SpherexDocumentary({
                 type="button"
                 className={`spherexDocTimelineDot ${idx === currentSceneIdx ? 'active' : idx < currentSceneIdx ? 'passed' : ''}`}
                 onClick={() => {
-                  setProgress(0);
                   setCurrentSceneIdx(idx);
                 }}
                 title={`Escena ${s.id}: ${s.title}`}

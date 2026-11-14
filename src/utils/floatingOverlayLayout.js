@@ -159,7 +159,9 @@ export function installFloatingOverlayLayout() {
 
   const scan = () => SELECTORS.forEach((selector) => document.querySelectorAll(selector).forEach(attach));
   scan();
-  const observer = new MutationObserver(scan);
+  const observer = new MutationObserver((mutations) => {
+    if (mutations.some((m) => m.addedNodes.length > 0)) scan();
+  });
   observer.observe(document.body, { childList: true, subtree: true });
   window.addEventListener('pointermove', moveActivePanel, { passive: false });
   window.addEventListener('pointerup', finishActivePanelDrag);

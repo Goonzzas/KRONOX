@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import {
   CANONICAL_STARS_BY_ID,
-  CANONICAL_GALAXIES_BY_ID,
   GALAXY_MORPHOLOGY_METADATA,
   icrsToCartesianPc,
   cartesianPcToIcrs,
@@ -9,7 +8,6 @@ import {
   temperatureToSpaceColorHex,
 } from './astronomicalUniverse.js';
 
-const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 180 / Math.PI;
 
 /**

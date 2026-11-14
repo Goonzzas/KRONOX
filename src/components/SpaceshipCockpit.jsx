@@ -3,8 +3,8 @@ import { NAVIGATION_CATALOG } from '../data/navigationCatalog.js';
 import React, { useEffect, useState } from 'react';
 import { SPHEREX_TARGETS } from '../data/spherexTargets.js';
 import { P, INFO } from '../data/planetData.js';
-import { PHYSICAL_CABIN_STATIONS, SHIP_WORLD_UNITS } from '../scene/habitableShipWorld.js';
-import { KRONOX_SCENE_EVENTS, KRONOX_CONTROL_MODES } from '../scene/kronoxSceneDirector.js';
+import { SHIP_WORLD_UNITS } from '../scene/habitableShipWorld.js';
+import { KRONOX_SCENE_EVENTS } from '../scene/kronoxSceneDirector.js';
 import { getCanonicalStar, getCanonicalGalaxy, getObjectProvenance } from '../scene/astronomicalUniverse.js';
 import { t } from '../i18n.js';
 
@@ -72,12 +72,6 @@ export default function SpaceshipCockpit({
     if (activeStation !== 'nav') setNavigationExperience('choose');
   }, [activeStation]);
 
-  const controlModeLabel =
-    directorState?.controlMode === KRONOX_CONTROL_MODES.CINEMATIC_SEQUENCE
-      ? 'Secuencia 3D de Sistemas'
-      : activeStation || directorState?.controlMode === KRONOX_CONTROL_MODES.MACHINE_INTERACTION
-        ? 'Operando Máquina 3D'
-        : 'Control Libre Astronauta';
   const flightGear =
     flightSpeed < 5
       ? 'ÓRBITA PLANETARIA'

@@ -298,13 +298,6 @@ export const INTERIOR_GRAB_RAILS = [
   { id: 'rail-hangar-bay', pos: [5.4, -5.65, -6.8], span: 5.5, axis: 'z', side: 'starboard', deckId: 'deck-04' },
 ];
 
-const ZONE_LIST = [
-  HULL_INTERIOR_ZONES.bridgeMain,
-  HULL_INTERIOR_ZONES.habRing,
-  HULL_INTERIOR_ZONES.engineeringLab,
-  HULL_INTERIOR_ZONES.cargoHangar,
-];
-
 function pushOutCylinder2D(pos, cx, cz, obstacleRadius) {
   const dx = pos.x - cx;
   const dz = pos.z - cz;

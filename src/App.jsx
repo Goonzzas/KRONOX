@@ -2,10 +2,9 @@ import { installFlightPanelLayout } from './utils/flightPanelLayout.js';
 import StellarCatalogPanel from './components/StellarCatalogPanel.jsx';
 import NavigationDock from './components/NavigationDock.jsx';
 import './styles/navigationExperience.css';
-import { NAVIGATION_SCALES, scaleContext } from './scene/navigationScale.js';
+import { scaleContext } from './scene/navigationScale.js';
 import {
   createFishAudioVoiceProvider,
-  createHttpVoiceProvider,
   FISH_AUDIO_VOICE_ID,
 } from './utils/voiceProvider.js';
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -167,7 +166,6 @@ export default function App() {
     [aiHighlightField, setAiHighlightField] = useState(false),
     [spherexDocOpen, setSpherexDocOpen] = useState(false),
     [aiHistory, setAiHistory] = useState([]),
-    [welcomeSettingsOpen, setWelcomeSettingsOpen] = useState(false),
     [savedExpedition, setSavedExpedition] = useState(() => {
       try {
         const raw = localStorage.getItem('kronox-expedition-progress');
@@ -176,7 +174,6 @@ export default function App() {
         return null;
       }
     }),
-    [welcomeStep, setWelcomeStep] = useState('voice'),
     [voice, setVoice] = useState(() => {
       try {
         return new URLSearchParams(window.location.search).get('voice') !== 'false';
@@ -207,7 +204,6 @@ export default function App() {
     [fov, setFov] = useState(55),
     [fv, setFv] = useState(60),
     [visualProfile, setVisualProfile] = useState('cinematic'),
-    [introSubtitles, setIntroSubtitles] = useState(true),
     [pauseMenuOpen, setPauseMenuOpen] = useState(false),
     [pauseMenuSection, setPauseMenuSection] = useState('save'),
     [observationModeInfo, setObservationModeInfo] = useState(null),
@@ -431,7 +427,6 @@ export default function App() {
     kronoxCloseTimer = useRef(null),
     kronoxDialogHiddenRef = useRef(false),
     travelRef = useRef(false),
-    factIndexRef = useRef(0),
     audioContextRef = useRef(null),
     analyserRef = useRef(null),
     audioSourceRef = useRef(null),
@@ -879,14 +874,7 @@ export default function App() {
     };
     playNext();
   },
-    unlockAndReplayVoice = () => {
-      introSoundtrackRef.current?.unlock();
-      voiceRef.current = true;
-      setVoice(true);
-      voiceBlockedByAutoplayRef.current = false;
-      setVoiceBlockedByAutoplay(false);
-      setIntroMusicBlocked(false);
-      setVoiceError('');
+    resumeSharedAudioContext = () => {
       try {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (AudioContextClass && !audioContextRef.current) {
@@ -896,6 +884,16 @@ export default function App() {
       } catch {
         /* ignore */
       }
+    },
+    unlockAndReplayVoice = () => {
+      introSoundtrackRef.current?.unlock();
+      voiceRef.current = true;
+      setVoice(true);
+      voiceBlockedByAutoplayRef.current = false;
+      setVoiceBlockedByAutoplay(false);
+      setIntroMusicBlocked(false);
+      setVoiceError('');
+      resumeSharedAudioContext();
       // Si KRONOX IA ya está hablando o reproduciendo audio, jamás interrumpir ni reiniciar el diálogo
       if (speakingRef.current || voiceAudio.current) {
         return;
@@ -1004,13 +1002,7 @@ export default function App() {
       if (realTimeIntroActive) {
         introSoundtrackRef.current?.unlock();
       }
-      try {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (AudioContextClass && !audioContextRef.current) {
-          audioContextRef.current = new AudioContextClass();
-        }
-        audioContextRef.current?.resume?.().catch(() => { });
-      } catch { }
+      resumeSharedAudioContext();
 
       if (
         voiceBlockedByAutoplayRef.current ||
@@ -1452,9 +1444,30 @@ export default function App() {
   ]);
   useEffect(() => {
     const timer = setInterval(() => {
-      if (api.current?.identifyTargetUnderCrosshair) {
-        setReticleTarget(api.current.identifyTargetUnderCrosshair());
+      if (
+        (typeof document !== 'undefined' && document.hidden) ||
+        mainMenuVisibleRef.current ||
+        realTimeIntroActiveRef.current
+      ) {
+        setReticleTarget((prev) => (prev ? null : prev));
+        return;
       }
+      const next = api.current?.identifyTargetUnderCrosshair?.() || null;
+      setReticleTarget((prev) => {
+        if (prev === next) return prev;
+        if (
+          prev &&
+          next &&
+          prev.key === next.key &&
+          prev.name === next.name &&
+          prev.category === next.category &&
+          prev.distanceDesc === next.distanceDesc &&
+          prev.hasSpherex === next.hasSpherex
+        ) {
+          return prev;
+        }
+        return next;
+      });
     }, 250);
     return () => clearInterval(timer);
   }, []);
@@ -1462,13 +1475,10 @@ export default function App() {
     () => () => {
       clearTimeout(noticeTimer.current);
       clearTimeout(missionTravelTipTimer.current);
-      clearTimeout(voiceGapTimerRef.current);
-      voiceToken.current++;
       clearTimeout(kronoxCloseTimer.current);
-      if (voiceAudio.current) voiceAudio.current.pause();
+      stopVoiceAndClearQueue();
       gameAudioRef.current?.dispose();
       audioContextRef.current?.close().catch(() => { });
-      if (window.speechSynthesis) window.speechSynthesis.cancel();
     },
     [],
   );

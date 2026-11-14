@@ -86,7 +86,6 @@ export default function KronoxWidget({
 }: KronoxWidgetProps) {
   const [typed, setTyped] = useState('');
   const [inputQuery, setInputQuery] = useState('');
-  const [inputFocused, setInputFocused] = useState(false);
   const [textPaused, setTextPaused] = useState(false);
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
@@ -383,8 +382,6 @@ export default function KronoxWidget({
                 type="text"
                 className="kronoxCommandInput"
                 value={inputQuery}
-                onFocus={() => setInputFocused(true)}
-                onBlur={() => setInputFocused(false)}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInputQuery(e.target.value)}
                 placeholder={
                   language === 'en'

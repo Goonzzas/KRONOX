@@ -1,5 +1,5 @@
 import {resolveScienceHelp} from './contextualScienceHelp.js';
-import { SPHEREX_TARGETS, SPHEREX_MISSION_TYPES } from '../data/spherexTargets.js';
+import { SPHEREX_TARGETS } from '../data/spherexTargets.js';
 import { P, INFO } from '../data/planetData.js';
 import { NEARBY_GALAXIES } from '../data/nearbyGalaxies.js';
 
