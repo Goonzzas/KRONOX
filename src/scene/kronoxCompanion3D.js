@@ -210,7 +210,7 @@ export function createKronoxCompanionEntity3D({
     group.position.lerp(targetPos, spring);
     clampAstronautPosition(group.position, 0.35, 0.25);
     const frameStepDist = Math.hypot(group.position.x - prevX, group.position.y - prevY, group.position.z - prevZ);
-    if (frameStepDist > 1.8) {
+    if (frameStepDist > 0.65) {
       resetWake(group.position);
     }
 
