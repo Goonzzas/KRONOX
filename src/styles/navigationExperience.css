@@ -100,8 +100,8 @@
 .app .kronoxBridgeTopBar {
   top: 12px;
   max-width: calc(100vw - 32px);
-  min-height: 50px;
-  flex-wrap: wrap;
+  min-height: 40px;
+  flex-wrap: nowrap;
   gap: 10px;
   box-sizing: border-box;
 }
