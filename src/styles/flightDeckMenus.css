@@ -763,6 +763,8 @@
 .kronox-title-btn:nth-child(n + 4):focus-visible {
   z-index: 1;
   transform: none;
+  transform-style: preserve-3d;
+  isolation: isolate;
   clip-path: none;
   overflow: visible;
   border-color: transparent;
@@ -827,8 +829,12 @@
 .kronox-title-btn:nth-child(n + 4):hover::before,
 .kronox-title-btn:nth-child(n + 4):focus-visible::before { transform: perspective(850px) rotateY(2deg) translateX(5px) translateZ(16px); }
 .kronox-title-btn-marker,
-.kronox-title-btn-body { z-index: 2; transform: none; }
-.kronox-title-btn::after { z-index: 3; transform: none; pointer-events: none; }
+.kronox-title-btn-body {
+  position: relative;
+  z-index: 2;
+  transform: translateZ(32px);
+}
+.kronox-title-btn::after { z-index: 3; transform: translateZ(34px); pointer-events: none; }
 .kronox-title-btn:focus-visible { outline: 2px solid rgba(180, 244, 250, .92); outline-offset: 2px; }
 
 /* Menu destinations open as straight reading panels; tilt belongs to the home options. */
