@@ -413,6 +413,106 @@ export function createShipPbrSuite(seed = 29) {
     metalness: 0.36,
   }));
 
+  // 7. Perforated Aerospace Ceiling Coffer + Vent Louvres + Quilted Crew Wall + Hazard Trim
+  const ceilingHeight = (x, y, s) => {
+    const cell = s / 4;
+    const lx = x % cell;
+    const ly = y % cell;
+    if (lx < 4 || ly < 4 || lx > cell - 4 || ly > cell - 4) return 0.78;
+    const hole = (x % 8 < 3) && (y % 8 < 3);
+    return hole ? 0.26 : 0.56;
+  };
+  const ceilingColorTex = buildCanvasTexture(256, (g, s) => {
+    g.fillStyle = '#253142';
+    g.fillRect(0, 0, s, s);
+    const cell = s / 4;
+    for (let j = 0; j < 4; j++) {
+      for (let i = 0; i < 4; i++) {
+        const px = i * cell;
+        const py = j * cell;
+        g.fillStyle = '#314156';
+        g.fillRect(px + 2, py + 2, cell - 4, cell - 4);
+        g.fillStyle = '#1d2736';
+        g.fillRect(px + 7, py + 7, cell - 14, cell - 14);
+        g.fillStyle = '#131b26';
+        for (let hy = py + 11; hy < py + cell - 12; hy += 7) {
+          for (let hx = px + 11; hx < px + cell - 12; hx += 7) {
+            g.fillRect(hx, hy, 3, 3);
+          }
+        }
+      }
+    }
+  }, [9, 9], true, textures);
+  const ceilingNormalTex = buildNormalTexture(256, ceilingHeight, 1.8, [9, 9], textures);
+
+  const quiltedHeight = (x, y) => {
+    const d1 = Math.sin((x + y) * 0.24);
+    const d2 = Math.sin((x - y) * 0.24);
+    return 0.5 + 0.16 * d1 * d2;
+  };
+  const quiltedColorTex = buildCanvasTexture(256, (g, s) => {
+    g.fillStyle = '#c8d1dc';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = 'rgba(72,88,108,0.34)';
+    g.lineWidth = 2;
+    for (let i = -s; i < s * 2; i += 32) {
+      g.beginPath(); g.moveTo(i, 0); g.lineTo(i + s, s); g.stroke();
+      g.beginPath(); g.moveTo(i + s, 0); g.lineTo(i, s); g.stroke();
+    }
+  }, [6, 3], true, textures);
+  const quiltedNormalTex = buildNormalTexture(128, quiltedHeight, 1.4, [6, 3], textures);
+
+  const hazardStripeTex = buildCanvasTexture(256, (g, s) => {
+    g.fillStyle = '#18202c';
+    g.fillRect(0, 0, s, s);
+    g.fillStyle = '#d98a1e';
+    for (let i = -s; i < s * 2; i += 44) {
+      g.beginPath();
+      g.moveTo(i, 0);
+      g.lineTo(i + 22, 0);
+      g.lineTo(i + 22 + s, s);
+      g.lineTo(i + s, s);
+      g.closePath();
+      g.fill();
+    }
+  }, [8, 1], true, textures);
+
+  const ventGrilleNormalTex = buildNormalTexture(128, (_x, y) => {
+    return (y % 12) < 4 ? 0.22 : 0.78;
+  }, 2.2, [4, 4], textures);
+
+  const ceilingCofferMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0x3b495d,
+    map: ceilingColorTex,
+    normalMap: ceilingNormalTex,
+    normalScale: new THREE.Vector2(0.7, 0.7),
+    roughness: 0.72,
+    metalness: 0.44,
+  }));
+
+  const quiltedHabWallMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0xb7c2ce,
+    map: quiltedColorTex,
+    normalMap: quiltedNormalTex,
+    normalScale: new THREE.Vector2(0.55, 0.55),
+    roughness: 0.84,
+    metalness: 0.08,
+  }));
+
+  const ventGrilleMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0x263344,
+    normalMap: ventGrilleNormalTex,
+    normalScale: new THREE.Vector2(1.0, 1.0),
+    roughness: 0.46,
+    metalness: 0.72,
+  }));
+
+  const hazardStripeMat = trackMat(new THREE.MeshStandardMaterial({
+    map: hazardStripeTex,
+    roughness: 0.54,
+    metalness: 0.32,
+  }));
+
   const outerShellInnerWallMat = trackMat(new THREE.MeshStandardMaterial({
     color: 0x263242,
     map: wallColorTex,
@@ -510,6 +610,9 @@ export function createShipPbrSuite(seed = 29) {
       doorColorTex,
       cargoNormalTex,
       cargoRoughTex,
+      ceilingColorTex,
+      quiltedColorTex,
+      hazardStripeTex,
     },
     materials: {
       hullExteriorMat,
@@ -527,6 +630,10 @@ export function createShipPbrSuite(seed = 29) {
       upholsteryMat,
       safetyAmberMat,
       shuttleCompositeMat,
+      ceilingCofferMat,
+      quiltedHabWallMat,
+      ventGrilleMat,
+      hazardStripeMat,
     },
     makeCargoMat,
     dispose,

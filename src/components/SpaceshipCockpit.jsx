@@ -205,12 +205,12 @@ export default function SpaceshipCockpit({
 
   return (
     <>
-      {/* MINIMAL IN-GAME VIDEO GAME HUD (Bloques A, C y D) */}
+      {/* HUD MÍNIMO DE EXPLORACIÓN EN TIEMPO REAL */}
       {!freeHelmMode && (
         <header
           className="kronoxBridgeTopBar"
           role="region"
-          aria-label={t('Modos de vista y puente habitable 3D', language)}
+          aria-label={t('Barra superior mínima de KRONOX', language)}
         >
           <div className="kronoxBridgeIdentity">
             {onOpenPauseMenu && (
@@ -227,7 +227,7 @@ export default function SpaceshipCockpit({
             )}
             <span className="kronoxShipDot" />
             <strong>KRONOX</strong>
-            <span className="kronoxScaleTag">{SHIP_WORLD_UNITS.SHIP_LENGTH_METERS} m</span>
+            <span className="kronoxScaleTag">{`${SHIP_WORLD_UNITS.SHIP_LENGTH_METERS} m`}</span>
           </div>
 
           {activeObjectiveText && (
@@ -238,127 +238,11 @@ export default function SpaceshipCockpit({
             </div>
           )}
 
-          <div className="kronoxTopRightControls">
-            <nav className="kronoxViewModeSwitcher" aria-label="Selector de cámara 3D">
-              <button
-                type="button"
-                className={`kronoxViewBtn ${viewMode === 'cockpit' ? 'active' : ''}`}
-                disabled={navigationActive}
-                onClick={() => {
-                  onChangeViewMode('cockpit');
-                  onToggleCabinPerspective?.(true);
-                }}
-                title="Cabina 1P [C]"
-              >
-                <span>Cabina 1P</span>
-              </button>
-              {viewMode === 'cockpit' && onToggleCabinPerspective && (
-                <button
-                  type="button"
-                  className={`kronoxViewBtn ${!cabinFirstPerson ? 'active' : ''}`}
-                  disabled={navigationActive}
-                  onClick={() => onToggleCabinPerspective(!cabinFirstPerson)}
-                  title="Alternar cámara interior 1P / Astronauta EVA 3P [V]"
-                >
-                  <span>{cabinFirstPerson ? '3P EVA [V]' : '1P Ojos [V]'}</span>
-                </button>
-              )}
-              <button
-                type="button"
-                className={`kronoxViewBtn ${viewMode === 'exterior' ? 'active' : ''}`}
-                disabled={navigationActive}
-                onClick={() => onChangeViewMode('exterior')}
-                title="Vista exterior de la nave de 120 metros [C]"
-              >
-                <span>Exterior</span>
-              </button>
-            </nav>
-
-            {viewMode === 'cockpit' && astronautSectorState && cockpitVisible && (
-              <div className="kronoxTelescopeHudGroup" aria-label="Cubierta y microgravedad">
-                <div className="kronoxDeckTransitBar" aria-label="Tránsito por Espina Central">
-                  {[
-                    ['deck-01', 'C01', 'Cubierta 01 · Puente de Mando'],
-                    ['deck-02', 'C02', 'Cubierta 02 · Habitacional'],
-                    ['deck-03', 'C03', 'Cubierta 03 · Ingeniería y SPHEREx'],
-                    ['deck-04', 'C04', 'Cubierta 04 · Bodega y Hangar'],
-                  ].map(([dId, shortLbl, fullLbl]) => (
-                    <button
-                      key={dId}
-                      type="button"
-                      className={`kronoxDeckStepBtn ${astronautSectorState.deckId === dId ? 'active' : ''}`}
-                      onClick={() => onTeleportToDeck?.(dId)}
-                      title={`Desplazarse físicamente por la espina a ${fullLbl}`}
-                    >
-                      {shortLbl}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className={`kronoxViewBtn ${astronautSectorState.microgravityMode === 'FREE' ? 'active' : ''}`}
-                  onClick={() => onToggleMicrogravityMode?.()}
-                  title="Alternar microgravedad Asistida / Libre 6-DOF [M] · Freno RCS [X] · Pasamanos [H]"
-                >
-                  <span>
-                    μG {astronautSectorState.microgravityMode === 'FREE' ? 'Libre' : 'Asist.'} [M]
-                  </span>
-                </button>
-                {heldToolId && (
-                  <span className="kronoxHudObjectivePill" title="Herramienta EVA equipada">
-                    {heldToolId === 'multitool' ? '🔧 Multiherramienta' : heldToolId === 'scanner' ? '📡 Escáner IR' : '💎 Acoplador'}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {viewMode === 'exterior' && (
-              <button
-                type="button"
-                className="kronoxResetExteriorView"
-                onClick={onResetExteriorView}
-                disabled={navigationActive}
-                title="Restablecer encuadre de la nave de 120 m [R]"
-              >
-                Inspeccionar [R]
-              </button>
-            )}
-
-            {onSetOpticalTelescope && viewMode === 'cockpit' && (
-              <div className="kronoxTelescopeHudGroup" aria-label="Control de Telescopio Óptico">
-                <button
-                  type="button"
-                  className={`kronoxViewBtn ${observationModeInfo?.opticalMagnification > 1 ? 'active' : ''}`}
-                  onClick={() => {
-                    const currentMag = observationModeInfo?.opticalMagnification || 1;
-                    if (currentMag <= 1) onSetOpticalTelescope(true, 150);
-                    else onSetOpticalTelescope(false, 1);
-                  }}
-                  title="Alternar entre simple vista y telescopio óptico [T]"
-                >
-                  <span>
-                    {observationModeInfo?.opticalMagnification > 1
-                      ? `🔭 Telescopio ${observationModeInfo.opticalMagnification}×`
-                      : '👁 Simple vista 1× [T]'}
-                  </span>
-                </button>
-                {observationModeInfo?.opticalMagnification > 1 && (
-                  <div className="kronoxTelescopeMagRow">
-                    {[10, 50, 150, 300, 500].map((mag) => (
-                      <button
-                        key={mag}
-                        type="button"
-                        className={`kronoxMagStepBtn ${observationModeInfo?.opticalMagnification === mag ? 'active' : ''}`}
-                        onClick={() => onSetOpticalTelescope(true, mag)}
-                      >
-                        {mag}×
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          {heldToolId && (
+            <div className="kronoxHudObjectivePill" title="Herramienta EVA equipada">
+              <span>{heldToolId === 'multitool' ? '🔧 Multiherramienta EVA' : heldToolId === 'scanner' ? '📡 Escáner IR' : '💎 Acoplador'}</span>
+            </div>
+          )}
         </header>
       )}
 
@@ -695,7 +579,7 @@ export default function SpaceshipCockpit({
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">
-                CUBIERTA 01 · CHEVRÓN DE NAVEGACIÓN (Y +3.4 m, Z -9.2 m) · MAPA 3D
+                CUBIERTA 01 · CHEVRÓN DE NAVEGACIÓN · MAPA 3D
               </span>
               <h4>CONSOLA DE NAVEGACIÓN · PROPULSIÓN Y SALTOS ESTELARES</h4>
             </div>
@@ -943,7 +827,7 @@ export default function SpaceshipCockpit({
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">
-                CUBIERTA 03 · LABORATORIO BABOR SPHEREx (X -13.4 m, Y -3.4 m) · SENSORES ACTIVOS
+                CUBIERTA 03 · LABORATORIO BABOR SPHEREx · SENSORES ACTIVOS
               </span>
               <h4>CONSOLA CIENTÍFICA · ESPECTROFOTOMETRÍA NASA SPHEREx</h4>
             </div>
@@ -996,7 +880,7 @@ export default function SpaceshipCockpit({
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">
-                CUBIERTA 01 · MESA HOLOGRÁFICA TÁCTICA (Y +3.4 m, Z +6.0 m)
+                CUBIERTA 01 · MESA HOLOGRÁFICA TÁCTICA
               </span>
               <h4>CONSOLA DE MISIONES · BITÁCORA Y RETOS CIENTÍFICOS</h4>
             </div>
@@ -1041,7 +925,7 @@ export default function SpaceshipCockpit({
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">
-                CUBIERTA 01 · VENTANAL PANORÁMICO DE PROA (Y +3.4 m, Z -12.6 m)
+                CUBIERTA 01 · VENTANAL PANORÁMICO DE PROA
               </span>
               <h4>OBSERVACIÓN VISUAL DIRECTA DEL COSMOS 3D</h4>
             </div>
@@ -1084,7 +968,7 @@ export default function SpaceshipCockpit({
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">
-                CUBIERTA 01 · PUESTO TÁCTICO Y ENLACE KRONOX (X -7.4 m, Y +3.4 m) · EN LÍNEA
+                CUBIERTA 01 · PUESTO TÁCTICO Y ENLACE KRONOX · EN LÍNEA
               </span>
               <h4>CONSOLA DE COMUNICACIONES · KRONOX IA</h4>
             </div>
@@ -1127,7 +1011,7 @@ export default function SpaceshipCockpit({
         <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Cúpula Dorsal de Archivo">
           <div className="kronoxStationDrawerHead">
             <div>
-              <span className="kronoxDiegeticTag">CUBIERTA 03 · ARCHIVO IRSA (X -8.2 m, Y -3.4 m)</span>
+              <span className="kronoxDiegeticTag">CUBIERTA 03 · ARCHIVO ESPECTRAL IRSA</span>
               <h4>ARCHIVO ESTELAR Y BITÁCORA PERSONAL</h4>
             </div>
             <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar archivo">×</button>
@@ -1164,10 +1048,10 @@ export default function SpaceshipCockpit({
           </p>
           <div className="kronoxStationBtnRow">
             {[
-              ['deck-01', '[1] C01 · Puente (Y +3.4m)'],
-              ['deck-02', '[2] C02 · Habitacional (Y 0.0m)'],
-              ['deck-03', '[3] C03 · Lab y Reactor (Y -3.4m)'],
-              ['deck-04', '[4] C04 · Bodega y Hangar (Y -6.8m)'],
+              ['deck-01', '[1] C01 · Puente de Mando'],
+              ['deck-02', '[2] C02 · Habitacional'],
+              ['deck-03', '[3] C03 · Ingeniería y SPHEREx'],
+              ['deck-04', '[4] C04 · Bodega y Hangar'],
             ].map(([dId, label]) => (
               <button
                 key={dId}
@@ -1186,7 +1070,7 @@ export default function SpaceshipCockpit({
         <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Módulo de Biopónica e Hidroponía">
           <div className="kronoxStationDrawerHead">
             <div>
-              <span className="kronoxDiegeticTag">CUBIERTA 02 · INVERNADERO BIOPÓNICO (Z +10.6 m)</span>
+              <span className="kronoxDiegeticTag">CUBIERTA 02 · INVERNADERO BIOPÓNICO</span>
               <h4>CÁMARA DE CULTIVO HIDROPÓNICO DE MICROGRAVEDAD</h4>
             </div>
             <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar biopónica">×</button>
@@ -1241,7 +1125,7 @@ export default function SpaceshipCockpit({
         <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Estación de Habitabilidad">
           <div className="kronoxStationDrawerHead">
             <div>
-              <span className="kronoxDiegeticTag">CUBIERTA 02 · ANILLO HABITACIONAL Y COMEDOR (Y 0.0 m)</span>
+              <span className="kronoxDiegeticTag">CUBIERTA 02 · ANILLO HABITACIONAL Y COMEDOR</span>
               <h4>COMEDOR CIRCULAR Y DISPENSADOR DE HIDRATACIÓN</h4>
             </div>
             <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar habitabilidad">×</button>
@@ -1287,16 +1171,6 @@ export default function SpaceshipCockpit({
                 ? '◎ Presurizar Esclusa EVA 3D'
                 : '⚠ Despresurizar Cámara EVA 3D'}
             </button>
-            {[
-              ['deck-01', 'C01 · Puente'],
-              ['deck-02', 'C02 · Habitacional'],
-              ['deck-03', 'C03 · Lab y Reactor'],
-              ['deck-04', 'C04 · Hangar'],
-            ].map(([dId, label]) => (
-              <button key={dId} type="button" onClick={() => onSelectElevatorFloor?.(dId) || onTeleportToDeck?.(dId)}>
-                ↕ {label}
-              </button>
-            ))}
           </div>
         </div>
       )}
@@ -1305,7 +1179,7 @@ export default function SpaceshipCockpit({
         <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Consola de Ingeniería del Reactor">
           <div className="kronoxStationDrawerHead">
             <div>
-              <span className="kronoxDiegeticTag">CUBIERTA 03 · NÚCLEO DEL REACTOR AURORA (Y -3.4 m, Z +9.0 m)</span>
+              <span className="kronoxDiegeticTag">CUBIERTA 03 · NÚCLEO DEL REACTOR AURORA</span>
               <h4>INGENIERÍA, REACTOR Y MODOS DE PLASMA</h4>
             </div>
             <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar ingeniería">×</button>
@@ -1337,7 +1211,7 @@ export default function SpaceshipCockpit({
         <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Consola de Bodega y Hangar">
           <div className="kronoxStationDrawerHead">
             <div>
-              <span className="kronoxDiegeticTag">CUBIERTA 04 · BODEGA Y HANGAR DE PROA (Y -6.8 m)</span>
+              <span className="kronoxDiegeticTag">CUBIERTA 04 · BODEGA Y HANGAR DE PROA</span>
               <h4>GRÚA PÓRTICO Y ESCOTILLA DE TRANSBORDADOR</h4>
             </div>
             <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar hangar">×</button>

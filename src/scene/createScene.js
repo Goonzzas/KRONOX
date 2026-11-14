@@ -2657,16 +2657,26 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   firstPersonHandsRig.root.visible = false;
   localShipScene.add(firstPersonHandsRig.root);
 
+  let currentLockedDeckId = resolveCurrentDeck(BRIDGE_SPAWN_POS).id;
   const microgravityController = createMicrogravityPhysicsController({
     initialPosition: BRIDGE_SPAWN_POS.clone(),
     mode: MICROGRAVITY_MODES.ASSISTED,
-    clampPositionFn: (pos) =>
+    clampPositionFn: (pos, prevPos) => {
+      const elState = fourDecksInterior.elevatorSystem?.state || null;
+      if (elState?.passengerRiding) {
+        currentLockedDeckId = resolveCurrentDeck({ y: elState.cabY }).id;
+      }
       fourDecksInterior.clampAstronautPosition(
         pos,
         undefined,
         undefined,
-        fourDecksInterior.elevatorSystem?.state || null,
-      ),
+        elState,
+        { lockedDeckId: currentLockedDeckId, prevPos },
+      );
+      if (elState?.passengerRiding) {
+        currentLockedDeckId = resolveCurrentDeck({ y: elState.cabY }).id;
+      }
+    },
   });
 
   const luminousAI = createKronoxCompanionEntity3D({
@@ -3828,11 +3838,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     // 2. Botón físico de planta dentro de la cabina del ascensor 3D (C01..C04)
     if (stId.startsWith('elevator-floor-')) {
       const targetDeckId = stId.replace('elevator-floor-', '');
+      const targetCode = CABIN_DECKS.find((d) => d.id === targetDeckId)?.code || targetDeckId.toUpperCase();
       S.onSfxCue?.('switch');
       startPhysicalElevatorRide(targetDeckId);
       S.onInteractionFeedback?.({
         id: stId,
-        text: `Ascensor rumbo a ${targetDeckId.toUpperCase()}.`,
+        text: `Ascensor rumbo a ${targetCode}.`,
         ts: Date.now(),
       });
       return;
@@ -4140,8 +4151,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     keys[k] = 1;
     // Tecla contextual [C] para alternar el modo de cámara (Cabina 1P <-> Exterior 120 m)
     if (k === 'c' && free && !realTimeIntro && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      if (pv === 1) view(3);
-      else view(1);
+      applyCameraView(pv === 1 ? 3 : 1);
       S.onViewChange?.(pv);
       return;
     }
@@ -5313,6 +5323,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               lastElevatorPhaseForSfx = elSys.state.phase;
             }
             if (elSys.state.phase !== prevPhase || elSys.state.currentDeckId !== prevDeck) {
+              if (elSys.state.phase === 'idle' || elSys.state.phase === 'door-opening') {
+                currentLockedDeckId = elSys.state.targetDeckId || elSys.state.currentDeckId || currentLockedDeckId;
+              }
               S.onElevatorStateChange?.({
                 ...elSys.state,
                 doorOpenByDeck: { ...elSys.state.doorOpenByDeck },
@@ -5321,7 +5334,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           }
 
           // 2. Motor físico 6-DOF real de microgravedad, viaje físico en ascensor o tránsito por espina
-          const isElevatorTransitLocked = Boolean(elSys?.state?.passengerRiding);
+          const rideDoorOpenNow = Number(elSys?.state?.doorOpenByDeck?.[elSys?.state?.targetDeckId] ?? 0);
+          const isElevatorTransitLocked = Boolean(
+            elSys?.state?.passengerRiding &&
+            (elSys.state.moving || elSys.state.phase === 'door-closing' || (elSys.state.phase === 'door-opening' && rideDoorOpenNow < 0.74)),
+          );
           const hasManualThrustInput = Boolean(
             keys.w ||
             keys.s ||
@@ -5344,6 +5361,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           let mgResult;
           if (isElevatorTransitLocked) {
             deckTransitState = null;
+            currentLockedDeckId = resolveCurrentDeck({ y: elSys.state.cabY }).id;
             astronautPos.y = elSys.state.cabY;
             astronautPos.x += (0 - astronautPos.x) * Math.min(1, dt * 6);
             astronautPos.z += (0 - astronautPos.z) * Math.min(1, dt * 6);
@@ -5352,7 +5370,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             mgResult = {
               position: astronautPos,
               velocity: astronautVel,
-              speed: 0,
+              speed: Number((elSys.state.speed || 0).toFixed(3)),
               mode: microgravityController.getMode(),
               anchoredRailId: null,
               isStabilizing: false,
@@ -5368,6 +5386,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               deckTransitState.index += 1;
               if (deckTransitState.index >= deckTransitState.waypoints.length) {
                 const finishedDeckId = deckTransitState.targetDeckId;
+                currentLockedDeckId = finishedDeckId || currentLockedDeckId;
                 targetYaw = deckTransitState.targetYaw;
                 astronautYaw = deckTransitState.targetYaw;
                 astronautBodyYaw = deckTransitState.targetYaw;
@@ -5391,7 +5410,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                 targetYaw = Math.atan2(-toWp.x, -toWp.z);
               }
             }
-            fourDecksInterior.clampAstronautPosition(astronautPos, undefined, undefined, elSys?.state || null);
+            currentLockedDeckId = deckTransitState?.targetDeckId || currentLockedDeckId;
+            fourDecksInterior.clampAstronautPosition(astronautPos, undefined, undefined, null, {
+              lockedDeckId: currentLockedDeckId,
+            });
             microgravityController.setPosition(astronautPos);
             mgResult = {
               position: astronautPos,
@@ -5535,7 +5557,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           _camTarget.copy(_camPivot)
             .addScaledVector(_camDir, smooth3PDist)
             .addScaledVector(_camSide, shoulderOffset * ratio3P);
-          fourDecksInterior.clampAstronautPosition(_camTarget, 0.24, 0.24, elSys?.state || null);
+          fourDecksInterior.clampAstronautPosition(_camTarget, 0.24, 0.24, elSys?.state || null, {
+            lockedDeckId: currentLockedDeckId,
+          });
 
           const localCamPos = new V(
             THREE.MathUtils.lerp(eyeX, _camTarget.x, camViewBlend),
@@ -5543,7 +5567,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             THREE.MathUtils.lerp(eyeZ, _camTarget.z, camViewBlend),
           );
           if (camViewBlend < 0.08) {
-            fourDecksInterior.clampAstronautPosition(localCamPos, 0.28, 0.26, elSys?.state || null);
+            fourDecksInterior.clampAstronautPosition(localCamPos, 0.28, 0.26, elSys?.state || null, {
+              lockedDeckId: currentLockedDeckId,
+            });
             // Escudo anti-clipping en 1ª persona contra consolas y mamparos cercanos
             if (_armRaycaster && fourDecksInterior?.cameraCollisionMeshes?.length) {
               localCabinWorld.updateMatrixWorld(true);
@@ -5555,7 +5581,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               const frontHits = _armRaycaster.intersectObjects(fourDecksInterior.cameraCollisionMeshes, false);
               if (frontHits.length > 0 && frontHits[0].distance < 0.18) {
                 localCamPos.addScaledVector(forwardEye, -(0.18 - frontHits[0].distance));
-                fourDecksInterior.clampAstronautPosition(localCamPos, 0.28, 0.26, elSys?.state || null);
+                fourDecksInterior.clampAstronautPosition(localCamPos, 0.28, 0.26, elSys?.state || null, {
+                  lockedDeckId: currentLockedDeckId,
+                });
               }
             }
           }
@@ -5686,6 +5714,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                 lookDir: _gazeLookDir,
                 minDot: 0.35,
                 includeElevator: true,
+                lockedDeckId: currentLockedDeckId,
                 exteriorMode: exteriorCameraMode || pv !== 1,
               });
               if (nearestCabinStation?.station) {
@@ -5970,7 +5999,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             const localLook = q.clone().invert().multiply(cam.quaternion),
               offset = new V(0, 0, -1).applyQuaternion(localLook).multiplyScalar(-1.85).add(new V(0, .32, 0)).add(new V(1, 0, 0).applyQuaternion(localLook).multiplyScalar(.55)),
               eye = new V(astronautPos.x, astronautPos.y + SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, astronautPos.z).add(offset);
-            fourDecksInterior.clampAstronautPosition(eye, 0.25, 0.24);
+            fourDecksInterior.clampAstronautPosition(
+              eye,
+              0.25,
+              0.24,
+              fourDecksInterior?.elevatorSystem?.state || null,
+              {
+                lockedDeckId: currentLockedDeckId,
+              },
+            );
             const eyeWorldMeters = eye.applyQuaternion(q);
             localCam.position.copy(eyeWorldMeters);
             cam.position.copy(sp).addScaledVector(eyeWorldMeters, metersToAstroSceneUnits());
@@ -6491,8 +6528,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     },
     isSimulationPaused: () => simulationPaused,
     cycleCameraMode: () => {
-      if (pv === 1) view(3);
-      else view(1);
+      applyCameraView(pv === 1 ? 3 : 1);
       S.onViewChange?.(pv);
       return pv;
     },
@@ -6772,8 +6808,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (pos && typeof pos === 'object') {
         astronautPos.set(Number(pos.x || 0), Number(pos.y || 0), Number(pos.z || 0));
         astronautVel.set(0, 0, 0);
-        if (fourDecksInterior) fourDecksInterior.clampAstronautPosition(astronautPos);
-        else cabinSystem.clampAstronautPosition(astronautPos);
+        currentLockedDeckId = resolveCurrentDeck(astronautPos).id;
+        if (fourDecksInterior) {
+          fourDecksInterior.clampAstronautPosition(
+            astronautPos,
+            undefined,
+            undefined,
+            fourDecksInterior.elevatorSystem?.state || null,
+            { lockedDeckId: currentLockedDeckId },
+          );
+        } else {
+          cabinSystem.clampAstronautPosition(astronautPos);
+        }
         microgravityController.setPosition(astronautPos);
       }
       if (Number.isFinite(yawRad)) { astronautYaw = yawRad; targetYaw = yawRad; }
@@ -6791,7 +6837,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       localCabinWorld.visible = true;
       astronautPos.copy(st.position);
       astronautVel.set(0, 0, 0);
-      fourDecksInterior.clampAstronautPosition(astronautPos);
+      currentLockedDeckId = st.deckId || resolveCurrentDeck(astronautPos).id;
+      fourDecksInterior.clampAstronautPosition(
+        astronautPos,
+        undefined,
+        undefined,
+        fourDecksInterior.elevatorSystem?.state || null,
+        { lockedDeckId: currentLockedDeckId },
+      );
       microgravityController.setPosition(astronautPos);
       const dx = st.consolePos.x - st.position.x;
       const dz = st.consolePos.z - st.position.z;
@@ -7091,10 +7144,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       localCabinWorld.visible = true;
       activeCabinStation = null;
       freeHelmMode = false;
-      fourDecksInterior.elevatorSystem?.snapToDeck?.(cfg === DECK_SPAWNS[deckId] ? deckId : 'deck-01');
+      const safeDeckId = DECK_SPAWNS[deckId] ? deckId : 'deck-01';
+      currentLockedDeckId = safeDeckId;
+      fourDecksInterior.elevatorSystem?.snapToDeck?.(safeDeckId);
       astronautPos.copy(cfg.pos);
       astronautVel.set(0, 0, 0);
-      fourDecksInterior.clampAstronautPosition(astronautPos, undefined, undefined, fourDecksInterior.elevatorSystem?.state || null);
+      fourDecksInterior.clampAstronautPosition(
+        astronautPos,
+        undefined,
+        undefined,
+        fourDecksInterior.elevatorSystem?.state || null,
+        { lockedDeckId: currentLockedDeckId },
+      );
       microgravityController.setPosition(astronautPos);
       astronautYaw = Number.isFinite(yawOverride) ? yawOverride : cfg.yaw;
       astronautBodyYaw = astronautYaw;

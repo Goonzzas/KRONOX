@@ -63,15 +63,18 @@ test('FASE 2 — Experiencia completa de videojuego: HUD limpio, Menú de Pausa 
     // Elementos que SÍ deben estar en el HUD limpio:
     assert.ok(jsonStr.includes('KRONOX') && jsonStr.includes('120 m'), 'Debe mostrar el identificador discreto de nave');
     assert.ok(jsonStr.includes('Pausa') || jsonStr.includes('ESC'), 'Debe mostrar el acceso discreto al menú de pausa');
-    assert.ok(jsonStr.includes('Cabina 1P'), 'Debe mostrar el modo de cámara actual');
-    assert.ok(jsonStr.includes('Simple vista 1×'), 'Debe mostrar el indicador discreto de óptica');
     assert.ok(jsonStr.includes('OBJETIVO:'), 'Debe mostrar la etiqueta del objetivo compacto');
     assert.ok(
       jsonStr.includes('Investigar espectro en la consola de ciencia'),
       'Debe mostrar el texto del objetivo activo',
     );
 
-    // Elementos que NO deben estar en el HUD de exploración a pie:
+    // Elementos que NO deben estar en el HUD superior mínimo de exploración:
+    assert.ok(!jsonStr.includes('Cabina 1P'), 'La barra superior no debe incluir atajos de cámara (Cabina 1P)');
+    assert.ok(!jsonStr.includes('3P EVA'), 'La barra superior no debe incluir atajos de vista (3P EVA)');
+    assert.ok(!jsonStr.includes('Exterior'), 'La barra superior no debe incluir atajos de vista (Exterior)');
+    assert.ok(!jsonStr.includes('Simple vista 1×'), 'La barra superior no debe incluir atajos del telescopio');
+    assert.ok(!jsonStr.includes('C01') && !jsonStr.includes('C02'), 'La barra superior no debe tener botones de salto entre cubiertas');
     assert.ok(!jsonStr.includes('Coordenadas X:'), 'No debe haber telemetría fija de coordenadas X');
     assert.ok(!jsonStr.includes('Velocidad:'), 'No debe haber velocímetro permanente en exploración a pie');
     assert.ok(!jsonStr.includes('✦ Cielo: Cinematográfico'), 'El selector de cielo no debe saturar el HUD principal');

@@ -180,10 +180,12 @@ test('ETAPA 3 & 4 — HUD mínimo de videojuego, eliminación de paneles duplica
 
     const cabinTree = JSON.stringify(renderer.toJSON());
     // En modo exploración 1P en cabina:
-    // - Está presente el HUD mínimo con Cabina 1P, botón ESC Pausa y selector de Simple vista / Telescopio
-    assert.ok(cabinTree.includes('Cabina 1P'));
+    // - HUD mínimo: Pausa [ESC] + identificador KRONOX 120 m, sin atajos de exploración en barra superior
+    assert.ok(cabinTree.includes('KRONOX') && cabinTree.includes('120 m'));
     assert.ok(cabinTree.includes('Pausa'));
-    assert.ok(cabinTree.includes('Simple vista 1×'));
+    assert.ok(!cabinTree.includes('Cabina 1P'));
+    assert.ok(!cabinTree.includes('Simple vista 1×'));
+    assert.ok(!cabinTree.includes('3P EVA'));
     // - El panel lateral izquierdo permanente (NavigationDock "ESCALA ACTIVA") NO se muestra durante la exploración en cabina
     assert.ok(!cabinTree.includes('ESCALA ACTIVA'));
 
@@ -207,6 +209,15 @@ test('ETAPA 3 & 4 — HUD mínimo de videojuego, eliminación de paneles duplica
     assert.ok(pauseTree.includes('6. Ajustes'));
     assert.ok(pauseTree.includes('7. Controles'));
     assert.ok(pauseTree.includes('8. Volver al menú principal'));
+    // Verificar controles reubicados de cámara y telescopio dentro de Ajustes -> Controles
+    const btnText = (n) => (typeof n === 'string' || typeof n === 'number' ? String(n) : (n?.children || []).map(btnText).join(''));
+    const findBtn = (txt) => pauseRenderer.root.findAllByType('button').find((b) => btnText(b).includes(txt));
+    await act(async () => findBtn('6. Ajustes').props.onClick());
+    const ctrlTabBtn = pauseRenderer.root.findAllByType('button').find((b) => String(b.props.className || '').includes('kronox-settings-tab-btn') && btnText(b).includes('Controles'));
+    await act(async () => ctrlTabBtn.props.onClick());
+    const ctrlTree = JSON.stringify(pauseRenderer.toJSON());
+    assert.ok(ctrlTree.includes('Cabina 1P') && ctrlTree.includes('3P EVA') && ctrlTree.includes('Exterior'));
+    assert.ok(ctrlTree.includes('1× Libre') && ctrlTree.includes('500×'));
     await act(async () => pauseRenderer.unmount());
   } finally {
     if (renderer) await act(async () => renderer.unmount());

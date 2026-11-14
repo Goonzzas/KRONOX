@@ -51,6 +51,15 @@ export default function PauseMenu({
   onToggleScaleMode,
   visualProfile = 'cinematic',
   onToggleVisualProfile,
+  viewMode = 'cockpit',
+  cabinFirstPerson = true,
+  navigationActive = false,
+  onChangeViewMode,
+  onToggleCabinPerspective,
+  onResetExteriorView,
+  onSetOpticalTelescope,
+  microgravityMode = 'ASSISTED',
+  onChangeMicrogravityMode,
   activeMissionId = null,
   activeObjective = null,
   voiceMuted = false,
@@ -715,6 +724,72 @@ export default function PauseMenu({
                   <div className="kronox-settings-group">
                     <div className="kronox-setting-row">
                       <div>
+                        <strong>Perspectiva de cámara 3D [C / V]</strong>
+                        <p>Cambia entre vista en primera persona (ojos del astronauta), tercera persona EVA o inspección exterior de 120 m.</p>
+                      </div>
+                      <div className="kronox-pause-seg-group" role="group" aria-label="Perspectiva de cámara">
+                        <button
+                          type="button"
+                          className={`kronox-pause-seg-btn${viewMode === 'cockpit' && cabinFirstPerson ? ' is-active' : ''}`}
+                          disabled={navigationActive}
+                          onClick={() => {
+                            onChangeViewMode?.('cockpit');
+                            onToggleCabinPerspective?.(true);
+                          }}
+                        >
+                          Cabina 1P
+                        </button>
+                        <button
+                          type="button"
+                          className={`kronox-pause-seg-btn${viewMode === 'cockpit' && !cabinFirstPerson ? ' is-active' : ''}`}
+                          disabled={navigationActive}
+                          onClick={() => {
+                            onChangeViewMode?.('cockpit');
+                            onToggleCabinPerspective?.(false);
+                          }}
+                        >
+                          3P EVA [V]
+                        </button>
+                        <button
+                          type="button"
+                          className={`kronox-pause-seg-btn${viewMode === 'exterior' ? ' is-active' : ''}`}
+                          disabled={navigationActive}
+                          onClick={() => onChangeViewMode?.('exterior')}
+                        >
+                          Exterior [C]
+                        </button>
+                        {viewMode === 'exterior' && onResetExteriorView && (
+                          <button
+                            type="button"
+                            className="kronox-pause-seg-btn"
+                            disabled={navigationActive}
+                            onClick={() => onResetExteriorView?.()}
+                          >
+                            Restablecer [R]
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="kronox-setting-row">
+                      <div>
+                        <strong>Telescopio Óptico de a bordo [T]</strong>
+                        <p>Alterna entre observación a simple vista (1×) y aumentos ópticos reales en el firmamento.</p>
+                      </div>
+                      <div className="kronox-pause-seg-group" role="group" aria-label="Aumentos del telescopio">
+                        {[1, 10, 50, 150, 300, 500].map((mag) => (
+                          <button
+                            key={mag}
+                            type="button"
+                            className={`kronox-pause-seg-btn${opticalMagnification === mag ? ' is-active' : ''}`}
+                            onClick={() => onSetOpticalTelescope?.(mag > 1, mag)}
+                          >
+                            {mag === 1 ? '1× Libre' : `${mag}×`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="kronox-setting-row">
+                      <div>
                         <strong>Sensibilidad de rotación en cabina y órbita exterior</strong>
                         <p>Ajusta la respuesta de cámara al arrastrar o mirar alrededor.</p>
                       </div>
@@ -749,8 +824,12 @@ export default function PauseMenu({
                         <p>Asistida aplica frenado suave automático; Libre conserva la inercia 6-DOF.</p>
                       </div>
                       <select
-                        value={gameSettings.microgravityMode || 'ASSISTED'}
-                        onChange={(e) => updateSetting('microgravityMode', e.target.value)}
+                        value={microgravityMode || gameSettings.microgravityMode || 'ASSISTED'}
+                        onChange={(e) => {
+                          const nextMode = e.target.value;
+                          updateSetting('microgravityMode', nextMode);
+                          onChangeMicrogravityMode?.(nextMode);
+                        }}
                         className="kronox-setting-select"
                       >
                         <option value="ASSISTED">Asistida (Amortiguada)</option>

@@ -34,6 +34,9 @@ export function createMicrogravityPhysicsController({
   const _thrustDir = new THREE.Vector3();
   const _prevPos = new THREE.Vector3();
   const _intended = new THREE.Vector3();
+  const _stepDisplacement = new THREE.Vector3();
+  const _pushDelta = new THREE.Vector3();
+  const _pushNormal = new THREE.Vector3();
   const _outPos = new THREE.Vector3();
   const _outVel = new THREE.Vector3();
 
@@ -118,14 +121,32 @@ export function createMicrogravityPhysicsController({
       velocity.set(0, 0, 0);
     }
 
-    _prevPos.copy(position);
-    position.addScaledVector(velocity, safeDt);
+    _stepDisplacement.copy(velocity).multiplyScalar(safeDt);
+    const displacementLen = _stepDisplacement.length();
     if (typeof clampPositionFn === 'function') {
-      clampPositionFn(position);
-      _intended.copy(_prevPos).addScaledVector(velocity, safeDt);
-      if (Math.abs(position.x - _intended.x) > 0.002) velocity.x *= 0.12;
-      if (Math.abs(position.y - _intended.y) > 0.002) velocity.y *= 0.12;
-      if (Math.abs(position.z - _intended.z) > 0.002) velocity.z *= 0.12;
+      const maxStepDist = 0.085;
+      const steps = displacementLen > 1e-5
+        ? Math.min(12, Math.max(1, Math.ceil(displacementLen / maxStepDist)))
+        : 1;
+      const subStepDt = safeDt / steps;
+      for (let s = 0; s < steps; s++) {
+        _prevPos.copy(position);
+        position.addScaledVector(velocity, subStepDt);
+        _intended.copy(position);
+        clampPositionFn(position, _prevPos);
+        _pushDelta.subVectors(position, _intended);
+        const pushLenSq = _pushDelta.lengthSq();
+        if (pushLenSq > 1e-8) {
+          const pushLen = Math.sqrt(pushLenSq);
+          _pushNormal.copy(_pushDelta).divideScalar(pushLen);
+          const vn = velocity.dot(_pushNormal);
+          if (vn < 0) {
+            velocity.addScaledVector(_pushNormal, -vn);
+          }
+        }
+      }
+    } else {
+      position.add(_stepDisplacement);
     }
 
     _outPos.copy(position);

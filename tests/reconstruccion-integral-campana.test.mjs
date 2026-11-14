@@ -14,6 +14,10 @@ import {
   ASTRONAUT_ANIMATION_STATES,
 } from '../src/scene/astronautCharacter3D.js';
 import {
+  ASTRONAUT_MAX_FEET_ABOVE_FLOOR,
+  ASTRONAUT_RADIUS_METERS,
+  C02_CABIN_BAYS,
+  C03_LAB_ARCS,
   DIRECT_INTERACTION_IDS,
   describeInteractablePrompt,
 } from '../src/scene/kronoxInteriorSpatialModel.js';
@@ -426,6 +430,101 @@ test('1P EVA suit hands, raycastable 3D interactables, tool pickups and full C01
     passengerRiding: false,
   });
   assert.ok(Math.hypot(remoteAstro.x, remoteAstro.z) > 3.5, 'Un ascensor en movimiento sin pasajero no debe teletransportar al astronauta');
+
+  interior.dispose?.();
+});
+
+test('Deck isolation across C01–C04 ceilings, swept high-speed collision, C02 dining clearance and 1:1 colliders', () => {
+  const interior = buildFourDecksInterior3D();
+  const el = interior.elevatorSystem;
+  const lookForward = new THREE.Quaternion();
+
+  // 1. Subida forzada a máxima velocidad hacia el techo en las 4 cubiertas (ASSISTED y FREE) jamás debe cruzar de planta
+  for (const mode of [MICROGRAVITY_MODES.ASSISTED, MICROGRAVITY_MODES.FREE]) {
+    for (const deck of CABIN_DECKS) {
+      el.snapToDeck(deck.id);
+      const startPos = new THREE.Vector3(2.8, deck.elevationY, -3.2);
+      const mg = createMicrogravityPhysicsController({
+        initialPosition: startPos,
+        mode,
+        clampPositionFn: (pos, prevPos) =>
+          interior.clampAstronautPosition(pos, ASTRONAUT_RADIUS_METERS, 0.24, el.state, {
+            lockedDeckId: deck.id,
+            prevPos,
+          }),
+      });
+      for (let f = 0; f < 95; f++) {
+        const res = mg.update(0.04, { ' ': 1, shift: 1 }, lookForward);
+        assert.ok(
+          res.position.y <= deck.elevationY + ASTRONAUT_MAX_FEET_ABOVE_FLOOR + 1e-4,
+          `Cubierta ${deck.code} (${mode}): pies Y=${res.position.y.toFixed(3)} no pueden exceder límite de techo ${(deck.elevationY + ASTRONAUT_MAX_FEET_ABOVE_FLOOR).toFixed(3)}`
+        );
+        assert.ok(
+          res.position.y >= deck.elevationY - 1e-4,
+          `Cubierta ${deck.code} (${mode}): pies Y=${res.position.y.toFixed(3)} no pueden atravesar suelo ${deck.elevationY}`
+        );
+      }
+      // También probar descenso forzado contra el suelo
+      for (let f = 0; f < 80; f++) {
+        const res = mg.update(0.04, { control: 1, shift: 1 }, lookForward);
+        assert.ok(
+          res.position.y >= deck.elevationY - 1e-4 &&
+            res.position.y <= deck.elevationY + ASTRONAUT_MAX_FEET_ABOVE_FLOOR + 1e-4,
+          `Descenso en ${deck.code} debe mantenerse dentro de la cubierta`
+        );
+      }
+    }
+  }
+
+  // 2. Comedor C02 debe mantener los pasillos ±Z completamente libres hacia el ascensor y bloquear ±X sólido
+  el.snapToDeck('deck-02');
+  const clearAisleBow = new THREE.Vector3(0.0, 0.0, -2.7);
+  interior.clampAstronautPosition(clearAisleBow, 0.34, 0.24, el.state, { lockedDeckId: 'deck-02' });
+  assert.ok(
+    Math.hypot(clearAisleBow.x - 0.0, clearAisleBow.z - (-2.7)) < 0.05,
+    'Pasillo -Z hacia el ascensor en C02 debe estar libre sin obstáculos del comedor'
+  );
+  const diningBarHit = new THREE.Vector3(2.85, 0.0, 0.0);
+  interior.clampAstronautPosition(diningBarHit, 0.34, 0.24, el.state, { lockedDeckId: 'deck-02' });
+  const rAfterDining = Math.hypot(diningBarHit.x, diningBarHit.z);
+  assert.ok(rAfterDining <= 2.15 || rAfterDining >= 3.65, `Mesada curva C02 debe expulsar colisión (r=${rAfterDining.toFixed(2)})`);
+
+  // 3. Mobiliario 1:1 sólido en C01, C02 camarotes, C03 SPHEREx y C04 cono del transbordador
+  const captainHit = new THREE.Vector3(0.0, 3.4, -4.1);
+  interior.clampAstronautPosition(captainHit, 0.34, 0.24, el.state, { lockedDeckId: 'deck-01' });
+  assert.ok(Math.hypot(captainHit.x, captainHit.z + 5.5) >= 2.8, 'Estrado del capitán C01 debe bloquear entrada interior');
+
+  const bay0 = C02_CABIN_BAYS[0];
+  const bedHit = new THREE.Vector3(bay0.ux * 14.1, 0.0, bay0.uz * 14.1);
+  interior.clampAstronautPosition(bedHit, 0.34, 0.24, el.state, { lockedDeckId: 'deck-02' });
+  assert.ok(Math.hypot(bedHit.x - bay0.ux * 14.1, bedHit.z - bay0.uz * 14.1) >= 0.45, 'Litera radial de camarote C02 debe ser sólida');
+
+  el.snapToDeck('deck-03');
+  const firstLab = C03_LAB_ARCS[0];
+  const labHit = new THREE.Vector3(firstLab.cx, -3.4, firstLab.cz);
+  interior.clampAstronautPosition(labHit, 0.34, 0.24, el.state, { lockedDeckId: 'deck-03' });
+  assert.ok(Math.hypot(labHit.x - firstLab.cx, labHit.z - firstLab.cz) >= 0.45, 'Banco curvo SPHEREx C03 debe bloquear penetración');
+
+  el.snapToDeck('deck-04');
+  const shuttleNoseHit = new THREE.Vector3(0.0, -6.8, -15.6);
+  interior.clampAstronautPosition(shuttleNoseHit, 0.34, 0.24, el.state, { lockedDeckId: 'deck-04' });
+  assert.ok(Math.abs(shuttleNoseHit.x) >= 1.2 || shuttleNoseHit.z >= -14.2, 'Cono de proa del transbordador C04 debe ser sólido');
+
+  // 4. Acceso físico de puerta abierta vs jamba lateral y retención durante movimiento del ascensor
+  el.snapToDeck('deck-01');
+  const doorCenterPass = new THREE.Vector3(0.0, 3.4, -1.36);
+  interior.clampAstronautPosition(doorCenterPass, 0.34, 0.24, el.state, { lockedDeckId: 'deck-01' });
+  assert.ok(Math.abs(doorCenterPass.z - (-1.36)) < 0.05 && Math.abs(doorCenterPass.x) < 0.2, 'Centro de puerta abierta debe permitir entrar');
+
+  const jambBlocked = new THREE.Vector3(1.05, 3.4, -1.36);
+  interior.clampAstronautPosition(jambBlocked, 0.34, 0.24, el.state, { lockedDeckId: 'deck-01' });
+  assert.ok(jambBlocked.z <= -1.52 || jambBlocked.x >= 1.6, 'Jambas laterales y hojas retraídas deben bloquear paso lateral');
+
+  el.requestDeck('deck-03', true);
+  for (let i = 0; i < 45; i++) el.update(0.03);
+  const exitAttemptMidRide = new THREE.Vector3(0.0, el.state.cabY, -1.5);
+  interior.clampAstronautPosition(exitAttemptMidRide, 0.34, 0.24, el.state);
+  assert.ok(Math.abs(exitAttemptMidRide.z) <= 0.75, 'Pasajero no puede salir de cabina mientras el ascensor cierra puertas o está en movimiento');
 
   interior.dispose?.();
 });

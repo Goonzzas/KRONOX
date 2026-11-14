@@ -1860,6 +1860,63 @@ export default function App() {
         nm[k],
       ),
     pi = f && P.find((x) => x.n == f);
+
+  const handleToggleCabinPerspective = (firstP) => {
+    const nextVal = firstP !== undefined ? Boolean(firstP) : !cabinFirstPerson;
+    setCabinFirstPerson(nextVal);
+    A().setCabinPerspective?.(nextVal);
+  };
+
+  const handleChangeViewMode = (nextMode) => {
+    if (nextMode === 'cockpit') {
+      if (spec) {
+        A().board();
+        setSpec(false);
+      }
+      if (!fr) {
+        setFr(true);
+        A().free(true, false);
+      }
+      setPv(1);
+      A().view(1);
+    } else if (nextMode === 'exterior') {
+      if (spec) {
+        A().board();
+        setSpec(false);
+      }
+      if (!fr) {
+        setFr(true);
+        A().free(true, false);
+      }
+      setPv(3);
+      A().view(3);
+    } else {
+      if (spec) {
+        A().exitSpectator();
+        setSpec(false);
+      }
+      setFr(false);
+      clearMissionOffer();
+      setSelectedObject(null);
+      A().setNavigationScale(
+        ['stellar', 'regional', 'milkyway', 'extragalactic'].includes(navigationScale.id)
+          ? navigationScale.id
+          : 'stellar',
+      );
+    }
+  };
+
+  const handleSetOpticalTelescope = (enabled, magnification = 150, targetBody = null) => {
+    const targetName = targetBody || observationModeInfo?.opticalTargetBody || f || near || 'Júpiter';
+    const obsRes = A()?.setOpticalTelescope?.(enabled, magnification, targetName);
+    if (obsRes) setObservationModeInfo(obsRes);
+    if (enabled && A()?.getPlanetaryObservationalTelemetry) {
+      setPlanetaryTelemetry(A().getPlanetaryObservationalTelemetry(targetName));
+    } else {
+      setPlanetaryTelemetry(null);
+    }
+  };
+
   return h(
     'div',
     {
@@ -3087,11 +3144,7 @@ export default function App() {
       navigationActive: !!navigation && navigation.phase !== 'countdown',
       cabinFirstPerson,
       astronautSectorState,
-      onToggleCabinPerspective: (firstP) => {
-        const nextVal = firstP !== undefined ? Boolean(firstP) : !cabinFirstPerson;
-        setCabinFirstPerson(nextVal);
-        A().setCabinPerspective?.(nextVal);
-      },
+      onToggleCabinPerspective: handleToggleCabinPerspective,
       onToggleMicrogravityMode: () => {
         const nextMode = astronautSectorState.microgravityMode === 'FREE' ? 'ASSISTED' : 'FREE';
         A().setMicrogravityMode?.(nextMode);
@@ -3145,44 +3198,7 @@ export default function App() {
       },
       viewMode: !fr ? 'navigation' : pv == 1 ? 'cockpit' : 'exterior',
       onResetExteriorView: () => A().inspectExterior?.(),
-      onChangeViewMode: (nextMode) => {
-        if (nextMode === 'cockpit') {
-          if (spec) {
-            A().board();
-            setSpec(false);
-          }
-          if (!fr) {
-            setFr(true);
-            A().free(true, false);
-          }
-          setPv(1);
-          A().view(1);
-        } else if (nextMode === 'exterior') {
-          if (spec) {
-            A().board();
-            setSpec(false);
-          }
-          if (!fr) {
-            setFr(true);
-            A().free(true, false);
-          }
-          setPv(3);
-          A().view(3);
-        } else {
-          if (spec) {
-            A().exitSpectator();
-            setSpec(false);
-          }
-          setFr(false);
-          clearMissionOffer();
-          setSelectedObject(null);
-          A().setNavigationScale(
-            ['stellar', 'regional', 'milkyway', 'extragalactic'].includes(navigationScale.id)
-              ? navigationScale.id
-              : 'stellar',
-          );
-        }
-      },
+      onChangeViewMode: handleChangeViewMode,
       flightSpeed: fv,
       onSpeedPreset: (v) => {
         A().speed(v);
@@ -3272,16 +3288,7 @@ export default function App() {
         api.current?.setSimulationPaused?.(true);
       },
       observationModeInfo,
-      onSetOpticalTelescope: (enabled, magnification = 150, targetBody = null) => {
-        const targetName = targetBody || observationModeInfo?.opticalTargetBody || f || near || 'Júpiter';
-        const obsRes = A()?.setOpticalTelescope?.(enabled, magnification, targetName);
-        if (obsRes) setObservationModeInfo(obsRes);
-        if (enabled && A()?.getPlanetaryObservationalTelemetry) {
-          setPlanetaryTelemetry(A().getPlanetaryObservationalTelemetry(targetName));
-        } else {
-          setPlanetaryTelemetry(null);
-        }
-      },
+      onSetOpticalTelescope: handleSetOpticalTelescope,
       planetaryTelemetry:
         gameSettings.showTelescopeTelemetry === false ? null : planetaryTelemetry,
       activeObjectiveText: guideObjective,
@@ -3322,9 +3329,18 @@ export default function App() {
         setShowFullMainMenu(true);
       },
       currentBody: f || near || 'Tierra',
-      cameraView: !fr ? 'Mapa Cartográfico' : pv == 1 ? 'Cabina 1P' : 'Exterior Nave 120 m',
+      cameraView: !fr ? 'Mapa Cartográfico' : pv == 1 ? (cabinFirstPerson ? 'Cabina 1P' : '3P EVA') : 'Exterior Nave 120 m',
       observationMode: observationModeInfo?.mode?.id || 'naked-eye',
       opticalMagnification: observationModeInfo?.opticalMagnification || 1,
+      viewMode: !fr ? 'navigation' : pv == 1 ? 'cockpit' : 'exterior',
+      cabinFirstPerson,
+      navigationActive: !!navigation && navigation.phase !== 'countdown',
+      onChangeViewMode: handleChangeViewMode,
+      onToggleCabinPerspective: handleToggleCabinPerspective,
+      onResetExteriorView: () => A().inspectExterior?.(),
+      onSetOpticalTelescope: handleSetOpticalTelescope,
+      microgravityMode: astronautSectorState?.microgravityMode || 'ASSISTED',
+      onChangeMicrogravityMode: (nextMode) => A().setMicrogravityMode?.(nextMode),
       scaleMode: real ? 'real' : 'visual',
       visualProfile,
       onToggleVisualProfile: () => {

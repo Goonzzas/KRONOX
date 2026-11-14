@@ -53,7 +53,10 @@ test('Normal page load opens the Main Menu first without auto-starting intro; NU
     });
     assert.equal(window.__kronoxSceneApi.introSnapshot().active, false);
     assert.ok(window.__kronoxSceneApi.introSnapshot().cabinVisible);
-    assert.ok(JSON.stringify(renderer.toJSON()).includes('Cabina 1P'));
+    const postIntroTree = JSON.stringify(renderer.toJSON());
+    assert.ok(postIntroTree.includes('KRONOX') && postIntroTree.includes('120 m'));
+    assert.ok(postIntroTree.includes('Pausa'));
+    assert.ok(!postIntroTree.includes('Cabina 1P') && !postIntroTree.includes('Simple vista 1×'));
     assert.equal(window.__kronoxSceneApi.navigationSnapshot().view, 1);
   } finally {
     if (renderer) await act(async () => renderer.unmount());

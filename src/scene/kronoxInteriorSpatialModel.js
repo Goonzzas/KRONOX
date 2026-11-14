@@ -20,7 +20,11 @@ export const ASTRONAUT_RADIUS_METERS = 0.34;
 
 export const AURORA_SPHERE_RADIUS = 20.0;
 export const ELEVATOR_SHAFT_RADIUS = 1.24;
+export const ELEVATOR_DOOR_CLEAR_HALF_WIDTH = 0.74;
 export const DECK_HEIGHT_METERS = 3.4;
+export const DECK_SLAB_THICKNESS_METERS = 0.28;
+export const DECK_CLEAR_HEIGHT_METERS = DECK_HEIGHT_METERS - DECK_SLAB_THICKNESS_METERS;
+export const ASTRONAUT_MAX_FEET_ABOVE_FLOOR = DECK_CLEAR_HEIGHT_METERS - ASTRONAUT_HEIGHT_METERS; // 1.40 m (cabeza <= +3.12 m)
 
 export const CABIN_DECKS = [
   {
@@ -75,7 +79,7 @@ export const HULL_INTERIOR_ZONES = {
     name: 'Puente de Mando · Proa',
     floorY: 3.4,
     minY: 3.4,
-    maxY: 6.45,
+    maxY: 6.38,
     minX: -11.4,
     maxX: 11.4,
     minZ: -14.6,
@@ -87,7 +91,7 @@ export const HULL_INTERIOR_ZONES = {
     name: 'Cubierta Habitacional',
     floorY: 0.0,
     minY: 0.0,
-    maxY: 3.05,
+    maxY: 2.98,
     minX: -17.6,
     maxX: 17.6,
     minZ: -17.6,
@@ -99,7 +103,7 @@ export const HULL_INTERIOR_ZONES = {
     name: 'Ingeniería y Laboratorio SPHEREx',
     floorY: -3.4,
     minY: -3.4,
-    maxY: -0.35,
+    maxY: -0.42,
     minX: -17.8,
     maxX: 17.8,
     minZ: -17.8,
@@ -111,7 +115,7 @@ export const HULL_INTERIOR_ZONES = {
     name: 'Bodega y Hangar de Proa',
     floorY: -6.8,
     minY: -6.8,
-    maxY: -3.75,
+    maxY: -3.82,
     minX: -16.8,
     maxX: 16.8,
     minZ: -16.8,
@@ -125,9 +129,20 @@ export const HULL_INTERIOR_ZONES = {
     centerZ: 0.0,
     radius: ELEVATOR_SHAFT_RADIUS,
     minY: -6.8,
-    maxY: 6.2,
+    maxY: 6.38,
   },
 };
+
+const ZONE_BY_DECK_ID = {
+  'deck-01': HULL_INTERIOR_ZONES.bridgeMain,
+  'deck-02': HULL_INTERIOR_ZONES.habRing,
+  'deck-03': HULL_INTERIOR_ZONES.engineeringLab,
+  'deck-04': HULL_INTERIOR_ZONES.cargoHangar,
+};
+
+export function getDeckZoneById(deckId) {
+  return ZONE_BY_DECK_ID[deckId] || HULL_INTERIOR_ZONES.bridgeMain;
+}
 
 export const SHIP_INTERIOR_STATIONS = [
   // Cubierta 01 · Puente de mando (Y = +3.4)
@@ -373,6 +388,143 @@ export const C02_BULKHEAD_ANGLES = Object.freeze(
   Array.from({ length: 8 }, (_, i) => (i * Math.PI) / 4 + Math.PI / 8),
 );
 
+// Contorno heptagonal Aurora del Puente C01 y mesas en chevrón proyectadas a KRONOX (kx=az, kz=-ax)
+const C01_HEPTAGON_AURORA = Object.freeze([
+  [15.5, 0], [11, 6.2], [1, 12], [-12, 10.5], [-12, -10.5], [1, -12], [11, -6.2],
+]);
+
+export const C01_CHEVRON_OBSTACLES = Object.freeze((() => {
+  const edges = C01_HEPTAGON_AURORA.map((a, idx) => {
+    const b = C01_HEPTAGON_AURORA[(idx + 1) % C01_HEPTAGON_AURORA.length];
+    const dx = b[0] - a[0];
+    const dz = b[1] - a[1];
+    const l = Math.hypot(dx, dz);
+    const mx = (a[0] + b[0]) * 0.5;
+    const mz = (a[1] + b[1]) * 0.5;
+    let nx = dz / l;
+    let nz = -dx / l;
+    if (nx * mx + nz * mz < 0) {
+      nx = -nx;
+      nz = -nz;
+    }
+    return { nx, nz, rot: Math.atan2(nx, nz), at: (t) => [a[0] + dx * t, a[1] + dz * t] };
+  });
+  const items = [];
+  [[5, 3], [6, 1], [0, 1], [1, 3]].forEach(([ei, count]) => {
+    const e = edges[ei];
+    const ux = -Math.sin(e.rot);
+    const uz = -Math.cos(e.rot);
+    const vx = Math.cos(e.rot);
+    const vz = -Math.sin(e.rot);
+    for (let k = 0; k < count; k++) {
+      const [ax, az] = e.at((k + 0.5) / count);
+      const dKx = az * 0.72;
+      const dKz = -ax * 0.72;
+      const cAx = ax * 0.72 - e.nx * 1.9;
+      const cAz = az * 0.72 - e.nz * 1.9;
+      items.push({
+        deskCx: dKx,
+        deskCz: dKz,
+        ux,
+        uz,
+        vx,
+        vz,
+        hx: 1.08,
+        hz: 0.66,
+        chairCx: cAz,
+        chairCz: -cAx,
+        chairRadius: 0.36,
+      });
+    }
+  });
+  [2, 4].forEach((ei) => {
+    const e = edges[ei];
+    const rot = e.rot + Math.PI;
+    const ux = -Math.sin(rot);
+    const uz = -Math.cos(rot);
+    const vx = Math.cos(rot);
+    const vz = -Math.sin(rot);
+    for (let k = 0; k < 4; k++) {
+      const [x, z] = e.at(0.18 + k * 0.21);
+      const ax = x - e.nx * 1.1;
+      const az = z - e.nz * 1.1;
+      items.push({
+        deskCx: az,
+        deskCz: -ax,
+        ux,
+        uz,
+        vx,
+        vz,
+        hx: 1.12,
+        hz: 0.48,
+        chairCx: null,
+        chairCz: null,
+        chairRadius: 0,
+      });
+    }
+  });
+  return Object.freeze(items);
+})());
+
+// Mesada curva de comedor en ±X (r in [2.38, 3.36]) manteniendo pasillos ±Z completamente despejados
+export const C02_DINING_ARCS = Object.freeze({
+  rInner: 2.38,
+  rOuter: 3.36,
+  halfAngleRad: 0.90,
+  barHeight: 0.82,
+  stoolRadius: 3.92,
+  stoolAnglesFromX: Object.freeze([-0.58, 0.0, 0.58]),
+});
+
+// 6 bahías de camarotes en C02 (omitiendo k=0 esclusa proa -Z y k=4 biopónica popa +Z)
+export const C02_CABIN_BAYS = Object.freeze(
+  [1, 2, 3, 5, 6, 7].map((k) => {
+    const angleRad = (k * Math.PI) / 4;
+    return Object.freeze({
+      index: k,
+      angleRad,
+      ux: Math.sin(angleRad),
+      uz: -Math.cos(angleRad),
+      px: Math.cos(angleRad),
+      pz: Math.sin(angleRad),
+    });
+  })
+);
+
+// Estaciones curvas de laboratorio C03 SPHEREx (babor, Math.PI) y Banco Óptico (estribor, 0)
+export const C03_LAB_ARCS = Object.freeze([
+  ...Array.from({ length: 6 }, (_, i) => {
+    const t = Math.PI - 0.95 + (1.9 * i) / 5;
+    return {
+      side: 'port',
+      t,
+      cx: 15.2 * Math.cos(t),
+      cz: -15.2 * Math.sin(t),
+      ux: -Math.sin(t),
+      uz: -Math.cos(t),
+      vx: Math.cos(t),
+      vz: -Math.sin(t),
+      hx: 1.2,
+      hz: 0.66,
+    };
+  }),
+  ...Array.from({ length: 6 }, (_, i) => {
+    const t = -0.95 + (1.9 * i) / 5;
+    return {
+      side: 'starboard',
+      t,
+      cx: 15.2 * Math.cos(t),
+      cz: -15.2 * Math.sin(t),
+      ux: -Math.sin(t),
+      uz: -Math.cos(t),
+      vx: Math.cos(t),
+      vz: -Math.sin(t),
+      hx: 1.2,
+      hz: 0.66,
+    };
+  }),
+]);
+
 export const INTERIOR_GRAB_RAILS = [
   // Pasamanos verticales y de acceso en el núcleo central (permite anclaje EVA en las 4 cubiertas)
   { id: 'rail-core-c01', pos: [1.05, 4.5, 0.0], span: 2.4, axis: 'y', side: 'starboard', deckId: 'deck-01' },
@@ -454,6 +606,71 @@ function pushOutAABB2D(pos, cx, cz, hx, hz) {
   }
 }
 
+function pushOutOBB2D(pos, cx, cz, ux, uz, vx, vz, hx, hz) {
+  const dx = pos.x - cx;
+  const dz = pos.z - cz;
+  const pu = dx * ux + dz * uz;
+  const pv = dx * vx + dz * vz;
+  const ou = hx - Math.abs(pu);
+  const ov = hz - Math.abs(pv);
+  if (ou > 0 && ov > 0) {
+    if (ou < ov) {
+      const targetPu = pu >= 0 ? hx : -hx;
+      const delta = targetPu - pu;
+      pos.x += delta * ux;
+      pos.z += delta * uz;
+    } else {
+      const targetPv = pv >= 0 ? hz : -hz;
+      const delta = targetPv - pv;
+      pos.x += delta * vx;
+      pos.z += delta * vz;
+    }
+  }
+}
+
+function pushOutRadialOBB2D(pos, bay, rCenter, rHalf, tHalf) {
+  pushOutOBB2D(
+    pos,
+    bay.ux * rCenter,
+    bay.uz * rCenter,
+    bay.ux,
+    bay.uz,
+    bay.px,
+    bay.pz,
+    rHalf,
+    tHalf
+  );
+}
+
+function pushOutDiningSector2D(pos, sideSign, rInner, rOuter, halfAngle, radius) {
+  const sx = pos.x * sideSign;
+  if (sx <= 0.2) return;
+  const rMin = Math.max(1.35, rInner - radius);
+  const rMax = rOuter + radius;
+  const r = Math.hypot(pos.x, pos.z);
+  if (r <= rMin || r >= rMax || r < 1e-4) return;
+  const ang = Math.atan2(pos.z, sx);
+  const rMid = (rInner + rOuter) * 0.5;
+  const angLimit = halfAngle + radius / rMid;
+  if (Math.abs(ang) >= angLimit) return;
+
+  const dInner = r - rMin;
+  const dOuter = rMax - r;
+  const dRadial = Math.min(dInner, dOuter);
+  const dAngular = (angLimit - Math.abs(ang)) * r;
+
+  if (dRadial <= dAngular) {
+    const targetR = dInner < dOuter ? rMin : rMax;
+    const scale = targetR / r;
+    pos.x *= scale;
+    pos.z *= scale;
+  } else {
+    const targetAng = (ang >= 0 ? 1 : -1) * angLimit;
+    pos.x = sideSign * r * Math.cos(targetAng);
+    pos.z = r * Math.sin(targetAng);
+  }
+}
+
 function pushOutRadialWall2D(pos, angleRad, rMin, rMax, halfThick) {
   // Orientación Aurora->KRONOX: dirección radial unitaria (sin(a), -cos(a))
   const ux = Math.sin(angleRad);
@@ -490,110 +707,147 @@ function segmentIntersectsRadialWall2D(ax, az, bx, bz, angleRad, rMin, rMax) {
 }
 
 /**
+ * Determina el ID de cubierta desde un umbral medio Y cuando no existe bloqueo explícito.
+ */
+function inferDeckZoneFromY(y) {
+  if (y < -5.1) return HULL_INTERIOR_ZONES.cargoHangar;
+  if (y < -1.7) return HULL_INTERIOR_ZONES.engineeringLab;
+  if (y < 1.7) return HULL_INTERIOR_ZONES.habRing;
+  return HULL_INTERIOR_ZONES.bridgeMain;
+}
+
+/**
  * Restringe la posición del astronauta, cámara 1P/3P o IA KRONOX dentro de las cubiertas
- * reales, mobiliario sólido y núcleo vertical / puertas cerradas del ascensor 3D.
+ * reales (bloqueo estricto entre plantas fuera del ascensor), mobiliario sólido y ascensor 3D.
  */
 export function clampAstronautPosition(
   pos,
   radius = ASTRONAUT_RADIUS_METERS,
   clearance = 0.24,
-  elevatorState = null
+  elevatorState = null,
+  options = null
 ) {
   if (!pos) return pos;
   const pad = radius + clearance;
   const radialFromCenter = Math.hypot(pos.x, pos.z);
-  const inVerticalShaft = radialFromCenter <= ELEVATOR_SHAFT_RADIUS + 0.08;
   const isEyeOrProbe = radius <= 0.28 || radius === 0.35;
+  const rCol = isEyeOrProbe ? Math.max(0.14, radius * 0.72) : radius;
 
   const cabY = Number.isFinite(elevatorState?.cabY) ? elevatorState.cabY : 3.4;
 
-  if (elevatorState?.moving) {
-    if (!isEyeOrProbe && elevatorState.passengerRiding) {
-      pos.y = cabY;
-      pos.x = Math.max(-0.82, Math.min(0.82, pos.x));
-      pos.z = Math.max(-0.82, Math.min(0.82, pos.z));
-      return pos;
-    }
-    if (isEyeOrProbe && elevatorState.passengerRiding && inVerticalShaft) {
-      pos.y = Math.max(cabY + 0.35, Math.min(cabY + 2.15, pos.y));
-      pos.x = Math.max(-0.86, Math.min(0.86, pos.x));
-      pos.z = Math.max(-0.86, Math.min(0.86, pos.z));
-      return pos;
-    }
-  }
-
-  if (inVerticalShaft) {
-    if (elevatorState) {
-      const refY = isEyeOrProbe ? pos.y - 1.35 : pos.y;
-      const sameDeckAsCab = Math.abs(refY - cabY) < 1.55 || Boolean(elevatorState.passengerRiding);
-      if (sameDeckAsCab) {
-        const activeDeck = resolveCurrentDeck({ y: cabY });
-        const doorOpen = Number(elevatorState.doorOpenByDeck?.[activeDeck.id] ?? 0);
-        if (isEyeOrProbe) {
-          pos.y = Math.max(cabY + 0.35, Math.min(cabY + 2.15, pos.y));
-        } else {
-          pos.y = cabY;
-        }
-        pos.x = Math.max(-0.92 + radius * 0.4, Math.min(0.92 - radius * 0.4, pos.x));
-        if (doorOpen < 0.72) {
-          pos.z = Math.max(-0.92 + radius * 0.4, Math.min(0.92 - radius * 0.4, pos.z));
-        }
-        return pos;
-      }
-      // Si la cabina NO está en esta cubierta, impedir entrar al pozo y empujar fuera de la puerta
-    } else {
-      // Modo sin estado físico de ascensor (pruebas unitarias y sondas) permite tránsito vertical continuo
+  // 1) Modo sin estado físico de ascensor (pruebas unitarias y sondas abiertas de pozo)
+  if (!elevatorState) {
+    const inVerticalShaft = radialFromCenter <= ELEVATOR_SHAFT_RADIUS + 0.08;
+    if (inVerticalShaft && !options?.lockedDeckId) {
       pos.y = Math.max(
         HULL_INTERIOR_ZONES.verticalShaft.minY,
-        Math.min(HULL_INTERIOR_ZONES.verticalShaft.maxY - (isEyeOrProbe ? 0.25 : 1.4), pos.y)
+        Math.min(HULL_INTERIOR_ZONES.verticalShaft.maxY - (isEyeOrProbe ? 0.22 : ASTRONAUT_HEIGHT_METERS), pos.y)
       );
       const maxShaftR = Math.max(0.25, ELEVATOR_SHAFT_RADIUS - Math.min(0.32, radius * 0.65));
-      if (radialFromCenter > maxShaftR && radialFromCenter > 1e-4) {
-        if (Math.abs(pos.x) > 0.72) {
-          const s = maxShaftR / radialFromCenter;
-          pos.x *= s;
-          pos.z *= s;
+      if (radialFromCenter > maxShaftR && radialFromCenter > 1e-4 && Math.abs(pos.x) > 0.72) {
+        const s = maxShaftR / radialFromCenter;
+        pos.x *= s;
+        pos.z *= s;
+      }
+      return pos;
+    }
+  }
+
+  // 2) Pasajero dentro de cabina en tránsito o cierre/apertura inicial: retención total sin deslizamiento
+  if (elevatorState?.passengerRiding) {
+    const ridingDeck = resolveCurrentDeck({ y: cabY });
+    const rideDoorOpen = Number(elevatorState.doorOpenByDeck?.[ridingDeck.id] ?? 0);
+    const lockInsideCab =
+      elevatorState.moving ||
+      elevatorState.phase === 'door-closing' ||
+      (elevatorState.phase === 'door-opening' && rideDoorOpen < 0.74);
+
+    if (lockInsideCab) {
+      if (isEyeOrProbe) {
+        pos.y = Math.max(cabY + 0.32, Math.min(cabY + 2.22, pos.y));
+        pos.x = Math.max(-0.82, Math.min(0.82, pos.x));
+        pos.z = Math.max(-0.82, Math.min(0.82, pos.z));
+      } else {
+        pos.y = cabY;
+        pos.x = Math.max(-0.72, Math.min(0.72, pos.x));
+        pos.z = Math.max(-0.72, Math.min(0.72, pos.z));
+      }
+      return pos;
+    }
+  }
+
+  // 3) Resolver cubierta activa con aislamiento estricto entre plantas fuera del ascensor
+  let zone;
+  if (elevatorState?.passengerRiding) {
+    zone = getDeckZoneById(resolveCurrentDeck({ y: cabY }).id);
+  } else if (options?.lockedDeckId && ZONE_BY_DECK_ID[options.lockedDeckId]) {
+    zone = ZONE_BY_DECK_ID[options.lockedDeckId];
+  } else if (options?.prevPos && Number.isFinite(options.prevPos.y)) {
+    zone = inferDeckZoneFromY(options.prevPos.y);
+  } else {
+    zone = inferDeckZoneFromY(pos.y);
+  }
+
+  // 4) Interacción con la cabina estacionada en esta cubierta (entrar / permanecer / salir por ±Z)
+  if (elevatorState) {
+    const cabAtThisDeck = Math.abs(cabY - zone.floorY) < 0.30;
+    const inCabFootprint = Math.abs(pos.x) < 1.15 && Math.abs(pos.z) < 1.15;
+    if (cabAtThisDeck && inCabFootprint) {
+      const doorOpen = Number(elevatorState.doorOpenByDeck?.[zone.id] ?? 0);
+      const rEdge = isEyeOrProbe ? 0.14 : Math.min(0.28, radius * 0.65);
+      if (isEyeOrProbe) {
+        pos.y = Math.max(cabY + 0.28, Math.min(cabY + 2.24, pos.y));
+      } else {
+        pos.y = Math.max(cabY, Math.min(cabY + 0.48, pos.y));
+      }
+      pos.x = Math.max(-(0.90 - rEdge), Math.min(0.90 - rEdge, pos.x));
+      if (doorOpen < 0.72) {
+        pos.z = Math.max(-(0.86 - rEdge), Math.min(0.86 - rEdge, pos.z));
+      } else {
+        // Solo se permite cruzar el umbral ±Z por la apertura libre central de la puerta
+        const maxDoorX = ELEVATOR_DOOR_CLEAR_HALF_WIDTH - rCol;
+        if (Math.abs(pos.z) > 0.86 && Math.abs(pos.x) > maxDoorX) {
+          pos.z = pos.z >= 0 ? 0.86 : -0.86;
         }
       }
       return pos;
     }
   }
 
-  // Determinar zona de cubierta correspondiente a Y
-  let zone = HULL_INTERIOR_ZONES.bridgeMain;
-  if (pos.y < -5.1) {
-    zone = HULL_INTERIOR_ZONES.cargoHangar;
-  } else if (pos.y < -1.7) {
-    zone = HULL_INTERIOR_ZONES.engineeringLab;
-  } else if (pos.y < 1.7) {
-    zone = HULL_INTERIOR_ZONES.habRing;
-  } else {
-    zone = HULL_INTERIOR_ZONES.bridgeMain;
-  }
-
-  const maxFeetY = isEyeOrProbe ? zone.maxY : zone.floorY + 1.58;
-  const minAllowedY = isEyeOrProbe ? zone.minY + 0.25 : zone.minY;
+  // 5) Límites verticales infranqueables de la cubierta (suelo firme + techo cerrado bajo losa superior)
+  const maxFeetY = isEyeOrProbe ? zone.maxY : zone.floorY + ASTRONAUT_MAX_FEET_ABOVE_FLOOR;
+  const minAllowedY = isEyeOrProbe ? zone.minY + 0.22 : zone.minY;
   pos.y = Math.max(minAllowedY, Math.min(maxFeetY, pos.y));
 
+  // 6) Contorno y mobiliario sólido 1:1 de cada cubierta
   if (zone.id === 'deck-01') {
-    // Contorno heptagonal de proa a popa
-    pos.z = Math.max(-14.3 + pad * 0.4, Math.min(11.3 - pad * 0.4, pos.z));
+    pos.z = Math.max(-14.35 + pad * 0.4, Math.min(11.35 - pad * 0.4, pos.z));
     const maxX = Math.max(0.55, getBridgeHalfWidthAtZ(pos.z) - pad);
     pos.x = Math.max(-maxX, Math.min(maxX, pos.x));
 
-    // Colisión con la mesa holográfica (0, +6.0), núcleo capitán (0, -5.5), consolas laterales y chevrón frontal
-    pushOutCylinder2D(pos, 0.0, 6.0, 1.58 + radius);
-    pushOutCylinder2D(pos, 0.0, -5.5, 0.98 + radius);
-    if (!isEyeOrProbe) {
-      pushOutAABB2D(pos, -2.85, -9.55, 1.15 + radius, 0.75 + radius);
-      pushOutAABB2D(pos, 2.85, -9.55, 1.15 + radius, 0.75 + radius);
-      pushOutAABB2D(pos, -6.5, -5.8, 1.2 + radius, 1.0 + radius);
-      pushOutAABB2D(pos, 6.5, -5.8, 1.2 + radius, 1.0 + radius);
-      pushOutAABB2D(pos, -9.5, 1.2, 0.95 + radius, 4.4 + radius);
-      pushOutAABB2D(pos, 9.5, 1.2, 0.95 + radius, 4.4 + radius);
+    // Mesa holográfica (0, +6.0), núcleo estrado capitán (0, -5.5), puestos tácticos y chevrón frontal
+    pushOutCylinder2D(pos, 0.0, 6.0, 1.65 + rCol);
+    if (!isEyeOrProbe || pos.y < zone.floorY + 1.38) {
+      pushOutCylinder2D(pos, 0.0, -5.5, 2.52 + rCol);
+      for (let i = 0; i < C01_CHEVRON_OBSTACLES.length; i++) {
+        const obs = C01_CHEVRON_OBSTACLES[i];
+        pushOutOBB2D(
+          pos,
+          obs.deskCx,
+          obs.deskCz,
+          obs.ux,
+          obs.uz,
+          obs.vx,
+          obs.vz,
+          obs.hx + rCol,
+          obs.hz + rCol
+        );
+        if (obs.chairCx !== null) {
+          pushOutCylinder2D(pos, obs.chairCx, obs.chairCz, obs.chairRadius + rCol * 0.8);
+        }
+      }
     }
   } else {
-    // Recinto circular conforme al radio esférico real de cada cubierta
     const rMax = Math.max(2.5, zone.radiusLimit - pad);
     const r = Math.hypot(pos.x, pos.z);
     if (r > rMax && r > 1e-4) {
@@ -603,69 +857,125 @@ export function clampAstronautPosition(
     }
 
     if (zone.id === 'deck-02') {
-      // Mesada circular del comedor alrededor del núcleo (pasillos abiertos en ±Z para |x| <= 1.25)
-      if (Math.abs(pos.x) > 1.05) {
-        const rInner = 1.48 + radius;
-        const rOuter = 3.55 + radius;
-        const rc = Math.hypot(pos.x, pos.z);
-        if (rc > rInner && rc < rOuter && rc > 1e-4) {
-          const targetR = rc < 2.55 ? rInner : rOuter;
-          pos.x = (pos.x / rc) * targetR;
-          pos.z = (pos.z / rc) * targetR;
+      // Dos barras curvas del comedor en ±X, dejando pasillos ±Z totalmente transitables hacia el ascensor
+      if (!isEyeOrProbe || pos.y < zone.floorY + 1.25) {
+        pushOutDiningSector2D(
+          pos,
+          1,
+          C02_DINING_ARCS.rInner,
+          C02_DINING_ARCS.rOuter,
+          C02_DINING_ARCS.halfAngleRad,
+          rCol
+        );
+        pushOutDiningSector2D(
+          pos,
+          -1,
+          C02_DINING_ARCS.rInner,
+          C02_DINING_ARCS.rOuter,
+          C02_DINING_ARCS.halfAngleRad,
+          rCol
+        );
+        for (let s = 0; s < C02_DINING_ARCS.stoolAnglesFromX.length; s++) {
+          const ang = C02_DINING_ARCS.stoolAnglesFromX[s];
+          const sx = C02_DINING_ARCS.stoolRadius * Math.cos(ang);
+          const sz = C02_DINING_ARCS.stoolRadius * Math.sin(ang);
+          pushOutCylinder2D(pos, sx, sz, 0.34 + rCol * 0.75);
+          pushOutCylinder2D(pos, -sx, sz, 0.34 + rCol * 0.75);
         }
       }
-      // 8 mamparos radiales sólidos desfasados 22.5° (desde r = 6.9 hasta pared exterior), dejando anillo libre 3.5..6.8
+
+      // 8 mamparos radiales sólidos (desfasados 22.5°) y mamparo de esclusa EVA a proa (0, -16.0)
       for (let i = 0; i < C02_BULKHEAD_ANGLES.length; i++) {
-        pushOutRadialWall2D(pos, C02_BULKHEAD_ANGLES[i], 6.85 - radius * 0.4, 17.8, 0.14 + radius);
+        pushOutRadialWall2D(pos, C02_BULKHEAD_ANGLES[i], 6.85 - rCol * 0.35, 17.8, 0.14 + rCol);
       }
-      // Bancos y bastidores biopónicos en bahía popa (+Z), exclusa proa y literas de camarotes
-      if (!isEyeOrProbe) {
-        pushOutAABB2D(pos, -2.55, 11.4, 0.62 + radius, 2.2 + radius);
-        pushOutAABB2D(pos, 2.55, 11.4, 0.62 + radius, 2.2 + radius);
-        pushOutAABB2D(pos, -5.95, -5.95, 0.85 + radius, 0.85 + radius);
+      pushOutAABB2D(pos, 0.0, -16.0, 1.45 + rCol, 0.32 + rCol);
+
+      // Taquilla EVA en camarote babor-proa (-5.95, -5.95) y armarios/literas de los 6 camarotes
+      pushOutOBB2D(
+        pos,
+        -5.95,
+        -5.95,
+        Math.SQRT1_2,
+        Math.SQRT1_2,
+        -Math.SQRT1_2,
+        Math.SQRT1_2,
+        0.64 + rCol,
+        0.38 + rCol
+      );
+      for (let b = 0; b < C02_CABIN_BAYS.length; b++) {
+        const bay = C02_CABIN_BAYS[b];
+        pushOutRadialOBB2D(pos, bay, 16.6, 0.34 + rCol, 0.76 + rCol);
+        if (!isEyeOrProbe || pos.y < zone.floorY + 1.15) {
+          pushOutRadialOBB2D(pos, bay, 14.1, 1.24 + rCol, 0.59 + rCol);
+          pushOutRadialOBB2D(pos, bay, 13.0, 0.27 + rCol, 0.44 + rCol);
+        }
       }
+
+      // Bastidores biopónicos altos en bahía de popa (+Z)
+      pushOutAABB2D(pos, -2.55, 11.4, 0.50 + rCol, 2.12 + rCol);
+      pushOutAABB2D(pos, 2.55, 11.4, 0.50 + rCol, 2.12 + rCol);
     } else if (zone.id === 'deck-03') {
-      // Reactor principal (0, +9.0), columnas refrigerantes (±4, +9), tanques criogénicos (±6, -9) y arcos de laboratorio
-      pushOutCylinder2D(pos, 0.0, 9.0, 2.6 + radius);
-      pushOutCylinder2D(pos, -4.0, 9.0, 0.42 + radius);
-      pushOutCylinder2D(pos, 4.0, 9.0, 0.42 + radius);
-      pushOutCylinder2D(pos, -6.0, -9.0, 1.42 + radius);
-      pushOutCylinder2D(pos, 6.0, -9.0, 1.42 + radius);
-      if (!isEyeOrProbe) {
-        pushOutAABB2D(pos, -15.3, 0.0, 0.95 + radius, 5.2 + radius);
-        pushOutAABB2D(pos, 15.1, 0.0, 1.05 + radius, 5.2 + radius);
-        pushOutCylinder2D(pos, -9.8, 11.8, 1.05 + radius);
+      // Reactor principal (0, +9.0), columnas refrigerantes (±4, +9) y tanques criogénicos (±6, -9)
+      pushOutCylinder2D(pos, 0.0, 9.0, 2.58 + rCol);
+      pushOutCylinder2D(pos, -4.0, 9.0, 0.36 + rCol);
+      pushOutCylinder2D(pos, 4.0, 9.0, 0.36 + rCol);
+      pushOutCylinder2D(pos, -6.0, -9.0, 1.42 + rCol);
+      pushOutCylinder2D(pos, 6.0, -9.0, 1.42 + rCol);
+
+      // 6 + 6 mesas curvas del laboratorio SPHEREx (babor) y Banco Óptico (estribor)
+      if (!isEyeOrProbe || pos.y < zone.floorY + 1.38) {
+        for (let i = 0; i < C03_LAB_ARCS.length; i++) {
+          const arc = C03_LAB_ARCS[i];
+          pushOutOBB2D(
+            pos,
+            arc.cx,
+            arc.cz,
+            arc.ux,
+            arc.uz,
+            arc.vx,
+            arc.vz,
+            arc.hx + rCol,
+            arc.hz + rCol
+          );
+        }
       }
     } else if (zone.id === 'deck-04') {
-      // Fuselaje y alas del transbordador de servicio estacionado en proa (0, -11.5)
-      pushOutAABB2D(pos, 0.0, -11.5, 1.45 + radius, 4.15 + radius);
-      pushOutAABB2D(pos, 0.0, -11.0, 3.55 + radius, 1.2 + radius);
-      // Contenedores ISO deterministas y banco de mantenimiento en bodega
+      // Fuselaje, cono de proa extendido (-17.2) y alas del transbordador estacionado
+      pushOutAABB2D(pos, 0.0, -11.5, 1.38 + rCol, 3.05 + rCol);
+      pushOutAABB2D(pos, 0.0, -15.65, 0.98 + rCol, 1.56 + rCol);
+      pushOutAABB2D(pos, 0.0, -11.0, 3.55 + rCol, 1.22 + rCol);
+
+      // Contenedores ISO deterministas (doble altura bloquea también sonda de cámara)
       for (let i = 0; i < C04_CARGO_CONTAINERS.length; i++) {
         const b = C04_CARGO_CONTAINERS[i];
-        pushOutAABB2D(pos, b.cx, b.cz, b.hx + radius, b.hz + radius);
+        if (b.double || !isEyeOrProbe || pos.y < zone.floorY + 1.56) {
+          pushOutAABB2D(pos, b.cx, b.cz, b.hx + rCol, b.hz + rCol);
+        }
       }
-      if (!isEyeOrProbe) {
-        pushOutAABB2D(pos, -7.8, 4.8, 1.15 + radius, 0.95 + radius);
+
+      // Banco y grúa de mantenimiento C04 (-7.8, +4.8)
+      if (!isEyeOrProbe || pos.y < zone.floorY + 1.25) {
+        pushOutAABB2D(pos, -7.8, 4.8, 1.12 + rCol, 0.88 + rCol);
       }
     }
   }
 
-  // Paredes laterales del núcleo de ascensores (entradas en ±Z, muros sólidos en ±X)
-  if (Math.abs(pos.z) < 1.38 && Math.abs(pos.x) >= ELEVATOR_SHAFT_RADIUS - 0.15 && Math.abs(pos.x) < 1.65 + radius) {
-    pos.x = pos.x >= 0 ? 1.65 + radius : -(1.65 + radius);
-  }
-
-  // Barrera física de puertas cerradas del ascensor en cada cubierta (cuando elevatorState está activo)
-  if (elevatorState && !isEyeOrProbe && Math.abs(pos.x) < 1.34) {
-    const cabY = Number.isFinite(elevatorState.cabY) ? elevatorState.cabY : 3.4;
+  // 7) Núcleo de ascensores, jambas, pedestales y puertas cerradas
+  if (elevatorState) {
+    const cabAtThisDeck = Math.abs(cabY - zone.floorY) < 0.30;
     const doorOpen = Number(elevatorState.doorOpenByDeck?.[zone.id] ?? 0);
-    const cabAtThisDeck = Math.abs(cabY - zone.floorY) < 0.35;
-    if (!cabAtThisDeck && Math.abs(pos.z) < 1.52 + radius) {
-      pos.z = pos.z >= 0 ? 1.52 + radius : -(1.52 + radius);
-    } else if (cabAtThisDeck && doorOpen < 0.72 && Math.abs(pos.z) >= 1.05 && Math.abs(pos.z) < 1.52 + radius) {
-      pos.z = pos.z >= 0 ? 1.52 + radius : -(1.52 + radius);
+
+    // Muros y jambas unificados del pozo central (±X de 0.74 a 1.58 m a lo largo de ±1.56 m en Z)
+    pushOutAABB2D(pos, -1.16, 0.0, 0.42 + rCol, 1.56 + rCol);
+    pushOutAABB2D(pos, 1.16, 0.0, 0.42 + rCol, 1.56 + rCol);
+
+    // Barrera física sólida si la cabina NO está en esta cubierta o las hojas no terminaron de abrir
+    if (!cabAtThisDeck || doorOpen < 0.72) {
+      pushOutAABB2D(pos, 0.0, 0.0, 1.52 + rCol, 1.52 + rCol);
     }
+  } else {
+    pushOutAABB2D(pos, -1.16, 0.0, 0.42 + rCol, 1.56 + rCol);
+    pushOutAABB2D(pos, 1.16, 0.0, 0.42 + rCol, 1.56 + rCol);
   }
 
   return pos;
@@ -678,7 +988,9 @@ export function findNearestInteractiveStation(position, overrideRange = null, op
   if (!position) return null;
   if (options?.exteriorMode) return null;
 
-  const currentDeck = resolveCurrentDeck(position);
+  const currentDeck = options?.lockedDeckId
+    ? CABIN_DECKS.find((d) => d.id === options.lockedDeckId) || resolveCurrentDeck(position)
+    : resolveCurrentDeck(position);
   const hasGaze = Boolean(options?.lookDir && Number.isFinite(options.lookDir.x));
   const minDot = Number.isFinite(options?.minDot) ? options.minDot : 0.38;
   const eyeX = options?.eyePos?.x ?? position.x;
