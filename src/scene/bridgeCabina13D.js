@@ -812,7 +812,7 @@ export function buildBridgeCabina13D({
   place(parentGroup, daisLowerGeo, M.bridgeRibMat, 5.5, f, 0);
   const daisRingLow = place(parentGroup, torus(3.00, 0.024, 8, 40), M.bridgeChampagneMat, 5.5, f + 0.175, 0);
   daisRingLow.rotation.x = Math.PI / 2;
-  place(parentGroup, daisUpperGeo, M.bridgeCarbonMat, 5.5, f, 0, 'console');
+  place(parentGroup, daisUpperGeo, M.bridgeCarbonMat, 5.5, f, 0);
   const daisCoveGlow = place(parentGroup, torus(2.50, 0.016, 8, 40), M.bridgeWarmCoveMat, 5.5, f + 0.365, 0);
   daisCoveGlow.rotation.x = Math.PI / 2;
   const daisTopTrim = place(parentGroup, torus(2.42, 0.026, 8, 40), M.bridgeChampagneMat, 5.5, f + 0.40, 0);
@@ -829,18 +829,7 @@ export function buildBridgeCabina13D({
     place(parentGroup, cyl(0.024, 0.028, 0.32, 10), M.bridgeChampagneMat, 5.5 + Math.cos(ang) * 2.24, f + 2.86, Math.sin(ang) * 2.24);
   });
 
-  buildSculptedChair(parentGroup, 5.5, 0, f + 0.40, Math.PI / 2, true);
-  // Consolitas laterales en ala acopladas orgánicamente junto a los brazos del Capitán
-  [-1, 1].forEach((side) => {
-    const cg = new THREE.Group();
-    cg.position.set(5.66, f + 0.40, side * 0.78);
-    cg.rotation.y = side * -0.18;
-    parentGroup.add(cg);
-    place(cg, rbox(0.84, 0.46, 0.22, 0.04), M.bridgeRibMat, 0, 0.26, 0);
-    place(cg, rbox(0.88, 0.04, 0.26, 0.015), M.bridgeChampagneMat, 0, 0.50, 0);
-    const wingMfd = place(cg, rbox(0.56, 0.26, 0.028, 0.01), M.mfdHelmMat, 0.08, 0.66, side * -0.04);
-    wingMfd.rotation.z = -0.52;
-  });
+  // Espacio central de la plataforma circular despejado y transitable (sin silla central)
 
   // =========================================================================
   // 4. TIMÓN CENTRAL GULLWING + 4 TERMINALES INTERACTIVOS INTEGRADOS (SIN PALOS SUELTOS)

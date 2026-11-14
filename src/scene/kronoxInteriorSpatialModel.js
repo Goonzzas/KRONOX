@@ -825,10 +825,16 @@ export function clampAstronautPosition(
     const maxX = Math.max(0.55, getBridgeHalfWidthAtZ(pos.z) - pad);
     pos.x = Math.max(-maxX, Math.min(maxX, pos.x));
 
-    // Mesa holográfica (0, +6.0), núcleo estrado capitán (0, -5.5), consola de timón central (0, -10.68), puestos tácticos y chevrón frontal
+    // Mesa holográfica (0, +6.0), consola de timón central (0, -10.68), puestos tácticos y chevrón frontal
+    // La plataforma circular central en (0, -5.5) queda completamente libre y transitable con peldaños reales.
     pushOutCylinder2D(pos, 0.0, 6.0, 1.65 + rCol);
+    const daisRadial = Math.hypot(pos.x, pos.z + 5.5);
+    const daisStepY = daisRadial <= 2.56 ? 0.40 : daisRadial <= 3.12 ? 0.18 : 0.0;
+    const daisMinY = (isEyeOrProbe ? zone.floorY + 0.18 : zone.floorY) + daisStepY;
+    if (pos.y < daisMinY) {
+      pos.y = Math.min(zone.maxY - 0.15, daisMinY);
+    }
     if (!isEyeOrProbe || pos.y < zone.floorY + 1.38) {
-      pushOutCylinder2D(pos, 0.0, -5.5, 2.52 + rCol);
       pushOutAABB2D(pos, 0.0, -10.68, 0.86 + rCol, 0.36 + rCol);
       for (let i = 0; i < C01_CHEVRON_OBSTACLES.length; i++) {
         const obs = C01_CHEVRON_OBSTACLES[i];
@@ -966,17 +972,17 @@ export function clampAstronautPosition(
     const cabAtThisDeck = Math.abs(cabY - zone.floorY) < 0.30;
     const doorOpen = Number(elevatorState.doorOpenByDeck?.[zone.id] ?? 0);
 
-    // Muros y jambas unificados del pozo central (±X de 0.74 a 1.58 m a lo largo de ±1.56 m en Z)
-    pushOutAABB2D(pos, -1.16, 0.0, 0.42 + rCol, 1.56 + rCol);
-    pushOutAABB2D(pos, 1.16, 0.0, 0.42 + rCol, 1.56 + rCol);
+    // Muros y jambas unificados del pozo central dejando el paso libre exacto del umbral (±0.82 m)
+    pushOutAABB2D(pos, -1.21, 0.0, 0.39 + rCol, 1.56 + rCol);
+    pushOutAABB2D(pos, 1.21, 0.0, 0.39 + rCol, 1.56 + rCol);
 
     // Barrera física sólida si la cabina NO está en esta cubierta o las hojas no terminaron de abrir
     if (!cabAtThisDeck || doorOpen < 0.72) {
-      pushOutAABB2D(pos, 0.0, 0.0, 1.52 + rCol, 1.52 + rCol);
+      pushOutAABB2D(pos, 0.0, 0.0, 1.56 + rCol, 1.52 + rCol);
     }
   } else {
-    pushOutAABB2D(pos, -1.16, 0.0, 0.42 + rCol, 1.56 + rCol);
-    pushOutAABB2D(pos, 1.16, 0.0, 0.42 + rCol, 1.56 + rCol);
+    pushOutAABB2D(pos, -1.21, 0.0, 0.39 + rCol, 1.56 + rCol);
+    pushOutAABB2D(pos, 1.21, 0.0, 0.39 + rCol, 1.56 + rCol);
   }
 
   return pos;

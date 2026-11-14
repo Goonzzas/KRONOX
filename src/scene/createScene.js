@@ -3,7 +3,7 @@ import { createHyperspaceEffect } from './hyperspaceEffect.js';
 import { buildStellarAtlas } from './navigationAtlas.js';
 import { makeAtlasGalaxy } from './galaxyVisuals.js';
 import { galaxyMapPosition, galaxySymbolRadii, fitAtlasCamera, placeAtlasLabels, makeLabelLeader } from './mapLayout.js';
-import { createSceneLabel as lab } from './sceneLabels.js';
+import { createSceneLabel as lab, placeSpacePlanetLabels } from './sceneLabels.js';
 import { heliocentricMapPosition, SOLAR_GALACTIC_ANCHOR } from './astronomicalPositions.js';
 import { disposeSceneResources } from './disposeResources.js';
 import { scaleContext, scaleForTarget, macroGalacticVisible } from './navigationScale.js';
@@ -630,6 +630,10 @@ export function setupScene(el, S) {
   });
   sc.add(deepGalaxyBackdrop);
   const LB = [];
+  const planetLabelsGroup = new THREE.Group();
+  planetLabelsGroup.name = 'SpacePlanetLabelsLayer';
+  sc.add(planetLabelsGroup);
+  let spacePlanetLabelHits = [];
   const macroGalacticGroup = new THREE.Group(); macroGalacticGroup.name = 'Milky Way macro structure including Orion spur';
   const gal = new THREE.Group(),
     RG = 22500,
@@ -1798,9 +1802,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       );
       sc.add(b.glow);
     }
-    b.lab = lab(p.n);
-    pivot.add(b.lab);
-    LB.push(b.lab);
+    b.lab = lab(p.n, 0.4, 28, document, {
+      badge: true,
+      accentColor: p.sun ? '#ffd27d' : p.ring ? '#f0d290' : '#74dcff',
+      borderColor: p.sun ? 'rgba(255, 210, 125, 0.68)' : 'rgba(126, 218, 255, 0.62)',
+    });
+    b.lab.userData.planetName = p.n;
+    planetLabelsGroup.add(b.lab);
     b.ax = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(0, -2, 0),
@@ -2347,14 +2355,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     ct.enabled = saved.controlsEnabled;
   }
 
-  const enterExteriorCameraClearHud = () => {
+  const enterExteriorCameraClearHud = ({ preserveFreeHelm = false } = {}) => {
     nearestCabinStation = null;
     lastNearestStationId = null;
     activeCabinStation = null;
-    freeHelmMode = false;
+    if (!preserveFreeHelm) {
+      freeHelmMode = false;
+      S.onFreeHelmChange?.(false);
+    }
     S.onNearestStationChange?.(null);
     S.onStationInteract?.(null);
-    S.onFreeHelmChange?.(false);
   };
 
   const pointerLockSupported = Boolean(
@@ -2442,10 +2452,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   };
 
   function userCameraAvailable() { return !(realTimeIntro || mainMenuOrbitActive || launchSequence || launchCameraBlend || cabinReentryBlend || nav); }
-  function enterExteriorCamera() {
+  function enterExteriorCamera({ preserveFreeHelm = false } = {}) {
     if (!userCameraAvailable()) return false;
     exitPointerLockIfActive('exterior');
-    enterExteriorCameraClearHud();
+    enterExteriorCameraClearHud({ preserveFreeHelm });
     const alreadyExterior = exteriorCameraMode;
     if (!alreadyExterior) {
       exteriorCameraMode = true;
@@ -2466,6 +2476,44 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     emitPointerLockState('exterior');
     return true;
+  }
+
+  function applyFreeHelmMode(enabled) {
+    const next = Boolean(enabled);
+    freeHelmMode = next;
+    if (next) {
+      exitPointerLockIfActive('helm');
+      if (!free) {
+        setFree(true, false);
+        S.fr?.(true);
+      }
+      if (astronautSeatedInBridge) {
+        astronautSeatedInBridge = false;
+      }
+      freeHelmBlend = 1;
+      pv = 3;
+      S.onViewChange?.(3);
+      enterExteriorCamera({ preserveFreeHelm: true });
+      if (articulatedAstronaut?.root) articulatedAstronaut.root.visible = false;
+      if (guidedTourState && ['look_camera', 'nav', 'bridge', 'astro_obs'].includes(guidedTourState.step)) {
+        onGuidedStationInteraction('windows');
+      } else if (!guidedTourState) {
+        fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+        luminousAI.pointAtWorldPosition(null, false);
+        S.onGuideObjective?.('');
+      }
+    } else {
+      freeHelmBlend = 0;
+      if (exteriorCameraMode || pv !== 1) {
+        applyCameraView(1);
+        S.onViewChange?.(1);
+      } else {
+        freeHelmMode = false;
+      }
+    }
+    emitPointerLockState();
+    S.onFreeHelmChange?.(freeHelmMode);
+    return freeHelmMode;
   }
   function nearbyMap() {
     if (!userCameraAvailable()) return false;
@@ -3932,13 +3980,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       comms: 'OBJETIVO: Interactúa con la consola de comunicaciones.',
       windows: 'OBJETIVO: Acércate al mirador o interactúa con él.',
     };
-    if (objectives[step]) S.onGuideObjective?.(objectives[step]);
+    S.onGuideObjective?.(objectives[step] || '');
     if (stationId) {
       const station = getStationDef(stationId);
       if (station) {
         luminousAI.setTargetPosition(station.aiHoverPos, 'Señalización');
         luminousAI.pointAtWorldPosition(station.consolePos, true);
       }
+    } else {
+      aiFollowAstronaut = true;
+      luminousAI.pointAtWorldPosition(null, false);
     }
   }
 
@@ -4075,7 +4126,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
 
   function onGuidedStationInteraction(stationId) {
-    if (!guidedTourState || guidedTourState.step === 'free' || !stationId) return;
+    if (!stationId) {
+      // Al cerrar la estación activa, retirar la señalización persistente salvo si sigue pendiente un paso guiado distinto
+      if (!guidedTourState || guidedTourState.step === 'free') {
+        fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+        aiFollowAstronaut = true;
+        luminousAI.pointAtWorldPosition(null, false);
+      }
+      return;
+    }
+    if (!guidedTourState || guidedTourState.step === 'free') {
+      fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+      S.onGuideObjective?.('');
+      return;
+    }
     if (guidedTourState.step === 'stand_up') {
       standUpFromBridgeSeat();
     }
@@ -4095,6 +4159,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (
       guidedTourState.step === 'astro_obs' &&
       (stationId === 'windows' || stationId === 'nav' || stationId === 'missions' || String(stationId).startsWith('elevator'))
+    ) {
+      setTourStep('galactic_map', null);
+      S.onAiTourNarrative?.(
+        tourNarratives.galactic_map,
+        'Orientación',
+        'windows',
+        { id: 'tut-step-galactic-map', priority: 8, replace: true, once: false },
+      );
+      return;
+    }
+    if (
+      guidedTourState.step === 'galactic_map' &&
+      String(stationId).startsWith('elevator')
     ) {
       setTourStep('elevator_c02', 'elevator');
       S.onAiTourNarrative?.(
@@ -4697,6 +4774,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (stId === 'maintenance-c04') {
         activeRepairStage = Math.max(activeRepairStage, 1);
       }
+      onGuidedStationInteraction(stId);
       return;
     }
 
@@ -4705,6 +4783,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     else activeCabinStation = stId;
     exitPointerLockIfActive('station');
 
+    if (!guidedTourState || guidedTourState.step === 'free') {
+      fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+      S.onGuideObjective?.('');
+    }
     const stObj = candidateObj || getStationDef(stId);
     if (stObj) {
       aiFollowAstronaut = false;
@@ -4727,7 +4809,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const startPhysicalElevatorRide = (targetDeckId) => {
     const elSys = fourDecksInterior?.elevatorSystem;
     if (!elSys) return false;
-    const isInsideCab = Math.hypot(astronautPos.x, astronautPos.z) <= 1.26;
+    const isInsideCab = Math.abs(astronautPos.x) <= 1.05 && Math.abs(astronautPos.z) <= 1.38;
     if (!isInsideCab) {
       const curDeck = resolveCurrentDeck(astronautPos);
       const cabHere = Math.abs(elSys.state.cabY - curDeck.elevationY) < 0.35;
@@ -4736,12 +4818,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         microgravityController.setPosition(astronautPos);
       }
     }
-    const passengerInside = Math.hypot(astronautPos.x, astronautPos.z) <= 1.26;
+    const passengerInside = Math.abs(astronautPos.x) <= 1.05 && Math.abs(astronautPos.z) <= 1.38;
     const started = elSys.requestDeck(targetDeckId, passengerInside);
     if (started && passengerInside) {
       activeCabinStation = null;
       S.onStationInteract?.(null);
       astronautVel.set(0, 0, 0);
+      if (
+        guidedTourState &&
+        (guidedTourState.step === 'elevator_c02' || guidedTourState.step === 'elevator_c03')
+      ) {
+        // Ocultar la baliza de entrada al ascensor en cuanto el jugador inicia el trayecto físico
+        fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+        luminousAI.pointAtWorldPosition(null, false);
+      }
     }
     S.onElevatorStateChange?.({ ...elSys.state, doorOpenByDeck: { ...elSys.state.doorOpenByDeck } });
     return started;
@@ -4832,9 +4922,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         }
       }
     }
-    // Bloque 3: Selección interactiva de objetos astronómicos en el universo 3D
-    // Sólo se permite cuando se usa el sistema de exploración/observación astronómica exterior
-    // o el ventanal panorámico del puente (nunca a través de paredes o pisos en las cubiertas interiores).
+    // Bloque 3: Selección interactiva de objetos astronómicos y etiquetas de planetas en el universo 3D
+    const curDeckForClick = free && pv === 1 ? resolveCurrentDeck(astronautPos) : null;
     const allowSkyObjectClick =
       !free ||
       pv === 3 ||
@@ -4842,7 +4931,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       opticalTelescopeState.enabled ||
       freeHelmMode ||
       activeCabinStation === 'windows' ||
-      activeCabinStation === 'nav';
+      activeCabinStation === 'nav' ||
+      curDeckForClick?.id === 'deck-01';
     if (clickMoved < 6 && !nearbyMapState && allowSkyObjectClick) {
       if (wasPointerLockedOnDown) {
         nearbyPointer.set(0, 0);
@@ -4856,8 +4946,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       // Si el jugador está dentro del puente (pv === 1), verificar que el rayo no atraviese paredes/consolas interiores
       let blockedByInterior = false;
       if (free && pv === 1 && !exteriorCameraMode && !opticalTelescopeState.enabled) {
-        const curDeckClick = resolveCurrentDeck(astronautPos);
-        if (curDeckClick?.id !== 'deck-01') {
+        if (curDeckForClick?.id !== 'deck-01') {
           blockedByInterior = true;
         } else {
           const solidMeshes =
@@ -4877,7 +4966,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         nearbyRaycaster.setFromCamera(nearbyPointer, cam);
         const starNodes = [...missionMarkers.values()].map((m) => m.marker);
         const planetNodes = B.map((b) => b.pivot);
-        const hits = nearbyRaycaster.intersectObjects([...starNodes, ...planetNodes], true);
+        const planetLabelNodes = planetLabelsGroup.children.filter((l) => l.visible);
+        const hits = nearbyRaycaster.intersectObjects(
+          [...starNodes, ...planetNodes, ...planetLabelNodes],
+          true,
+        );
         for (const hit of hits) {
           let node = hit.object;
           while (node) {
@@ -4897,10 +4990,46 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             node = node.parent;
           }
         }
+        // Respaldo de clic sobre cápsula de etiqueta visible o esfera planetaria lejana
+        if (!wasPointerLockedOnDown && spacePlanetLabelHits.length) {
+          const rect = dom.getBoundingClientRect();
+          const px = e.clientX - rect.left;
+          const py = e.clientY - rect.top;
+          let matched = null;
+          for (const hit of spacePlanetLabelHits) {
+            const box = hit.labelBox;
+            const insideLabel =
+              box && px >= box.left - 5 && px <= box.right + 5 && py >= box.top - 5 && py <= box.bottom + 5;
+            const insidePlanet = Math.hypot(px - hit.anchorPxX, py - hit.anchorPxY) <= hit.planetRadiusPx;
+            if (insideLabel || insidePlanet) {
+              if (!matched || hit.depth < matched.depth) matched = hit;
+            }
+          }
+          if (matched?.name) {
+            promotePlanetTexture(matched.name);
+            S.onObjectSelect?.({ kind: 'planet', key: matched.name });
+            return;
+          }
+        }
       }
     }
   };
   const onPointerMove = (e) => {
+    if (!pointerLockActive && !drag && !realTimeIntro && !simulationPaused && spacePlanetLabelHits.length && dom?.style) {
+      const rect = dom.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      const hoveringPlanet = spacePlanetLabelHits.some((hit) => {
+        const box = hit.labelBox;
+        return (
+          (box && px >= box.left - 4 && px <= box.right + 4 && py >= box.top - 4 && py <= box.bottom + 4) ||
+          Math.hypot(px - hit.anchorPxX, py - hit.anchorPxY) <= hit.planetRadiusPx
+        );
+      });
+      dom.style.cursor = hoveringPlanet ? 'pointer' : '';
+    } else if (dom?.style && !pointerLockActive) {
+      dom.style.cursor = '';
+    }
     const canLookWithLock =
       pointerLockActive &&
       free &&
@@ -5055,8 +5184,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     const k = e.key.toLowerCase();
     if (k === 'escape' && freeHelmMode) {
-      freeHelmMode = false;
-      S.onFreeHelmChange?.(false);
+      applyFreeHelmMode(false);
       e.preventDefault();
       return;
     }
@@ -5108,7 +5236,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return;
     }
     // Teclas [1..4] cuando está abierto el panel del ascensor 3D O dentro de la cabina del ascensor
-    const insideElevatorCabNow = Math.hypot(astronautPos.x, astronautPos.z) <= 1.24;
+    const insideElevatorCabNow = Math.abs(astronautPos.x) <= 1.05 && Math.abs(astronautPos.z) <= 1.38;
     if (
       ['1', '2', '3', '4'].includes(k) &&
       free &&
@@ -5429,7 +5557,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         const rate = ((TAU * 24) / p.rot) * effectiveSpd;
         b.spin.rotation.y += rate * dt;
       }
-      b.lab.visible = allowReferenceGuides && !!fl.lab;
       b.ax.visible = allowReferenceGuides && !!fl.ax;
       if (b.orbit) {
         b.orbit.material.opacity = 0.5 * solarOrbitVisibility;
@@ -5486,13 +5613,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       const routeForFrame = nav;
       const inHabitableCabin = pv == 1 && !realTimeIntro && !launchSequence && !launchCameraBlend;
       const pilotingFromCabin = inHabitableCabin && activeCabinStation === 'nav';
+      const pilotingFromExterior =
+        freeHelmMode && (exteriorCameraMode || pv === 3) && !realTimeIntro && !launchSequence && !launchCameraBlend;
+      const isFreeHelmPiloting = pilotingFromCabin || pilotingFromExterior;
       freeHelmBlend += ((freeHelmMode ? 1 : 0) - freeHelmBlend) * Math.min(1, dt * 3.2);
-      if (pilotingFromCabin && !nav) {
-        fy += ((keys.d ? 1 : 0) - (keys.a ? 1 : 0)) * dt * 0.72;
+      if (isFreeHelmPiloting && !nav) {
+        fy += ((keys.a ? 1 : 0) - (keys.d ? 1 : 0)) * dt * 0.92;
         q.setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
       }
-      const ok = !nav && ti >= 5 && (!inHabitableCabin || pilotingFromCabin),
-        mx = ok && !exteriorCameraMode ? mv.x || (O.au ? 1 : 0) : 0,
+      const ok = !nav && ti >= 5 && (!inHabitableCabin || pilotingFromCabin || pilotingFromExterior),
+        mx = ok && (!exteriorCameraMode || pilotingFromExterior) ? mv.x || (O.au ? 1 : 0) : 0,
         f = new V(0, 0, -1).applyQuaternion(q),
         r = new V(1, 0, 0).applyQuaternion(q),
         bs = fs * (keys.shift ? 5 : 1);
@@ -5514,8 +5644,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           ti = 9;
           S.intro(false);
         }
-      } else if ((!inHabitableCabin || pilotingFromCabin) && !exteriorCameraMode) {
-        const inputTarget = f.multiplyScalar(mx * bs).addScaledVector(cam.up, (ok ? mv.y : 0) * bs).addScaledVector(r, (ok && !pilotingFromCabin ? mv.z : 0) * bs);
+      } else if ((!inHabitableCabin || pilotingFromCabin || pilotingFromExterior) && (!exteriorCameraMode || pilotingFromExterior)) {
+        const upAxis = pilotingFromExterior ? new V(0, 1, 0).applyQuaternion(q) : cam.up;
+        const inputTarget = f.multiplyScalar(mx * bs).addScaledVector(upAxis, (ok ? mv.y : 0) * bs).addScaledVector(r, (ok && !isFreeHelmPiloting ? mv.z : 0) * bs);
         if (inputTarget.length() > Math.abs(bs)) inputTarget.setLength(Math.abs(bs));
         const step = integrateFlightVelocity(vel.toArray(), inputTarget.toArray(), dt, { inertia: !!O.in, automatic: !!O.au, activeInput: ok && mv.lengthSq() > 0, speed: bs });
         vel.fromArray(step.velocity); sp.add(new V().fromArray(step.displacement));
@@ -5543,6 +5674,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             astronomicalHologram.setArrivedTarget(completed.arrivedTarget);
           }
           if (!completed.respectSpeed) S.fv(completed.oldFs);
+          if (!guidedTourState || guidedTourState.step === 'free') {
+            fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+            S.onGuideObjective?.('');
+          }
           if (completed.onArrive) completed.onArrive();
         }
       }
@@ -6882,11 +7017,25 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             S.onAiTourNarrative?.(tourNarratives[guidedTourState.focus], 'Explicación', guidedTourState.focus);
           }
 
+          const effectiveFocusedStation =
+            guidedTourState?.focus &&
+            activeCabinStation !== guidedTourState.focus &&
+            !(
+              (guidedTourState.step === 'elevator_c02' || guidedTourState.step === 'elevator_c03') &&
+              elSys?.state?.passengerRiding
+            )
+              ? guidedTourState.focus
+              : null;
+
+          if (guidedTourState?.focus && !effectiveFocusedStation) {
+            fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+          }
+
           fourDecksInterior.updateStations(
             clk.elapsedTime,
-            guidedTourState?.focus ? (nearId === guidedTourState.focus ? nearId : null) : nearId,
-            guidedTourState?.focus ? (activeCabinStation === guidedTourState.focus ? activeCabinStation : null) : activeCabinStation,
-            guidedTourState?.focus || null,
+            effectiveFocusedStation ? (nearId === effectiveFocusedStation ? nearId : null) : nearId,
+            activeCabinStation || null,
+            effectiveFocusedStation,
             freeHelmMode,
             astronautPos,
             activeRepairStage,
@@ -7000,7 +7149,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             nearestCabinStation = null;
             lastNearestStationId = null;
             activeCabinStation = null;
-            freeHelmMode = false;
+            if (!exteriorCameraMode && pv === 1) {
+              freeHelmMode = false;
+              S.onFreeHelmChange?.(false);
+            }
             S.onNearestStationChange?.(null);
             S.onStationInteract?.(null);
           }
@@ -7471,6 +7623,46 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     observerFirmament.syncDomeToCamera(cam.position);
     if (nearbyMapState) placeAtlasLabels(galaxyLabelEntries.slice().sort((a, b) => (b.key === nearbySelectedKey) - (a.key === nearbySelectedKey)), cam, { width: innerWidth, height: innerHeight, left: innerWidth > 1100 ? 325 : 12, right: innerWidth > 800 ? 350 : 12 });
     if (inStellarAtlas || inRegionalAtlas) { const atlas = inStellarAtlas ? stellarAtlas : regionalAtlas; placeAtlasLabels(atlas.update(cam, selectedContextStar), cam, { width: innerWidth, height: innerHeight, left: innerWidth > 1100 ? 325 : 12, right: innerWidth > 800 ? 320 : 12 }); }
+    {
+      const curDeckForLabels = isCabinActive ? resolveCurrentDeck(astronautPos) : null;
+      const inLowerEnclosedDeck = Boolean(
+        isCabinActive && curDeckForLabels && curDeckForLabels.id !== 'deck-01' && !exteriorCameraMode && !opticalTelescopeState.enabled
+      );
+      const showSolarSpaceLabels = Boolean(
+        !realTimeIntro &&
+        !mainMenuOrbitActive &&
+        !launchSequence &&
+        !launchCameraBlend &&
+        !contextOverview &&
+        !nearbyMapState &&
+        !nav &&
+        !inLowerEnclosedDeck &&
+        navigationContext.id === 'solar' &&
+        (fl.lab !== false)
+      );
+      if (showSolarSpaceLabels) {
+        const placed = placeSpacePlanetLabels(
+          B.map((body) => ({
+            name: body.p.n,
+            pivot: body.pivot,
+            label: body.lab,
+            radius: body.r,
+            allowed: true,
+          })),
+          cam,
+          { width: innerWidth, height: innerHeight, left: 22, right: 22, top: 72, bottom: 72 },
+        );
+        spacePlanetLabelHits = placed.map((it) => it.entry.screenHit).filter(Boolean);
+      } else {
+        spacePlanetLabelHits = [];
+        for (let i = 0; i < B.length; i++) {
+          if (B[i].lab) {
+            B[i].lab.visible = false;
+            B[i].lab.userData.screenBox = null;
+          }
+        }
+      }
+    }
     if (hyperspace) hyperspace.update(nav, cam, dt);
     astronomicalHologram.update(dt, clk.elapsedTime, isCabinActive && localCabinWorld.visible);
 
@@ -7527,6 +7719,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (wasExteriorInspection) leaveExteriorCamera(true);
     pv = v;
     if (v == 1) {
+      if (freeHelmMode) {
+        freeHelmMode = false;
+        freeHelmBlend = 0;
+        S.onFreeHelmChange?.(false);
+      }
       cabinFirstPerson = true;
       S.onCabinFirstPersonChange?.(true);
       camViewBlend = 0;
@@ -7903,24 +8100,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
       return cabinFirstPerson;
     },
-    setFreeHelmMode: (enabled) => {
-      freeHelmMode = Boolean(enabled);
-      if (freeHelmMode) {
-        exitPointerLockIfActive('helm');
-        cabinFirstPerson = true;
-        astronaut3D.root.visible = false;
-        astronaut3D.firstPersonHands.visible = false;
-        if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
-        pv = 1;
-        ship.visible = false;
-        localCabinWorld.visible = true;
-        fourDecksInterior?.setActiveVisibleDeck?.(resolveCurrentDeck(astronautPos)?.id || currentLockedDeckId, { showAll: false });
-        astronautPitch = -0.015;
-        targetPitch = -0.015;
-      }
-      emitPointerLockState();
-      S.onFreeHelmChange?.(freeHelmMode);
-    },
+    setFreeHelmMode: (enabled) => applyFreeHelmMode(enabled),
     getCabinFirstPerson: () => cabinFirstPerson,
     getAstronautPosition: () => {
       const currentDeck = resolveCurrentDeck(astronautPos);
@@ -8094,9 +8274,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (stationId) {
         exitPointerLockIfActive('station');
       } else {
-        freeHelmMode = false;
-        freeHelmBlend = 0;
-        S.onFreeHelmChange?.(false);
+        if (!exteriorCameraMode) {
+          freeHelmMode = false;
+          freeHelmBlend = 0;
+          S.onFreeHelmChange?.(false);
+        }
         aiFollowAstronaut = true;
         luminousAI.pointAtWorldPosition(null, false);
         sceneDirector.returnToAstronautControl();
@@ -8188,6 +8370,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     resetExteriorView: resetExteriorCamera,
     inspectExterior,
     isExteriorInspection: () => exteriorCameraMode,
+    isFreeHelmActive: () => freeHelmMode,
+    getSpacePlanetLabelScreenHits: () => spacePlanetLabelHits,
     speed: (v) => {
       fs = Math.max(0.01, Math.min(5e4, v));
       // Speed presets remain available for manual flight; an active cinematic keeps its continuous timeline.
@@ -8216,6 +8400,50 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       v ? (keys[k] = 1) : delete keys[k];
     },
     focus,
+    orientTowardPlanet: (planetName) => {
+      const body = B.find((x) => x.p.n === planetName);
+      if (!body) return false;
+      promotePlanetTexture(planetName);
+      publishScale('solar');
+      if (!free) {
+        return focus(planetName);
+      }
+      const targetWorld = body.pivot.getWorldPosition(new THREE.Vector3());
+      const toPlanet = targetWorld.sub(sp);
+      if (toPlanet.lengthSq() < 1e-12) return false;
+      const dir = toPlanet.normalize();
+      if (pv === 1 && !exteriorCameraMode) {
+        const invShip = ship.quaternion.clone().invert();
+        const localDir = dir.clone().applyQuaternion(invShip).normalize();
+        const nextYaw = Math.atan2(-localDir.x, -localDir.z);
+        const nextPitch = Math.max(-1.05, Math.min(1.05, Math.asin(Math.max(-1, Math.min(1, localDir.y)))));
+        astronautYaw = nextYaw;
+        targetYaw = nextYaw;
+        astronautPitch = nextPitch;
+        targetPitch = nextPitch;
+        if (!opticalTelescopeState.enabled) {
+          setOpticalTelescope({ enabled: true, magnification: 10, targetName: planetName });
+        } else {
+          opticalTelescopeState.targetName = planetName;
+          S.onObservationModeChange?.(getObservationMode());
+        }
+        return true;
+      }
+      // En Exterior / Timón libre: orientar el rumbo de la nave y encuadrar suavemente desde popa hacia el planeta
+      fy = Math.atan2(-dir.x, -dir.z);
+      fp = Math.max(-0.85, Math.min(0.85, Math.asin(Math.max(-1, Math.min(1, dir.y)))));
+      const qNext = new THREE.Quaternion().setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
+      ship.quaternion.copy(qNext);
+      if (exteriorCameraMode) {
+        const dist = Math.max(95, cam.position.distanceTo(ct.target));
+        const eyeDir = dir.clone().negate().add(new THREE.Vector3(0, 0.28, 0)).normalize();
+        ct.target.copy(sp);
+        cam.position.copy(sp).addScaledVector(eyeDir, dist);
+        cam.lookAt(ct.target);
+        ct.update();
+      }
+      return true;
+    },
     quick,
     missionTarget,
     mode,

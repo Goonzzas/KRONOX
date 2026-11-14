@@ -44,6 +44,7 @@ export default function SpaceshipCockpit({
   onQuickTravel,
   onOpenSpherexObservatory,
   onTravelToPlanet,
+  onFocusPlanet,
   freeHelmMode = false,
   onToggleFreeHelm,
   onOpenPlanetInfo,
@@ -85,18 +86,35 @@ export default function SpaceshipCockpit({
   const [navigationTarget, setNavigationTarget] = useState('planet:Tierra');
   const [navigationExperience, setNavigationExperience] = useState('choose');
   const [objectiveOpen, setObjectiveOpen] = useState(false);
+  const [hasInspectedConsole, setHasInspectedConsole] = useState(false);
+  const [hasOpenedNavigationMap, setHasOpenedNavigationMap] = useState(false);
 
   const deckNumber = astronautSectorState?.deckNumber ?? 1;
   const activeMissionTarget =
     SPHEREX_TARGETS.find((tgt) => tgt.key === activeMissionId) || SPHEREX_TARGETS[0];
+
+  useEffect(() => {
+    if (activeStation) setHasInspectedConsole(true);
+  }, [activeStation]);
+
+  useEffect(() => {
+    if (viewMode === 'navigation') setHasOpenedNavigationMap(true);
+  }, [viewMode]);
+
+  useEffect(() => {
+    if (!activeObjectiveText && !guideState?.active) {
+      setObjectiveOpen(false);
+    }
+  }, [activeObjectiveText, guideState?.active]);
+
   const objectiveSteps = [
     {
       label: 'Recorrer el Puente de Mando e inspeccionar consolas',
-      done: Boolean(activeStation || deckNumber > 1 || findingsCount > 0),
+      done: Boolean(hasInspectedConsole || activeStation || deckNumber > 1 || findingsCount > 0),
     },
     {
       label: `Revisar ruta hacia ${activeMissionTarget?.name || 'Estrella de Barnard'} en Mapa galáctico`,
-      done: Boolean(viewMode === 'navigation' || findingsCount > 0),
+      done: Boolean(hasOpenedNavigationMap || viewMode === 'navigation' || findingsCount > 0),
     },
     {
       label: 'Bajar a Ingeniería y Laboratorio SPHEREx',
@@ -108,6 +126,7 @@ export default function SpaceshipCockpit({
     },
   ];
   const completedObjCount = objectiveSteps.filter((s) => s.done).length;
+  const hasPendingObjective = Boolean(activeObjectiveText || guideState?.active);
 
   useEffect(() => {
     if (activeStation !== 'nav') setNavigationExperience('choose');
@@ -365,7 +384,7 @@ export default function SpaceshipCockpit({
       )}
 
       {/* INDICADOR DISCRETO E INDEPENDIENTE DE OBJETIVO ACTIVO */}
-      {!freeHelmMode && (
+      {!freeHelmMode && hasPendingObjective && (
         <div className="kronoxObjectiveCornerDock">
           <button
             type="button"
@@ -426,8 +445,31 @@ export default function SpaceshipCockpit({
         </div>
       )}
 
-      {cockpitVisible && freeHelmMode && (
+      {(cockpitVisible || viewMode === 'exterior') && freeHelmMode && (
         <div className="kronoxFreeHelmHud" role="status" aria-label="Telemetría del timón libre">
+          <div className="kronoxFreeHelmTopDock">
+            <span className="kronoxFreeHelmTopBadge">VISTA EXTERIOR · TIMÓN LIBRE</span>
+            <span className="kronoxFreeHelmTopHint">W/S avance · A/D rumbo · Q/E altitud · Ratón órbita · Shift ×5</span>
+            <div className="kronoxFreeHelmTopActions">
+              <button
+                type="button"
+                className="kronoxFreeHelmPlanBtn"
+                onClick={() => {
+                  onToggleFreeHelm?.(false);
+                  onSelectStation?.('nav');
+                }}
+              >
+                Planificar ruta
+              </button>
+              <button
+                type="button"
+                className="kronoxFreeHelmReturnBtn"
+                onClick={() => onToggleFreeHelm?.(false)}
+              >
+                ↩ Volver a Cabina 1 [ESC]
+              </button>
+            </div>
+          </div>
           <aside className="kronoxFreeHelmSidePanel left">
             <small>VELOCIDAD DE VUELO</small>
             <strong>
@@ -735,6 +777,15 @@ export default function SpaceshipCockpit({
                 >
                   Viajar a {objectCard.planetName}
                 </button>
+                {onFocusPlanet && (
+                  <button
+                    type="button"
+                    className="kronoxInspectorBtn secondary"
+                    onClick={() => onFocusPlanet(objectCard.planetName)}
+                  >
+                    Enfocar en cámara
+                  </button>
+                )}
                 {INFO[objectCard.planetName] && (
                   <button
                     type="button"
@@ -813,7 +864,7 @@ export default function SpaceshipCockpit({
               </button>
               <button type="button" onClick={() => onToggleFreeHelm?.(true)}>
                 <strong>✈ Timón libre</strong>
-                <span>Tomar el control en primera persona, sin el panel de navegación.</span>
+                <span>Cambiar a vista exterior y pilotar la nave directamente en el espacio.</span>
               </button>
             </div>
           ) : (

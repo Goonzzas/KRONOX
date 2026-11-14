@@ -1149,7 +1149,7 @@ export default function App() {
       },
       onStationInteract: (stationId) => {
         setActiveCockpitStation(stationId);
-        if (!stationId) setFreeHelmMode(false);
+        if (!stationId && !A()?.isFreeHelmActive?.()) setFreeHelmMode(false);
         A().onGuidedStationInteraction?.(stationId);
         if (stationId === 'comms') {
           kronoxDialogHiddenRef.current = false;
@@ -1232,7 +1232,7 @@ export default function App() {
         if (voiceRef.current) speak(text, { interrupt: Boolean(opts?.replace) });
         return message.id;
       },
-      onGuideObjective: (objective) => setGuideObjective(objective),
+      onGuideObjective: (objective) => setGuideObjective(objective || ''),
       onGuideStateChange: (st) => {
         setGuideState(st || { active: false, step: 'free', completed: false });
         if (!st?.active || st?.step === 'free') setGuideObjective('');
@@ -3377,6 +3377,10 @@ export default function App() {
           }
           A().focus(planetName);
         }, planetName);
+      },
+      onFocusPlanet: (planetName) => {
+        if (!planetName) return;
+        A().orientTowardPlanet?.(planetName);
       },
       onOpenPlanetInfo: (planetName) => {
         setMore(planetName);

@@ -375,63 +375,137 @@ export function buildKronoxInterior120M() {
   }
 
   // =========================================================================
-  // 2. ASCENSOR FÍSICO 3D (NÚCLEO VERTICAL, CABINA MÓVIL, PUERTAS CON MIRILLA Y BOTONERAS)
+  // =========================================================================
+  // 2. ASCENSOR FÍSICO 3D (NÚCLEO VERTICAL ARQUITECTÓNICO, CABINA PANORÁMICA, PÓRTICOS Y BOTONERAS)
   // =========================================================================
   const shaftGroup = new THREE.Group();
   shaftGroup.name = 'CentralElevatorShaftCore';
   auroraGroup.add(shaftGroup);
 
-  // Paredes laterales (±Z Aurora / ±X KRONOX), rieles guía y marcadores luminosos de nivel cada 0.85 m
+  // Materiales calibrados del ascensor en armonía arquitectónica con Cabina 1 (titanio, champán, carbono y cristal óptico)
+  const elTitaniumM = trackExtraMat(
+    new THREE.MeshStandardMaterial({
+      color: 0x3b495d,
+      metalness: 0.82,
+      roughness: 0.28,
+    })
+  );
+  const elChampagneM = trackExtraMat(
+    new THREE.MeshStandardMaterial({
+      color: 0xc2ab8a,
+      metalness: 0.88,
+      roughness: 0.24,
+    })
+  );
+  const elCarbonSillM = trackExtraMat(
+    new THREE.MeshStandardMaterial({
+      color: 0x1e2634,
+      metalness: 0.56,
+      roughness: 0.42,
+    })
+  );
+  const elOpticalGlassM = trackExtraMat(
+    new THREE.MeshPhysicalMaterial({
+      color: 0xdcf4ff,
+      metalness: 0.06,
+      roughness: 0.07,
+      transparent: true,
+      opacity: 0.18,
+      reflectivity: 0.88,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.06,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+  );
+
+  const makeElevatorFloorButtonTexture = (deck) => {
+    const fallbackAccent = `#${(deck.accentHex ?? 0x38d8ff).toString(16).padStart(6, '0')}`;
+    if (typeof document === 'undefined') {
+      return trackExtraTex(makeDeckSignTexture(deck.code, deck.shortName.toUpperCase(), 'PLANTA', fallbackAccent));
+    }
+    const cv = document.createElement('canvas');
+    cv.width = 256;
+    cv.height = 96;
+    const ctx = cv.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#0e1726';
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.strokeStyle = 'rgba(208, 232, 255, 0.72)';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(4, 4, cv.width - 8, cv.height - 8);
+      ctx.fillStyle = fallbackAccent;
+      ctx.fillRect(10, 12, 10, cv.height - 24);
+      ctx.fillStyle = '#f8fbff';
+      ctx.font = 'bold 42px "Segoe UI", system-ui, sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(deck.code, 30, 48);
+      ctx.fillStyle = '#bfd9f2';
+      ctx.font = 'bold 20px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(String(deck.shortName || '').toUpperCase().slice(0, 12), 118, 49);
+    }
+    const tex = new THREE.CanvasTexture(cv);
+    tex.anisotropy = Math.min(8, tex.anisotropy || 4);
+    return trackExtraTex(tex);
+  };
+
+  // Paredes laterales estructurales (±Z Aurora / ±X KRONOX), costillas champán y balizas luminosas de cota entre cubiertas
   [1, -1].forEach((side) => {
-    add(shaftGroup, box(1.24, 13.4, 0.14), slateM, 0, 0, side * 1.42, 'wall');
-    add(shaftGroup, box(0.24, 13.4, 0.22), wallM, -0.68, 0, side * 1.38, 'wall');
-    add(shaftGroup, box(0.24, 13.4, 0.22), wallM, 0.68, 0, side * 1.38, 'wall');
-    add(shaftGroup, box(0.09, 13.4, 0.12), steelM, -1.16, 0, side * 1.24);
-    add(shaftGroup, box(0.09, 13.4, 0.12), steelM, 1.16, 0, side * 1.24);
-    add(shaftGroup, box(0.05, 13.1, 0.05), cyanGlow, 0, 0, side * 1.32);
+    add(shaftGroup, box(1.32, 13.5, 0.14), elTitaniumM, 0, 0, side * 1.44, 'wall');
+    add(shaftGroup, box(0.26, 13.5, 0.22), elCarbonSillM, -0.74, 0, side * 1.40, 'wall');
+    add(shaftGroup, box(0.26, 13.5, 0.22), elCarbonSillM, 0.74, 0, side * 1.40, 'wall');
+    add(shaftGroup, box(0.08, 13.4, 0.08), elChampagneM, -0.62, 0, side * 1.31);
+    add(shaftGroup, box(0.08, 13.4, 0.08), elChampagneM, 0.62, 0, side * 1.31);
+    add(shaftGroup, box(0.09, 13.4, 0.11), steelM, -1.18, 0, side * 1.26);
+    add(shaftGroup, box(0.09, 13.4, 0.11), steelM, 1.18, 0, side * 1.26);
+    add(shaftGroup, box(0.036, 13.1, 0.035), cyanGlow, -0.34, 0, side * 1.33);
+    add(shaftGroup, box(0.036, 13.1, 0.035), warmGlow, 0.34, 0, side * 1.33);
     for (let tickY = -6.2; tickY <= 6.2; tickY += 0.85) {
-      add(shaftGroup, box(0.92, 0.035, 0.04), Math.abs(tickY % 3.4) < 0.35 ? amberGlow : cyanGlow, 0, tickY, side * 1.33);
+      const isDeckLevel = Math.abs(tickY % 3.4) < 0.35;
+      add(shaftGroup, box(isDeckLevel ? 1.06 : 0.72, isDeckLevel ? 0.042 : 0.024, 0.035), isDeckLevel ? amberGlow : cyanGlow, 0, tickY, side * 1.34);
     }
   });
 
-  // Vigas horizontales de referencia visual entre plantas en los frentes ±X del pozo (visibles por mirillas durante el viaje)
+  // Travesaños estructurales y molduras entre cubiertas en frentes ±X (visibles desde la cabina acristalada durante el desplazamiento)
   [1, -1].forEach((endDir) => {
-    [2.85, -0.55, -3.95].forEach((beamY) => {
-      add(shaftGroup, box(0.14, 0.32, 2.48), slateM, endDir * 1.34, beamY, 0);
-      add(shaftGroup, box(0.16, 0.045, 2.1), cyanGlow, endDir * 1.28, beamY - 0.1, 0);
-      add(shaftGroup, box(0.16, 0.045, 2.1), amberGlow, endDir * 1.28, beamY + 0.1, 0);
+    [2.92, -0.48, -3.88].forEach((beamY) => {
+      add(shaftGroup, box(0.14, 0.34, 2.66), elTitaniumM, endDir * 1.34, beamY, 0);
+      add(shaftGroup, box(0.17, 0.05, 2.42), elChampagneM, endDir * 1.34, beamY + 0.16, 0);
+      add(shaftGroup, box(0.16, 0.035, 2.16), cyanGlow, endDir * 1.28, beamY - 0.12, 0);
     });
   });
 
-  // Anillos estructurales del hueco entre cubiertas
+  // Anillos luminosos de nivel por cada cubierta dentro del pozo vertical
   [6.7, 3.44, 0.04, -3.36, -6.76].forEach((ringY) => {
-    const t = add(shaftGroup, torus(ELEVATOR_SHAFT_RADIUS + 0.1, 0.045, 8, 32), cyanGlow, 0, ringY, 0);
+    const t = add(shaftGroup, torus(ELEVATOR_SHAFT_RADIUS + 0.12, 0.032, 8, 36), elChampagneM, 0, ringY, 0);
     t.rotation.x = Math.PI / 2;
+    const tGlow = add(shaftGroup, torus(ELEVATOR_SHAFT_RADIUS + 0.07, 0.018, 8, 36), cyanGlow, 0, ringY - 0.035, 0);
+    tGlow.rotation.x = Math.PI / 2;
   });
 
-  // Helper para crear hojas de puerta de ascensor con ventana real transparente (sin malla opaca detrás del cristal)
+  // Helper para crear hojas de puerta corrediza con mirilla óptica alta, marco de titanio y filete luminoso de cierre
   const buildFramedElevatorDoorLeaf = (parent, x, y, z, thickness, leafMat, isLanding = false) => {
     const leafGroup = new THREE.Group();
     leafGroup.position.set(x, y, z);
     leafGroup.userData.dynamicTransform = true;
     parent.add(leafGroup);
-    // Panel inferior sólido + travesaño superior + montantes laterales (dejando hueco central abierto para el cristal)
-    const lowerM = add(leafGroup, box(thickness, 0.94, 0.64), leafMat, 0, -0.62, 0, isLanding ? 'door' : null);
-    add(leafGroup, box(thickness, 0.32, 0.64), leafMat, 0, 0.93, 0, isLanding ? 'door' : null);
-    add(leafGroup, box(thickness, 0.96, 0.16), darkM, 0, 0.17, -0.24, isLanding ? 'door' : null);
-    add(leafGroup, box(thickness, 0.96, 0.16), darkM, 0, 0.17, 0.24, isLanding ? 'door' : null);
-    // Marco metálico interior de la mirilla y vidrio templado transparente real
-    add(leafGroup, box(thickness + 0.015, 0.04, 0.34), steelM, 0, 0.64, 0);
-    add(leafGroup, box(thickness + 0.015, 0.04, 0.34), steelM, 0, -0.14, 0);
-    add(leafGroup, box(0.024, 0.76, 0.32), glassM, 0, 0.25, 0);
-    // Franja luminosa de borde de cierre
-    const edgeZ = z < 0 ? 0.305 : -0.305;
-    add(leafGroup, box(thickness + 0.012, 1.96, 0.03), cyanGlow, 0, 0.0, edgeZ);
+    // Zócalo inferior blindado + dintel superior + montantes verticales con mirilla central panorámica limpia
+    const lowerM = add(leafGroup, box(thickness, 0.88, 0.66), leafMat, 0, -0.65, 0, isLanding ? 'door' : null);
+    add(leafGroup, box(thickness, 0.28, 0.66), leafMat, 0, 0.95, 0, isLanding ? 'door' : null);
+    add(leafGroup, box(thickness, 1.04, 0.14), elTitaniumM, 0, 0.19, -0.26, isLanding ? 'door' : null);
+    add(leafGroup, box(thickness, 1.04, 0.14), elTitaniumM, 0, 0.19, 0.26, isLanding ? 'door' : null);
+    // Molduras horizontales champán y cristal óptico transparente limpio (sin veladura lechosa)
+    add(leafGroup, box(thickness + 0.014, 0.038, 0.40), elChampagneM, 0, 0.72, 0);
+    add(leafGroup, box(thickness + 0.014, 0.038, 0.40), elChampagneM, 0, -0.20, 0);
+    add(leafGroup, box(0.02, 0.88, 0.38), elOpticalGlassM, 0, 0.26, 0);
+    // Filete óptico vertical de borde de encuentro
+    const edgeZ = z < 0 ? 0.315 : -0.315;
+    add(leafGroup, box(thickness + 0.012, 1.98, 0.024), cyanGlow, 0, 0.0, edgeZ);
     lowerM.userData.dynamicTransform = true;
     return leafGroup;
   };
 
-  // Puertas de rellano en las 4 cubiertas + pórticos arquitectónicos + paneles exteriores de llamada
+  // Puertas y pórticos arquitectónicos en C01–C04 con señalética iluminada y consolas de llamada exteriores
   const landingDoorsByDeck = {};
   const callPanelLights = {};
   const doorStateByDeck = {
@@ -445,33 +519,37 @@ export function buildKronoxInterior120M() {
     const f = deck.elevationY;
     const doors = [];
     const beaconMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: deck.id === 'deck-01' ? 0x45e89e : 0xffb347 }));
-    const signTex = trackExtraTex(makeDeckSignTexture(deck.code, deck.name.toUpperCase(), 'ASCENSOR CENTRAL', `#${deck.accentHex.toString(16).padStart(6, '0')}`));
+    const signTex = trackExtraTex(makeDeckSignTexture(deck.code, deck.name.toUpperCase(), 'ASCENSOR CENTRAL KRONOX', `#${deck.accentHex.toString(16).padStart(6, '0')}`));
     const signMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: signTex }));
 
     [1, -1].forEach((endDir) => {
       const doorX = endDir * 1.34;
-      // Pórtico arquitectónico de rellano con jambas biseladas, dintel iluminado y umbral técnico
-      add(shaftGroup, box(0.22, 0.44, 2.58), slateM, doorX, f + 2.48, 0, 'wall');
-      add(shaftGroup, box(0.26, 0.08, 2.62), steelM, doorX, f + 2.26, 0);
-      add(shaftGroup, box(0.34, 0.025, 1.58), hazardM, doorX + endDir * 0.18, f + 0.015, 0);
-      add(shaftGroup, box(0.26, 2.32, 0.22), slateM, doorX, f + 1.16, -0.84, 'wall');
-      add(shaftGroup, box(0.26, 2.32, 0.22), slateM, doorX, f + 1.16, 0.84, 'wall');
-      add(shaftGroup, box(0.28, 2.24, 0.06), steelM, doorX, f + 1.14, -0.71);
-      add(shaftGroup, box(0.28, 2.24, 0.06), steelM, doorX, f + 1.14, 0.71);
-      add(shaftGroup, box(0.04, 0.3, 1.42), signMat, doorX + endDir * 0.11, f + 2.52, 0);
-      add(shaftGroup, box(0.12, 0.06, 0.78), beaconMat, doorX + endDir * 0.11, f + 2.29, 0);
+      // Pórtico metálico esculpido con jambas biseladas, dintel champán y umbral de titanio/carbono a ras de suelo
+      add(shaftGroup, box(0.24, 0.46, 2.74), elTitaniumM, doorX, f + 2.52, 0, 'wall');
+      add(shaftGroup, box(0.28, 0.07, 2.78), elChampagneM, doorX, f + 2.27, 0);
+      add(shaftGroup, box(0.30, 0.016, 1.54), elCarbonSillM, doorX + endDir * 0.11, f + 0.008, 0);
+      add(shaftGroup, box(0.05, 0.012, 1.44), cyanGlow, doorX + endDir * 0.14, f + 0.016, 0);
+      add(shaftGroup, box(0.28, 2.34, 0.24), elTitaniumM, doorX, f + 1.17, -0.88, 'wall');
+      add(shaftGroup, box(0.28, 2.34, 0.24), elTitaniumM, doorX, f + 1.17, 0.88, 'wall');
+      add(shaftGroup, box(0.30, 2.26, 0.055), elChampagneM, doorX, f + 1.15, -0.75);
+      add(shaftGroup, box(0.30, 2.26, 0.055), elChampagneM, doorX, f + 1.15, 0.75);
+      // Placa luminosa exterior e interior de cubierta sobre cada pórtico
+      const outerSign = add(shaftGroup, box(0.036, 0.34, 1.54), signMat, doorX + endDir * 0.13, f + 2.53, 0);
+      outerSign.rotation.y = endDir > 0 ? Math.PI : 0;
+      add(shaftGroup, box(0.12, 0.045, 0.88), beaconMat, doorX + endDir * 0.13, f + 2.31, 0);
 
-      // Hojas correderas dobles (bipartitas) con mirilla real transparente
-      const leftLeaf = buildFramedElevatorDoorLeaf(shaftGroup, doorX, f + 1.13, -0.34, 0.08, doorM, true);
-      const rightLeaf = buildFramedElevatorDoorLeaf(shaftGroup, doorX, f + 1.13, 0.34, 0.08, doorM, true);
+      // Hojas correderas bipartitas sincronizadas
+      const leftLeaf = buildFramedElevatorDoorLeaf(shaftGroup, doorX, f + 1.13, -0.35, 0.075, elTitaniumM, true);
+      const rightLeaf = buildFramedElevatorDoorLeaf(shaftGroup, doorX, f + 1.13, 0.35, 0.075, elTitaniumM, true);
       doors.push({ leftLeaf, rightLeaf, doorX });
 
-      // Terminal exterior de llamada ([E]) integrado junto a cada pórtico
+      // Columna de llamada exterior estilizada lateral ([E]) con aro champán y pulsador activo
       const sideSign = endDir > 0 ? 1 : -1;
       const callId = `elevator-call-${deck.id}-${endDir > 0 ? 'bow' : 'aft'}`;
-      const callPedestal = add(shaftGroup, box(0.2, 1.48, 0.26), slateM, doorX + endDir * 0.08, f + 0.74, sideSign * 0.88);
-      add(shaftGroup, box(0.22, 0.42, 0.28), steelM, doorX + endDir * 0.09, f + 1.26, sideSign * 0.88);
-      const callBtn = add(shaftGroup, box(0.08, 0.24, 0.16), beaconMat, doorX + endDir * 0.17, f + 1.26, sideSign * 0.88);
+      const callPedestal = add(shaftGroup, box(0.20, 1.44, 0.24), elTitaniumM, doorX + endDir * 0.16, f + 0.72, sideSign * 0.96);
+      add(shaftGroup, box(0.22, 0.04, 0.26), elChampagneM, doorX + endDir * 0.16, f + 1.44, sideSign * 0.96);
+      add(shaftGroup, box(0.22, 0.42, 0.25), elCarbonSillM, doorX + endDir * 0.17, f + 1.18, sideSign * 0.96);
+      const callBtn = add(shaftGroup, box(0.075, 0.22, 0.14), beaconMat, doorX + endDir * 0.25, f + 1.18, sideSign * 0.96);
       registerInteractMesh(callPedestal, callId, 'elevator-call', deck.id);
       registerInteractMesh(callBtn, callId, 'elevator-call', deck.id);
     });
@@ -480,85 +558,97 @@ export function buildKronoxInterior120M() {
     callPanelLights[deck.id] = beaconMat;
   });
 
-  // Cabina física móvil del ascensor 3D dentro del pozo central
+  // Cabina móvil panorámica del ascensor central con suelo compuesto, pasamanos y techo con luminaria indirecta
   const elevatorCab = new THREE.Group();
   elevatorCab.name = 'ElevatorCabAssembly';
   elevatorCab.position.set(0, 3.4, 0);
   auroraGroup.add(elevatorCab);
 
-  // Plataforma técnica antideslizante, rodapié luminoso dinámico, techo artesonado e iluminación indirecta
-  add(elevatorCab, box(1.96, 0.14, 1.96), floorM, 0, -0.05, 0, 'floor');
+  // Plataforma antideslizante a ras de cubierta + aro guía de estado + cielo raso técnico con luz cálida indirecta
+  add(elevatorCab, box(2.04, 0.14, 2.02), floorM, 0, -0.055, 0, 'floor');
+  add(elevatorCab, box(1.66, 0.018, 1.66), elCarbonSillM, 0, 0.014, 0);
   const cabFloorRimMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x45e89e }));
-  const cabFloorRim = add(elevatorCab, torus(1.04, 0.032, 8, 32), cabFloorRimMat, 0, 0.03, 0);
+  const cabFloorRim = add(elevatorCab, torus(0.84, 0.024, 8, 40), cabFloorRimMat, 0, 0.024, 0);
   cabFloorRim.rotation.x = Math.PI / 2;
-  add(elevatorCab, box(1.96, 0.14, 1.96), slateM, 0, 2.38, 0);
-  add(elevatorCab, box(1.52, 0.05, 1.52), compositeM, 0, 2.30, 0);
-  add(elevatorCab, torus(0.66, 0.03, 8, 28), warmGlow, 0, 2.27, 0).rotation.x = Math.PI / 2;
+  add(elevatorCab, box(2.02, 0.14, 2.02), elTitaniumM, 0, 2.40, 0);
+  add(elevatorCab, box(1.56, 0.05, 1.56), elCarbonSillM, 0, 2.31, 0);
+  add(elevatorCab, torus(0.68, 0.024, 8, 36), warmGlow, 0, 2.28, 0).rotation.x = Math.PI / 2;
+  add(elevatorCab, torus(0.76, 0.022, 8, 36), elChampagneM, 0, 2.29, 0).rotation.x = Math.PI / 2;
 
-  // Pilastras estructurales biseladas en las 4 esquinas + paredes acristaladas panorámicas y pasamanos
+  // Pilastras estructurales biseladas en las 4 esquinas + acristalamiento óptico lateral + pasamanos de titanio
   [
-    [-0.92, -0.92],
-    [-0.92, 0.92],
-    [0.92, -0.92],
-    [0.92, 0.92],
+    [-0.95, -0.95],
+    [-0.95, 0.95],
+    [0.95, -0.95],
+    [0.95, 0.95],
   ].forEach(([cx, cz]) => {
-    add(elevatorCab, box(0.14, 2.36, 0.14), slateM, cx, 1.18, cz);
-    add(elevatorCab, box(0.06, 2.18, 0.06), steelM, cx * 0.94, 1.18, cz * 0.94);
-    add(elevatorCab, box(0.025, 1.95, 0.025), cyanGlow, cx * 0.91, 1.18, cz * 0.91);
+    add(elevatorCab, box(0.14, 2.38, 0.14), elTitaniumM, cx, 1.19, cz);
+    add(elevatorCab, box(0.06, 2.22, 0.06), elChampagneM, cx * 0.94, 1.19, cz * 0.94);
+    add(elevatorCab, box(0.022, 1.98, 0.022), cyanGlow, cx * 0.90, 1.19, cz * 0.90);
   });
   [-1, 1].forEach((sz) => {
-    add(elevatorCab, box(1.74, 0.36, 0.06), slateM, 0, 0.18, sz * 0.95);
-    add(elevatorCab, box(1.74, 0.24, 0.06), slateM, 0, 2.22, sz * 0.95);
-    add(elevatorCab, box(1.72, 1.72, 0.035), glassM, 0, 1.22, sz * 0.95);
-    add(elevatorCab, box(1.48, 0.045, 0.05), railAmberM, 0, 0.98, sz * 0.88);
+    add(elevatorCab, box(1.78, 0.34, 0.06), elTitaniumM, 0, 0.18, sz * 0.97);
+    add(elevatorCab, box(1.78, 0.036, 0.075), elChampagneM, 0, 0.36, sz * 0.97);
+    add(elevatorCab, box(1.78, 0.24, 0.06), elTitaniumM, 0, 2.23, sz * 0.97);
+    add(elevatorCab, box(1.74, 1.72, 0.03), elOpticalGlassM, 0, 1.24, sz * 0.97);
+    add(elevatorCab, cyl(0.022, 0.022, 1.46, 12), steelM, 0, 0.98, sz * 0.89).rotation.z = Math.PI / 2;
+    [-0.58, 0.58].forEach((hx) => {
+      add(elevatorCab, box(0.04, 0.04, 0.09), elChampagneM, hx, 0.98, sz * 0.93);
+    });
   });
 
-  // Puertas sincronizadas de la propia cabina con mirilla real transparente
+  // Puertas sincronizadas de la cabina móvil con mirilla limpia
   const cabDoorLeaves = [];
   [1, -1].forEach((endDir) => {
-    const cx = endDir * 1.01;
-    const cLeft = buildFramedElevatorDoorLeaf(elevatorCab, cx, 1.12, -0.31, 0.05, compositeM, false);
-    const cRight = buildFramedElevatorDoorLeaf(elevatorCab, cx, 1.12, 0.31, 0.05, compositeM, false);
+    const cx = endDir * 1.02;
+    const cLeft = buildFramedElevatorDoorLeaf(elevatorCab, cx, 1.12, -0.33, 0.05, compositeM, false);
+    const cRight = buildFramedElevatorDoorLeaf(elevatorCab, cx, 1.12, 0.33, 0.05, compositeM, false);
     cabDoorLeaves.push({ leftLeaf: cLeft, rightLeaf: cRight });
   });
 
-  // Pantalla digital viva del ascensor (visible en el panel lateral Y en los dinteles superiores de ambas puertas)
+  // Pantalla digital viva del ascensor (panel lateral + dinteles superiores sobre ambas salidas)
   const cabScreen = makeDiegeticScreenTexture(
     'elevator',
     'ASCENSOR CENTRAL KRONOX',
-    ['PLANTA ACTUAL: C01 PUENTE', 'PUERTAS: ABIERTAS', 'PULSA [E] PARA VIAJAR', 'SELECCIONA: C01 - C04'],
+    ['PLANTA ACTUAL: C01 PUENTE', 'PUERTAS: ABIERTAS', 'PULSA [E] O [1-4] PARA VIAJAR', 'CUBIERTAS: C01 - C04'],
     '#38d8ff',
     { currentFloor: 0, targetFloor: 0 }
   );
   trackExtraTex(cabScreen.tex);
   const cabScreenMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: cabScreen.tex }));
 
-  // Dinteles digitales sobre ambas puertas (+X proa y -X popa) para que el jugador siempre vea el indicador de piso de frente
   [1, -1].forEach((endDir) => {
-    const tx = endDir * 0.92;
-    add(elevatorCab, box(0.08, 0.28, 1.16), slateM, tx, 2.15, 0);
-    const transomScr = add(elevatorCab, box(0.02, 0.22, 0.56), cabScreenMat, tx - endDir * 0.035, 2.15, 0);
+    const tx = endDir * 0.94;
+    add(elevatorCab, box(0.08, 0.30, 1.24), elTitaniumM, tx, 2.15, 0);
+    const transomScr = add(elevatorCab, box(0.02, 0.22, 0.62), cabScreenMat, tx - endDir * 0.035, 2.15, 0);
     transomScr.rotation.y = endDir > 0 ? 0 : Math.PI;
-    add(elevatorCab, box(0.03, 0.035, 1.08), cabFloorRimMat, tx - endDir * 0.03, 2.02, 0);
+    add(elevatorCab, box(0.03, 0.03, 1.16), cabFloorRimMat, tx - endDir * 0.03, 2.02, 0);
   });
 
-  // Panel principal lateral (+Z Aurora / +X KRONOX) + Pilastra frontal de control (+X, +Z) con botones físicos C01..C04
-  add(elevatorCab, box(0.46, 1.08, 0.07), slateM, 0, 1.32, 0.88);
-  add(elevatorCab, box(0.40, 0.36, 0.02), cabScreenMat, 0, 1.62, 0.835);
-  add(elevatorCab, box(0.09, 1.12, 0.24), slateM, 0.88, 1.32, 0.74);
-  add(elevatorCab, box(0.02, 0.26, 0.20), cabScreenMat, 0.83, 1.66, 0.74);
+  // Consola de control lateral (+Z Aurora / +X KRONOX) y columna delantera derecha con botones rotulados C01..C04
+  add(elevatorCab, box(0.50, 1.14, 0.07), elTitaniumM, 0, 1.30, 0.90);
+  add(elevatorCab, box(0.52, 0.032, 0.08), elChampagneM, 0, 1.88, 0.90);
+  add(elevatorCab, box(0.42, 0.36, 0.02), cabScreenMat, 0, 1.63, 0.855);
+  add(elevatorCab, box(0.09, 1.14, 0.28), elTitaniumM, 0.89, 1.30, 0.76);
+  add(elevatorCab, box(0.02, 0.28, 0.22), cabScreenMat, 0.835, 1.66, 0.76);
 
   const cabButtonsByDeck = {};
   CABIN_DECKS.forEach((d, idx) => {
-    const btnMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: idx === 0 ? 0x45e89e : 0x38d8ff }));
-    const by = 1.34 - idx * 0.13;
-    add(elevatorCab, box(0.32, 0.11, 0.02), steelM, 0, by, 0.84);
-    const btn = add(elevatorCab, box(0.28, 0.095, 0.045), btnMat, 0, by, 0.82);
+    const btnTex = makeElevatorFloorButtonTexture(d);
+    const btnMat = trackExtraMat(
+      new THREE.MeshBasicMaterial({
+        map: btnTex,
+        color: idx === 0 ? 0xb5ffda : 0xeaf6ff,
+      })
+    );
+    const by = 1.34 - idx * 0.135;
+    add(elevatorCab, box(0.36, 0.115, 0.02), elCarbonSillM, 0, by, 0.86);
+    const btn = add(elevatorCab, box(0.32, 0.098, 0.042), btnMat, 0, by, 0.84);
     btn.userData.elevatorFloorButton = d.id;
     registerInteractMesh(btn, `elevator-floor-${d.id}`, 'elevator-floor');
 
-    // Botón duplicado en la pilastra frontal para que sea directamente operable mirando hacia proa (-Z)
-    const frontBtn = add(elevatorCab, box(0.04, 0.09, 0.16), btnMat, 0.825, by, 0.74);
+    // Botón rotulado también en la pilastra frontal de marcha
+    const frontBtn = add(elevatorCab, box(0.04, 0.095, 0.20), btnMat, 0.83, by, 0.76);
     frontBtn.userData.elevatorFloorButton = d.id;
     registerInteractMesh(frontBtn, `elevator-floor-${d.id}`, 'elevator-floor');
     cabButtonsByDeck[d.id] = btnMat;
@@ -609,10 +699,10 @@ export function buildKronoxInterior120M() {
       if (cabButtonsByDeck[d.id]) {
         cabButtonsByDeck[d.id].color.setHex(
           d.id === elevatorState.targetDeckId
-            ? 0x58ff9c
+            ? 0xa8ffcf
             : d.id === currentDeck.id
-              ? 0xffe066
-              : 0x2fd6ff
+              ? 0xfff2a8
+              : 0x9de6ff
         );
       }
     });

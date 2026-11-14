@@ -2851,6 +2851,14 @@ small {
 }
 .kronoxNavConsole .kronoxStationDrawerHead h4 { margin: 3px 0 0; font-size: 14px; letter-spacing: .04em; }
 .kronoxFreeHelmHud { position: fixed; z-index: 58; inset: 0; display: flex; align-items: center; justify-content: space-between; padding-inline: max(18px, env(safe-area-inset-left, 0px)) max(18px, env(safe-area-inset-right, 0px)); pointer-events: none; }
+.kronoxFreeHelmTopDock { position: fixed; top: max(14px, env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 59; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; padding: 8px 13px; border: 1px solid rgba(79, 189, 232, .38); border-radius: 999px; background: rgba(4, 17, 30, .82); box-shadow: 0 8px 28px rgba(0, 0, 0, .32); backdrop-filter: blur(10px); pointer-events: auto; }
+.kronoxFreeHelmTopBadge { color: #9cdbf5; font: 700 10px ui-monospace, monospace; letter-spacing: .09em; white-space: nowrap; }
+.kronoxFreeHelmTopHint { color: #b7d2e0; font: 11px system-ui, sans-serif; white-space: nowrap; }
+.kronoxFreeHelmTopActions { display: flex; align-items: center; gap: 7px; }
+.kronoxFreeHelmReturnBtn { min-height: 29px; padding: 5px 12px; border: 1px solid rgba(103, 219, 255, .64); border-radius: 999px; color: #f2fbff; background: linear-gradient(135deg, rgba(16, 118, 152, .92), rgba(10, 62, 92, .94)); cursor: pointer; font: 700 11px system-ui, sans-serif; }
+.kronoxFreeHelmReturnBtn:hover { border-color: rgba(166, 236, 255, .95); filter: brightness(1.1); }
+.kronoxFreeHelmPlanBtn { min-height: 29px; padding: 5px 11px; border: 1px solid rgba(118, 178, 206, .34); border-radius: 999px; color: #cfe8f5; background: rgba(9, 32, 50, .82); cursor: pointer; font: 600 11px system-ui, sans-serif; }
+.kronoxFreeHelmPlanBtn:hover { border-color: rgba(125, 211, 252, .72); color: #eef9ff; }
 .kronoxFreeHelmSidePanel { display: grid; gap: 7px; width: clamp(132px, 14vw, 184px); padding: 12px 13px; border: 1px solid rgba(79, 189, 232, .28); border-radius: 10px; background: linear-gradient(145deg, rgba(4, 17, 30, .74), rgba(4, 14, 25, .58)); box-shadow: 0 8px 28px rgba(0, 0, 0, .22), inset 0 0 18px rgba(42, 139, 181, .07); backdrop-filter: blur(8px); }
 .kronoxFreeHelmSidePanel.left { border-left: 2px solid rgba(56, 189, 248, .74); }
 .kronoxFreeHelmSidePanel.right { border-right: 2px solid rgba(56, 189, 248, .74); }
