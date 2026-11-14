@@ -3256,10 +3256,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
   const INTRO_CURVES = {
     extPos: buildIntroCurve([
-      [122, 32, -96],
-      [132, 16, 22],
-      [92, 28, 114],
-      [-86, 22, 92],
+      [-118, 28, -86],
+      [-128, 16, 12],
+      [74, 24, 96],
+      [98, 22, -48],
       [6.2, 5.3, -24.5],
     ]),
     extLook: buildIntroCurve([
@@ -3296,16 +3296,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       [14.0, -1.95, 0.0],
     ]),
     habitatPos: buildIntroCurve([
-      [6.6, 1.95, -3.2],
-      [3.8, 1.95, -5.4],
-      [-3.6, 1.95, -5.6],
-      [-6.4, 1.95, -3.0],
+      [7.4, 1.65, -2.6],
+      [4.6, 1.65, -6.2],
+      [-4.6, 1.65, -6.2],
+      [-7.4, 1.65, -2.6],
     ]),
     habitatLook: buildIntroCurve([
-      [1.8, 0.72, -3.0],
-      [0.6, 0.75, -3.6],
-      [-0.6, 0.75, -3.8],
-      [-1.8, 0.72, -3.2],
+      [1.8, 1.12, -2.2],
+      [0.6, 1.15, -2.6],
+      [-0.6, 1.15, -2.6],
+      [-1.8, 1.12, -2.2],
     ]),
     engPos: buildIntroCurve([
       [5.2, -1.45, 2.0],
@@ -4812,9 +4812,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
             const t8 = Math.min(1, (u - 0.71) / 0.10);
             const ease8 = t8 * t8 * (3 - 2 * t8);
-            const swimX = THREE.MathUtils.lerp(3.4, -2.6, ease8);
-            const swimZ = -2.8 - Math.sin(ease8 * Math.PI) * 1.4;
-            const swimY = 0.18 + Math.sin(ease8 * Math.PI) * 0.28;
+            const swimX = THREE.MathUtils.lerp(3.2, -2.8, ease8);
+            const swimZ = -2.0 - Math.sin(ease8 * Math.PI) * 0.9;
+            const swimY = 0.08 + Math.sin(ease8 * Math.PI) * 0.22;
             if (articulatedAstronaut) {
               articulatedAstronaut.root.visible = true;
               articulatedAstronaut.root.position.set(swimX, swimY, swimZ);
