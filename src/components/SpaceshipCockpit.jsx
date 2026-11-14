@@ -243,6 +243,55 @@ export default function SpaceshipCockpit({
               <span>{heldToolId === 'multitool' ? '🔧 Multiherramienta EVA' : heldToolId === 'scanner' ? '📡 Escáner IR' : '💎 Acoplador'}</span>
             </div>
           )}
+
+          <div className="kronoxTopRightControls">
+            <nav className="kronoxViewModeSwitcher" aria-label={t('Selector de cámara 3D', language)}>
+              <button
+                type="button"
+                className={`kronoxViewBtn ${viewMode === 'cockpit' && cabinFirstPerson ? 'active' : ''}`}
+                aria-pressed={viewMode === 'cockpit' && cabinFirstPerson}
+                onClick={() => {
+                  if (viewMode !== 'cockpit') onChangeViewMode?.('cockpit');
+                  onToggleCabinPerspective?.(true);
+                }}
+                title="Exploración interior en primera persona [C]"
+              >
+                Cabina 1P
+              </button>
+              <button
+                type="button"
+                className={`kronoxViewBtn ${viewMode === 'cockpit' && !cabinFirstPerson ? 'active' : ''}`}
+                aria-pressed={viewMode === 'cockpit' && !cabinFirstPerson}
+                onClick={() => {
+                  if (viewMode !== 'cockpit') onChangeViewMode?.('cockpit');
+                  onToggleCabinPerspective?.(false);
+                }}
+                title="Exploración interior en tercera persona [C]"
+              >
+                3P
+              </button>
+              <button
+                type="button"
+                className={`kronoxViewBtn ${viewMode === 'exterior' ? 'active' : ''}`}
+                aria-pressed={viewMode === 'exterior'}
+                onClick={() => onChangeViewMode?.('exterior')}
+                title="Vista exterior de la nave KRONOX (120 m)"
+              >
+                Exterior
+              </button>
+            </nav>
+
+            {viewMode === 'exterior' && onResetExteriorView && (
+              <button
+                type="button"
+                className="kronoxResetExteriorView"
+                onClick={() => onResetExteriorView?.()}
+                title="Inspeccionar nave desde cámara orbital libre [R]"
+              >
+                Inspeccionar [R]
+              </button>
+            )}
+          </div>
         </header>
       )}
 

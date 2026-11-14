@@ -1340,6 +1340,33 @@
   box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.45);
 }
 
+.kronoxTopRightControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.kronoxResetExteriorView {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #7dd3fc;
+  background: rgba(14, 165, 233, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 140ms ease;
+  white-space: nowrap;
+}
+
+.kronoxResetExteriorView:hover {
+  color: #f0f9ff;
+  background: rgba(14, 165, 233, 0.26);
+  border-color: rgba(56, 189, 248, 0.65);
+}
+
 @media (max-width: 760px), (pointer: coarse) {
   .kronoxBridgeTopBar {
     top: max(6px, env(safe-area-inset-top, 0px));

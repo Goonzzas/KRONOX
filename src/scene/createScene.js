@@ -6396,6 +6396,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     pv = v;
     if (v == 1) {
       cabinFirstPerson = true;
+      S.onCabinFirstPersonChange?.(true);
       camViewBlend = 0;
       astronaut3D.root.visible = false;
       astronaut3D.firstPersonHands.visible = false;
@@ -6421,7 +6422,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     localCam.fov = baseFov;
     localCam.updateProjectionMatrix();
     GU.uH.value = (innerHeight * R.getPixelRatio()) / (2 * Math.tan((cam.fov * Math.PI) / 360));
-    if (free && !wasExteriorInspection) {
+    if (free) {
       ship.visible = v == 3;
       localCabinWorld.visible = v == 1;
       const q = ship.quaternion.clone();

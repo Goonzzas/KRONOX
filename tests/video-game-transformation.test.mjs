@@ -183,9 +183,12 @@ test('ETAPA 3 & 4 — HUD mínimo de videojuego, eliminación de paneles duplica
     // - HUD mínimo: Pausa [ESC] + identificador KRONOX 120 m, sin atajos de exploración en barra superior
     assert.ok(cabinTree.includes('KRONOX') && cabinTree.includes('120 m'));
     assert.ok(cabinTree.includes('Pausa'));
-    assert.ok(!cabinTree.includes('Cabina 1P'));
+    assert.ok(cabinTree.includes('Cabina 1P'));
+    assert.ok(cabinTree.includes('"3P"'));
+    assert.ok(cabinTree.includes('Exterior'));
     assert.ok(!cabinTree.includes('Simple vista 1×'));
-    assert.ok(!cabinTree.includes('3P EVA'));
+    assert.ok(!cabinTree.includes('Telescopio'));
+    assert.ok(!cabinTree.includes('C01') && !cabinTree.includes('μG '));
     // - El panel lateral izquierdo permanente (NavigationDock "ESCALA ACTIVA") NO se muestra durante la exploración en cabina
     assert.ok(!cabinTree.includes('ESCALA ACTIVA'));
 

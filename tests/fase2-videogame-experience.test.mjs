@@ -34,6 +34,7 @@ test('FASE 2 — Experiencia completa de videojuego: HUD limpio, Menú de Pausa 
     // =========================================================================
     let pauseOpened = false;
     let viewChanged = false;
+    let perspectiveChangedTo = null;
     let telescopeChanged = false;
 
     let cockpit;
@@ -42,11 +43,15 @@ test('FASE 2 — Experiencia completa de videojuego: HUD limpio, Menú de Pausa 
         React.createElement(SpaceshipCockpit, {
           freeRoam: true,
           perspectiveView: 1, // Primera persona 1.65m
+          viewMode: 'cockpit',
+          cabinFirstPerson: true,
           walkSpeed: 0,
           activeCockpitStation: null,
           nearestCabinStation: null,
           onOpenPauseMenu: () => { pauseOpened = true; },
           onChangeView: () => { viewChanged = true; },
+          onChangeViewMode: (m) => { viewChanged = m; },
+          onToggleCabinPerspective: (fp) => { perspectiveChangedTo = fp; },
           onSetOpticalTelescope: () => { telescopeChanged = true; },
           activeObjectiveText: 'Investigar espectro en la consola de ciencia',
           visualProfile: 'cinematic',
@@ -70,11 +75,22 @@ test('FASE 2 — Experiencia completa de videojuego: HUD limpio, Menú de Pausa 
     );
 
     // Elementos que NO deben estar en el HUD superior mínimo de exploración:
-    assert.ok(!jsonStr.includes('Cabina 1P'), 'La barra superior no debe incluir atajos de cámara (Cabina 1P)');
-    assert.ok(!jsonStr.includes('3P EVA'), 'La barra superior no debe incluir atajos de vista (3P EVA)');
-    assert.ok(!jsonStr.includes('Exterior'), 'La barra superior no debe incluir atajos de vista (Exterior)');
+    assert.ok(jsonStr.includes('Cabina 1P'), 'La barra superior debe incluir Cabina 1P');
+    assert.ok(jsonStr.includes('"3P"'), 'La barra superior debe incluir 3P');
+    assert.ok(jsonStr.includes('Exterior'), 'La barra superior debe incluir Exterior');
     assert.ok(!jsonStr.includes('Simple vista 1×'), 'La barra superior no debe incluir atajos del telescopio');
+    assert.ok(!jsonStr.includes('Telescopio'), 'La barra superior no debe incluir acceso directo a telescopio');
+    assert.ok(!jsonStr.includes('μG '), 'La barra superior no debe incluir atajo de microgravedad');
     assert.ok(!jsonStr.includes('C01') && !jsonStr.includes('C02'), 'La barra superior no debe tener botones de salto entre cubiertas');
+
+    const camButtons = cockpit.root.findAllByType('button');
+    const btn3p = camButtons.find((b) => String(b.children?.join?.('') ?? b.children) === '3P');
+    const btnExt = camButtons.find((b) => String(b.children?.join?.('') ?? b.children) === 'Exterior');
+    assert.ok(btn3p && btnExt, 'Botones 3P y Exterior deben ser interactivos');
+    await act(async () => { btn3p.props.onClick(); });
+    assert.equal(perspectiveChangedTo, false, 'Clic en 3P debe cambiar perspectiva de cabina a tercera persona');
+    await act(async () => { btnExt.props.onClick(); });
+    assert.equal(viewChanged, 'exterior', 'Clic en Exterior debe cambiar a vista exterior');
     assert.ok(!jsonStr.includes('Coordenadas X:'), 'No debe haber telemetría fija de coordenadas X');
     assert.ok(!jsonStr.includes('Velocidad:'), 'No debe haber velocímetro permanente en exploración a pie');
     assert.ok(!jsonStr.includes('✦ Cielo: Cinematográfico'), 'El selector de cielo no debe saturar el HUD principal');
