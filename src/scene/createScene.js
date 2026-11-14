@@ -3857,14 +3857,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     nav: 'Dirígete a la consola de control y navegación iluminada en el Puente de Mando y pulsa E para inspeccionar los sistemas de vuelo.',
     astro_obs:
       'Desde el puente puedes activar el Telescopio Óptico con la tecla T, inspeccionar el casco en vista Exterior o elegir un planeta o estrella para viajar hacia él.',
+    galactic_map:
+      'Pulsa I para abrir tu Inventario y selecciona la pestaña Mapa galáctico. Allí puedes explorar Sistema Solar, Vecindario Estelar o Galaxias y fijar rumbo.',
     elevator_c02:
       'Excelente. Ahora entra al Ascensor Central en el eje del puente, pulsa E o la tecla 2 y desciende a la Cubierta Habitacional para inspeccionar los camarotes y el comedor.',
     elevator_c03:
       'Módulo habitacional verificado. Usa el Ascensor Central y pulsa la tecla 3 para bajar a la Cubierta Científica e Ingeniería, donde operan el reactor Tokamak y el Laboratorio SPHEREx.',
     science:
       'Has llegado a la Cubierta Científica. Sigue la baliza luminosa hacia babor hasta el Laboratorio Espectral SPHEREx y pulsa E para iniciar el análisis.',
-    manual_journal:
-      'Análisis científico registrado. En el nivel inferior cuentas además con la Bodega y el Hangar. Pulsa la tecla J para abrir tu Bitácora y Manual Operativo y completar el entrenamiento.',
+    inventory_hub:
+      'Análisis científico registrado. Pulsa la tecla I para gestionar tus herramientas EVA, muestras y manual en el Inventario táctico y completar el tutorial.',
     missions: 'En la consola de misiones puedes revisar y elegir objetivos para la expedición.',
     comms: 'Esta consola abre el canal de comunicaciones de la nave.',
     windows: 'El mirador panorámico permite observar el sistema desde la nave.',
@@ -3920,11 +3922,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       look_camera: 'PASO 2/7 · CÁMARA Y MOVIMIENTO: Muévete con [WASD], alterna vista 1P/3P con [V] o acércate a Navegación.',
       bridge: 'PASO 3/7 · CONSOLA DE CONTROL: Acércate a la consola iluminada del Puente de Mando y pulsa [E].',
       nav: 'PASO 3/7 · CONSOLA DE NAVEGACIÓN: Acércate a la consola de navegación en el Puente y úsala con [E].',
-      astro_obs: 'PASO 4/7 · EXPLORACIÓN ESPACIAL: Pulsa [T] para usar el Instrumento Óptico, cambia a Exterior o ve al Ascensor Central.',
-      elevator_c02: 'PASO 5/7 · CUBIERTA HABITACIONAL: Toma el Ascensor Central ([E] o tecla [2]) hacia la Cubierta Habitacional (Nivel 2).',
+      astro_obs: 'PASO 4/7 · EXPLORACIÓN ESPACIAL: Pulsa [T] para usar el Instrumento Óptico o cambia a vista Exterior.',
+      galactic_map: 'PASO 5/7 · MAPA GALÁCTICO: Pulsa [I] -> Mapa galáctico para explorar escalas y destinos del cosmos.',
+      elevator_c02: 'PASO 6/7 · CUBIERTA HABITACIONAL: Toma el Ascensor Central ([E] o tecla [2]) hacia la Cubierta Habitacional.',
       elevator_c03: 'PASO 6/7 · CUBIERTA CIENTÍFICA: Baja en el Ascensor Central a la Cubierta Científica (Nivel 3, tecla [3]).',
-      science: 'PASO 6/7 · LABORATORIO SPHEREx: Dirígete al Laboratorio SPHEREx en la Cubierta Científica y pulsa [E].',
-      manual_journal: 'PASO 7/7 · BITÁCORA Y MANUAL: Pulsa [J] para abrir el Manual Operativo y la Bitácora de Expedición.',
+      science: 'PASO 6/7 · LABORATORIO SPHEREx: Dirígete al Laboratorio SPHEREx en C03 y pulsa [E].',
+      inventory_hub: 'PASO 7/7 · INVENTARIO Y MANUAL: Pulsa [I] para abrir el Inventario táctico, equipamiento y Manual.',
       missions: 'OBJETIVO: Interactúa con la consola de misiones.',
       comms: 'OBJETIVO: Interactúa con la consola de comunicaciones.',
       windows: 'OBJETIVO: Acércate al mirador o interactúa con él.',
@@ -3950,7 +3953,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     S.onGuideObjective?.(null);
     S.onGuideStateChange?.({ step: 'free', stationId: null, active: false, completed: true });
     S.onAiTourNarrative?.(
-      'Entrenamiento operativo completado. Tienes acceso libre a las cuatro cubiertas, a la Bitácora Personal y a la navegación interestelar.',
+      'Entrenamiento operativo completado. Tienes acceso libre a las cuatro cubiertas, al Inventario, al Mapa Galáctico y a la navegación interestelar.',
       'Confirmación',
       'science',
       { id: 'tut-completed', priority: 9, replace: true, once: false },
@@ -3994,6 +3997,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return true;
     }
     if (step === 'astro_obs') {
+      setTourStep('galactic_map', null);
+      S.onAiTourNarrative?.(tourNarratives.galactic_map, 'Orientación', 'windows', {
+        id: 'tut-step-galactic-map',
+        priority: 8,
+        replace: true,
+        once: false,
+      });
+      return true;
+    }
+    if (step === 'galactic_map') {
       setTourStep('elevator_c02', 'elevator');
       S.onAiTourNarrative?.(tourNarratives.elevator_c02, 'Orientación', 'elevator', {
         id: 'tut-step-hab',
@@ -4024,9 +4037,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return true;
     }
     if (step === 'science') {
-      setTourStep('manual_journal', null);
-      S.onAiTourNarrative?.(tourNarratives.manual_journal, 'Orientación', 'science', {
-        id: 'tut-step-journal',
+      setTourStep('inventory_hub', null);
+      S.onAiTourNarrative?.(tourNarratives.inventory_hub, 'Orientación', 'science', {
+        id: 'tut-step-inventory',
         priority: 8,
         replace: true,
         once: false,
@@ -4110,12 +4123,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       (stationId === 'science' || stationId === 'sensor-calibration')
     ) {
       guidedTourState.scienceInteracted = true;
-      setTourStep('manual_journal', null);
+      setTourStep('inventory_hub', null);
       S.onAiTourNarrative?.(
-        tourNarratives.manual_journal,
+        tourNarratives.inventory_hub,
         'Orientación',
         'science',
-        { id: 'tut-step-journal', priority: 8, replace: true, once: false },
+        { id: 'tut-step-inventory', priority: 8, replace: true, once: false },
       );
       return;
     }
@@ -4138,7 +4151,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
   function onGuidedJournalOpen() {
     if (!guidedTourState || guidedTourState.step === 'free') return;
-    if (guidedTourState.step === 'manual_journal') {
+    if (guidedTourState.step === 'manual_journal' || guidedTourState.step === 'inventory_hub') {
+      completeGuidedTourWithConfirmation();
+    }
+  }
+
+  function onGuidedInventoryOpen(tab = 'inventory') {
+    if (!guidedTourState || guidedTourState.step === 'free') return;
+    if (tab === 'map' && guidedTourState.step === 'galactic_map') {
+      setTourStep('elevator_c02', 'elevator');
+      S.onAiTourNarrative?.(tourNarratives.elevator_c02, 'Orientación', 'elevator', {
+        id: 'tut-step-hab',
+        priority: 8,
+        replace: true,
+        once: false,
+      });
+      return;
+    }
+    if (guidedTourState.step === 'inventory_hub' || guidedTourState.step === 'manual_journal') {
       completeGuidedTourWithConfirmation();
     }
   }
@@ -7824,6 +7854,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     onGuidedStationInteraction,
     onGuidedScienceAction,
     onGuidedJournalOpen,
+    onGuidedInventoryOpen,
     skipGuidedTourStep,
     endGuidedCabinTour,
     setCabinFirstPerson: (firstPerson = true) => {

@@ -31,7 +31,7 @@ const PAUSE_SECTIONS = [
   { id: 'continue', label: '1. Continuar', subtitle: 'Reanudar exploración espacial' },
   { id: 'save', label: '2. Guardar partida', subtitle: 'Estado de nave y efemérides' },
   { id: 'observations', label: '3. Mis observaciones', subtitle: 'Registro científico personal' },
-  { id: 'journal', label: '4. Diario de exploración', subtitle: 'Bitácora de misiones y objetos' },
+  { id: 'journal', label: '4. Diario de exploración', subtitle: 'Registro de misiones y objetos' },
   { id: 'community', label: '5. Comunidad', subtitle: 'Arquitectura de ciencia ciudadana' },
   { id: 'settings', label: '6. Ajustes', subtitle: 'Gráficos, audio, interfaz y voz' },
   { id: 'controls', label: '7. Controles', subtitle: 'Mapa de mando y navegación' },
@@ -406,7 +406,7 @@ export default function PauseMenu({
           {activeSection === 'journal' && (
             <section className="kronox-pause-panel">
               <header className="kronox-pause-header">
-                <span className="kronox-pause-eyebrow">BITÁCORA Y EQUIPAMIENTO DE A BORDO</span>
+                <span className="kronox-pause-eyebrow">EXPEDICIÓN Y EQUIPAMIENTO DE A BORDO</span>
                 <h3>Diario de exploración, inventario y logros</h3>
                 <p>
                   Registro cronológico de tu expedición, gestión de herramientas de microgravedad y progreso
@@ -420,7 +420,7 @@ export default function PauseMenu({
                     className={`kronox-settings-tab-btn${journalSubTab === 'bitacora' ? ' is-active' : ''}`}
                     onClick={() => setJournalSubTab('bitacora')}
                   >
-                    Bitácora de Misiones
+                    Registro de Misiones
                   </button>
                   <button
                     type="button"
@@ -489,7 +489,7 @@ export default function PauseMenu({
                           <h4>Actividad reciente</h4>
                           {journal.activities.length === 0 ? (
                             <p className="kronox-pause-empty-text">
-                              Sin entradas recientes en la bitácora.
+                              Sin entradas recientes registradas.
                             </p>
                           ) : (
                             <ul className="kronox-pause-activity-list">

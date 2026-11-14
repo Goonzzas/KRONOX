@@ -857,6 +857,15 @@ export function buildKronoxInterior120M() {
   {
     const d1 = deckContainers['deck-01'];
     const f = 3.4;
+    const bridgeDeckPbr = pbrSuite.materials.bridgeDeckPlatingMat || floorM;
+    const bridgeRibM = pbrSuite.materials.bridgeTitaniumRibMat || slateM;
+    const bridgeAlloyM = pbrSuite.materials.bridgeChampagneTrimMat || steelM;
+    const bridgeCarbonM = pbrSuite.materials.bridgeCarbonConsoleMat || darkM;
+    const bridgeSeatM = pbrSuite.materials.bridgeLeatherSeatMat || bedM;
+    const bridgeWalkGlassM = pbrSuite.materials.bridgeObsidianGlassMat || glassM;
+    const bridgeCoveWarmM = pbrSuite.materials.bridgeDiffuserWarmMat || warmGlow;
+    const bridgeCoveCoolM = pbrSuite.materials.bridgeDiffuserCoolMat || cyanGlow;
+
     const P = [[15.5, 0], [11, 6.2], [1, 12], [-12, 10.5], [-12, -10.5], [1, -12], [11, -6.2]];
     const edge = (A, B) => {
       const dx = B[0] - A[0];
@@ -874,25 +883,91 @@ export function buildKronoxInterior120M() {
     };
     const E = P.map((a, i) => edge(a, P[(i + 1) % P.length]));
 
+    const bridgeChair = (parent, cx, cz, yBase, rotY, isCaptain = false) => {
+      const g = new THREE.Group();
+      g.position.set(cx, yBase, cz);
+      g.rotation.y = rotY;
+      parent.add(g);
+      // Base hidráulica giratoria y reposapiés anular
+      add(g, cyl(0.32, 0.38, 0.05, 16), bridgeAlloyM, 0, 0.025, 0);
+      add(g, cyl(0.085, 0.12, 0.38, 12), bridgeRibM, 0, 0.22, 0);
+      const footRing = add(g, torus(0.26, 0.018, 8, 24), bridgeAlloyM, 0, 0.16, 0);
+      footRing.rotation.x = Math.PI / 2;
+      // Carcasa de carbono + cojín ergonómico anatómico
+      const seatW = isCaptain ? 0.88 : 0.76;
+      add(g, box(seatW, 0.09, 0.72), bridgeCarbonM, 0, 0.45, 0);
+      add(g, box(seatW - 0.08, 0.1, 0.64), bridgeSeatM, 0, 0.52, 0.03);
+      add(g, box(seatW - 0.14, 0.07, 0.18), bridgeAlloyM, 0, 0.49, 0.32).rotation.x = 0.28;
+      // Respaldo envolvente + refuerzos lumbares + cabezal aeroespacial
+      const spine = add(g, box(seatW - 0.06, 0.86, 0.1), bridgeCarbonM, 0, 0.94, -0.34);
+      spine.rotation.x = -0.11;
+      const cushion = add(g, box(seatW - 0.14, 0.76, 0.1), bridgeSeatM, 0, 0.94, -0.28);
+      cushion.rotation.x = -0.11;
+      [-1, 1].forEach((sideSign) => {
+        const bx = sideSign * (seatW * 0.43);
+        const bolster = add(g, box(0.11, 0.62, 0.18), bridgeSeatM, bx, 0.88, -0.24);
+        bolster.rotation.y = sideSign * -0.24;
+        // Reposabrazos con micro-joystick táctil integrado
+        const ax = sideSign * (seatW * 0.54);
+        add(g, box(0.08, 0.22, 0.12), bridgeRibM, ax, 0.58, -0.06);
+        add(g, box(0.11, 0.055, 0.56), bridgeCarbonM, ax, 0.72, 0.02);
+        add(g, box(0.09, 0.03, 0.42), bridgeSeatM, ax, 0.755, -0.02);
+        add(g, box(0.06, 0.02, 0.12), bridgeAlloyM, ax, 0.765, 0.20);
+        if (isCaptain) {
+          add(g, box(0.08, 0.014, 0.08), bridgeCoveCoolM, ax, 0.775, 0.22);
+        }
+      });
+      // Cabezal y aletas laterales
+      add(g, box(0.44, 0.24, 0.11), bridgeCarbonM, 0, 1.44, -0.40);
+      add(g, box(0.38, 0.20, 0.09), bridgeSeatM, 0, 1.44, -0.34);
+      add(g, box(0.50, 0.035, 0.13), bridgeAlloyM, 0, 1.31, -0.39);
+      return g;
+    };
+
+    // Piso heptagonal de puente en aleación mate grafito-titanio + pasarela central acristalada sobre conductos
     const sh = new THREE.Shape();
     P.forEach((p, i) => (i ? sh.lineTo(p[0], p[1]) : sh.moveTo(p[0], p[1])));
     sh.closePath();
-    const bridgeDeckMat = trackExtraMat(
-      new THREE.MeshStandardMaterial({
-        color: 0x1a283d,
-        map: pbrSuite.textures.floorColorTex,
-        normalMap: pbrSuite.textures.floorNormalTex,
-        normalScale: new THREE.Vector2(0.5, 0.5),
-        metalness: 0.32,
-        roughness: 0.65,
-      })
-    );
-    const bridgeFloor = add(d1, new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: false }), bridgeDeckMat, 0, f, 0);
+    const bridgeFloor = add(d1, new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: false }), bridgeDeckPbr, 0, f, 0);
     bridgeFloor.rotation.x = -Math.PI / 2;
 
-    const bridgeScreenTex = makeDiegeticScreenTexture('nav', 'NAVEGACIÓN DE PROA', ['ÓRBITA: SOL-L2', 'VECTOR ACTIVO: -Z', 'TELEMETRÍA NOMINAL'], '#38d8ff');
-    trackExtraTex(bridgeScreenTex.tex);
-    const bridgeScrMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: bridgeScreenTex.tex }));
+    // Pasarela central acristalada sobre canal de bus de cobre (tramos popa-ascensor y ascensor-proa)
+    [
+      [-3.15, 3.0],
+      [2.65, 3.1],
+    ].forEach(([cx, len]) => {
+      add(d1, box(len, 0.018, 0.86), bridgeRibM, cx, f + 0.052, 0);
+      add(d1, box(len - 0.14, 0.024, 0.14), copperM, cx, f + 0.056, -0.14);
+      add(d1, box(len - 0.14, 0.024, 0.14), copperM, cx, f + 0.056, 0.14);
+      add(d1, box(len - 0.06, 0.032, 0.68), bridgeWalkGlassM, cx, f + 0.064, 0);
+      [-0.36, 0.36].forEach((rz) => {
+        add(d1, box(len, 0.028, 0.055), bridgeAlloyM, cx, f + 0.068, rz);
+        add(d1, box(len - 0.2, 0.014, 0.018), bridgeCoveCoolM, cx, f + 0.072, rz * 0.92);
+      });
+    });
+
+    // Aro arquitectónico de bienvenida en torno al núcleo del ascensor central
+    const elevAtriumCurb = add(d1, torus(1.58, 0.045, 8, 36), bridgeAlloyM, 0, f + 0.06, 0);
+    elevAtriumCurb.rotation.x = Math.PI / 2;
+    const elevAtriumGlow = add(d1, torus(1.48, 0.015, 6, 36), bridgeCoveCoolM, 0, f + 0.068, 0);
+    elevAtriumGlow.rotation.x = Math.PI / 2;
+
+    // Pantallas diegéticas diferenciadas por estación
+    const bridgeNavTex = makeDiegeticScreenTexture('nav', 'TIMÓN & VECTORES', ['APOGEO SOLAR L2', 'ACTITUD +0.02° · NOMINAL', 'AUTOPILOTO EN LÍNEA'], '#38d8ff');
+    trackExtraTex(bridgeNavTex.tex);
+    const bridgeNavMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: bridgeNavTex.tex }));
+
+    const bridgeAstroTex = makeDiegeticScreenTexture('windows', 'ASTROGACIÓN & ÓPTICA', ['CATÁLOGO GAIA DR3 + CNS5', 'ESPECTRÓMETRO EN ESPERA', 'FILTROS IR CALIBRADOS'], '#7fd4ff');
+    trackExtraTex(bridgeAstroTex.tex);
+    const bridgeAstroMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: bridgeAstroTex.tex }));
+
+    const bridgeCommsTex = makeDiegeticScreenTexture('comms', 'ENLACE KRONOX IA', ['CANAL NEURAL SINCRONIZADO', 'TELEMETRÍA BANDA KA 100%', 'SISTEMAS DE VOZ ACTIVOS'], '#f6b85a');
+    trackExtraTex(bridgeCommsTex.tex);
+    const bridgeCommsMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: bridgeCommsTex.tex }));
+
+    const bridgeEngTex = makeDiegeticScreenTexture('engineering', 'SUPERVISIÓN DE CASCO', ['PRESIÓN 101.3 kPa · O₂ 20.9%', 'ESCUDO TÉRMICO NOMINAL', 'CUBIERTAS C01–C04 LISTAS'], '#58e2a4');
+    trackExtraTex(bridgeEngTex.tex);
+    const bridgeEngMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: bridgeEngTex.tex }));
 
     const bowFacets = new Set([5, 6, 0, 1]);
     E.forEach((e, i) => {
@@ -901,168 +976,258 @@ export function buildKronoxInterior120M() {
       g.rotation.y = e.rot;
       d1.add(g);
       if (i === 3) {
+        // Mamparo trasero de popa con marco técnico esculpido alrededor del portal central
         [-1, 1].forEach((k) => {
           const wSeg = e.l / 2 - 1.2;
           const cx = k * (e.l / 4 + 0.6);
-          add(g, box(wSeg, 2.9, 0.22), wallM, cx, 1.45, 0, 'wall');
-          add(g, box(wSeg - 0.4, 0.16, 0.28), slateM, cx, 0.1, 0);
-          add(g, box(wSeg * 0.72, 0.04, 0.26), cyanGlow, cx, 2.68, 0);
+          add(g, box(wSeg, 2.9, 0.24), bridgeRibM, cx, 1.45, 0, 'wall');
+          add(g, box(wSeg - 0.3, 0.22, 0.30), bridgeCarbonM, cx, 0.11, 0);
+          add(g, box(wSeg - 0.5, 1.85, 0.08), quiltedM, cx, 1.48, -0.11);
+          add(g, box(wSeg - 0.4, 0.05, 0.12), bridgeAlloyM, cx, 2.48, -0.10);
+          add(g, box(wSeg * 0.78, 0.025, 0.04), bridgeCoveWarmM, cx, 2.66, -0.14);
         });
       } else if (bowFacets.has(i)) {
-        // Ventanal panorámico de proa con alféizar instrumental, montantes intermedios y visera superior de telemetría
-        add(g, box(e.l + 0.04, 0.78, 0.28), wallM, 0, 0.39, 0, 'wall');
-        add(g, box(e.l + 0.06, 0.1, 0.36), slateM, 0, 0.8, 0);
-        add(g, box(e.l - 0.2, 0.03, 0.06), cyanGlow, 0, 0.85, -0.14);
-        add(g, box(e.l + 0.04, 2.04, 0.05), glassM, 0, 1.84, 0);
-        add(g, box(e.l + 0.04, 0.24, 0.38), slateM, 0, 2.78, -0.06);
-        add(g, box(e.l * 0.82, 0.035, 0.08), warmGlow, 0, 2.66, -0.18);
-        [-0.25, 0.25].forEach((mt) => {
-          add(g, box(0.11, 2.08, 0.16), slateM, e.l * mt, 1.84, 0);
-          add(g, box(0.04, 2.04, 0.19), steelM, e.l * mt, 1.84, 0);
+        // Ventanal panorámico de proa: antepecho inclinado con bandeja instrumental, montantes de titanio y visera antirreflejos
+        add(g, box(e.l + 0.06, 0.72, 0.32), bridgeRibM, 0, 0.36, 0, 'wall');
+        add(g, box(e.l + 0.08, 0.12, 0.44), bridgeCarbonM, 0, 0.76, -0.04);
+        add(g, box(e.l - 0.08, 0.045, 0.48), bridgeAlloyM, 0, 0.83, -0.05);
+        add(g, box(e.l - 0.3, 0.018, 0.03), bridgeCoveCoolM, 0, 0.84, -0.25);
+        // Acristalamiento panorámico libre + doble montante estructural de aleación
+        add(g, box(e.l + 0.04, 1.98, 0.045), glassM, 0, 1.84, 0.02);
+        add(g, box(e.l + 0.08, 0.28, 0.46), bridgeRibM, 0, 2.78, -0.08);
+        add(g, box(e.l - 0.12, 0.04, 0.16), bridgeAlloyM, 0, 2.64, -0.24);
+        add(g, box(e.l * 0.78, 0.024, 0.045), bridgeCoveWarmM, 0, 2.66, -0.18);
+        [-0.27, 0.27].forEach((mt) => {
+          add(g, box(0.14, 2.04, 0.22), bridgeRibM, e.l * mt, 1.84, -0.02);
+          add(g, box(0.05, 1.98, 0.26), bridgeAlloyM, e.l * mt, 1.84, -0.03);
         });
       } else {
-        add(g, box(e.l, 2.9, 0.22), wallM, 0, 1.45, 0, 'wall');
-        add(g, box(e.l, 0.18, 0.28), slateM, 0, 0.09, 0);
-        add(g, box(e.l * 0.62, 1.32, 0.1), slateM, 0, 1.78, -0.12);
-        add(g, box(e.l * 0.56, 1.16, 0.03), bridgeScrMat, 0, 1.78, -0.17);
-        add(g, box(e.l * 0.78, 0.04, 0.08), cyanGlow, 0, 2.58, -0.14);
+        // Mamparos laterales de babor (4 · KRONOX IA/Comms) y estribor (2 · Sistemas/Casco): bahías arquitectónicas diferenciadas
+        add(g, box(e.l, 2.9, 0.24), bridgeRibM, 0, 1.45, 0, 'wall');
+        add(g, box(e.l, 0.22, 0.30), bridgeCarbonM, 0, 0.11, 0);
+        add(g, box(e.l - 0.6, 0.06, 0.18), bridgeAlloyM, 0, 2.58, -0.10);
+        add(g, box(e.l * 0.84, 0.024, 0.05), bridgeCoveWarmM, 0, 2.64, -0.13);
+        // Pilastras acústicas y celosías técnicas entre bahías
+        [-0.36, -0.12, 0.12, 0.36].forEach((pt) => {
+          add(g, box(0.22, 2.52, 0.14), bridgeCarbonM, e.l * pt, 1.38, -0.10);
+          add(g, box(0.05, 2.48, 0.16), bridgeAlloyM, e.l * pt, 1.38, -0.12);
+        });
+        // Pantallas integradas empotradas en nichos laterales
+        const bayMat = i === 4 ? bridgeCommsMat : bridgeEngMat;
+        [-0.24, 0.24].forEach((bt) => {
+          add(g, box(e.l * 0.20, 1.18, 0.12), bridgeCarbonM, e.l * bt, 1.62, -0.11);
+          add(g, box(e.l * 0.18, 1.02, 0.03), bayMat, e.l * bt, 1.62, -0.165);
+          add(g, box(e.l * 0.19, 0.04, 0.15), bridgeAlloyM, e.l * bt, 2.22, -0.12);
+        });
       }
-      add(g, box(e.l, 0.22, 0.34), darkM, 0, 2.95, 0);
+      add(g, box(e.l, 0.24, 0.36), bridgeCarbonM, 0, 2.95, 0);
     });
+
+    // Pilares angulares en los vértices del puente
     P.forEach((p, idx) => {
       if (idx === 0) {
-        add(d1, box(0.32, 0.82, 0.32), darkM, p[0], f + 0.41, p[1], 'wall');
+        add(d1, box(0.36, 0.78, 0.36), bridgeRibM, p[0], f + 0.39, p[1], 'wall');
+        add(d1, box(0.22, 0.82, 0.40), bridgeAlloyM, p[0], f + 0.41, p[1]);
       } else {
-        add(d1, box(0.34, 2.9, 0.34), darkM, p[0], f + 1.45, p[1], 'wall');
-        add(d1, box(0.14, 2.9, 0.38), steelM, p[0], f + 1.45, p[1]);
+        add(d1, box(0.38, 2.9, 0.38), bridgeRibM, p[0], f + 1.45, p[1], 'wall');
+        add(d1, box(0.16, 2.9, 0.42), bridgeAlloyM, p[0], f + 1.45, p[1]);
       }
     });
 
-    // Consolas en chevrón con chasis biselado 3D, mandos físicos HOTAS, yugo de vuelo, pantallas dobles e iluminarias de mando
-    const chevronShellGeo = cachedGeo('chevronShell:2.14:1.04:1.30', () =>
-      buildBeveledConsoleShellGeo(2.14, 1.04, 1.30),
+    // Techo artesonado estructural del puente: 4 cuadernas en arco de titanio + espina de servicios con difusores indirectos
+    const bridgeArchRibGeo = cachedGeo('bridgeArchRib:9.2:2.94:0.26', () =>
+      buildSculptedArchRibGeo(9.2, 2.94, 0.26, 8.4, 2.66, 0.46),
     );
-    const bridgeArchRibGeo = cachedGeo('bridgeArchRib:8.8:2.94:0.22', () =>
-      buildSculptedArchRibGeo(8.8, 2.94, 0.22, 8.1, 2.66, 0.42),
-    );
-    [-6.5, 4.2, 8.8].forEach((ax) => {
-      const archM = add(d1, bridgeArchRibGeo, slateM, ax, f, 0);
+    [-8.6, -2.6, 3.4, 8.2].forEach((ax) => {
+      const archM = add(d1, bridgeArchRibGeo, bridgeRibM, ax, f, 0);
       archM.rotation.y = Math.PI / 2;
-      add(d1, box(0.06, 0.04, 7.6), cyanGlow, ax, f + 2.64, 0);
+      add(d1, box(0.14, 0.06, 7.6), bridgeAlloyM, ax, f + 2.68, 0);
+      add(d1, box(0.08, 0.025, 7.2), bridgeCoveWarmM, ax, f + 2.64, 0);
+    });
+    // Espina longitudinal de techo con conductos térmicos de cobre y paneles acústicos
+    add(d1, box(24.5, 0.16, 1.35), bridgeCarbonM, -0.5, f + 2.86, 0);
+    add(d1, box(24.0, 0.04, 0.92), ventM, -0.5, f + 2.77, 0);
+    [-0.58, 0.58].forEach((cz) => {
+      add(d1, cyl(0.036, 0.036, 23.6, 10), copperM, -0.5, f + 2.79, cz).rotation.z = Math.PI / 2;
+      add(d1, box(22.8, 0.022, 0.05), bridgeCoveWarmM, -0.5, f + 2.75, cz * 0.78);
+    });
+    [[-9, 20], [-4, 21.5], [1, 22], [6, 16.5], [11, 10.5]].forEach(([x, w]) => {
+      add(d1, box(0.28, 0.16, w), bridgeRibM, x, f + 2.88, 0);
+      add(d1, box(0.08, 0.04, w - 0.6), bridgeAlloyM, x, f + 2.79, 0);
     });
 
+    // Consolas delanteras en chevrón: cuerpos ergonómicos esculpidos, sin bloques neón, con instrumental táctil y pantallas dobles con visera
+    const chevronShellGeo = cachedGeo('chevronShell:2.08:0.96:1.18', () =>
+      buildBeveledConsoleShellGeo(2.08, 0.96, 1.18),
+    );
     [[5, 3], [6, 1], [0, 1], [1, 3]].forEach(([i, n]) => {
       const e = E[i];
       const h = new THREE.Group();
-      h.position.set(e.mx * 0.72, f + 0.1, e.mz * 0.72);
+      h.position.set(e.mx * 0.72, f + 0.045, e.mz * 0.72);
       h.rotation.y = e.rot;
       d1.add(h);
-      add(h, box(e.l * 0.72, 0.025, 0.14), cyanGlow, 0, 0, 0);
+      // Zócalo canalizador bajo las consolas de proa
+      add(h, box(e.l * 0.72, 0.03, 0.42), bridgeRibM, 0, 0, 0);
+      add(h, box(e.l * 0.68, 0.015, 0.03), bridgeCoveCoolM, 0, 0.018, -0.18);
+
+      const isPortWing = i === 5 || i === 6;
+      const wingTex = isPortWing ? bridgeAstroMat : bridgeNavMat;
+
       for (let k = 0; k < n; k++) {
         const [x, z] = e.at((k + 0.5) / n);
         const g = new THREE.Group();
         g.position.set(x * 0.72, f, z * 0.72);
         g.rotation.y = e.rot;
         d1.add(g);
-        add(g, chevronShellGeo, slateM, 0, 0, 0, 'console');
-        add(g, box(2.22, 0.12, 1.38), darkM, 0, 0.06, 0);
-        add(g, box(1.98, 0.08, 1.08), steelM, 0, 1.05, 0);
-        add(g, box(1.85, 0.04, 0.9), k % 2 ? amberGlow : cyanGlow, 0, 1.1, 0);
-        // Visera antirreflejos superior (glare shield), palanca HOTAS, yugo de vuelo y cuadrante de empuje
-        add(g, box(1.96, 0.06, 0.42), darkM, 0, 1.88, 0.44);
-        add(g, cyl(0.03, 0.045, 0.18, 8), darkM, -0.58, 1.2, 0.15);
-        add(g, sphereGeo(0.045, 10, 8), railAmberM, -0.58, 1.3, 0.15);
-        add(g, cyl(0.025, 0.035, 0.22, 8), steelM, 0, 1.16, -0.32).rotation.x = 0.55;
-        add(g, torus(0.14, 0.022, 8, 18), darkM, 0, 1.24, -0.40);
-        add(g, box(0.18, 0.07, 0.24), railAmberM, 0.54, 1.15, 0.12);
-        add(g, box(0.68, 0.025, 0.28), compositeM, 0, 1.12, -0.18);
-        const scr = add(g, box(1.85, 0.8, 0.05), bridgeScrMat, 0, 1.48, 0.52);
-        scr.rotation.x = -0.45;
-        add(g, box(1.92, 0.86, 0.04), darkM, 0, 1.48, 0.55).rotation.x = -0.45;
-        chair(d1, x * 0.72 - e.nx * 1.9, z * 0.72 - e.nz * 1.9, f, e.rot);
+
+        // Chasis principal biselado + patas estructurales + tablero mate anti-reflejos
+        add(g, chevronShellGeo, bridgeRibM, 0, 0, 0, 'console');
+        add(g, box(2.14, 0.08, 1.24), bridgeCarbonM, 0, 0.04, 0);
+        add(g, box(2.02, 0.06, 1.02), bridgeCarbonM, 0, 0.96, 0);
+        add(g, box(2.08, 0.035, 1.08), bridgeAlloyM, 0, 0.99, -0.02);
+        // Superficie de control mate con pocillos físicos y línea de acento ultrafina
+        add(g, box(1.88, 0.02, 0.84), bridgeCarbonM, 0, 1.015, 0);
+        add(g, box(1.82, 0.008, 0.02), isPortWing ? bridgeCoveCoolM : bridgeCoveWarmM, 0, 1.028, -0.39);
+        // Teclado físico + trackball de astrogación + joystick / cuadrante de empuje
+        add(g, box(0.62, 0.025, 0.24), compositeM, 0, 1.032, -0.14);
+        add(g, box(0.36, 0.02, 0.22), bridgeAlloyM, -0.60, 1.03, -0.10);
+        add(g, sphereGeo(0.036, 12, 10), bridgeAlloyM, -0.60, 1.052, -0.10);
+        if (isPortWing) {
+          // Mandos de apuntado fino / calibración óptica a babor
+          add(g, cyl(0.022, 0.035, 0.14, 10), bridgeAlloyM, 0.58, 1.09, 0.04);
+          add(g, sphereGeo(0.038, 10, 8), railAmberM, 0.58, 1.17, 0.04);
+        } else {
+          // Doble palanca de control vectorial a estribor
+          add(g, box(0.18, 0.055, 0.22), bridgeAlloyM, 0.56, 1.045, 0.02);
+          add(g, cyl(0.018, 0.022, 0.12, 8), bridgeCarbonM, 0.52, 1.11, 0.02).rotation.x = 0.22;
+          add(g, cyl(0.018, 0.022, 0.12, 8), bridgeCarbonM, 0.60, 1.11, -0.02).rotation.x = 0.22;
+        }
+        // Visera antirreflejos curva y doble pantalla MFD en ángulo ergonómico
+        add(g, box(1.92, 0.055, 0.34), bridgeCarbonM, 0, 1.72, 0.40);
+        add(g, box(1.96, 0.03, 0.08), bridgeAlloyM, 0, 1.74, 0.22);
+        const scrFrame = add(g, box(1.80, 0.64, 0.045), bridgeCarbonM, 0, 1.38, 0.44);
+        scrFrame.rotation.x = -0.44;
+        const scrLeft = add(g, box(0.84, 0.54, 0.02), wingTex, -0.45, 1.38, 0.418);
+        scrLeft.rotation.x = -0.44;
+        const scrRight = add(g, box(0.84, 0.54, 0.02), bridgeNavMat, 0.45, 1.38, 0.418);
+        scrRight.rotation.x = -0.44;
+
+        bridgeChair(d1, x * 0.72 - e.nx * 1.9, z * 0.72 - e.nz * 1.9, f, e.rot, false);
       }
     });
 
-    // Puestos tácticos laterales con marquesina superior de telemetría
+    // Estaciones tácticas laterales integradas (babor · enlace KRONOX / estribor · ingeniería)
     [2, 4].forEach((i) => {
       const e = E[i];
+      const sideMat = i === 4 ? bridgeCommsMat : bridgeEngMat;
       for (let k = 0; k < 4; k++) {
         const [x, z] = e.at(0.18 + k * 0.21);
         const g = new THREE.Group();
         g.position.set(x - e.nx * 1.1, f, z - e.nz * 1.1);
         g.rotation.y = e.rot + Math.PI;
         d1.add(g);
-        add(g, box(2.2, 1.1, 0.92), slateM, 0, 0.55, 0, 'console');
-        add(g, box(2.08, 0.07, 0.82), steelM, 0, 1.09, 0);
-        add(g, box(1.92, 0.04, 0.62), k % 2 ? cyanGlow : amberGlow, 0, 1.13, 0);
-        add(g, box(1.78, 0.62, 0.06), darkM, 0, 1.44, 0.32);
-        add(g, box(1.70, 0.54, 0.03), bridgeScrMat, 0, 1.44, 0.28);
+        // Consola en voladizo sobre soportes dobles de titanio (sin bloque macizo repetitivo)
+        add(g, box(0.22, 0.96, 0.64), bridgeRibM, -0.78, 0.48, 0.04, 'console');
+        add(g, box(0.22, 0.96, 0.64), bridgeRibM, 0.78, 0.48, 0.04, 'console');
+        add(g, box(1.66, 0.28, 0.54), bridgeCarbonM, 0, 0.72, 0.08, 'console');
+        add(g, box(2.14, 0.08, 0.88), bridgeCarbonM, 0, 0.98, 0);
+        add(g, box(2.18, 0.035, 0.92), bridgeAlloyM, 0, 1.03, 0);
+        add(g, box(1.82, 0.015, 0.03), bridgeCoveCoolM, 0, 1.05, 0.36);
+        add(g, box(0.72, 0.022, 0.24), compositeM, 0, 1.055, -0.14);
+        // Pantalla superior con capucha metálica y conductos de enlace traseros
+        add(g, box(1.74, 0.62, 0.06), bridgeCarbonM, 0, 1.38, 0.28);
+        add(g, box(1.64, 0.52, 0.025), sideMat, 0, 1.38, 0.245);
+        add(g, box(1.78, 0.04, 0.14), bridgeAlloyM, 0, 1.70, 0.24);
       }
     });
 
-    // Estrado hexagonal del capitán y mesa holográfica trasera con detalle arquitectónico
-    add(d1, cyl(3.15, 3.3, 0.18, 6), wallM, 5.5, f + 0.09, 0);
-    add(d1, cyl(2.6, 2.75, 0.38, 6), slateM, 5.5, f + 0.2, 0, 'console');
-    add(d1, cyl(2.75, 2.75, 0.05, 6), cyanGlow, 5.5, f + 0.36, 0);
-    add(d1, cyl(2.58, 2.66, 0.03, 6), steelM, 5.5, f + 0.4, 0);
-    // Dosel anular suspendido sobre el puesto de mando del capitán
-    const capCanopy = add(d1, torus(2.35, 0.07, 8, 36), slateM, 5.5, f + 2.72, 0);
+    // Estrado octagonal del Capitán en dos niveles con silla ergonómica, alas de mando y corona acústica suspendida
+    add(d1, cyl(3.05, 3.22, 0.18, 8), bridgeRibM, 5.5, f + 0.09, 0);
+    add(d1, cyl(2.98, 3.04, 0.03, 8), bridgeAlloyM, 5.5, f + 0.19, 0);
+    add(d1, cyl(2.50, 2.68, 0.22, 8), bridgeCarbonM, 5.5, f + 0.29, 0, 'console');
+    add(d1, cyl(2.52, 2.52, 0.025, 8), bridgeCoveWarmM, 5.5, f + 0.38, 0);
+    add(d1, cyl(2.44, 2.50, 0.035, 8), bridgeAlloyM, 5.5, f + 0.405, 0);
+    // Dosel anular superior de mando con cuatro tensores de aleación
+    const capCanopy = add(d1, torus(2.26, 0.065, 10, 36), bridgeRibM, 5.5, f + 2.72, 0);
     capCanopy.rotation.x = Math.PI / 2;
-    const capCanopyGlow = add(d1, torus(2.28, 0.025, 6, 36), warmGlow, 5.5, f + 2.66, 0);
+    const capCanopyTrim = add(d1, torus(2.22, 0.02, 8, 36), bridgeAlloyM, 5.5, f + 2.66, 0);
+    capCanopyTrim.rotation.x = Math.PI / 2;
+    const capCanopyGlow = add(d1, torus(2.14, 0.018, 6, 36), bridgeCoveWarmM, 5.5, f + 2.68, 0);
     capCanopyGlow.rotation.x = Math.PI / 2;
-    chair(d1, 5.5, 0, f + 0.4, Math.PI / 2);
+    [Math.PI / 4, (3 * Math.PI) / 4, (5 * Math.PI) / 4, (7 * Math.PI) / 4].forEach((ang) => {
+      add(d1, cyl(0.028, 0.028, 0.34, 8), bridgeAlloyM, 5.5 + Math.cos(ang) * 2.26, f + 2.86, Math.sin(ang) * 2.26);
+    });
+    bridgeChair(d1, 5.5, 0, f + 0.42, Math.PI / 2, true);
+    // Consolas laterales de estrado del capitán en ala inclinada
     [-1, 1].forEach((k) => {
-      add(d1, box(1.06, 0.52, 0.24), slateM, 5.6, f + 0.66, k * 0.62);
-      add(d1, box(1.0, 0.12, 0.22), darkM, 5.6, f + 1.22, k * 0.58);
-      add(d1, box(0.5, 0.03, 0.16), bridgeScrMat, 5.75, f + 1.29, k * 0.58);
+      add(d1, box(0.92, 0.56, 0.22), bridgeRibM, 5.65, f + 0.68, k * 0.72);
+      add(d1, box(0.96, 0.06, 0.26), bridgeAlloyM, 5.68, f + 0.98, k * 0.72);
+      const wingMfd = add(d1, box(0.56, 0.28, 0.03), bridgeNavMat, 5.76, f + 1.15, k * 0.68);
+      wingMfd.rotation.z = -0.45;
     });
 
-    // Sillón de Mando de Timón Central (Proa, KRONOX x=0, y=3.4, z=-9.85 -> Aurora x=9.85, z=0) y pedestal de vuelo esculpido
-    chair(d1, 9.85, 0, f, Math.PI / 2);
+    // Sillón de Timón Central + Consola de Navegación Gullwing (KRONOX x=0, y=3.4, z=-10.68)
+    bridgeChair(d1, 9.85, 0, f, Math.PI / 2, false);
     const helmPedestal = new THREE.Group();
     helmPedestal.name = 'BridgeCentralHelmConsole';
     helmPedestal.position.set(10.68, f, 0);
     helmPedestal.rotation.y = Math.PI / 2;
     d1.add(helmPedestal);
-    const helmBase = add(helmPedestal, box(1.48, 0.76, 0.56), slateM, 0, 0.38, 0);
-    add(helmPedestal, box(1.54, 0.06, 0.62), steelM, 0, 0.78, 0);
-    add(helmPedestal, box(1.36, 0.03, 0.44), cyanGlow, 0, 0.82, 0);
-    // Yugo de mando bimanual y aceleradores gemelos en el timón central
-    add(helmPedestal, cyl(0.028, 0.036, 0.26, 10), steelM, 0, 0.88, -0.18).rotation.x = 0.48;
-    add(helmPedestal, torus(0.16, 0.024, 8, 20), darkM, 0, 0.96, -0.28);
-    add(helmPedestal, box(0.16, 0.08, 0.18), railAmberM, 0.48, 0.85, -0.06);
-    add(helmPedestal, box(0.16, 0.08, 0.18), cyanGlow, -0.48, 0.85, -0.06);
-    const helmScr = add(helmPedestal, box(1.18, 0.34, 0.04), bridgeScrMat, 0, 0.96, 0.12);
-    helmScr.rotation.x = -0.52;
-    add(helmPedestal, box(1.24, 0.05, 0.22), darkM, 0, 1.11, 0.16);
+    const helmBase = add(helmPedestal, cyl(0.32, 0.42, 0.72, 12), bridgeRibM, 0, 0.36, 0);
+    add(helmPedestal, box(1.56, 0.14, 0.52), bridgeCarbonM, 0, 0.76, 0);
+    add(helmPedestal, box(1.62, 0.035, 0.58), bridgeAlloyM, 0, 0.84, 0);
+    add(helmPedestal, box(1.42, 0.012, 0.025), bridgeCoveCoolM, 0, 0.858, -0.26);
+    // Yugo de mando bimanual + aceleradores gemelos + indicador girométrico
+    add(helmPedestal, cyl(0.026, 0.034, 0.24, 10), bridgeAlloyM, 0, 0.90, -0.18).rotation.x = 0.45;
+    add(helmPedestal, torus(0.15, 0.024, 8, 20), bridgeCarbonM, 0, 0.98, -0.28);
+    add(helmPedestal, box(0.14, 0.06, 0.16), railAmberM, 0.50, 0.87, -0.06);
+    add(helmPedestal, box(0.14, 0.06, 0.16), bridgeAlloyM, -0.50, 0.87, -0.06);
+    const helmScr = add(helmPedestal, box(1.24, 0.38, 0.035), bridgeNavMat, 0, 1.00, 0.12);
+    helmScr.rotation.x = -0.48;
+    add(helmPedestal, box(1.30, 0.055, 0.20), bridgeCarbonM, 0, 1.15, 0.17);
     registerInteractMesh(helmBase, 'nav', 'panel', 'deck-01');
     registerInteractMesh(helmScr, 'nav', 'panel', 'deck-01');
-    // Franja guía de piso desde la mesa táctica hacia el ascensor central
-    add(d1, box(3.8, 0.018, 0.56), steelM, -2.9, f + 0.05, 0);
-    add(d1, box(3.6, 0.022, 0.08), cyanGlow, -2.9, f + 0.06, -0.22);
-    add(d1, box(3.6, 0.022, 0.08), cyanGlow, -2.9, f + 0.06, 0.22);
-    add(d1, box(3.8, 0.018, 0.56), steelM, 2.3, f + 0.05, 0);
-    add(d1, box(3.6, 0.022, 0.08), cyanGlow, 2.3, f + 0.06, -0.22);
-    add(d1, box(3.6, 0.022, 0.08), cyanGlow, 2.3, f + 0.06, 0.22);
-    // Paneles acústicos / ventilación laterales del puente en popa
+
+    // Enlace KRONOX IA · Columna transceptora óptica esculpida en babor (edge 4)
+    const commsPylon = new THREE.Group();
+    commsPylon.name = 'BridgeKronoxLinkPylon';
+    commsPylon.position.set(2.0, f, -9.85);
+    d1.add(commsPylon);
+    add(commsPylon, cyl(0.46, 0.54, 0.22, 8), bridgeRibM, 0, 0.11, 0);
+    add(commsPylon, cyl(0.16, 0.16, 2.35, 12), bridgeCarbonM, -0.24, 1.38, -0.24);
+    add(commsPylon, cyl(0.055, 0.055, 2.18, 12), bridgeCoveCoolM, -0.24, 1.38, -0.06);
+    add(commsPylon, cyl(0.32, 0.38, 0.06, 12), bridgeAlloyM, 0, 1.02, 0);
+    const commsScreen = add(commsPylon, box(0.88, 0.44, 0.04), bridgeCommsMat, 0.12, 1.32, 0.22);
+    commsScreen.rotation.y = Math.PI / 6;
+    commsScreen.rotation.x = -0.24;
+    registerInteractMesh(commsScreen, 'comms', 'panel', 'deck-01');
+
+    // Paneles acústicos laterales en popa
     [-1, 1].forEach((k) => {
-      add(d1, box(0.14, 1.35, 3.8), ventM, -11.78, f + 0.72, k * 6.0);
+      add(d1, box(0.12, 1.48, 3.9), ventM, -11.78, f + 0.78, k * 6.0);
+      add(d1, box(0.14, 0.05, 3.9), bridgeAlloyM, -11.78, f + 1.54, k * 6.0);
     });
 
-    // Mesa holográfica táctica con anillo emisor superior y consolas perimetrales
-    add(d1, cyl(1.52, 1.74, 0.9, 6), slateM, -6, f + 0.45, 0, 'console');
-    add(d1, cyl(1.62, 1.62, 0.08, 6), steelM, -6, f + 0.88, 0);
-    add(d1, cyl(1.4, 1.4, 0.05, 6), cyanGlow, -6, f + 0.93, 0);
-    const holoCanopy = add(d1, torus(1.65, 0.06, 8, 32), slateM, -6, f + 2.74, 0);
+    // Mesa Holográfica Táctica de Popa (`missions`, KRONOX (0, 3.4, +6.0)): pedestal facetado + collar de latón/acero + proyector animado
+    add(d1, cyl(1.38, 1.68, 0.88, 8), bridgeCarbonM, -6, f + 0.44, 0, 'console');
+    add(d1, cyl(1.58, 1.58, 0.06, 8), bridgeAlloyM, -6, f + 0.89, 0);
+    add(d1, cyl(1.26, 1.34, 0.04, 16), copperM, -6, f + 0.92, 0);
+    add(d1, cyl(1.02, 1.02, 0.025, 24), bridgeWalkGlassM, -6, f + 0.94, 0);
+    const holoInnerRing = add(d1, torus(0.98, 0.022, 8, 32), bridgeCoveCoolM, -6, f + 0.955, 0);
+    holoInnerRing.rotation.x = Math.PI / 2;
+    const holoCanopy = add(d1, torus(1.62, 0.06, 8, 32), bridgeRibM, -6, f + 2.74, 0);
     holoCanopy.rotation.x = Math.PI / 2;
-    const holoCanopyGlow = add(d1, torus(1.58, 0.024, 6, 32), cyanGlow, -6, f + 2.68, 0);
+    const holoCanopyTrim = add(d1, torus(1.58, 0.02, 8, 32), bridgeAlloyM, -6, f + 2.68, 0);
+    holoCanopyTrim.rotation.x = Math.PI / 2;
+    const holoCanopyGlow = add(d1, torus(1.50, 0.016, 6, 32), bridgeCoveCoolM, -6, f + 2.69, 0);
     holoCanopyGlow.rotation.x = Math.PI / 2;
+
     const wfMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x9be7ff, wireframe: true }));
     const holoShaderMat = trackExtraMat(
       createHolographicShaderMaterial({
         color: 0x38bdf8,
         accentColor: 0xfbbf24,
-        opacity: 0.38,
+        opacity: 0.42,
         scanlineDensity: 38.0,
       }),
     );
@@ -1072,23 +1237,29 @@ export function buildKronoxInterior120M() {
     d1.add(holoTableOrb);
     add(holoTableOrb, cachedGeo('ico:0.68:1', () => new THREE.IcosahedronGeometry(0.68, 1)), wfMat, 0, 0, 0);
     add(holoTableOrb, sphereGeo(0.56, 20, 14), holoShaderMat, 0, 0, 0);
-    const holoOrbit = add(holoTableOrb, torus(0.95, 0.025, 6, 40), cyanGlow, 0, 0, 0);
+    const holoOrbit = add(holoTableOrb, torus(0.95, 0.022, 6, 40), cyanGlow, 0, 0, 0);
     holoOrbit.rotation.x = 1.2;
     holoOrbit.userData.dynamicTransform = true;
-    const baseRing = add(d1, torus(1.95, 0.04, 4, 6), cyanGlow, -6, f + 1.08, 0);
+    const baseRing = add(d1, torus(1.88, 0.03, 6, 8), bridgeAlloyM, -6, f + 1.04, 0);
     baseRing.rotation.x = Math.PI / 2;
 
-    // Mamparo trasero de popa con señalización del puente
+    // Mamparo trasero de popa con señalización refinada C01
     [-1, 1].forEach((k) => {
-      add(d1, box(0.08, 1.5, 6.2), bridgeScrMat, -11.82, f + 1.7, k * 5.85);
-      add(d1, box(0.4, 3.0, 0.3), darkM, -12, f + 1.5, k * 1.25);
+      add(d1, box(0.08, 1.45, 5.8), bridgeCarbonM, -11.84, f + 1.66, k * 5.85);
+      add(d1, box(0.03, 1.28, 5.4), k < 0 ? bridgeCommsMat : bridgeAstroMat, -11.79, f + 1.66, k * 5.85);
+      add(d1, box(0.42, 2.95, 0.34), bridgeRibM, -12, f + 1.48, k * 1.25);
     });
-    add(d1, box(0.4, 0.3, 2.8), darkM, -12, f + 2.9, 0);
-    add(d1, box(0.06, 2.5, 2.1), amberGlow, -12.1, f + 1.3, 0);
-    mountDeckPlacard(d1, -11.75, f + 2.55, 0, Math.PI / 2, 'C01', 'PUENTE DE MANDO', 'CONTROL Y NAVEGACIÓN DE PROA', '#38d8ff');
+    add(d1, box(0.42, 0.32, 2.86), bridgeRibM, -12, f + 2.9, 0);
+    add(d1, box(0.08, 2.46, 2.10), bridgeCarbonM, -12.08, f + 1.28, 0);
+    add(d1, box(0.04, 0.05, 1.92), bridgeCoveWarmM, -12.02, f + 2.52, 0);
+    mountDeckPlacard(d1, -11.75, f + 2.55, 0, Math.PI / 2, 'C01', 'PUENTE DE MANDO', 'NAVEGACIÓN, ÓPTICA Y ENLACE KRONOX', '#7bd3f8');
 
-    add(d1, box(26, 0.2, 0.35), darkM, 0, f + 2.88, 0);
-    [[-9, 21], [-4, 22], [1, 23], [6, 17], [11, 11]].forEach(([x, w]) => add(d1, box(0.3, 0.18, w), darkM, x, f + 2.88, 0));
+    // Luz arquitectónica cálida localizada sobre el puente delantero (sólo activa con C01 visible)
+    if (typeof THREE.PointLight === 'function') {
+      const bridgeBowKeyLight = new THREE.PointLight(0xfff0dd, 0.95, 16, 1.3);
+      bridgeBowKeyLight.position.set(7.8, f + 2.52, 0);
+      d1.add(bridgeBowKeyLight);
+    }
   }
 
   // ==================== CUBIERTA 2 · HABITACIONAL, BIOPÓNICA Y ESCLUSA (Y = 0.0) ====================
@@ -1713,7 +1884,7 @@ export function buildKronoxInterior120M() {
   // Luz interior única con identidad cromática dinámica por cubierta (mantiene constante NUM_POINT_LIGHTS en WebGL)
   const deckPointLights = {};
   const deckLightConfigs = {
-    'deck-01': { c: 0xcbe8ff, intensity: 0.68, y: (levels[1] ?? 0) + 2.55 },
+    'deck-01': { c: 0xe6effa, intensity: 1.38, y: (levels[1] ?? 0) + 2.55 },
     'deck-02': { c: 0xffdfc2, intensity: 0.64, y: (levels[2] ?? 0) + 2.55 },
     'deck-03': { c: 0x9ce3ff, intensity: 0.62, y: (levels[3] ?? 0) + 2.55 },
     'deck-04': { c: 0xffe4b8, intensity: 0.64, y: (levels[4] ?? 0) + 2.55 },
@@ -1769,12 +1940,19 @@ export function buildKronoxInterior120M() {
 
     let screenMesh;
     if (st.id === 'windows') {
-      add(stGroup, box(0.95, 0.82, 0.42), darkM, -1.35, 0.41, 0.65);
-      screenMesh = add(stGroup, box(0.84, 0.44, 0.05), scrMat, -1.35, 1.05, 0.65);
+      add(stGroup, cyl(0.055, 0.08, 0.88, 10), pbrSuite.materials.bridgeTitaniumRibMat || steelM, -1.35, 0.44, 0.65);
+      add(stGroup, box(0.88, 0.04, 0.28), pbrSuite.materials.bridgeCarbonConsoleMat || darkM, -1.35, 0.90, 0.65);
+      screenMesh = add(stGroup, box(0.84, 0.44, 0.03), scrMat, -1.35, 1.10, 0.65);
       screenMesh.rotation.x = -0.45;
     } else if (st.id === 'missions') {
-      screenMesh = add(stGroup, box(1.15, 0.62, 0.06), scrMat, 0, 1.32, -1.15);
+      screenMesh = add(stGroup, box(1.12, 0.56, 0.03), scrMat, 0, 1.34, -1.15);
       screenMesh.rotation.x = -0.35;
+    } else if (st.deckId === 'deck-01') {
+      // Terminales diegéticos integrados para Cabina 1 (brazos articulados finos, sin cajas rectangulares superpuestas)
+      add(stGroup, cyl(0.045, 0.075, 0.96, 10), pbrSuite.materials.bridgeChampagneTrimMat || steelM, 0, 0.48, 0.86);
+      add(stGroup, box(0.96, 0.05, 0.34), pbrSuite.materials.bridgeCarbonConsoleMat || darkM, 0, 0.98, 0.82);
+      screenMesh = add(stGroup, box(0.92, 0.48, 0.03), scrMat, 0, 1.24, 0.72);
+      screenMesh.rotation.x = -0.34;
     } else if (st.id === 'engineering') {
       add(stGroup, box(0.92, 0.84, 0.46), darkM, 1.35, 0.42, 0.65);
       add(stGroup, box(0.84, 0.04, 0.38), trimBarMat, 1.35, 0.86, 0.65);

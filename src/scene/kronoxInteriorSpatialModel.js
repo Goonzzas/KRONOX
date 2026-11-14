@@ -825,10 +825,11 @@ export function clampAstronautPosition(
     const maxX = Math.max(0.55, getBridgeHalfWidthAtZ(pos.z) - pad);
     pos.x = Math.max(-maxX, Math.min(maxX, pos.x));
 
-    // Mesa holográfica (0, +6.0), núcleo estrado capitán (0, -5.5), puestos tácticos y chevrón frontal
+    // Mesa holográfica (0, +6.0), núcleo estrado capitán (0, -5.5), consola de timón central (0, -10.68), puestos tácticos y chevrón frontal
     pushOutCylinder2D(pos, 0.0, 6.0, 1.65 + rCol);
     if (!isEyeOrProbe || pos.y < zone.floorY + 1.38) {
       pushOutCylinder2D(pos, 0.0, -5.5, 2.52 + rCol);
+      pushOutAABB2D(pos, 0.0, -10.68, 0.86 + rCol, 0.36 + rCol);
       for (let i = 0; i < C01_CHEVRON_OBSTACLES.length; i++) {
         const obs = C01_CHEVRON_OBSTACLES[i];
         pushOutOBB2D(

@@ -30,7 +30,8 @@ import PauseMenu from './components/PauseMenu.jsx';
 import MainMenu from './components/MainMenu.jsx';
 import LoadingScreen from './components/LoadingScreen.jsx';
 import RepairMissionModal from './components/RepairMissionModal.jsx';
-import AstronautPersonalHub from './components/AstronautPersonalHub.jsx';
+import GameInventoryModal from './components/GameInventoryModal.jsx';
+import KronoxTutorialOverlay from './components/KronoxTutorialOverlay.jsx';
 import { SPHEREX_MISSION_TYPES, SPHEREX_TARGETS } from './data/spherexTargets.js';
 import { processKronoxQuery, askKronoxDynamic } from './utils/kronoxAI.js';
 import { loadFindingsFromStorage } from './utils/findingsStorage.js';
@@ -232,7 +233,7 @@ export default function App() {
     [reticleTarget, setReticleTarget] = useState(null),
     [showFullMainMenu, setShowFullMainMenu] = useState(false),
     [personalHubOpen, setPersonalHubOpen] = useState(false),
-    [personalHubTab, setPersonalHubTab] = useState('journal'),
+    [personalHubTab, setPersonalHubTab] = useState('inventory'),
     [inventoryState, setInventoryState] = useState(() => loadAstronautInventory()),
     [recordedAiMessages, setRecordedAiMessages] = useState(() => loadRecordedAiMessages()),
     [guideState, setGuideState] = useState({ active: false, step: 'free', completed: false }),
@@ -1561,21 +1562,13 @@ export default function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (welcomeOpen || showFullMainMenu || realTimeIntroActive) return;
 
-      if (event.key === 'j' || event.key === 'J') {
-        event.preventDefault();
-        setPersonalHubOpen((prev) => {
-          if (prev && personalHubTab === 'journal') return false;
-          setPersonalHubTab('journal');
-          return true;
-        });
-        return;
-      }
       if (event.key === 'i' || event.key === 'I') {
         event.preventDefault();
         setPersonalHubOpen((prev) => {
-          if (prev && personalHubTab === 'inventory') return false;
+          const next = !(prev && personalHubTab === 'inventory');
           setPersonalHubTab('inventory');
-          return true;
+          if (next) A()?.onGuidedInventoryOpen?.('inventory');
+          return next;
         });
         return;
       }
@@ -2842,6 +2835,7 @@ export default function App() {
     ),
     h(KronoxWidget, {
       narrative: guide,
+      showSubtitles: gameSettings.showSubtitles !== false,
       dialogueHidden:
         kronoxDialogHidden ||
         realTimeIntroActive ||
@@ -3286,12 +3280,14 @@ export default function App() {
         }
       },
       onOpenArchiveJournal: () => {
-        setPersonalHubTab('journal');
+        setPersonalHubTab('exploration');
         setPersonalHubOpen(true);
       },
-      onOpenPersonalHub: (tab = 'journal') => {
-        setPersonalHubTab(tab || 'journal');
+      onOpenPersonalHub: (tab = 'inventory') => {
+        const targetTab = tab === 'journal' ? 'exploration' : tab || 'inventory';
+        setPersonalHubTab(targetTab);
         setPersonalHubOpen(true);
+        A()?.onGuidedInventoryOpen?.(targetTab);
       },
       interactionFeedback,
       heldToolId,
@@ -3478,6 +3474,12 @@ export default function App() {
       pointerLockState,
       assetLoadingState,
       activeObjectiveText: guideObjective,
+      activeMissionId: missionTargetKey,
+      onOpenMissionFromObjective: (target) => {
+        if (target?.key) setMissionTargetKey(target.key);
+        setMissionInitialStage('explore');
+        setMissionOpen(true);
+      },
       onToggleVisualProfile: () => {
         const next = visualProfile === 'scientific' ? 'cinematic' : 'scientific';
         setVisualProfile(next);
@@ -3657,15 +3659,36 @@ export default function App() {
     !welcomeOpen &&
     !showFullMainMenu &&
     !realTimeIntroActive &&
-    h(AstronautPersonalHub, {
+    !missionOpen &&
+    !pauseMenuOpen &&
+    !personalHubOpen &&
+    h(KronoxTutorialOverlay, {
+      guideState,
+      onSkipStep: () => A()?.skipGuidedTourStep?.(),
+      onDismiss: () => {
+        A()?.endGuidedCabinTour?.();
+        setGuideObjective('');
+      },
+      onOpenInventoryTab: (tabId) => {
+        const nextTab = tabId || 'inventory';
+        setPersonalHubTab(nextTab);
+        setPersonalHubOpen(true);
+        A()?.onGuidedInventoryOpen?.(nextTab);
+      },
+    }),
+    !welcomeOpen &&
+    !showFullMainMenu &&
+    !realTimeIntroActive &&
+    h(GameInventoryModal, {
       open: personalHubOpen,
       initialTab: personalHubTab,
       onClose: () => setPersonalHubOpen(false),
       journal: loadExpeditionJournal(),
+      findings: missionFindingsSync,
       inventoryState,
-      recordedAiMessages,
-      guideState,
-      guideObjective,
+      heldToolId,
+      activeMissionId: missionTargetKey,
+      activeObjective: guideObjective,
       currentDeck: {
         code: String(astronautSectorState.deckId || 'deck-01')
           .replace('deck-', 'C')
@@ -3673,7 +3696,14 @@ export default function App() {
         name: astronautSectorState.deckName || 'Puente de Mando',
       },
       currentBody: f || near || 'Tierra',
-      heldToolId,
+      viewMode: !fr ? 'navigation' : pv == 1 ? 'cockpit' : 'exterior',
+      cabinFirstPerson,
+      visualProfile,
+      scaleMode: real ? 'real' : 'visual',
+      astronautSectorState,
+      observationModeInfo,
+      navigationScaleId: navigationScale?.id || 'solar',
+      selectedGalaxyKey: nearbyGalaxyKey || 'milky-way',
       onEquipTool: (toolKey) => {
         const nextTool = toolKey || null;
         setHeldToolId(nextTool);
@@ -3697,11 +3727,131 @@ export default function App() {
           `Analiza la muestra científica "${item.name}": ${item.scientificNote || item.description}`,
         );
       },
+      onUseInventoryItem: (item) => {
+        if (!item) return;
+        notify(`${item.name}: verificado operativo a bordo.`, 'Inventario');
+      },
+      onSelectScale: (scaleId) => {
+        A()?.setNavigationScale?.(scaleId);
+        A()?.onGuidedInventoryOpen?.('map');
+      },
+      onActivateSceneMapView: (scaleId) => {
+        const targetScale = scaleId || navigationScale?.id || 'stellar';
+        if (spec) {
+          A()?.exitSpectator?.();
+          setSpec(false);
+        }
+        setFr(false);
+        setSelectedObject(null);
+        A()?.setNavigationScale?.(targetScale);
+        setNearbyMapActive(targetScale === 'extragalactic');
+        A()?.onGuidedInventoryOpen?.('map');
+      },
+      onFocusPlanet: (planetName) => {
+        A()?.focus?.(planetName);
+      },
+      onTravelToPlanet: (planetName) => {
+        setSelectedObject(null);
+        startTravel(() => {
+          if (spec) {
+            A()?.board?.();
+            setSpec(false);
+            setFr(true);
+          } else if (!fr) {
+            setFr(true);
+            A()?.free?.(true);
+          }
+          A()?.focus?.(planetName);
+        }, planetName);
+      },
+      onTravelToSpherex: (target) => {
+        setSelectedObject(null);
+        chooseSpherexTarget(target);
+      },
+      onFocusStar: (starName) => {
+        A()?.focus?.(starName);
+      },
+      onFocusGalaxy: (galKey) => {
+        A()?.nearbyMap?.();
+        setNearbyMapActive(true);
+        setNearbyGalaxyKey(galKey);
+        setFr(false);
+        A()?.focusNearbyGalaxy?.(galKey);
+      },
+      onQuickTravel: (key, label) => {
+        startTravel(() => A()?.quick?.(key), label);
+      },
+      onOpenSpherexObservatory: (target) => {
+        setMissionTargetKey(target?.key || missionTargetKey || 'barnard');
+        setMissionInitialStage('arrival');
+        setMissionOpen(true);
+      },
+      onOpenMissionSelector: () => {
+        setMissionSelectorOpen(true);
+      },
+      onOpenPlanetInfo: (planetName) => {
+        setMore(planetName);
+      },
+      onSetOpticalTelescope: (enabled, magnification = 150) => {
+        const targetName = observationModeInfo?.opticalTargetBody || f || near || 'Júpiter';
+        const obsRes = A()?.setOpticalTelescope?.(enabled, magnification, targetName);
+        if (obsRes) setObservationModeInfo(obsRes);
+      },
+      onChangeCameraPerspective: (mode) => {
+        if (mode === 'exterior') {
+          if (spec) {
+            A()?.board?.();
+            setSpec(false);
+          }
+          if (!fr) {
+            setFr(true);
+            A()?.free?.(true, false);
+          }
+          setPv(3);
+          A()?.view?.(3);
+        } else {
+          const is1p = mode === '1p';
+          if (spec) {
+            A()?.board?.();
+            setSpec(false);
+          }
+          if (!fr) {
+            setFr(true);
+            A()?.free?.(true, false);
+          }
+          setPv(1);
+          A()?.view?.(1);
+          setCabinFirstPerson(is1p);
+          A()?.setCabinPerspective?.(is1p);
+        }
+      },
+      onToggleVisualProfile: () => {
+        const next = visualProfile === 'scientific' ? 'cinematic' : 'scientific';
+        setVisualProfile(next);
+        A()?.setVisualProfile?.(next);
+      },
+      onToggleScaleMode: () => {
+        const nextReal = !real;
+        setReal(nextReal);
+        A()?.mode?.(nextReal);
+      },
+      onToggleMicrogravityMode: () => {
+        const nextMode = astronautSectorState.microgravityMode === 'FREE' ? 'ASSISTED' : 'FREE';
+        A()?.setMicrogravityMode?.(nextMode);
+      },
+      onTransitToDeck: (deckId) => {
+        const res = A()?.transitAstronautToDeck?.(deckId) || A()?.teleportAstronautToDeck?.(deckId);
+        if (res) {
+          setAstronautSectorState((prev) => ({
+            ...prev,
+            deckId: res.deckId || prev.deckId,
+            deckNumber: res.deckNumber ?? prev.deckNumber,
+            deckName: res.deckName || prev.deckName,
+          }));
+        }
+      },
       onRestartTutorial: () => {
         A()?.startGuidedTour?.();
-      },
-      onOpenSpherexLab: () => {
-        setMissionOpen(true);
       },
       onSaveGame: () => {
         const snap = saveGameState({
@@ -3713,7 +3863,7 @@ export default function App() {
           astronautDeckId: astronautSectorState.deckId,
         });
         setSavedGameSnapshot(snap);
-        notify('Estado de expedición guardado en la Bitácora Personal.', 'Guardado');
+        notify('Estado de expedición guardado.', 'Guardado');
       },
     }),
     reticleTarget &&

@@ -69,6 +69,8 @@ export default function SpaceshipCockpit({
   onSetOpticalTelescope,
   planetaryTelemetry = null,
   activeObjectiveText = '',
+  activeMissionId = 'barnard',
+  onOpenMissionFromObjective,
   elevatorState = null,
   mechanismsState = null,
   onSelectElevatorFloor,
@@ -82,6 +84,31 @@ export default function SpaceshipCockpit({
   const [navigationMode, setNavigationMode] = useState('manual');
   const [navigationTarget, setNavigationTarget] = useState('planet:Tierra');
   const [navigationExperience, setNavigationExperience] = useState('choose');
+  const [objectiveOpen, setObjectiveOpen] = useState(false);
+
+  const deckNumber = astronautSectorState?.deckNumber ?? 1;
+  const activeMissionTarget =
+    SPHEREX_TARGETS.find((tgt) => tgt.key === activeMissionId) || SPHEREX_TARGETS[0];
+  const objectiveSteps = [
+    {
+      label: 'Recorrer el Puente de Mando e inspeccionar consolas',
+      done: Boolean(activeStation || deckNumber > 1 || findingsCount > 0),
+    },
+    {
+      label: `Revisar ruta hacia ${activeMissionTarget?.name || 'Estrella de Barnard'} en Mapa galáctico`,
+      done: Boolean(viewMode === 'navigation' || findingsCount > 0),
+    },
+    {
+      label: 'Bajar a Ingeniería y Laboratorio SPHEREx',
+      done: Boolean(deckNumber >= 3 || findingsCount > 0),
+    },
+    {
+      label: 'Registrar hallazgo espectral infrarrojo',
+      done: findingsCount > 0,
+    },
+  ];
+  const completedObjCount = objectiveSteps.filter((s) => s.done).length;
+
   useEffect(() => {
     if (activeStation !== 'nav') setNavigationExperience('choose');
   }, [activeStation]);
@@ -223,7 +250,7 @@ export default function SpaceshipCockpit({
 
   return (
     <>
-      {/* HUD MÍNIMO DE EXPLORACIÓN EN TIEMPO REAL */}
+      {/* HUD SUPERIOR COMPACTO DE KRONOX */}
       {!freeHelmMode && (
         <header
           className="kronoxBridgeTopBar"
@@ -247,46 +274,6 @@ export default function SpaceshipCockpit({
             <strong>KRONOX</strong>
             <span className="kronoxScaleTag">{`${SHIP_WORLD_UNITS.SHIP_LENGTH_METERS} m`}</span>
           </div>
-
-          {activeObjectiveText && (
-            <div className="kronoxHudObjectivePill" role="status" aria-live="polite" title="Objetivo de expedición activo">
-              <span className="kronoxObjMarker">◎</span>
-              <span className="kronoxObjLabel">OBJETIVO:</span>
-              <span className="kronoxObjText">{activeObjectiveText.replace(/^OBJETIVO:\s*/i, '')}</span>
-              {guideState?.active && guideState?.step !== 'free' && (
-                <span className="kronoxObjActions" style={{ display: 'inline-flex', gap: '4px', marginLeft: '6px' }}>
-                  {onSkipTutorialStep && (
-                    <button
-                      type="button"
-                      className="kronoxHudQuickBtn"
-                      style={{ padding: '2px 7px', fontSize: '0.68rem', minHeight: '22px' }}
-                      onClick={onSkipTutorialStep}
-                      title="Saltar este paso del tutorial"
-                    >
-                      Saltar paso ⏭
-                    </button>
-                  )}
-                  {onEndTutorial && (
-                    <button
-                      type="button"
-                      className="kronoxHudQuickBtn"
-                      style={{ padding: '2px 7px', fontSize: '0.68rem', minHeight: '22px', opacity: 0.85 }}
-                      onClick={onEndTutorial}
-                      title="Omitir el tutorial completo"
-                    >
-                      Omitir ✕
-                    </button>
-                  )}
-                </span>
-              )}
-            </div>
-          )}
-
-          {heldToolId && (
-            <div className="kronoxHudObjectivePill" title="Herramienta EVA equipada">
-              <span>{heldToolId === 'multitool' ? '🔧 Multiherramienta EVA' : heldToolId === 'scanner' ? '📡 Escáner IR' : '💎 Acoplador'}</span>
-            </div>
-          )}
 
           <div className="kronoxTopRightControls">
             <nav className="kronoxViewModeSwitcher" aria-label={t('Selector de cámara 3D', language)}>
@@ -336,54 +323,107 @@ export default function SpaceshipCockpit({
               </button>
             )}
 
-            {onOpenPersonalHub && (
-              <div className="kronoxTopPersonalActions">
-                <button
-                  type="button"
-                  className="kronoxHudQuickBtn"
-                  onClick={() => onOpenPersonalHub('journal')}
-                  title="Abrir Diario de Misión y Manual de la Nave [J]"
-                >
-                  <span>📓</span>
-                  <span>Bitácora [J]</span>
-                </button>
+            <div className="kronoxTopPersonalActions">
+              {onOpenPersonalHub && (
                 <button
                   type="button"
                   className="kronoxHudQuickBtn"
                   onClick={() => onOpenPersonalHub('inventory')}
-                  title="Abrir Inventario y Herramientas del Astronauta [I]"
+                  title="Abrir Inventario, Mapa Galáctico, Misiones y Manual [I]"
                 >
                   <span>🎒</span>
                   <span>Inventario</span>
                 </button>
-              </div>
-            )}
+              )}
 
-            {onStartMicConsult && (
-              <button
-                type="button"
-                className="kronoxHudQuickBtn"
-                onClick={() => onStartMicConsult()}
-                title="Hablar por micrófono con KRONOX IA (Push-to-Talk)"
-              >
-                <span>🎙️</span>
-                <span>Voz IA</span>
-              </button>
-            )}
+              {onStartGuidedTour && (
+                <button
+                  type="button"
+                  className={`kronoxHudQuickBtn${guideState?.active ? ' is-tutorial-active' : ''}`}
+                  onClick={() => onStartGuidedTour()}
+                  title="Abrir tutorial interactivo guiado"
+                >
+                  <span>?</span>
+                  <span>Tutorial</span>
+                </button>
+              )}
+            </div>
 
             {onOpenAiConsole && (
               <button
                 type="button"
                 className="kronoxHudQuickBtn is-ai-consult"
                 onClick={() => onOpenAiConsole()}
-                title="Consultar a KRONOX IA [K]"
+                title="Abrir KRONOX IA (Micrófono o Chat escrito) [K]"
               >
                 <span>✦</span>
-                <span>Consultar IA [K]</span>
+                <span>KRONOX IA</span>
               </button>
             )}
           </div>
         </header>
+      )}
+
+      {/* INDICADOR DISCRETO E INDEPENDIENTE DE OBJETIVO ACTIVO */}
+      {!freeHelmMode && (
+        <div className="kronoxObjectiveCornerDock">
+          <button
+            type="button"
+            className={`kronoxObjectiveMiniBadge${objectiveOpen ? ' is-open' : ''}`}
+            onClick={() => setObjectiveOpen((prev) => !prev)}
+            aria-expanded={objectiveOpen}
+            title="Ver objetivo actual, pasos requeridos y progreso"
+          >
+            <span className="kronoxObjDot" aria-hidden="true" />
+            <span className="kronoxObjBadgeTitle">Objetivo</span>
+            <span className="kronoxObjBadgeStep">{completedObjCount}/{objectiveSteps.length}</span>
+          </button>
+
+          {objectiveOpen && (
+            <div className="kronoxObjectivePopover" role="region" aria-label="Detalle del objetivo activo">
+              <div className="kronoxObjectivePopoverHead">
+                <strong>Objetivo actual</strong>
+                <button
+                  type="button"
+                  onClick={() => setObjectiveOpen(false)}
+                  aria-label="Cerrar detalle de objetivo"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="kronoxObjectivePopoverSummary">
+                {activeObjectiveText || `Expedición activa: ${activeMissionTarget?.name || 'Estrella de Barnard'}.`}
+              </p>
+              <div className="kronoxObjectiveProgressTrack" aria-label="Progreso del objetivo">
+                <div
+                  className="kronoxObjectiveProgressFill"
+                  style={{ width: `${Math.round((completedObjCount / objectiveSteps.length) * 100)}%` }}
+                />
+              </div>
+              <ul className="kronoxObjectiveChecklist">
+                {objectiveSteps.map((st, idx) => (
+                  <li key={idx} className={st.done ? 'is-done' : ''}>
+                    <span>{st.done ? '✓' : `${idx + 1}.`}</span>
+                    <span>{st.label}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="kronoxObjectivePopoverActions">
+                <button
+                  type="button"
+                  className="kronoxObjectiveResumeBtn"
+                  onClick={() => {
+                    setObjectiveOpen(false);
+                    if (onOpenMissionFromObjective) onOpenMissionFromObjective(activeMissionTarget);
+                    else onOpenPersonalHub?.('missions');
+                  }}
+                >
+                  Retomar / Ver misión
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {cockpitVisible && freeHelmMode && (
@@ -1034,7 +1074,7 @@ export default function SpaceshipCockpit({
               <span className="kronoxDiegeticTag">
                 CUBIERTA 01 · MESA HOLOGRÁFICA TÁCTICA
               </span>
-              <h4>CONSOLA DE MISIONES · BITÁCORA Y RETOS CIENTÍFICOS</h4>
+              <h4>CONSOLA DE MISIONES · OBJETIVOS Y RETOS CIENTÍFICOS</h4>
             </div>
             <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar consola">
               ×
@@ -1164,7 +1204,7 @@ export default function SpaceshipCockpit({
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">CUBIERTA 03 · ARCHIVO ESPECTRAL IRSA</span>
-              <h4>ARCHIVO ESTELAR Y BITÁCORA PERSONAL</h4>
+              <h4>ARCHIVO ESTELAR Y REGISTRO CIENTÍFICO</h4>
             </div>
             <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar archivo">×</button>
           </div>

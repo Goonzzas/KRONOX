@@ -17,6 +17,7 @@ type KronoxWidgetProps = {
   audioLevels?: number[];
   panelOpen?: boolean;
   dialogueHidden?: boolean;
+  showSubtitles?: boolean;
   showCornerOrb?: boolean;
   onClose?: () => void;
   onToggleVoice?: () => void;
@@ -86,7 +87,7 @@ function resolveDialogueCategory(
   };
 }
 
-const splitIntervention = (text: string, maxLength = 180) => {
+const splitIntervention = (text: string, maxLength = 148) => {
   const pieces: string[] = [];
   let remaining = text.trim();
   while (remaining.length > maxLength) {
@@ -135,6 +136,7 @@ export default function KronoxWidget({
   history = [],
   aiProjection = null,
   dialogueHidden = false,
+  showSubtitles = true,
   showCornerOrb = false,
   onMessageComplete,
   onEndGuide,
@@ -145,6 +147,7 @@ export default function KronoxWidget({
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
   const [dismissedMessageId, setDismissedMessageId] = useState<string | null>(null);
   const [partIndex, setPartIndex] = useState(0);
+  const [consultMode, setConsultMode] = useState<'chat' | 'voice'>('chat');
   const [listeningMic, setListeningMic] = useState(false);
   const [processingMic, setProcessingMic] = useState(false);
   const [micStatus, setMicStatus] = useState('');
@@ -372,6 +375,7 @@ export default function KronoxWidget({
   const categoryMeta = resolveDialogueCategory(narrative, resolvedState);
   const showSubtitleBar =
     !dialogueHidden &&
+    showSubtitles &&
     subtitlesEnabled &&
     Boolean(narrative && narrative.id !== dismissedMessageId && (typed || intervention));
   const showFloatingMicPill = Boolean((listeningMic || processingMic || micStatus) && !panelOpen);
@@ -448,130 +452,32 @@ export default function KronoxWidget({
         </button>
       )}
 
-      {/* SUBTÍTULO CINEMATOGRÁFICO INFERIOR CENTRADO (Sin aspecto de chat flotante) */}
+      {/* SUBTÍTULO DISCRETO DE VIDEOJUEGO INFERIOR CENTRADO (Sin controles de conversación) */}
       {showSubtitleBar && narrative && (
         <section
           className={`kronoxCinematicSubtitleBar ${categoryMeta.accentClass} ${speaking ? 'is-speaking' : ''}`}
-          role="region"
+          role="status"
           aria-live="polite"
-          aria-label={t('Diálogo contextual de la entidad luminosa Kronox IA', language)}
+          aria-label={t('Subtítulo de KRONOX IA', language)}
         >
-          <div className="kronoxSubtitleHeaderRow">
-            <div className="kronoxSubtitleIdentity">
-              <span
-                className={`kronoxSubtitleOrbIcon ${speaking ? 'is-pulsing' : ''}`}
-                aria-hidden="true"
-              >
-                <span className="kronoxSubtitleOrbCore" />
+          <div className="kronoxSubtitleCompactSpeaker">
+            <span className="kronoxSubtitleSpeakerTag">KRONOX IA</span>
+            {speaking && (
+              <span className="kronoxSubtitleVoiceWave" aria-hidden="true">
+                {Array.from({ length: 4 }, (_, idx) => (
+                  <i
+                    key={idx}
+                    style={
+                      {
+                        '--bar-level': audioLevels?.[idx * 6] ?? 0.35,
+                      } as React.CSSProperties
+                    }
+                  />
+                ))}
               </span>
-              <span className="kronoxSubtitleSpeakerName">KRONOX IA</span>
-              <span className={`kronoxSubtitleCategoryBadge ${categoryMeta.accentClass}`}>
-                {categoryMeta.badge}
-              </span>
-              <span className="kronoxStatePill" data-state={resolvedState}>
-                {resolvedState}
-              </span>
-              {speaking && (
-                <span className="kronoxSubtitleVoiceWave" aria-hidden="true">
-                  {Array.from({ length: 6 }, (_, idx) => (
-                    <i
-                      key={idx}
-                      style={
-                        {
-                          '--bar-level': audioLevels?.[idx * 5] ?? 0.35,
-                        } as React.CSSProperties
-                      }
-                    />
-                  ))}
-                </span>
-              )}
-            </div>
-
-            <div className="kronoxSubtitleControls">
-              {voice && (voiceFailed || voiceError) && onRetryVoice && (
-                <button
-                  type="button"
-                  className="kronoxSubtitleGhostBtn is-warning"
-                  onClick={onRetryVoice}
-                  title={
-                    voiceError ||
-                    'Audio oficial temporalmente no disponible. Pulsa para reintentar con la voz oficial.'
-                  }
-                >
-                  ↻ Reintentar voz
-                </button>
-              )}
-              {onToggleVoice && (
-                <button
-                  type="button"
-                  className="kronoxSubtitleGhostBtn"
-                  onClick={onToggleVoice}
-                  title={voice ? 'Silenciar voz de KRONOX IA' : 'Activar voz oficial de KRONOX IA'}
-                >
-                  {voice ? '🔊 Voz' : '🔇 Silencio'}
-                </button>
-              )}
-              {onPauseSpeech && (
-                <button
-                  type="button"
-                  className="kronoxSubtitleGhostBtn"
-                  onClick={() => {
-                    setTextPaused((prev) => !prev);
-                    onPauseSpeech();
-                  }}
-                  title={textPaused || speechPaused ? 'Reanudar narración' : 'Pausar narración'}
-                >
-                  {textPaused || speechPaused ? '▶' : '⏸'}
-                </button>
-              )}
-              {onRepeatSpeech && (
-                <button
-                  type="button"
-                  className="kronoxSubtitleGhostBtn"
-                  onClick={() => {
-                    setTextPaused(false);
-                    setTyped('');
-                    onRepeatSpeech();
-                  }}
-                  title="Repetir locución actual"
-                >
-                  ↺ Repetir
-                </button>
-              )}
-              <button
-                type="button"
-                className={`kronoxSubtitleGhostBtn ${listeningMic ? 'is-warning' : ''}`}
-                onClick={handleTogglePushToTalk}
-                title="Hablar por micrófono con KRONOX IA (Push-to-Talk)"
-              >
-                {listeningMic ? '⏹ Escuchando...' : '🎙️ Hablar'}
-              </button>
-              {onOrbClick && (
-                <button
-                  type="button"
-                  className="kronoxSubtitleGhostBtn is-consult"
-                  onClick={onOrbClick}
-                  title="Abrir ventana para consultar a KRONOX IA [K]"
-                >
-                  💬 Consultar [K]
-                </button>
-              )}
-              <button
-                type="button"
-                className="kronoxSubtitleCloseBtn"
-                onClick={() => setDismissedMessageId(narrative.id)}
-                title="Ocultar este subtítulo"
-                aria-label="Ocultar subtítulo"
-              >
-                ✕
-              </button>
-            </div>
+            )}
           </div>
-
-          <p className="kronoxSubtitleText">
-            {typed || intervention}
-            <span className="kronoxCursor">▍</span>
-          </p>
+          <p className="kronoxSubtitleText">{typed || intervention}</p>
         </section>
       )}
 
@@ -597,9 +503,9 @@ export default function KronoxWidget({
                 </span>
                 <div>
                   <div className="kronoxConsultKicker">
-                    INTELIGENCIA DE A BORDO · VOZ OFICIAL UNIFICADA (CHARON)
+                    INTELIGENCIA DE A BORDO · COMUNICACIÓN CON KRONOX IA
                   </div>
-                  <h3 className="kronoxConsultTitle">CONSULTAR A KRONOX IA</h3>
+                  <h3 className="kronoxConsultTitle">KRONOX IA</h3>
                 </div>
               </div>
               <div className="kronoxSubtitleControls">
@@ -609,7 +515,16 @@ export default function KronoxWidget({
                     className="kronoxSubtitleGhostBtn"
                     onClick={onToggleVoice}
                   >
-                    {voice ? '🔊 Voz Activa' : '🔇 Silenciado'}
+                    {voice ? '🔊 Voz activa' : '🔇 Silenciado'}
+                  </button>
+                )}
+                {onRepeatSpeech && narrative?.text && (
+                  <button
+                    type="button"
+                    className="kronoxSubtitleGhostBtn"
+                    onClick={() => onRepeatSpeech?.()}
+                  >
+                    ↺ Repetir
                   </button>
                 )}
                 <button
@@ -619,37 +534,44 @@ export default function KronoxWidget({
                 >
                   {subtitlesEnabled ? 'CC Subtítulos: Sí' : 'CC Subtítulos: No'}
                 </button>
-                {onEndGuide && (
-                  <button
-                    type="button"
-                    className="kronoxSubtitleGhostBtn"
-                    onClick={onEndGuide}
-                  >
-                    Finalizar tutorial
-                  </button>
-                )}
                 <button
                   type="button"
                   className="kronoxSubtitleCloseBtn"
                   onClick={onClose}
-                  aria-label="Cerrar consulta a KRONOX IA"
+                  aria-label="Cerrar KRONOX IA"
                 >
                   ✕ ESC
                 </button>
               </div>
             </header>
 
-            <div className="kronoxConsultBody">
-              <p className="kronoxConsultIntro">
-                Formula una consulta sobre astronomía, los instrumentos SPHEREx, las cubiertas de la
-                nave o solicita navegación asistida hacia cualquier destino del catálogo.
-              </p>
+            <div className="kronoxConsultModeSwitch" role="tablist" aria-label="Canal de comunicación">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={consultMode === 'chat'}
+                className={`kronoxConsultModeBtn${consultMode === 'chat' ? ' is-active' : ''}`}
+                onClick={() => setConsultMode('chat')}
+              >
+                💬 Chat escrito
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={consultMode === 'voice'}
+                className={`kronoxConsultModeBtn${consultMode === 'voice' ? ' is-active' : ''}`}
+                onClick={() => setConsultMode('voice')}
+              >
+                🎙️ Micrófono de voz
+              </button>
+            </div>
 
+            <div className="kronoxConsultBody">
               {narrative?.text && (
                 <div className="kronoxConsultLastReply">
                   <div className="kronoxConsultReplyHeader">
                     <span className={`kronoxSubtitleCategoryBadge ${categoryMeta.accentClass}`}>
-                      {categoryMeta.badge}
+                      KRONOX IA · {categoryMeta.badge}
                     </span>
                     {voice && (voiceFailed || voiceError) && onRetryVoice && (
                       <button
@@ -657,7 +579,7 @@ export default function KronoxWidget({
                         className="kronoxSubtitleGhostBtn is-warning"
                         onClick={onRetryVoice}
                       >
-                        ↻ Reintentar voz oficial
+                        ↻ Reintentar voz
                       </button>
                     )}
                   </div>
@@ -665,77 +587,92 @@ export default function KronoxWidget({
                 </div>
               )}
 
-              <div className="kronoxConsultQuickSection">
-                <span className="kronoxConsultSectionLabel">CONSULTAS Y ÓRDENES FRECUENTES:</span>
-                <div className="kronoxConsultChipGrid">
-                  {KRONOX_QUICK_PROMPTS.map((item) => (
-                    <button
-                      key={item.label}
-                      type="button"
-                      className="kronoxConsultChip"
-                      onClick={() => handleQuickPrompt(item.query)}
-                    >
-                      {t(item.label, language)}
-                    </button>
-                  ))}
-                  {onStartMission && (
-                    <button
-                      type="button"
-                      className="kronoxConsultChip is-highlight"
-                      onClick={onStartMission}
-                      disabled={missionStarting}
-                    >
-                      ✦ {missionStarting ? 'Preparando salto…' : 'Catálogo de misiones SPHEREx'}
-                    </button>
+              {consultMode === 'voice' ? (
+                <div className="kronoxConsultVoiceBox">
+                  <p className="kronoxConsultIntro">
+                    Activa el micrófono bajo demanda para hablar directamente con KRONOX IA sobre astronomía, sistemas de la nave o navegación.
+                  </p>
+                  <button
+                    type="button"
+                    className={`kronoxVoicePrimaryBtn${listeningMic ? ' is-listening' : ''}`}
+                    onClick={handleTogglePushToTalk}
+                  >
+                    {listeningMic ? '⏹ Detener escucha de micrófono' : '🎙️ Pulsar para hablar por micrófono'}
+                  </button>
+                  {micStatus && (
+                    <small role="status" className="kronoxMicStatus">
+                      {micStatus}
+                    </small>
+                  )}
+                  {inputQuery && (
+                    <div className="kronoxVoiceTranscriptPreview">
+                      <span>Transcripción:</span>
+                      <strong>«{inputQuery}»</strong>
+                    </div>
                   )}
                 </div>
-              </div>
-
-              {history.length > 0 && (
-                <div className="kronoxAiHistory">
-                  {history.slice(-3).map((item, idx) => (
-                    <div key={idx} className="kronoxAiHistoryRow">
-                      <span className="kronoxAiUserQuery">▸ {item.query}</span>
-                      {item.actionLabel && (
-                        <span className="kronoxAiExecTag">✓ {item.actionLabel}</span>
+              ) : (
+                <>
+                  <div className="kronoxConsultQuickSection">
+                    <span className="kronoxConsultSectionLabel">CONSULTAS Y ÓRDENES FRECUENTES:</span>
+                    <div className="kronoxConsultChipGrid">
+                      {KRONOX_QUICK_PROMPTS.map((item) => (
+                        <button
+                          key={item.label}
+                          type="button"
+                          className="kronoxConsultChip"
+                          onClick={() => handleQuickPrompt(item.query)}
+                        >
+                          {t(item.label, language)}
+                        </button>
+                      ))}
+                      {onStartMission && (
+                        <button
+                          type="button"
+                          className="kronoxConsultChip is-highlight"
+                          onClick={onStartMission}
+                          disabled={missionStarting}
+                        >
+                          ✦ {missionStarting ? 'Preparando salto…' : 'Misiones SPHEREx'}
+                        </button>
                       )}
                     </div>
-                  ))}
-                </div>
+                  </div>
+
+                  {history.length > 0 && (
+                    <div className="kronoxAiHistory">
+                      {history.slice(-3).map((item, idx) => (
+                        <div key={idx} className="kronoxAiHistoryRow">
+                          <span className="kronoxAiUserQuery">▸ {item.query}</span>
+                          {item.actionLabel && (
+                            <span className="kronoxAiExecTag">✓ {item.actionLabel}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <form className="kronoxConsultInputRow" onSubmit={handleSubmit}>
+                    <input
+                      type="text"
+                      value={inputQuery}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setInputQuery(e.target.value)
+                      }
+                      placeholder={
+                        language === 'en'
+                          ? 'Ask or command KRONOX IA (e.g. "Take me to Barnard")...'
+                          : 'Escribe tu consulta u orden para KRONOX IA (ej. «Llévame a Barnard»)...'
+                      }
+                      aria-label={t('Enviar orden o consulta a Kronox', language)}
+                    />
+                    <button type="submit" className="kronoxConsultSendBtn">
+                      {language === 'en' ? 'Transmit' : 'Enviar'}
+                    </button>
+                  </form>
+                </>
               )}
 
-              <form className="kronoxConsultInputRow" onSubmit={handleSubmit}>
-                <input
-                  type="text"
-                  value={inputQuery}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setInputQuery(e.target.value)
-                  }
-                  placeholder={
-                    language === 'en'
-                      ? 'Ask or command KRONOX IA (e.g. "Take me to Barnard", "Compare epochs")...'
-                      : 'Escribe una consulta u orden para KRONOX IA (ej. «Llévame a Barnard»)...'
-                  }
-                  aria-label={t('Enviar orden o consulta a Kronox', language)}
-                />
-                <button
-                  type="button"
-                  className={`kronoxConsultMicBtn ${listeningMic ? 'is-listening' : ''}`}
-                  onClick={handleTogglePushToTalk}
-                  title="Hablar por micrófono con KRONOX IA"
-                  aria-label="Hablar por micrófono con KRONOX IA"
-                >
-                  {listeningMic ? '⏹' : '🎙️'}
-                </button>
-                <button type="submit" className="kronoxConsultSendBtn">
-                  {language === 'en' ? 'Transmit' : 'Transmitir'}
-                </button>
-              </form>
-              {micStatus && (
-                <small role="status" className="kronoxMicStatus">
-                  {micStatus}
-                </small>
-              )}
               {voiceError && (
                 <small role="status" className="kronoxVoiceErrorNote">
                   {voiceError}

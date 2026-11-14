@@ -49,7 +49,7 @@ export const INVENTORY_ITEMS = Object.freeze({
     name: 'Terminal de Registro de Expedición',
     category: 'Registros',
     icon: '📋',
-    description: 'Almacena bitácoras de misión, efemérides J2000.0 y anotaciones personales del explorador.',
+    description: 'Almacena registros de misión, efemérides J2000.0 y anotaciones personales del explorador.',
     usableInRepair: false,
   },
 });

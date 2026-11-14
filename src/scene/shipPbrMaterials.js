@@ -787,6 +787,77 @@ export function createShipPbrSuite(seed = 29) {
     metalness: 0.48,
   }));
 
+  // Cabina 1 (Puente de Mando) · Materiales aeroespaciales realistas y sobrios (sin estética de neón plástico)
+  const bridgeDeckPlatingMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0x1e2836,
+    map: floorColorTex,
+    normalMap: floorNormalTex,
+    normalScale: new THREE.Vector2(0.75, 0.75),
+    roughnessMap: floorRoughTex,
+    aoMap: floorAoTex,
+    aoMapIntensity: 0.85,
+    metalness: 0.34,
+    roughness: 0.48,
+  }));
+
+  const bridgeTitaniumRibMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0x3b4757,
+    normalMap: brushedMetalNormalTex,
+    normalScale: new THREE.Vector2(0.55, 0.55),
+    roughness: 0.34,
+    metalness: 0.82,
+  }));
+
+  const bridgeChampagneTrimMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0xb9c2ce,
+    normalMap: brushedMetalNormalTex,
+    normalScale: new THREE.Vector2(0.4, 0.4),
+    roughness: 0.28,
+    metalness: 0.88,
+  }));
+
+  const bridgeCarbonConsoleMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0x141b26,
+    normalMap: brushedMetalNormalTex,
+    normalScale: new THREE.Vector2(0.25, 0.25),
+    roughness: 0.58,
+    metalness: 0.24,
+  }));
+
+  const bridgeLeatherSeatMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0x1e2633,
+    normalMap: quiltedNormalTex,
+    normalScale: new THREE.Vector2(0.28, 0.28),
+    roughness: 0.68,
+    metalness: 0.08,
+  }));
+
+  const bridgeObsidianGlassMat = trackMat(new THREE.MeshPhysicalMaterial({
+    color: 0x09131f,
+    metalness: 0.12,
+    roughness: 0.12,
+    transmission: 0.28,
+    transparent: true,
+    opacity: 0.82,
+    ior: 1.5,
+  }));
+
+  const bridgeDiffuserWarmMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0xfff1de,
+    emissive: 0xffd9b0,
+    emissiveIntensity: 0.78,
+    roughness: 0.32,
+    metalness: 0.05,
+  }));
+
+  const bridgeDiffuserCoolMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0xd9f1ff,
+    emissive: 0x7bd3f8,
+    emissiveIntensity: 0.65,
+    roughness: 0.32,
+    metalness: 0.05,
+  }));
+
   const makeCargoMat = (hex) =>
     trackMat(new THREE.MeshStandardMaterial({
       color: hex,
@@ -869,6 +940,14 @@ export function createShipPbrSuite(seed = 29) {
       quiltedHabWallMat,
       ventGrilleMat,
       hazardStripeMat,
+      bridgeDeckPlatingMat,
+      bridgeTitaniumRibMat,
+      bridgeChampagneTrimMat,
+      bridgeCarbonConsoleMat,
+      bridgeLeatherSeatMat,
+      bridgeObsidianGlassMat,
+      bridgeDiffuserWarmMat,
+      bridgeDiffuserCoolMat,
     },
     makeCargoMat,
     setAnisotropy,

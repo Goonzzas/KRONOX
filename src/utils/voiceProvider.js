@@ -42,7 +42,11 @@ export const PREDEFINED_VOICE_CLIPS = Object.freeze({
     '/audio/voice/tut_science.wav',
   'Análisis científico registrado. En el nivel inferior cuentas además con la Bodega y el Hangar. Pulsa la tecla J para abrir tu Bitácora y Manual Operativo y completar el entrenamiento.':
     '/audio/voice/tut_manual_journal.wav',
+  'Análisis científico registrado. Pulsa la tecla I para gestionar tus herramientas EVA, muestras y manual en el Inventario táctico y completar el tutorial.':
+    '/audio/voice/tut_manual_journal.wav',
   'Entrenamiento operativo completado. Tienes acceso libre a las cuatro cubiertas, a la Bitácora Personal y a la navegación interestelar.':
+    '/audio/voice/tut_completed.wav',
+  'Entrenamiento operativo completado. Tienes acceso libre a las cuatro cubiertas, al Inventario, al Mapa Galáctico y a la navegación interestelar.':
     '/audio/voice/tut_completed.wav',
   'Cubierta 01 — Puente de Mando. Desde este recinto en punta de flecha gobiernas los ventanales panorámicos, el chevrón de navegación y la mesa holográfica.':
     '/audio/voice/deck_ctx_01.wav',
