@@ -1332,6 +1332,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   };
   let progressiveTimer = null;
   let deferredWarmupTimer = null;
+  let initialSceneReadyFired = false;
   const publishProgressiveAssetState = () => {
     const remaining = progressiveQueue.length + (typeof getPendingGalaxyTextureCount === 'function' ? getPendingGalaxyTextureCount() : 0);
     const total = Math.max(progressiveAssetState.total, progressiveAssetState.loaded + remaining);
@@ -7314,6 +7315,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       R.localScene = localShipScene;
       R.localCamera = localCam;
     }
+    if (!initialSceneReadyFired) {
+      initialSceneReadyFired = true;
+      S.onSceneReady?.();
+    }
   }
   function applyCameraView(v) {
     if (!userCameraAvailable()) return false;
@@ -7382,7 +7387,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     return true;
   }
   tick();
+  if (IS_NODE_SCENE_HARNESS && !initialSceneReadyFired) {
+    initialSceneReadyFired = true;
+    S.onSceneReady?.();
+  }
   return {
+    isSceneReady: () => initialSceneReadyFired,
     setNavigationScale,
     focusContextStar,
     atlasSnapshot: () => ({ stellarSystems: stellarAtlas.entries.length, regionalSystems: regionalAtlas.entries.length, contextOverview, selectedContextStar, galaxyRadii: Object.fromEntries(atlasRadii) }),

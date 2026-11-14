@@ -21,30 +21,38 @@
         min-height: 100vh;
         min-height: 100dvh;
         padding: 24px;
+        background: radial-gradient(circle at 50% 45%, #051326 0%, #030a16 55%, #02050c 100%);
         color: #c8dae8;
         font:
           14px system-ui,
           sans-serif;
         flex-direction: column;
-        gap: 14px;
+        gap: 12px;
         text-align: center;
+      }
+      .kronox-startup-brand {
+        margin-bottom: 6px;
+        filter: drop-shadow(0 0 24px rgba(56, 189, 248, 0.25));
       }
       #kronox-startup h1 {
         margin: 0;
         font-size: 19px;
         color: #9adfff;
+        letter-spacing: 0.05em;
       }
       #kronox-startup p {
         margin: 0;
         max-width: 520px;
         line-height: 1.6;
+        color: #94a3b8;
       }
       #kronox-startup-spinner {
-        width: 36px;
-        height: 36px;
-        border: 3px solid #38bdf833;
+        width: 32px;
+        height: 32px;
+        border: 2px solid rgba(56, 189, 248, 0.2);
         border-top-color: #38bdf8;
         border-radius: 50%;
+        box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
         animation: kronoxSpin 0.9s linear infinite;
       }
       #kronox-startup [hidden] {
@@ -82,6 +90,33 @@
   <body>
     <div id="root">
       <main id="kronox-startup" role="status">
+        <div class="kronox-startup-brand">
+          <svg viewBox="0 0 1024 1024" width="220" height="220" role="img" aria-label="Astral Sentinels">
+            <defs>
+              <linearGradient id="initRing" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#38bdf8" />
+                <stop offset="50%" stop-color="#0284c7" />
+                <stop offset="100%" stop-color="#2563eb" />
+              </linearGradient>
+              <radialGradient id="initStar" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#ffffff" />
+                <stop offset="40%" stop-color="#7dd3fc" />
+                <stop offset="100%" stop-color="#0284c7" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="512" cy="434" rx="272" ry="112" fill="none" stroke="url(#initRing)" stroke-width="24" />
+            <polygon points="455,390 434,406 298,664 413,664" fill="#132c4e" stroke="#38bdf8" stroke-width="1.5" stroke-opacity="0.5" />
+            <polygon points="512,271 480,336 461,664 512,664" fill="#0f2542" stroke="#38bdf8" stroke-width="1.5" stroke-opacity="0.5" />
+            <polygon points="512,271 512,664 563,664 544,336" fill="#163359" stroke="#38bdf8" stroke-width="1.5" stroke-opacity="0.4" />
+            <line x1="512" y1="271" x2="512" y2="664" stroke="#7dd3fc" stroke-width="1.5" stroke-opacity="0.6" />
+            <polygon points="569,390 590,406 726,664 611,664" fill="#132c4e" stroke="#38bdf8" stroke-width="1.5" stroke-opacity="0.5" />
+            <path d="M 240 434 A 272 112 0 0 0 784 434" fill="none" stroke="#7dd3fc" stroke-width="7" stroke-opacity="0.3" stroke-dasharray="14 12" />
+            <path d="M 512 175 C 510 200, 520 216, 552 219 C 520 222, 510 238, 512 263 C 510 238, 504 222, 471 219 C 504 216, 510 200, 512 175 Z" fill="url(#initStar)" />
+            <circle cx="512" cy="219" r="4" fill="#ffffff" />
+            <text x="512" y="765" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="80" font-weight="800" letter-spacing="22">ASTRAL</text>
+            <text x="512" y="852" text-anchor="middle" fill="#93c5fd" font-family="system-ui, sans-serif" font-size="64" font-weight="700" letter-spacing="18">SENTINELS</text>
+          </svg>
+        </div>
         <div id="kronox-startup-spinner" aria-hidden="true"></div>
         <h1 id="kronox-startup-title">Iniciando Kronox…</h1>
         <p id="kronox-startup-message">Preparando la expedición.</p>

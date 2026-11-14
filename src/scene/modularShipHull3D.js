@@ -81,11 +81,11 @@ export function buildModularShip120M() {
 
   // Branded bow plate: the white background blends into the painted end cap,
   // while the circular mesh keeps the mark flush with the cylindrical nose.
-  const canLoadDomImage =
-    typeof document !== 'undefined' && typeof document.createElementNS === 'function';
-  const bowLogoTexture = canLoadDomImage
-    ? new THREE.TextureLoader().load(astralSentinelsLogoUrl)
-    : new THREE.Texture();
+  const IS_NODE_SCENE_HARNESS = Boolean(typeof globalThis !== 'undefined' && globalThis.__KRONOX_SCENE_HARNESS__);
+  const bowLogoTexture =
+    IS_NODE_SCENE_HARNESS || typeof Image === 'undefined' || typeof document === 'undefined' || typeof document.createElementNS !== 'function'
+      ? new THREE.Texture()
+      : new THREE.TextureLoader().load(astralSentinelsLogoUrl);
   bowLogoTexture.encoding = THREE.sRGBEncoding;
   bowLogoTexture.anisotropy = 8;
   extraDisposables.push(bowLogoTexture);

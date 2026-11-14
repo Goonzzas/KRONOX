@@ -3925,3 +3925,269 @@ small {
   border-radius: 6px;
   border-left: 2px solid #38bdf8;
 }
+
+/* =========================================================================
+   KRONOX COMMERCIAL LOADING SCREEN & ASTRAL SENTINELS VECTOR LOGO
+   ========================================================================= */
+
+.kronox-loading-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 45%, #051326 0%, #030a16 55%, #02050c 100%);
+  z-index: 100000;
+  font-family: 'Rajdhani', 'Oxanium', 'Inter', system-ui, -apple-system, sans-serif;
+  color: #f1f5f9;
+  overflow: hidden;
+  transition: opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1), transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.kronox-loading-overlay.is-leaving {
+  opacity: 0;
+  transform: scale(1.025);
+  pointer-events: none;
+}
+
+/* Corner HUD brackets */
+.kronox-loading-hud-corners {
+  position: absolute;
+  inset: 24px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.hud-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-color: rgba(56, 189, 248, 0.45);
+  border-style: solid;
+}
+
+.hud-corner.top-left {
+  top: 0;
+  left: 0;
+  border-width: 2px 0 0 2px;
+}
+
+.hud-corner.top-right {
+  top: 0;
+  right: 0;
+  border-width: 2px 2px 0 0;
+}
+
+.hud-corner.bottom-left {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 2px 2px;
+}
+
+.hud-corner.bottom-right {
+  bottom: 0;
+  right: 0;
+  border-width: 0 2px 2px 0;
+}
+
+/* Container */
+.kronox-loading-container {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 580px;
+  width: 90vw;
+  padding: 32px 24px;
+}
+
+.kronox-loading-header {
+  margin-bottom: 16px;
+}
+
+/* Logo and Aura */
+.kronox-loading-logo-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.kronox-loading-aura {
+  position: absolute;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.16) 0%, rgba(2, 132, 199, 0.05) 50%, transparent 70%);
+  filter: blur(28px);
+  animation: asAuraBreath 4s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.astral-sentinels-svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  filter: drop-shadow(0 12px 32px rgba(2, 6, 23, 0.8));
+}
+
+/* Logo animations */
+.as-animated-ring {
+  transform-origin: 512px 434px;
+  animation: asRingFloat 5s ease-in-out infinite alternate;
+}
+
+.as-animated-star {
+  transform-origin: 512px 219px;
+  animation: asStarPulse 2.8s ease-in-out infinite alternate;
+}
+
+@keyframes asRingFloat {
+  0% {
+    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.35));
+  }
+  100% {
+    filter: drop-shadow(0 0 22px rgba(56, 189, 248, 0.85));
+  }
+}
+
+@keyframes asStarPulse {
+  0% {
+    transform: scale(0.96);
+    filter: drop-shadow(0 0 8px rgba(125, 211, 252, 0.6));
+  }
+  100% {
+    transform: scale(1.06);
+    filter: drop-shadow(0 0 24px rgba(56, 189, 248, 1));
+  }
+}
+
+@keyframes asAuraBreath {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.12);
+    opacity: 0.95;
+  }
+}
+
+/* Progress Block */
+.kronox-loading-progress-block {
+  width: 100%;
+  max-width: 440px;
+  margin-bottom: 22px;
+}
+
+.kronox-loading-bar-track {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: rgba(10, 25, 47, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.kronox-loading-bar-fill {
+  position: relative;
+  height: 100%;
+  background: linear-gradient(90deg, #0284c7 0%, #38bdf8 70%, #bae6fd 100%);
+  border-radius: 2px;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.8);
+  transition: width 0.12s ease-out;
+}
+
+.kronox-loading-bar-flare {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.65) 50%, transparent 100%);
+  animation: asFlareMove 1.8s linear infinite;
+}
+
+@keyframes asFlareMove {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.kronox-loading-bar-ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.kronox-loading-bar-ticks span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.kronox-loading-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  min-height: 20px;
+}
+
+.kronox-loading-status-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 82%;
+}
+
+.kronox-loading-sys-tag {
+  color: #38bdf8;
+  font-weight: 700;
+  font-family: 'Oxanium', monospace;
+  font-size: 12px;
+}
+
+.kronox-loading-msg {
+  font-size: 12px;
+  color: #cbd5e1;
+  text-transform: uppercase;
+}
+
+.kronox-loading-pct {
+  font-family: 'Oxanium', monospace;
+  font-weight: 700;
+  color: #38bdf8;
+  font-size: 13.5px;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+}
+
+/* Footer */
+.kronox-loading-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: #64748b;
+  text-transform: uppercase;
+  font-family: 'Oxanium', 'Rajdhani', sans-serif;
+}

@@ -28,6 +28,7 @@ import SpherexMissionSelector from './components/SpherexMissionSelector.jsx';
 import SpaceshipCockpit from './components/SpaceshipCockpit.jsx';
 import PauseMenu from './components/PauseMenu.jsx';
 import MainMenu from './components/MainMenu.jsx';
+import LoadingScreen from './components/LoadingScreen.jsx';
 import RepairMissionModal from './components/RepairMissionModal.jsx';
 import AstronautPersonalHub from './components/AstronautPersonalHub.jsx';
 import { SPHEREX_MISSION_TYPES, SPHEREX_TARGETS } from './data/spherexTargets.js';
@@ -246,6 +247,8 @@ export default function App() {
       fallbackMode: false,
     }),
     [assetLoadingState, setAssetLoadingState] = useState(null),
+    [sceneReady, setSceneReady] = useState(false),
+    [initialLoadingComplete, setInitialLoadingComplete] = useState(false),
     [gameSettings, setGameSettings] = useState(() => {
       let initialPreset = 'auto';
       try {
@@ -1115,6 +1118,7 @@ export default function App() {
     api.current = setupScene(el.current, {
       quality,
       graphicsSettings: gameSettingsRef.current?.graphics,
+      onSceneReady: () => setSceneReady(true),
       onGraphicsStateChange: (info) => setGraphicsRuntime(info),
       onPointerLockChange: (st) => {
         if (st) setPointerLockState(st);
@@ -1370,6 +1374,9 @@ export default function App() {
     // Direct science links and explicit menu/cabin choices keep their requested destination.
     try {
       if (typeof window !== 'undefined') window.__kronoxSceneApi = api.current;
+      if (api.current?.isSceneReady?.()) {
+        setSceneReady(true);
+      }
       if (startupMode === 'intro') {
         setRealTimeIntroActive(true);
         setIntroPaused(false);
@@ -3762,6 +3769,12 @@ export default function App() {
       (fv >= 300 ? ' · ≈ ' + Math.round(fv * 1.156) + ' años luz/s' : '') +
       ' · Exterior Nave 120m' +
       (fo.au ? ' · piloto auto.' : ''),
-    )
+    ),
+    !initialLoadingComplete &&
+    !realTimeIntroActive &&
+    h(LoadingScreen, {
+      isReady: sceneReady,
+      onComplete: () => setInitialLoadingComplete(true),
+    })
   );
 }
