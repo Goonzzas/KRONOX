@@ -286,6 +286,7 @@ export default function App() {
     browserVoiceActiveRef = useRef(false),
     voiceStartWatchdogRef = useRef(null),
     voiceMaxWatchdogRef = useRef(null),
+    prevSettingMgRef = useRef(null),
     gameSettingsRef = useRef(gameSettings),
     flR = useRef(fl),
     countTimers = useRef([]),

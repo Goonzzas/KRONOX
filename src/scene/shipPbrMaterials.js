@@ -190,65 +190,76 @@ function createSharedPbrTextures(seed = 29) {
   };
 
   const floorColorTex = buildCanvasTexture(512, (g, s) => {
-    g.fillStyle = '#1b2432';
+    g.fillStyle = '#141c27';
     g.fillRect(0, 0, s, s);
     const cell = s / 4;
     for (let j = 0; j < 4; j++) {
       for (let i = 0; i < 4; i++) {
         const px = i * cell;
         const py = j * cell;
-        g.fillStyle = '#2a374b';
-        g.fillRect(px + 2, py + 2, cell - 4, cell - 4);
-        g.fillStyle = '#17212f';
-        g.fillRect(px + 14, py + 14, cell - 28, cell - 28);
-        g.fillStyle = '#253447';
-        for (let ty = py + 18; ty < py + cell - 20; ty += 10) {
-          for (let tx = px + 18; tx < px + cell - 20; tx += 10) {
-            g.fillRect(tx + ((ty / 10) % 2) * 3, ty, 5, 3);
+        g.fillStyle = '#283649';
+        g.fillRect(px + 3, py + 3, cell - 6, cell - 6);
+        g.strokeStyle = '#3b4f68';
+        g.lineWidth = 1.5;
+        g.strokeRect(px + 5, py + 5, cell - 10, cell - 10);
+        g.fillStyle = '#182331';
+        g.fillRect(px + 13, py + 13, cell - 26, cell - 26);
+        g.fillStyle = '#2d3f56';
+        for (let ty = py + 18; ty < py + cell - 20; ty += 9) {
+          for (let tx = px + 18; tx < px + cell - 20; tx += 9) {
+            g.fillRect(tx + ((ty / 9) % 2) * 3, ty, 5, 3);
           }
         }
-        g.fillStyle = '#536880';
+        if ((i + j) % 2 === 0) {
+          g.fillStyle = 'rgba(56, 189, 248, 0.22)';
+          g.fillRect(px + 16, py + cell - 11, cell - 32, 2);
+        } else {
+          g.fillStyle = 'rgba(245, 158, 11, 0.22)';
+          g.fillRect(px + 16, py + 8, cell - 32, 2);
+        }
+        g.fillStyle = '#68809c';
         g.fillRect(px + 6, py + 6, 4, 4);
         g.fillRect(px + cell - 10, py + 6, 4, 4);
         g.fillRect(px + 6, py + cell - 10, 4, 4);
         g.fillRect(px + cell - 10, py + cell - 10, 4, 4);
-        g.strokeStyle = '#0d141d';
-        g.lineWidth = 2;
+        g.strokeStyle = '#0b1119';
+        g.lineWidth = 2.5;
         g.strokeRect(px + 1, py + 1, cell - 2, cell - 2);
       }
     }
   }, [11, 11], true, textures);
 
   const floorRoughTex = buildCanvasTexture(256, (g, s) => {
-    g.fillStyle = '#606060';
+    g.fillStyle = '#525252';
     g.fillRect(0, 0, s, s);
     const cell = s / 4;
     for (let j = 0; j < 4; j++) {
       for (let i = 0; i < 4; i++) {
-        g.fillStyle = '#c8c8c8';
+        g.fillStyle = '#bcbcbc';
         g.fillRect(i * cell + 8, j * cell + 8, cell - 16, cell - 16);
       }
     }
   }, [11, 11], false, textures);
 
-  const floorNormalTex = buildNormalTexture(256, floorHeight, 2.5, [11, 11], textures);
+  const floorNormalTex = buildNormalTexture(256, floorHeight, 2.6, [11, 11], textures);
 
   // 3. Modular Aerospace Bulkhead Wall Cladding PBR
   const wallHeight = (x, y, s) => {
     const colW = s / 4;
     const lx = x % colW;
-    if (lx < 3 || lx > colW - 3) return 0.15;
-    if (y < 14 || y > s - 14) return 0.78;
+    if (lx < 3 || lx > colW - 3) return 0.14;
+    if (y < 14 || y > s - 14) return 0.80;
     const ly = y % (s / 2);
-    if (ly < 3) return 0.2;
-    if (lx > colW * 0.16 && lx < colW * 0.84 && ly > 16 && ly < s / 2 - 16) {
-      return 0.45 + 0.06 * Math.sin(x * 0.3) * Math.cos(y * 0.3);
+    if (ly < 3) return 0.18;
+    if (Math.abs(ly - s / 4) < 2.5) return 0.28;
+    if (lx > colW * 0.14 && lx < colW * 0.86 && ly > 16 && ly < s / 2 - 16) {
+      return 0.48 + 0.06 * Math.sin(x * 0.3) * Math.cos(y * 0.3);
     }
-    return 0.72;
+    return 0.74;
   };
 
   const wallColorTex = buildCanvasTexture(512, (g, s) => {
-    g.fillStyle = '#627388';
+    g.fillStyle = '#546579';
     g.fillRect(0, 0, s, s);
     const colW = s / 4;
     const rowH = s / 2;
@@ -256,14 +267,23 @@ function createSharedPbrTextures(seed = 29) {
       for (let col = 0; col < 4; col++) {
         const px = col * colW;
         const py = row * rowH;
-        g.fillStyle = (col + row) % 2 === 0 ? '#78899e' : '#6d7e93';
+        g.fillStyle = (col + row) % 2 === 0 ? '#76889e' : '#6a7c92';
         g.fillRect(px + 3, py + 3, colW - 6, rowH - 6);
-        g.fillStyle = '#5c6d82';
-        g.fillRect(px + 18, py + 24, colW - 36, rowH - 48);
-        g.fillStyle = '#334254';
-        g.fillRect(px + 3, py + rowH - 18, colW - 6, 12);
-        drawRivetsAlongRect(g, px + 2, py + 2, colW - 4, rowH - 4, 30, 'rgba(22,30,40,0.7)');
-        g.strokeStyle = '#202b38';
+        g.fillStyle = '#57687d';
+        g.fillRect(px + 14, py + 20, colW - 28, rowH - 42);
+        g.strokeStyle = 'rgba(220, 236, 252, 0.22)';
+        g.lineWidth = 1.5;
+        g.strokeRect(px + 14, py + 20, colW - 28, rowH - 42);
+        g.fillStyle = '#293748';
+        g.fillRect(px + 18, py + rowH * 0.5 - 3, colW - 36, 6);
+        g.fillStyle = 'rgba(72, 212, 255, 0.32)';
+        g.fillRect(px + 24, py + rowH * 0.5 - 1, colW - 48, 2);
+        g.fillStyle = '#2c3b4e';
+        g.fillRect(px + 3, py + rowH - 18, colW - 6, 13);
+        g.fillStyle = '#38495e';
+        g.fillRect(px + 3, py + 4, colW - 6, 9);
+        drawRivetsAlongRect(g, px + 3, py + 3, colW - 6, rowH - 6, 28, 'rgba(18,26,36,0.75)');
+        g.strokeStyle = '#1b2531';
         g.lineWidth = 3;
         g.strokeRect(px + 1, py + 1, colW - 2, rowH - 2);
       }
@@ -623,9 +643,35 @@ export function createShipPbrSuite(seed = 29) {
   }));
 
   const upholsteryMat = trackMat(new THREE.MeshStandardMaterial({
-    color: 0x2c3c52,
-    roughness: 0.86,
+    color: 0x26384d,
+    normalMap: quiltedNormalTex,
+    normalScale: new THREE.Vector2(0.38, 0.38),
+    roughness: 0.78,
     metalness: 0.08,
+  }));
+
+  const compositePanelMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0xd6e0ec,
+    normalMap: brushedMetalNormalTex,
+    normalScale: new THREE.Vector2(0.24, 0.24),
+    roughness: 0.44,
+    metalness: 0.22,
+  }));
+
+  const anodizedSlateMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0x233144,
+    normalMap: wallNormalTex,
+    normalScale: new THREE.Vector2(0.55, 0.55),
+    roughness: 0.46,
+    metalness: 0.68,
+  }));
+
+  const warmHabAccentMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0x7b5f47,
+    normalMap: brushedMetalNormalTex,
+    normalScale: new THREE.Vector2(0.3, 0.3),
+    roughness: 0.52,
+    metalness: 0.16,
   }));
 
   const safetyAmberMat = trackMat(new THREE.MeshStandardMaterial({
@@ -702,6 +748,9 @@ export function createShipPbrSuite(seed = 29) {
       glassViewportMat,
       radiatorGrapheneMat,
       upholsteryMat,
+      compositePanelMat,
+      anodizedSlateMat,
+      warmHabAccentMat,
       safetyAmberMat,
       shuttleCompositeMat,
       ceilingCofferMat,
@@ -773,7 +822,7 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
 
   const redraw = (curTitle = title, curLines = lines, curAccent = accentHex, meta = stateMeta) => {
     if (!g) return;
-    g.fillStyle = '#030d17';
+    g.fillStyle = '#040e1a';
     g.fillRect(0, 0, 512, 256);
 
     // Technical grid
@@ -807,7 +856,6 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
     g.strokeRect(wx, wy, ww, wh);
 
     if (stationId === 'nav' || stationId === 'missions' || stationId === 'windows') {
-      // Polar radar / orbit chart
       const cx = wx + ww / 2;
       const cy = wy + wh / 2;
       [26, 46, 62].forEach((r) => {
@@ -820,7 +868,6 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
       g.strokeStyle = curAccent;
       g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + 34, cy - 22); g.stroke();
     } else if (stationId === 'science' || stationId === 'sensor-calibration') {
-      // Spectral IR bands bar chart
       const bars = meta?.activeScan ? [0.85, 0.62, 0.94, 0.78, 0.55, 0.9] : [0.45, 0.7, 0.52, 0.88, 0.6, 0.72];
       bars.forEach((v, idx) => {
         const bh = Math.round(v * (wh - 30));
@@ -828,7 +875,6 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
         g.fillRect(wx + 12 + idx * 21, wy + wh - 12 - bh, 14, bh);
       });
     } else if (stationId === 'engineering') {
-      // Tokamak plasma containment bar & power gauge
       const lvl = Number(meta?.powerRatio ?? 0.74);
       g.fillStyle = '#0c2238';
       g.fillRect(wx + 24, wy + 22, 34, wh - 44);
@@ -840,7 +886,6 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
       g.arc(wx + 105, wy + 84, 30, 0, Math.PI * 2);
       g.stroke();
     } else if (stationId === 'galley') {
-      // Water reservoir & O2 indicator bars
       g.fillStyle = '#38bdf8';
       g.fillRect(wx + 20, wy + 40, 32, wh - 56);
       g.fillStyle = '#34d399';
@@ -850,18 +895,22 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
       g.fillText('H2O', wx + 22, wy + 24);
       g.fillText('O2', wx + 80, wy + 20);
     } else if (stationId === 'elevator') {
-      // Deck tower diagram C01..C04
+      // Deck tower diagram C01..C04 with active & target deck indicators
+      const deckNames = ['PUENTE', 'HABIT.', 'LABOR.', 'HANGAR'];
       ['C01', 'C02', 'C03', 'C04'].forEach((lbl, idx) => {
-        const fy = wy + 12 + idx * 38;
+        const fy = wy + 10 + idx * 38;
         const active = meta?.currentFloor === idx;
-        g.fillStyle = active ? curAccent : '#0d2236';
-        g.fillRect(wx + 18, fy, 112, 30);
-        g.fillStyle = active ? '#04101a' : '#bfe8ff';
-        g.font = 'bold 17px monospace';
-        g.fillText(lbl, wx + 54, fy + 21);
+        const isTarget = meta?.targetFloor === idx && meta?.targetFloor !== meta?.currentFloor;
+        g.fillStyle = active ? curAccent : isTarget ? '#f59e0b' : '#0d2236';
+        g.fillRect(wx + 12, fy, 124, 31);
+        g.strokeStyle = active ? '#ffffff' : isTarget ? '#fde68a' : 'rgba(110,200,245,0.35)';
+        g.lineWidth = 1.5;
+        g.strokeRect(wx + 12, fy, 124, 31);
+        g.fillStyle = active || isTarget ? '#04101a' : '#bfe8ff';
+        g.font = 'bold 16px monospace';
+        g.fillText(`${lbl} ${deckNames[idx]}`, wx + 20, fy + 21);
       });
     } else {
-      // Telemetry waveform + status bars
       g.strokeStyle = curAccent;
       g.lineWidth = 2.5;
       g.beginPath();
@@ -875,7 +924,7 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
 
     // Left telemetry readout lines
     g.fillStyle = '#e2f4ff';
-    g.font = '17px monospace';
+    g.font = 'bold 17px monospace';
     const list = Array.isArray(curLines) ? curLines.slice(0, 5) : [];
     list.forEach((line, idx) => {
       g.fillStyle = idx === 0 ? curAccent : '#dff4ff';

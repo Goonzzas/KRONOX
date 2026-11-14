@@ -208,6 +208,9 @@ export function buildKronoxInterior120M() {
   const hullM = pbrSuite.materials.hullExteriorMat;
   const finM = pbrSuite.materials.radiatorGrapheneMat;
   const bedM = pbrSuite.materials.upholsteryMat;
+  const compositeM = pbrSuite.materials.compositePanelMat || steelM;
+  const slateM = pbrSuite.materials.anodizedSlateMat || darkM;
+  const warmHabM = pbrSuite.materials.warmHabAccentMat || darkM;
   const railAmberM = pbrSuite.materials.safetyAmberMat;
   const glassM = pbrSuite.materials.glassViewportMat;
   const ceilingM = pbrSuite.materials.ceilingCofferMat || darkM;
@@ -315,29 +318,63 @@ export function buildKronoxInterior120M() {
   }
 
   // =========================================================================
-  // 2. ASCENSOR FÍSICO 3D (NÚCLEO VERTICAL, CABINA MÓVIL, PUERTAS Y BOTONERAS)
+  // 2. ASCENSOR FÍSICO 3D (NÚCLEO VERTICAL, CABINA MÓVIL, PUERTAS CON MIRILLA Y BOTONERAS)
   // =========================================================================
   const shaftGroup = new THREE.Group();
   shaftGroup.name = 'CentralElevatorShaftCore';
   auroraGroup.add(shaftGroup);
 
-  // Paredes laterales (±Z Aurora / ±X KRONOX) y rieles de acero cepillado
+  // Paredes laterales (±Z Aurora / ±X KRONOX), rieles guía y marcadores luminosos de nivel cada 0.85 m
   [1, -1].forEach((side) => {
-    add(shaftGroup, box(1.24, 13.4, 0.16), darkM, 0, 0, side * 1.42, 'wall');
-    add(shaftGroup, box(0.24, 13.4, 0.24), wallM, -0.64, 0, side * 1.38, 'wall');
-    add(shaftGroup, box(0.24, 13.4, 0.24), wallM, 0.64, 0, side * 1.38, 'wall');
-    add(shaftGroup, box(0.08, 13.4, 0.12), steelM, -1.16, 0, side * 1.24);
-    add(shaftGroup, box(0.08, 13.4, 0.12), steelM, 1.16, 0, side * 1.24);
+    add(shaftGroup, box(1.24, 13.4, 0.14), slateM, 0, 0, side * 1.42, 'wall');
+    add(shaftGroup, box(0.24, 13.4, 0.22), wallM, -0.68, 0, side * 1.38, 'wall');
+    add(shaftGroup, box(0.24, 13.4, 0.22), wallM, 0.68, 0, side * 1.38, 'wall');
+    add(shaftGroup, box(0.09, 13.4, 0.12), steelM, -1.16, 0, side * 1.24);
+    add(shaftGroup, box(0.09, 13.4, 0.12), steelM, 1.16, 0, side * 1.24);
     add(shaftGroup, box(0.05, 13.1, 0.05), cyanGlow, 0, 0, side * 1.32);
+    for (let tickY = -6.2; tickY <= 6.2; tickY += 0.85) {
+      add(shaftGroup, box(0.92, 0.035, 0.04), Math.abs(tickY % 3.4) < 0.35 ? amberGlow : cyanGlow, 0, tickY, side * 1.33);
+    }
+  });
+
+  // Vigas horizontales de referencia visual entre plantas en los frentes ±X del pozo (visibles por mirillas durante el viaje)
+  [1, -1].forEach((endDir) => {
+    [2.85, -0.55, -3.95].forEach((beamY) => {
+      add(shaftGroup, box(0.14, 0.32, 2.48), slateM, endDir * 1.34, beamY, 0);
+      add(shaftGroup, box(0.16, 0.045, 2.1), cyanGlow, endDir * 1.28, beamY - 0.1, 0);
+      add(shaftGroup, box(0.16, 0.045, 2.1), amberGlow, endDir * 1.28, beamY + 0.1, 0);
+    });
   });
 
   // Anillos estructurales del hueco entre cubiertas
   [6.7, 3.44, 0.04, -3.36, -6.76].forEach((ringY) => {
-    const t = add(shaftGroup, new THREE.TorusGeometry(ELEVATOR_SHAFT_RADIUS + 0.1, 0.045, 8, 32), cyanGlow, 0, ringY, 0);
+    const t = add(shaftGroup, torus(ELEVATOR_SHAFT_RADIUS + 0.1, 0.045, 8, 32), cyanGlow, 0, ringY, 0);
     t.rotation.x = Math.PI / 2;
   });
 
-  // Puertas de rellano en las 4 cubiertas + paneles exteriores de llamada + indicadores luminosos
+  // Helper para crear hojas de puerta de ascensor con ventana real transparente (sin malla opaca detrás del cristal)
+  const buildFramedElevatorDoorLeaf = (parent, x, y, z, thickness, leafMat, isLanding = false) => {
+    const leafGroup = new THREE.Group();
+    leafGroup.position.set(x, y, z);
+    leafGroup.userData.dynamicTransform = true;
+    parent.add(leafGroup);
+    // Panel inferior sólido + travesaño superior + montantes laterales (dejando hueco central abierto para el cristal)
+    const lowerM = add(leafGroup, box(thickness, 0.94, 0.64), leafMat, 0, -0.62, 0, isLanding ? 'door' : null);
+    add(leafGroup, box(thickness, 0.32, 0.64), leafMat, 0, 0.93, 0, isLanding ? 'door' : null);
+    add(leafGroup, box(thickness, 0.96, 0.16), darkM, 0, 0.17, -0.24, isLanding ? 'door' : null);
+    add(leafGroup, box(thickness, 0.96, 0.16), darkM, 0, 0.17, 0.24, isLanding ? 'door' : null);
+    // Marco metálico interior de la mirilla y vidrio templado transparente real
+    add(leafGroup, box(thickness + 0.015, 0.04, 0.34), steelM, 0, 0.64, 0);
+    add(leafGroup, box(thickness + 0.015, 0.04, 0.34), steelM, 0, -0.14, 0);
+    add(leafGroup, box(0.024, 0.76, 0.32), glassM, 0, 0.25, 0);
+    // Franja luminosa de borde de cierre
+    const edgeZ = z < 0 ? 0.305 : -0.305;
+    add(leafGroup, box(thickness + 0.012, 1.96, 0.03), cyanGlow, 0, 0.0, edgeZ);
+    lowerM.userData.dynamicTransform = true;
+    return leafGroup;
+  };
+
+  // Puertas de rellano en las 4 cubiertas + pórticos arquitectónicos + paneles exteriores de llamada
   const landingDoorsByDeck = {};
   const callPanelLights = {};
   const doorStateByDeck = {
@@ -355,31 +392,29 @@ export function buildKronoxInterior120M() {
     const signMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: signTex }));
 
     [1, -1].forEach((endDir) => {
-      // Marco superior de puerta de ascensor (+1 = Bow / -1 = Aft en Aurora X) + umbral de seguridad
       const doorX = endDir * 1.34;
-      add(shaftGroup, box(0.18, 0.42, 2.55), darkM, doorX, f + 2.48, 0, 'wall');
-      add(shaftGroup, box(0.32, 0.025, 1.56), hazardM, doorX + endDir * 0.18, f + 0.015, 0);
-      add(shaftGroup, box(0.24, 2.32, 0.18), ventM, doorX, f + 1.16, -0.84, 'wall');
-      add(shaftGroup, box(0.24, 2.32, 0.18), ventM, doorX, f + 1.16, 0.84, 'wall');
-      add(shaftGroup, box(0.04, 0.28, 1.35), signMat, doorX + endDir * 0.09, f + 2.52, 0);
-      add(shaftGroup, box(0.1, 0.07, 0.65), beaconMat, doorX + endDir * 0.09, f + 2.26, 0);
+      // Pórtico arquitectónico de rellano con jambas biseladas, dintel iluminado y umbral técnico
+      add(shaftGroup, box(0.22, 0.44, 2.58), slateM, doorX, f + 2.48, 0, 'wall');
+      add(shaftGroup, box(0.26, 0.08, 2.62), steelM, doorX, f + 2.26, 0);
+      add(shaftGroup, box(0.34, 0.025, 1.58), hazardM, doorX + endDir * 0.18, f + 0.015, 0);
+      add(shaftGroup, box(0.26, 2.32, 0.22), slateM, doorX, f + 1.16, -0.84, 'wall');
+      add(shaftGroup, box(0.26, 2.32, 0.22), slateM, doorX, f + 1.16, 0.84, 'wall');
+      add(shaftGroup, box(0.28, 2.24, 0.06), steelM, doorX, f + 1.14, -0.71);
+      add(shaftGroup, box(0.28, 2.24, 0.06), steelM, doorX, f + 1.14, 0.71);
+      add(shaftGroup, box(0.04, 0.3, 1.42), signMat, doorX + endDir * 0.11, f + 2.52, 0);
+      add(shaftGroup, box(0.12, 0.06, 0.78), beaconMat, doorX + endDir * 0.11, f + 2.29, 0);
 
-      // Hojas correderas dobles (bipartitas) sincronizadas con la apertura real
-      const leftLeaf = add(shaftGroup, box(0.09, 2.24, 0.68), doorM, doorX, f + 1.13, -0.34, 'door');
-      const rightLeaf = add(shaftGroup, box(0.09, 2.24, 0.68), doorM, doorX, f + 1.13, 0.34, 'door');
-      leftLeaf.userData.dynamicTransform = true;
-      rightLeaf.userData.dynamicTransform = true;
-      add(leftLeaf, box(0.11, 1.18, 0.34), glassM, 0, 0.25, -0.02);
-      add(rightLeaf, box(0.11, 1.18, 0.34), glassM, 0, 0.25, 0.02);
-      add(leftLeaf, box(0.1, 1.9, 0.04), cyanGlow, 0, 0, 0.31);
-      add(rightLeaf, box(0.1, 1.9, 0.04), cyanGlow, 0, 0, -0.31);
+      // Hojas correderas dobles (bipartitas) con mirilla real transparente
+      const leftLeaf = buildFramedElevatorDoorLeaf(shaftGroup, doorX, f + 1.13, -0.34, 0.08, doorM, true);
+      const rightLeaf = buildFramedElevatorDoorLeaf(shaftGroup, doorX, f + 1.13, 0.34, 0.08, doorM, true);
       doors.push({ leftLeaf, rightLeaf, doorX });
 
-      // Pedestal exterior de llamada ([E]) junto a cada puerta
+      // Terminal exterior de llamada ([E]) integrado junto a cada pórtico
       const sideSign = endDir > 0 ? 1 : -1;
       const callId = `elevator-call-${deck.id}-${endDir > 0 ? 'bow' : 'aft'}`;
-      const callPedestal = add(shaftGroup, box(0.18, 1.42, 0.22), darkM, doorX + endDir * 0.08, f + 0.71, sideSign * 0.85);
-      const callBtn = add(shaftGroup, box(0.08, 0.22, 0.14), beaconMat, doorX + endDir * 0.16, f + 1.28, sideSign * 0.85);
+      const callPedestal = add(shaftGroup, box(0.2, 1.48, 0.26), slateM, doorX + endDir * 0.08, f + 0.74, sideSign * 0.88);
+      add(shaftGroup, box(0.22, 0.42, 0.28), steelM, doorX + endDir * 0.09, f + 1.26, sideSign * 0.88);
+      const callBtn = add(shaftGroup, box(0.08, 0.24, 0.16), beaconMat, doorX + endDir * 0.17, f + 1.26, sideSign * 0.88);
       registerInteractMesh(callPedestal, callId, 'elevator-call', deck.id);
       registerInteractMesh(callBtn, callId, 'elevator-call', deck.id);
     });
@@ -394,59 +429,81 @@ export function buildKronoxInterior120M() {
   elevatorCab.position.set(0, 3.4, 0);
   auroraGroup.add(elevatorCab);
 
-  // Plataforma antideslizante, chasis, techo luminoso y pasamanos interiores
-  add(elevatorCab, box(1.94, 0.14, 1.94), floorM, 0, -0.05, 0, 'floor');
-  const cabFloorRim = add(elevatorCab, torus(1.06, 0.035, 8, 28), cyanGlow, 0, 0.03, 0);
+  // Plataforma técnica antideslizante, rodapié luminoso dinámico, techo artesonado e iluminación indirecta
+  add(elevatorCab, box(1.96, 0.14, 1.96), floorM, 0, -0.05, 0, 'floor');
+  const cabFloorRimMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x45e89e }));
+  const cabFloorRim = add(elevatorCab, torus(1.04, 0.032, 8, 32), cabFloorRimMat, 0, 0.03, 0);
   cabFloorRim.rotation.x = Math.PI / 2;
-  add(elevatorCab, box(1.94, 0.14, 1.94), darkM, 0, 2.38, 0);
-  add(elevatorCab, box(1.2, 0.04, 1.2), warmGlow, 0, 2.29, 0);
+  add(elevatorCab, box(1.96, 0.14, 1.96), slateM, 0, 2.38, 0);
+  add(elevatorCab, box(1.52, 0.05, 1.52), compositeM, 0, 2.30, 0);
+  add(elevatorCab, torus(0.66, 0.03, 8, 28), warmGlow, 0, 2.27, 0).rotation.x = Math.PI / 2;
 
-  // Esquinas estructurales + paredes acristaladas de la cabina
+  // Pilastras estructurales biseladas en las 4 esquinas + paredes acristaladas panorámicas y pasamanos
   [
     [-0.92, -0.92],
     [-0.92, 0.92],
     [0.92, -0.92],
     [0.92, 0.92],
   ].forEach(([cx, cz]) => {
-    add(elevatorCab, box(0.11, 2.36, 0.11), steelM, cx, 1.18, cz);
+    add(elevatorCab, box(0.14, 2.36, 0.14), slateM, cx, 1.18, cz);
+    add(elevatorCab, box(0.06, 2.18, 0.06), steelM, cx * 0.94, 1.18, cz * 0.94);
+    add(elevatorCab, box(0.025, 1.95, 0.025), cyanGlow, cx * 0.91, 1.18, cz * 0.91);
   });
   [-1, 1].forEach((sz) => {
-    add(elevatorCab, box(1.74, 2.2, 0.04), glassM, 0, 1.15, sz * 0.95);
-    add(elevatorCab, box(1.4, 0.04, 0.04), railAmberM, 0, 1.0, sz * 0.88);
+    add(elevatorCab, box(1.74, 0.36, 0.06), slateM, 0, 0.18, sz * 0.95);
+    add(elevatorCab, box(1.74, 0.24, 0.06), slateM, 0, 2.22, sz * 0.95);
+    add(elevatorCab, box(1.72, 1.72, 0.035), glassM, 0, 1.22, sz * 0.95);
+    add(elevatorCab, box(1.48, 0.045, 0.05), railAmberM, 0, 0.98, sz * 0.88);
   });
 
-  // Puertas sincronizadas de la propia cabina
+  // Puertas sincronizadas de la propia cabina con mirilla real transparente
   const cabDoorLeaves = [];
   [1, -1].forEach((endDir) => {
-    const cx = endDir * 1.02;
-    const cLeft = add(elevatorCab, box(0.06, 2.18, 0.62), steelM, cx, 1.12, -0.31);
-    const cRight = add(elevatorCab, box(0.06, 2.18, 0.62), steelM, cx, 1.12, 0.31);
-    cLeft.userData.dynamicTransform = true;
-    cRight.userData.dynamicTransform = true;
-    add(cLeft, box(0.07, 1.15, 0.22), glassM, 0, 0.25, 0);
-    add(cRight, box(0.07, 1.15, 0.22), glassM, 0, 0.25, 0);
+    const cx = endDir * 1.01;
+    const cLeft = buildFramedElevatorDoorLeaf(elevatorCab, cx, 1.12, -0.31, 0.05, compositeM, false);
+    const cRight = buildFramedElevatorDoorLeaf(elevatorCab, cx, 1.12, 0.31, 0.05, compositeM, false);
     cabDoorLeaves.push({ leftLeaf: cLeft, rightLeaf: cRight });
   });
 
-  // Panel interior de control C01..C04 dentro de la cabina con display vivo de planta
+  // Pantalla digital viva del ascensor (visible en el panel lateral Y en los dinteles superiores de ambas puertas)
   const cabScreen = makeDiegeticScreenTexture(
     'elevator',
     'ASCENSOR CENTRAL KRONOX',
     ['PLANTA ACTUAL: C01 PUENTE', 'PUERTAS: ABIERTAS', 'PULSA [E] PARA VIAJAR', 'SELECCIONA: C01 - C04'],
     '#38d8ff',
-    { currentFloor: 0 }
+    { currentFloor: 0, targetFloor: 0 }
   );
   trackExtraTex(cabScreen.tex);
-  add(elevatorCab, box(0.45, 1.05, 0.08), darkM, 0, 1.32, 0.87);
-  add(elevatorCab, box(0.38, 0.34, 0.02), trackExtraMat(new THREE.MeshBasicMaterial({ map: cabScreen.tex })), 0, 1.62, 0.82);
+  const cabScreenMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: cabScreen.tex }));
+
+  // Dinteles digitales sobre ambas puertas (+X proa y -X popa) para que el jugador siempre vea el indicador de piso de frente
+  [1, -1].forEach((endDir) => {
+    const tx = endDir * 0.92;
+    add(elevatorCab, box(0.08, 0.28, 1.16), slateM, tx, 2.15, 0);
+    const transomScr = add(elevatorCab, box(0.02, 0.22, 0.56), cabScreenMat, tx - endDir * 0.035, 2.15, 0);
+    transomScr.rotation.y = endDir > 0 ? 0 : Math.PI;
+    add(elevatorCab, box(0.03, 0.035, 1.08), cabFloorRimMat, tx - endDir * 0.03, 2.02, 0);
+  });
+
+  // Panel principal lateral (+Z Aurora / +X KRONOX) + Pilastra frontal de control (+X, +Z) con botones físicos C01..C04
+  add(elevatorCab, box(0.46, 1.08, 0.07), slateM, 0, 1.32, 0.88);
+  add(elevatorCab, box(0.40, 0.36, 0.02), cabScreenMat, 0, 1.62, 0.835);
+  add(elevatorCab, box(0.09, 1.12, 0.24), slateM, 0.88, 1.32, 0.74);
+  add(elevatorCab, box(0.02, 0.26, 0.20), cabScreenMat, 0.83, 1.66, 0.74);
 
   const cabButtonsByDeck = {};
   CABIN_DECKS.forEach((d, idx) => {
     const btnMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: idx === 0 ? 0x45e89e : 0x38d8ff }));
-    add(elevatorCab, box(0.32, 0.11, 0.02), steelM, 0, 1.34 - idx * 0.13, 0.835);
-    const btn = add(elevatorCab, box(0.28, 0.095, 0.045), btnMat, 0, 1.34 - idx * 0.13, 0.815);
+    const by = 1.34 - idx * 0.13;
+    add(elevatorCab, box(0.32, 0.11, 0.02), steelM, 0, by, 0.84);
+    const btn = add(elevatorCab, box(0.28, 0.095, 0.045), btnMat, 0, by, 0.82);
     btn.userData.elevatorFloorButton = d.id;
     registerInteractMesh(btn, `elevator-floor-${d.id}`, 'elevator-floor');
+
+    // Botón duplicado en la pilastra frontal para que sea directamente operable mirando hacia proa (-Z)
+    const frontBtn = add(elevatorCab, box(0.04, 0.09, 0.16), btnMat, 0.825, by, 0.74);
+    frontBtn.userData.elevatorFloorButton = d.id;
+    registerInteractMesh(frontBtn, `elevator-floor-${d.id}`, 'elevator-floor');
     cabButtonsByDeck[d.id] = btnMat;
   });
 
@@ -508,15 +565,28 @@ export function buildKronoxInterior120M() {
       leftLeaf.position.z = -0.31 - cabSlide;
       rightLeaf.position.z = 0.31 + cabSlide;
     });
+    if (cabFloorRimMat) {
+      cabFloorRimMat.color.setHex(
+        elevatorState.phase === 'moving'
+          ? 0x38d8ff
+          : elevatorState.phase === 'door-closing' || elevatorState.phase === 'door-opening'
+            ? 0xffb347
+            : activeCabDoorOpen > 0.7
+              ? 0x45e89e
+              : 0x38d8ff
+      );
+    }
   }
 
   function redrawCabScreen() {
     const floorIdx = Math.max(0, CABIN_DECKS.findIndex((d) => d.id === elevatorState.currentDeckId));
+    const targetIdx = Math.max(0, CABIN_DECKS.findIndex((d) => d.id === elevatorState.targetDeckId));
     const curDeck = CABIN_DECKS[floorIdx] || CABIN_DECKS[0];
-    const targetDeck = CABIN_DECKS.find((d) => d.id === elevatorState.targetDeckId) || curDeck;
+    const targetDeck = CABIN_DECKS[targetIdx] || curDeck;
+    const dirArrow = targetIdx > floorIdx ? '▼' : targetIdx < floorIdx ? '▲' : '●';
     const doorStatus =
       elevatorState.phase === 'moving'
-        ? `EN TRÁNSITO A ${targetDeck.code}`
+        ? `EN TRÁNSITO ${dirArrow} ${targetDeck.code}`
         : elevatorState.phase === 'door-closing'
           ? 'CERRANDO COMPUERTAS'
           : elevatorState.phase === 'door-opening'
@@ -525,15 +595,15 @@ export function buildKronoxInterior120M() {
               ? 'PUERTAS: ABIERTAS'
               : 'PUERTAS: CERRADAS';
     cabScreen.redraw(
-      `ASCENSOR · ${curDeck.code}`,
+      `ASCENSOR · ${curDeck.code} (${elevatorState.cabY >= 0 ? '+' : ''}${elevatorState.cabY.toFixed(1)}m)`,
       [
         `CUBIERTA: ${curDeck.shortName.toUpperCase()}`,
         doorStatus,
-        `DESTINO: ${targetDeck.code}`,
-        'PULSA [E] PARA ELEGIR PISO',
+        `DESTINO: ${targetDeck.code} · ${targetDeck.shortName.toUpperCase()}`,
+        'PULSA [E] O [1-4] PARA VIAJAR',
       ],
       '#38d8ff',
-      { currentFloor: floorIdx }
+      { currentFloor: floorIdx, targetFloor: targetIdx }
     );
   }
 
@@ -764,15 +834,31 @@ export function buildKronoxInterior120M() {
       g.rotation.y = e.rot;
       d1.add(g);
       if (i === 3) {
-        [-1, 1].forEach((k) => add(g, box(e.l / 2 - 1.2, 2.9, 0.22), wallM, k * (e.l / 4 + 0.6), 1.45, 0, 'wall'));
+        [-1, 1].forEach((k) => {
+          const wSeg = e.l / 2 - 1.2;
+          const cx = k * (e.l / 4 + 0.6);
+          add(g, box(wSeg, 2.9, 0.22), wallM, cx, 1.45, 0, 'wall');
+          add(g, box(wSeg - 0.4, 0.16, 0.28), slateM, cx, 0.1, 0);
+          add(g, box(wSeg * 0.72, 0.04, 0.26), cyanGlow, cx, 2.68, 0);
+        });
       } else if (bowFacets.has(i)) {
-        add(g, box(e.l + 0.04, 0.78, 0.26), wallM, 0, 0.39, 0, 'wall');
-        add(g, box(e.l + 0.04, 0.08, 0.3), steelM, 0, 0.8, 0);
-        add(g, box(e.l + 0.04, 2.1, 0.05), glassM, 0, 1.85, 0);
+        // Ventanal panorámico de proa con alféizar instrumental, montantes intermedios y visera superior de telemetría
+        add(g, box(e.l + 0.04, 0.78, 0.28), wallM, 0, 0.39, 0, 'wall');
+        add(g, box(e.l + 0.06, 0.1, 0.36), slateM, 0, 0.8, 0);
+        add(g, box(e.l - 0.2, 0.03, 0.06), cyanGlow, 0, 0.85, -0.14);
+        add(g, box(e.l + 0.04, 2.04, 0.05), glassM, 0, 1.84, 0);
+        add(g, box(e.l + 0.04, 0.24, 0.38), slateM, 0, 2.78, -0.06);
+        add(g, box(e.l * 0.82, 0.035, 0.08), warmGlow, 0, 2.66, -0.18);
+        [-0.25, 0.25].forEach((mt) => {
+          add(g, box(0.11, 2.08, 0.16), slateM, e.l * mt, 1.84, 0);
+          add(g, box(0.04, 2.04, 0.19), steelM, e.l * mt, 1.84, 0);
+        });
       } else {
         add(g, box(e.l, 2.9, 0.22), wallM, 0, 1.45, 0, 'wall');
-        add(g, box(e.l * 0.55, 1.24, 0.08), darkM, 0, 1.8, -0.13);
-        add(g, box(e.l * 0.51, 1.12, 0.03), bridgeScrMat, 0, 1.8, -0.17);
+        add(g, box(e.l, 0.18, 0.28), slateM, 0, 0.09, 0);
+        add(g, box(e.l * 0.62, 1.32, 0.1), slateM, 0, 1.78, -0.12);
+        add(g, box(e.l * 0.56, 1.16, 0.03), bridgeScrMat, 0, 1.78, -0.17);
+        add(g, box(e.l * 0.78, 0.04, 0.08), cyanGlow, 0, 2.58, -0.14);
       }
       add(g, box(e.l, 0.22, 0.34), darkM, 0, 2.95, 0);
     });
@@ -785,7 +871,7 @@ export function buildKronoxInterior120M() {
       }
     });
 
-    // Consolas en chevrón con mandos físicos, pantallas diegéticas e iluminarias de mando
+    // Consolas en chevrón con mandos físicos, pantallas dobles, cuadrante de empuje e iluminarias de mando
     [[5, 3], [6, 1], [0, 1], [1, 3]].forEach(([i, n]) => {
       const e = E[i];
       const h = new THREE.Group();
@@ -799,19 +885,23 @@ export function buildKronoxInterior120M() {
         g.position.set(x * 0.72, f, z * 0.72);
         g.rotation.y = e.rot;
         d1.add(g);
-        add(g, box(2.15, 1.05, 1.32), darkM, 0, 0.525, 0, 'console');
-        add(g, box(1.96, 0.08, 1.05), steelM, 0, 1.05, 0);
+        add(g, box(2.15, 1.05, 1.32), slateM, 0, 0.525, 0, 'console');
+        add(g, box(2.22, 0.12, 1.38), darkM, 0, 0.06, 0);
+        add(g, box(1.98, 0.08, 1.08), steelM, 0, 1.05, 0);
         add(g, box(1.85, 0.04, 0.9), k % 2 ? amberGlow : cyanGlow, 0, 1.1, 0);
-        // Palanca de mando + interruptores físicos
+        // Palanca de mando HOTAS + cuadrante de aceleración + teclado táctil iluminado
         add(g, cyl(0.03, 0.045, 0.18, 8), darkM, -0.58, 1.2, 0.15);
-        add(g, box(0.16, 0.06, 0.22), railAmberM, 0.52, 1.15, 0.12);
+        add(g, sphereGeo(0.045, 10, 8), railAmberM, -0.58, 1.3, 0.15);
+        add(g, box(0.18, 0.07, 0.24), railAmberM, 0.54, 1.15, 0.12);
+        add(g, box(0.68, 0.025, 0.28), compositeM, 0, 1.12, -0.18);
         const scr = add(g, box(1.85, 0.8, 0.05), bridgeScrMat, 0, 1.48, 0.52);
         scr.rotation.x = -0.45;
+        add(g, box(1.92, 0.86, 0.04), darkM, 0, 1.48, 0.55).rotation.x = -0.45;
         chair(d1, x * 0.72 - e.nx * 1.9, z * 0.72 - e.nz * 1.9, f, e.rot);
       }
     });
 
-    // Puestos tácticos laterales
+    // Puestos tácticos laterales con marquesina superior de telemetría
     [2, 4].forEach((i) => {
       const e = E[i];
       for (let k = 0; k < 4; k++) {
@@ -820,33 +910,50 @@ export function buildKronoxInterior120M() {
         g.position.set(x - e.nx * 1.1, f, z - e.nz * 1.1);
         g.rotation.y = e.rot + Math.PI;
         d1.add(g);
-        add(g, box(2.2, 1.1, 0.92), darkM, 0, 0.55, 0, 'console');
-        add(g, box(1.92, 0.05, 0.62), k % 2 ? cyanGlow : amberGlow, 0, 1.12, 0);
-        add(g, box(1.72, 0.55, 0.04), bridgeScrMat, 0, 1.42, 0.3);
+        add(g, box(2.2, 1.1, 0.92), slateM, 0, 0.55, 0, 'console');
+        add(g, box(2.08, 0.07, 0.82), steelM, 0, 1.09, 0);
+        add(g, box(1.92, 0.04, 0.62), k % 2 ? cyanGlow : amberGlow, 0, 1.13, 0);
+        add(g, box(1.78, 0.62, 0.06), darkM, 0, 1.44, 0.32);
+        add(g, box(1.70, 0.54, 0.03), bridgeScrMat, 0, 1.44, 0.28);
       }
     });
 
     // Estrado hexagonal del capitán y mesa holográfica trasera con detalle arquitectónico
-    add(d1, cyl(3.1, 3.25, 0.18, 6), wallM, 5.5, f + 0.09, 0);
-    add(d1, cyl(2.6, 2.75, 0.38, 6), darkM, 5.5, f + 0.2, 0, 'console');
+    add(d1, cyl(3.15, 3.3, 0.18, 6), wallM, 5.5, f + 0.09, 0);
+    add(d1, cyl(2.6, 2.75, 0.38, 6), slateM, 5.5, f + 0.2, 0, 'console');
     add(d1, cyl(2.75, 2.75, 0.05, 6), cyanGlow, 5.5, f + 0.36, 0);
     add(d1, cyl(2.58, 2.66, 0.03, 6), steelM, 5.5, f + 0.4, 0);
+    // Dosel anular suspendido sobre el puesto de mando del capitán
+    const capCanopy = add(d1, torus(2.35, 0.07, 8, 36), slateM, 5.5, f + 2.72, 0);
+    capCanopy.rotation.x = Math.PI / 2;
+    const capCanopyGlow = add(d1, torus(2.28, 0.025, 6, 36), warmGlow, 5.5, f + 2.66, 0);
+    capCanopyGlow.rotation.x = Math.PI / 2;
     chair(d1, 5.5, 0, f + 0.4, Math.PI / 2);
     [-1, 1].forEach((k) => {
+      add(d1, box(1.06, 0.52, 0.24), slateM, 5.6, f + 0.66, k * 0.62);
       add(d1, box(1.0, 0.12, 0.22), darkM, 5.6, f + 1.22, k * 0.58);
       add(d1, box(0.5, 0.03, 0.16), bridgeScrMat, 5.75, f + 1.29, k * 0.58);
     });
     // Franja guía de piso desde la mesa táctica hacia el ascensor central
-    add(d1, box(3.6, 0.015, 0.42), steelM, -2.9, f + 0.05, 0);
-    add(d1, box(3.4, 0.02, 0.08), cyanGlow, -2.9, f + 0.06, -0.18);
-    add(d1, box(3.4, 0.02, 0.08), cyanGlow, -2.9, f + 0.06, 0.18);
+    add(d1, box(3.8, 0.018, 0.56), steelM, -2.9, f + 0.05, 0);
+    add(d1, box(3.6, 0.022, 0.08), cyanGlow, -2.9, f + 0.06, -0.22);
+    add(d1, box(3.6, 0.022, 0.08), cyanGlow, -2.9, f + 0.06, 0.22);
+    add(d1, box(3.8, 0.018, 0.56), steelM, 2.3, f + 0.05, 0);
+    add(d1, box(3.6, 0.022, 0.08), cyanGlow, 2.3, f + 0.06, -0.22);
+    add(d1, box(3.6, 0.022, 0.08), cyanGlow, 2.3, f + 0.06, 0.22);
     // Paneles acústicos / ventilación laterales del puente en popa
     [-1, 1].forEach((k) => {
       add(d1, box(0.14, 1.35, 3.8), ventM, -11.78, f + 0.72, k * 6.0);
     });
 
-    add(d1, cyl(1.5, 1.7, 0.9, 6), darkM, -6, f + 0.45, 0, 'console');
+    // Mesa holográfica táctica con anillo emisor superior y consolas perimetrales
+    add(d1, cyl(1.52, 1.74, 0.9, 6), slateM, -6, f + 0.45, 0, 'console');
+    add(d1, cyl(1.62, 1.62, 0.08, 6), steelM, -6, f + 0.88, 0);
     add(d1, cyl(1.4, 1.4, 0.05, 6), cyanGlow, -6, f + 0.93, 0);
+    const holoCanopy = add(d1, torus(1.65, 0.06, 8, 32), slateM, -6, f + 2.74, 0);
+    holoCanopy.rotation.x = Math.PI / 2;
+    const holoCanopyGlow = add(d1, torus(1.58, 0.024, 6, 32), cyanGlow, -6, f + 2.68, 0);
+    holoCanopyGlow.rotation.x = Math.PI / 2;
     const wfMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x9be7ff, wireframe: true }));
     const holoTableOrb = new THREE.Group();
     holoTableOrb.name = 'BridgeHoloProjector';
@@ -903,7 +1010,13 @@ export function buildKronoxInterior120M() {
     const d2 = deckContainers['deck-02'];
     const f = 0.0;
 
-    // 8 mamparos radiales alineados 1:1 con C02_BULKHEAD_ANGLES (acolchado textil + zócalo técnico)
+    // Anillo guía perimetral del corredor habitacional (r = 6.65 m)
+    const corrRing = add(d2, torus(6.65, 0.028, 6, 64), warmGlow, 0, f + 0.02, 0);
+    corrRing.rotation.x = Math.PI / 2;
+    const corrCeilRing = add(d2, torus(6.85, 0.07, 8, 64), slateM, 0, f + 2.88, 0);
+    corrCeilRing.rotation.x = Math.PI / 2;
+
+    // 8 mamparos radiales alineados 1:1 con C02_BULKHEAD_ANGLES (acolchado textil + zócalo técnico + luminaria indirecta)
     C02_BULKHEAD_ANGLES.forEach((a) => {
       const g = new THREE.Group();
       g.rotation.y = -a;
@@ -911,87 +1024,242 @@ export function buildKronoxInterior120M() {
       // Muro sólido desde r = 6.95 hasta la piel esférica interior
       add(g, box(10.65, 2.95, 0.22), wallM, 12.25, f + 1.475, 0, 'wall');
       add(g, box(8.8, 1.85, 0.24), quiltedM, 12.4, f + 1.48, 0);
-      add(g, box(10.65, 0.18, 0.28), darkM, 12.25, f + 0.09, 0);
+      add(g, box(8.8, 0.08, 0.27), warmHabM, 12.4, f + 0.54, 0);
+      add(g, box(8.8, 0.06, 0.26), steelM, 12.4, f + 2.42, 0);
+      add(g, box(8.2, 0.03, 0.26), warmGlow, 12.4, f + 2.48, 0);
+      add(g, box(10.65, 0.18, 0.28), slateM, 12.25, f + 0.09, 0);
       add(g, box(10.65, 0.22, 0.28), steelM, 12.25, f + 2.85, 0);
-      add(g, box(0.32, 2.95, 0.34), steelM, 6.95, f + 1.475, 0, 'wall');
+      add(g, box(0.36, 2.95, 0.36), slateM, 6.95, f + 1.475, 0, 'wall');
+      add(g, box(0.16, 2.65, 0.40), steelM, 6.95, f + 1.42, 0);
       add(g, box(0.14, 1.65, 0.38), ventM, 8.2, f + 1.4, 0);
     });
 
-    // 6 camarotes laterales con litera, almohada, baúl, escritorio y armario (exacto a C02_CABIN_BAYS)
-    C02_CABIN_BAYS.forEach((bay) => {
+    // Pantalla diegética compartida para terminales murales de los camarotes de investigación
+    const habWallScr = makeDiegeticScreenTexture(
+      'hab-cabin',
+      'MÓDULO HABITACIONAL KRONOX',
+      ['SOPORTE VITAL: 21.0% O2 · 101.3 kPa', 'TEMPERATURA CABINA: 21.8 °C', 'CICLO CIRCADIANO: DÍA SOLAR', 'TELEMETRÍA MÉDICA: NOMINAL'],
+      '#38d8ff'
+    );
+    trackExtraTex(habWallScr.tex);
+    const habWallScrMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: habWallScr.tex }));
+
+    const cabinRoles = [
+      { code: 'HAB-01', role: 'COMANDANCIA Y ASTROMETRÍA', accent: cyanGlow },
+      { code: 'HAB-02', role: 'ESPECTROMETRÍA IR SPHEREx', accent: amberGlow },
+      { code: 'HAB-03', role: 'EXOBIOLOGÍA Y SOPORTE VITAL', accent: greenGlow },
+      { code: 'HAB-04', role: 'INGENIERÍA CRIOGÉNICA', accent: cyanGlow },
+      { code: 'HAB-05', role: 'NAVEGACIÓN ESTELAR', accent: amberGlow },
+      { code: 'HAB-06', role: 'OPERACIONES EVA Y MÉDICO', accent: greenGlow },
+    ];
+
+    // 6 camarotes científicos de alta calidad (pórtico arquitectónico, alcoba de descanso, armarios, pantallas y mobiliario integrado)
+    C02_CABIN_BAYS.forEach((bay, bIdx) => {
       const c = new THREE.Group();
       c.rotation.y = -bay.angleRad;
       d2.add(c);
-      add(c, box(2.45, 0.44, 1.15), bedM, 14.1, f + 0.46, 0, 'console');
-      add(c, box(0.46, 0.14, 0.78), pbrSuite.materials.shuttleCompositeMat || steelM, 15.0, f + 0.72, 0);
-      add(c, box(1.9, 0.28, 0.92), darkM, 14.1, f + 0.14, 0);
-      add(c, box(2.52, 0.12, 1.2), steelM, 14.1, f + 0.26, 0);
-      add(c, box(0.52, 0.16, 0.85), finM, 13.0, f + 0.74, 0);
-      add(c, box(0.36, 0.22, 0.04), cyanGlow, 12.95, f + 0.98, 0.18);
-      add(c, box(0.64, 2.15, 1.5), darkM, 16.6, f + 1.075, 0, 'wall');
-      add(c, box(0.05, 1.85, 0.55), cyanGlow, 16.26, f + 1.08, -0.35);
-      add(c, box(2.2, 0.06, 0.3), warmGlow, 12.8, f + 2.82, 0);
+      const roleMeta = cabinRoles[bIdx % cabinRoles.length];
+
+      // 1) Pórtico de entrada en r = 7.05 m (deja vano central amplio de 2.25 m totalmente despejado)
+      [-1.66, 1.66].forEach((sideZ) => {
+        const signZ = sideZ > 0 ? 1 : -1;
+        add(c, box(0.22, 2.92, 0.96), compositeM, 7.05, f + 1.46, sideZ);
+        add(c, box(0.26, 0.22, 1.0), slateM, 7.05, f + 0.11, sideZ);
+        add(c, box(0.26, 2.42, 0.14), slateM, 7.05, f + 1.21, sideZ - signZ * 0.46);
+        add(c, box(0.06, 1.38, 0.42), glassM, 7.05, f + 1.48, sideZ);
+        add(c, box(0.24, 0.04, 0.46), steelM, 7.05, f + 0.78, sideZ);
+        add(c, box(0.24, 0.04, 0.46), steelM, 7.05, f + 2.18, sideZ);
+      });
+      // Dintel superior del pórtico del camarote con luz indirecta cálida y placa identificativa
+      add(c, box(0.28, 0.48, 4.25), slateM, 7.05, f + 2.68, 0);
+      add(c, box(0.32, 0.06, 2.38), steelM, 7.05, f + 2.42, 0);
+      add(c, box(0.18, 0.035, 2.15), warmGlow, 7.05, f + 2.39, 0);
+      mountDeckPlacard(c, 6.88, f + 2.66, 0, -Math.PI / 2, roleMeta.code, roleMeta.role, 'CUBIERTA 02 · HABITACIONAL', '#5ce6ff');
+
+      // 2) Alfombra técnica encastrada, plafón de techo con iluminación indirecta cálida y líneas guía
+      add(c, box(5.4, 0.018, 2.15), slateM, 10.6, f + 0.01, 0);
+      add(c, box(5.2, 0.022, 0.06), warmGlow, 10.6, f + 0.015, -1.02);
+      add(c, box(5.2, 0.022, 0.06), warmGlow, 10.6, f + 0.015, 1.02);
+      // Plafón suspendido en techo del camarote con foseado de luz indirecta
+      add(c, box(5.6, 0.08, 2.8), compositeM, 12.2, f + 2.82, 0);
+      add(c, box(5.2, 0.04, 2.4), slateM, 12.2, f + 2.77, 0);
+      add(c, box(4.8, 0.03, 0.14), warmGlow, 12.2, f + 2.75, -1.12);
+      add(c, box(4.8, 0.03, 0.14), warmGlow, 12.2, f + 2.75, 1.12);
+
+      // 3) Módulos laterales integrados (r = 9.4..11.8 m, pegados a los mamparos para dejar el centro amplio)
+      // Pared izquierda (z < 0): Armarios modulares de polímero aeroespacial y taquillas superiores
+      const lockerGroup = new THREE.Group();
+      lockerGroup.position.set(10.5, f, -2.18);
+      lockerGroup.rotation.y = 0.28;
+      c.add(lockerGroup);
+      add(lockerGroup, box(2.55, 2.24, 0.56), slateM, 0, 1.12, 0);
+      [-0.82, 0, 0.82].forEach((lx) => {
+        add(lockerGroup, box(0.76, 1.56, 0.05), compositeM, lx, 1.02, 0.28);
+        add(lockerGroup, box(0.05, 0.36, 0.07), steelM, lx + 0.28, 1.02, 0.30);
+        add(lockerGroup, box(0.76, 0.42, 0.05), warmHabM, lx, 2.02, 0.28);
+      });
+      add(lockerGroup, box(2.42, 0.035, 0.06), warmGlow, 0, 2.26, 0.28);
+
+      // Pared derecha (z > 0): Panel mural con pantalla integrada, consola ambiental y módulo científico específico
+      const wallConsole = new THREE.Group();
+      wallConsole.position.set(10.5, f, 2.18);
+      wallConsole.rotation.y = -0.28;
+      c.add(wallConsole);
+      add(wallConsole, box(2.45, 0.84, 0.54), slateM, 0, 0.42, 0);
+      add(wallConsole, box(2.38, 0.06, 0.58), warmHabM, 0, 0.86, 0);
+      // Pantalla mural panorámica integrada en la pared del camarote
+      add(wallConsole, box(1.56, 0.88, 0.08), slateM, -0.2, 1.58, -0.16);
+      add(wallConsole, box(1.44, 0.76, 0.03), habWallScrMat, -0.2, 1.58, -0.20);
+      add(wallConsole, box(1.52, 0.03, 0.05), roleMeta.accent, -0.2, 2.04, -0.18);
+      // Estante superior con contenedores de muestras / libros técnicos y detalle diferencial por especialidad
+      add(wallConsole, box(2.35, 0.28, 0.38), compositeM, 0, 2.28, -0.06);
+      add(wallConsole, box(0.38, 0.32, 0.28), bIdx % 2 === 0 ? goldM : copperM, 0.72, 1.05, 0);
+      add(wallConsole, cyl(0.11, 0.11, 0.36, 12), roleMeta.accent, 0.28, 1.06, 0);
+
+      // 4) Escritorio de investigación ergonómico en r = 13.0, z = 0 (alineado con colisionador 1:1)
+      add(c, box(0.56, 0.74, 0.96), slateM, 13.0, f + 0.37, 0);
+      add(c, box(0.62, 0.07, 1.08), warmHabM, 13.0, f + 0.75, 0);
+      add(c, box(0.54, 0.025, 0.88), steelM, 13.0, f + 0.79, 0);
+      add(c, box(0.42, 0.28, 0.05), darkM, 12.95, f + 0.98, 0.22);
+      add(c, box(0.38, 0.24, 0.03), habWallScrMat, 12.93, f + 0.98, 0.22);
+      add(c, box(0.36, 0.22, 0.04), roleMeta.accent, 12.95, f + 0.98, -0.22);
+      // Taburete ergonómico recogido frente al escritorio (r = 12.38, z = 0)
+      add(c, cyl(0.18, 0.22, 0.06, 12), steelM, 12.38, f + 0.03, 0);
+      add(c, cyl(0.06, 0.08, 0.42, 10), darkM, 12.38, f + 0.24, 0);
+      add(c, cyl(0.22, 0.22, 0.09, 14), bedM, 12.38, f + 0.47, 0);
+
+      // 5) Alcoba arquitectónica de descanso integrada en r = 14.1, z = 0 (evita que la cama parezca una caja suelta)
+      // Base estructural con cajones de almacenamiento inferiores
+      add(c, box(2.42, 0.32, 1.18), slateM, 14.1, f + 0.16, 0);
+      [-0.72, 0, 0.72].forEach((dx) => {
+        add(c, box(0.66, 0.20, 0.04), compositeM, 14.1 + dx, f + 0.16, -0.59);
+        add(c, box(0.66, 0.20, 0.04), compositeM, 14.1 + dx, f + 0.16, 0.59);
+        add(c, box(0.24, 0.03, 0.06), steelM, 14.1 + dx, f + 0.18, -0.61);
+        add(c, box(0.24, 0.03, 0.06), steelM, 14.1 + dx, f + 0.18, 0.61);
+      });
+      // Marco metálico perimetral, colchón anatómico acolchado, manta térmica y almohada ergonómica
+      add(c, box(2.52, 0.10, 1.24), steelM, 14.1, f + 0.35, 0);
+      add(c, box(2.45, 0.26, 1.15), bedM, 14.1, f + 0.51, 0, 'console');
+      add(c, box(1.35, 0.28, 1.17), compositeM, 13.52, f + 0.52, 0);
+      add(c, box(0.46, 0.14, 0.84), compositeM, 15.0, f + 0.70, 0);
+      add(c, box(0.22, 0.12, 0.80), warmHabM, 14.68, f + 0.68, 0);
+      // Cabecero acolchado y mamparas laterales de privacidad con dosel e iluminación de lectura
+      add(c, box(0.18, 1.48, 1.28), quiltedM, 15.32, f + 1.06, 0);
+      add(c, box(0.22, 1.54, 1.34), slateM, 15.42, f + 1.08, 0);
+      add(c, box(1.08, 1.42, 0.08), compositeM, 14.88, f + 1.05, -0.64);
+      add(c, box(1.08, 1.42, 0.08), compositeM, 14.88, f + 1.05, 0.64);
+      add(c, box(1.85, 0.12, 1.34), slateM, 14.52, f + 1.82, 0);
+      add(c, box(1.65, 0.03, 0.96), warmGlow, 14.52, f + 1.75, 0);
+
+      // 6) Módulo de armario ropero y equipo personal de altura completa en r = 16.6, z = 0
+      add(c, box(0.68, 2.38, 1.56), slateM, 16.6, f + 1.19, 0, 'wall');
+      add(c, box(0.06, 2.12, 0.68), compositeM, 16.25, f + 1.14, -0.38);
+      add(c, box(0.06, 2.12, 0.68), compositeM, 16.25, f + 1.14, 0.38);
+      add(c, box(0.08, 0.52, 0.04), steelM, 16.23, f + 1.14, -0.08);
+      add(c, box(0.08, 0.52, 0.04), steelM, 16.23, f + 1.14, 0.08);
+      add(c, box(0.05, 1.45, 0.36), glassM, 16.24, f + 1.28, -0.38);
+      add(c, box(0.04, 1.55, 0.06), roleMeta.accent, 16.25, f + 1.24, 0.0);
     });
 
     // Comedor circular en arcos huecos ±X (r en [2.38, 3.36]) manteniendo pasillos ±Z totalmente libres
     const barBodyGeo = buildHollowArcCounterGeo(C02_DINING_ARCS.rInner, C02_DINING_ARCS.rOuter, C02_DINING_ARCS.halfAngleRad, 0.78, 22);
-    const barTopGeo = buildHollowArcCounterGeo(C02_DINING_ARCS.rInner - 0.04, C02_DINING_ARCS.rOuter + 0.04, C02_DINING_ARCS.halfAngleRad, 0.045, 22);
+    const barTopGeo = buildHollowArcCounterGeo(C02_DINING_ARCS.rInner - 0.05, C02_DINING_ARCS.rOuter + 0.05, C02_DINING_ARCS.halfAngleRad, 0.055, 22);
     const barFootGeo = buildHollowArcCounterGeo(C02_DINING_ARCS.rOuter + 0.12, C02_DINING_ARCS.rOuter + 0.22, C02_DINING_ARCS.halfAngleRad * 0.95, 0.05, 20);
+    const barCanopyGeo = buildHollowArcCounterGeo(C02_DINING_ARCS.rInner - 0.08, C02_DINING_ARCS.rOuter + 0.08, C02_DINING_ARCS.halfAngleRad, 0.12, 22);
     [-Math.PI / 2, Math.PI / 2].forEach((rotY) => {
       const barGroup = new THREE.Group();
       barGroup.rotation.y = rotY;
       d2.add(barGroup);
-      add(barGroup, barBodyGeo, darkM, 0, f, 0, 'console');
-      add(barGroup, barTopGeo, steelM, 0, f + 0.78, 0);
+      add(barGroup, barBodyGeo, slateM, 0, f, 0, 'console');
+      add(barGroup, barTopGeo, compositeM, 0, f + 0.78, 0);
       add(barGroup, barFootGeo, railAmberM, 0, f + 0.14, 0);
-      add(barGroup, box(0.88, 0.03, 0.06), amberGlow, (C02_DINING_ARCS.rInner + C02_DINING_ARCS.rOuter) * 0.5, f + 0.79, 0);
+      // Dosel curvo suspendido sobre cada barra de comedor con luz cálida indirecta
+      add(barGroup, barCanopyGeo, slateM, 0, f + 2.48, 0);
+      const rMidBar = (C02_DINING_ARCS.rInner + C02_DINING_ARCS.rOuter) * 0.5;
+      add(barGroup, box(0.88, 0.03, 0.06), amberGlow, rMidBar, f + 0.84, 0);
+      // Bandejas individuales y recipientes térmicos sobre la mesada del comedor
+      [-0.65, 0, 0.65].forEach((bAng) => {
+        const bx = rMidBar * Math.cos(bAng);
+        const bz = rMidBar * Math.sin(bAng);
+        const tray = add(barGroup, box(0.36, 0.02, 0.48), warmHabM, bx, f + 0.845, bz);
+        tray.rotation.y = -bAng;
+        add(barGroup, cyl(0.055, 0.045, 0.14, 10), steelM, bx + 0.08, f + 0.92, bz);
+      });
     });
-    // Taburetes alineados exclusivamente frente a las barras ±X (sin obstruir accesos ±Z al ascensor)
+    // Taburetes ergonómicos con pedestal de acero, aro reposapiés, asiento tapizado y respaldo curvo bajo
     [1, -1].forEach((sideX) => {
       C02_DINING_ARCS.stoolAnglesFromX.forEach((ang) => {
         const kx = sideX * C02_DINING_ARCS.stoolRadius * Math.cos(ang);
         const kz = C02_DINING_ARCS.stoolRadius * Math.sin(ang);
         const ax = -kz;
         const az = kx;
-        add(d2, cyl(0.32, 0.34, 0.46, 14), bedM, ax, f + 0.29, az);
-        add(d2, cyl(0.14, 0.22, 0.12, 12), steelM, ax, f + 0.06, az);
+        const stG = new THREE.Group();
+        stG.position.set(ax, f, az);
+        stG.rotation.y = Math.atan2(-ax, -az);
+        d2.add(stG);
+        add(stG, cyl(0.22, 0.26, 0.04, 14), steelM, 0, 0.02, 0);
+        add(stG, cyl(0.055, 0.07, 0.46, 12), slateM, 0, 0.25, 0);
+        const footRing = add(stG, torus(0.18, 0.018, 6, 18), steelM, 0, 0.22, 0);
+        footRing.rotation.x = Math.PI / 2;
+        add(stG, cyl(0.28, 0.26, 0.10, 16), bedM, 0, 0.50, 0);
+        add(stG, box(0.38, 0.22, 0.07), warmHabM, 0, 0.64, -0.22);
       });
     });
 
-    // Módulo físico de Hidratación sobre la barra de comedor (en estación `galley` KRONOX (+3.2, 0, -1.6))
+    // Módulo físico de Hidratación y Galley sobre la barra de comedor (en estación `galley` KRONOX (+3.2, 0, -1.6))
     const hydGroup = new THREE.Group();
     hydGroup.position.set(1.5, f + 0.82, 2.95);
     d2.add(hydGroup);
-    const hydBody = add(hydGroup, box(0.45, 0.72, 0.45), steelM, 0, 0.36, 0);
+    const hydBody = add(hydGroup, box(0.54, 0.78, 0.52), slateM, 0, 0.39, 0);
+    add(hydGroup, box(0.48, 0.44, 0.08), steelM, 0, 0.32, -0.22);
+    add(hydGroup, box(0.36, 0.16, 0.02), habWallScrMat, 0, 0.64, 0.265);
     const hydSpout = add(hydGroup, cyl(0.09, 0.09, 0.22, 12), cyanGlow, 0, 0.16, 0);
     registerInteractMesh(hydBody, 'galley', 'direct');
     registerInteractMesh(hydSpout, 'galley', 'direct');
     hydrationStreamMesh = add(hydGroup, cyl(0.025, 0.025, 0.22, 8), trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x38bdf8 })), 0, 0.42, 0);
     hydrationStreamMesh.visible = false;
 
-    // Bahía Biopónica y de Soporte Vital en popa (KRONOX +Z -> Aurora -X)
+    // Bahía Biopónica y de Soporte Vital en popa (KRONOX +Z -> Aurora -X) con bandejas hidropónicas multinivel
     const bioBay = new THREE.Group();
     bioBay.name = 'BioponicsBayAssembly';
     d2.add(bioBay);
     bioponicLightMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x7effb2 }));
+    const foliageMat = trackExtraMat(new THREE.MeshStandardMaterial({ color: 0x1e7a4c, roughness: 0.68 }));
     [-2.55, 2.55].forEach((bz) => {
-      const bioCab = add(bioBay, box(4.2, 2.25, 0.95), darkM, -11.4, f + 1.125, bz, 'console');
-      add(bioBay, box(3.9, 0.14, 0.75), steelM, -11.4, f + 2.28, bz);
-      const bioLamp = add(bioBay, box(3.7, 0.08, 0.45), bioponicLightMat, -11.4, f + 2.18, bz);
-      add(bioBay, box(3.7, 1.4, 0.56), trackExtraMat(new THREE.MeshStandardMaterial({ color: 0x1b6b45, roughness: 0.7 })), -11.4, f + 1.15, bz);
-      const bioGlass = add(bioBay, box(3.76, 1.46, 0.66), glassM, -11.4, f + 1.15, bz);
+      const bioCab = add(bioBay, box(4.2, 2.35, 0.96), slateM, -11.4, f + 1.175, bz, 'console');
+      add(bioBay, box(4.0, 0.16, 0.82), steelM, -11.4, f + 2.36, bz);
+      // 3 niveles de cultivo hidropónico iluminados con colectores de nutrientes
+      [0.62, 1.22, 1.82].forEach((tierY) => {
+        add(bioBay, box(3.76, 0.08, 0.68), steelM, -11.4, f + tierY - 0.18, bz);
+        add(bioBay, box(3.62, 0.24, 0.56), foliageMat, -11.4, f + tierY, bz);
+        const lamp = add(bioBay, box(3.68, 0.045, 0.46), bioponicLightMat, -11.4, f + tierY + 0.22, bz);
+        registerInteractMesh(lamp, 'bioponics', 'direct');
+      });
+      const bioGlass = add(bioBay, box(3.82, 1.86, 0.72), glassM, -11.4, f + 1.24, bz);
+      add(bioBay, cyl(0.07, 0.07, 2.35, 10), steelM, -9.35, f + 1.18, bz);
+      add(bioBay, cyl(0.07, 0.07, 2.35, 10), steelM, -13.45, f + 1.18, bz);
       registerInteractMesh(bioCab, 'bioponics', 'direct');
-      registerInteractMesh(bioLamp, 'bioponics', 'direct');
       registerInteractMesh(bioGlass, 'bioponics', 'direct');
     });
-    mountDeckPlacard(d2, -13.8, f + 2.48, 0, Math.PI / 2, 'BIO', 'MÓDULO BIOPÓNICO', 'HIDROPONÍA Y RECICLADO H2O/O2', '#45e89e');
+    // Columna central de telemetría ambiental biopónica en (-12.8, f, 0)
+    add(bioBay, box(0.58, 2.35, 1.25), slateM, -12.8, f + 1.175, 0);
+    add(bioBay, box(0.04, 0.68, 0.96), habWallScrMat, -12.49, f + 1.52, 0);
+    mountDeckPlacard(d2, -13.8, f + 2.54, 0, Math.PI / 2, 'BIO', 'MÓDULO BIOPÓNICO', 'HIDROPONÍA Y RECICLADO H2O/O2', '#45e89e');
 
-    // Esclusa EVA a proa (Aurora +X = +15.8 -> KRONOX Z = -15.8)
+    // Esclusa EVA a proa (Aurora +X = +16.0 -> KRONOX Z = -16.0) con pórtico blindado y nichos de trajes EVA
     airlockBeaconMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x45e89e }));
-    const airlockDoor = add(d2, box(0.45, 2.65, 2.75), doorM, 16.0, f + 1.325, 0, 'door');
-    const airlockBeacon = add(d2, box(0.1, 2.12, 1.82), airlockBeaconMat, 15.72, f + 1.25, 0);
+    add(d2, box(0.62, 2.88, 3.35), slateM, 16.08, f + 1.44, 0, 'wall');
+    const airlockDoor = add(d2, box(0.45, 2.56, 2.65), doorM, 15.96, f + 1.28, 0, 'door');
+    const airlockBeacon = add(d2, box(0.1, 2.08, 1.82), airlockBeaconMat, 15.70, f + 1.25, 0);
     registerInteractMesh(airlockDoor, 'airlock', 'direct');
     registerInteractMesh(airlockBeacon, 'airlock', 'direct');
+    // Nichos laterales de preparación de trajes espaciales EVA (±2.35 m)
+    [-2.35, 2.35].forEach((az) => {
+      add(d2, box(0.76, 2.28, 1.18), slateM, 15.55, f + 1.14, az);
+      add(d2, box(0.42, 0.72, 0.56), compositeM, 15.38, f + 1.25, az);
+      add(d2, sphereGeo(0.21, 14, 10), goldM, 15.36, f + 1.78, az);
+      add(d2, box(0.06, 1.92, 0.06), cyanGlow, 15.20, f + 1.14, az + (az > 0 ? -0.52 : 0.52));
+    });
     airlockValvePivot = new THREE.Group();
     airlockValvePivot.position.set(15.65, f + 1.35, -0.58);
     d2.add(airlockValvePivot);
@@ -1006,7 +1274,7 @@ export function buildKronoxInterior120M() {
     storageGroup.position.set(-5.95, f, -5.95);
     storageGroup.rotation.y = Math.PI / 4;
     deckOverlayGroups['deck-02'].add(storageGroup);
-    add(storageGroup, box(1.28, 2.02, 0.72), darkM, 0, 1.01, -0.1, 'console');
+    add(storageGroup, box(1.28, 2.02, 0.72), slateM, 0, 1.01, -0.1, 'console');
     add(storageGroup, box(1.12, 1.78, 0.56), steelM, 0, 1.02, -0.06);
     add(storageGroup, box(1.06, 0.04, 0.48), darkM, 0, 1.12, -0.02);
     // Suministros EVA visibles en el interior al abrirse la puerta
@@ -1027,18 +1295,23 @@ export function buildKronoxInterior120M() {
     const d3 = deckContainers['deck-03'];
     const f = -3.4;
 
-    // Reactor principal en popa (KRONOX (0, -3.4, +9.0)) con bobinas en cobre y colectores en techo
+    // Reactor principal en popa (KRONOX (0, -3.4, +9.0)) con bobinas en cobre, anillo de seguridad y colectores en techo
     const rg = new THREE.Group();
     rg.position.set(-9, f, 0);
     d3.add(rg);
-    add(rg, cyl(2.45, 2.55, 0.68, 32), darkM, 0, 0.34, 0, 'console');
-    add(rg, cyl(2.45, 2.55, 0.68, 32), darkM, 0, 2.58, 0, 'console');
+    add(rg, cyl(2.45, 2.55, 0.68, 32), slateM, 0, 0.34, 0, 'console');
+    add(rg, cyl(2.45, 2.55, 0.68, 32), slateM, 0, 2.58, 0, 'console');
+    add(rg, torus(2.62, 0.06, 8, 36), cyanGlow, 0, 0.08, 0).rotation.x = Math.PI / 2;
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2 + 0.25;
       add(rg, cyl(0.15, 0.15, 2.8, 12), steelM, 2.2 * Math.cos(a), 1.46, 2.2 * Math.sin(a));
       const coil = add(rg, torus(0.38, 0.09, 8, 18), copperM, 2.02 * Math.cos(a), 1.46, 2.02 * Math.sin(a));
       coil.rotation.y = -a;
+      // Postes de barandilla de seguridad perimetral alrededor del núcleo magnético
+      add(rg, cyl(0.045, 0.055, 0.96, 8), darkM, 2.95 * Math.cos(a), 0.48, 2.95 * Math.sin(a));
     }
+    const guardRing = add(rg, torus(2.95, 0.035, 8, 36), railAmberM, 0, 0.94, 0);
+    guardRing.rotation.x = Math.PI / 2;
     reactorPlasmaMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x7ce6ff }));
     reactorPlasmaCore = add(rg, cyl(1.05, 1.05, 2.85, 24), reactorPlasmaMat, 0, 1.48, 0);
     reactorPlasmaCore.name = 'ReactorPlasmaCore';
@@ -1048,7 +1321,10 @@ export function buildKronoxInterior120M() {
       t.rotation.x = Math.PI / 2;
       t.userData.dynamicTransform = true;
     });
-    [-4, 4].forEach((cz) => add(d3, cyl(0.26, 0.26, 3.05, 12), steelM, -9, f + 1.52, cz, 'console'));
+    [-4, 4].forEach((cz) => {
+      add(d3, cyl(0.26, 0.26, 3.05, 12), steelM, -9, f + 1.52, cz, 'console');
+      add(d3, torus(0.32, 0.04, 8, 18), copperM, -9, f + 1.52, cz).rotation.x = Math.PI / 2;
+    });
     // Conductos criogénicos en techo, colectores de refrigeración y canaleta de seguridad en piso
     [-3.2, 3.2].forEach((pz) => {
       add(d3, cyl(0.18, 0.18, 18.0, 12), steelM, 0, f + 2.75, pz).rotation.z = Math.PI / 2;
@@ -1065,34 +1341,65 @@ export function buildKronoxInterior120M() {
     rv.rotation.y = Math.PI / 2;
     mountDeckPlacard(d3, -6.4, f + 2.68, 0, Math.PI / 2, 'C03', 'NÚCLEO DEL REACTOR AURORA', 'CONFINAMIENTO MAGNÉTICO Y CRIOGENIA', '#6ce0ff');
 
-    // Tanques criogénicos dorados MLI a proa con cunas estructurales y domos
+    // Tanques criogénicos dorados MLI a proa con puente colector superior, válvulas y manómetros
     [-6, 6].forEach((cz) => {
       add(d3, cyl(1.32, 1.32, 2.35, 24), goldM, 9, f + 1.38, cz, 'console');
       add(d3, sphereGeo(1.3, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), steelM, 9, f + 2.52, cz);
-      add(d3, cyl(1.42, 1.42, 0.26, 24), darkM, 9, f + 0.16, cz);
+      add(d3, cyl(1.42, 1.42, 0.26, 24), slateM, 9, f + 0.16, cz);
       add(d3, cyl(1.38, 1.38, 0.14, 24), copperM, 9, f + 1.8, cz);
+      add(d3, box(0.12, 1.65, 0.08), cyanGlow, 7.64, f + 1.38, cz);
     });
+    // Colector criogénico transversal entre ambos tanques de proa
+    add(d3, box(0.42, 0.24, 12.4), slateM, 9, f + 2.78, 0);
+    add(d3, cyl(0.11, 0.11, 12.0, 12), copperM, 9, f + 2.62, 0).rotation.x = Math.PI / 2;
 
-    // Arcos curvos de laboratorio SPHEREx (babor) y Banco Óptico (estribor) sincronizados con C03_LAB_ARCS
-    const labScrTex = makeDiegeticScreenTexture('science', 'ESPECTROMETRÍA IR SPHEREx', ['BANDAS 0.75-5.0 µm', 'CRIOSTATO: 42 K', 'BARRIDO ÓPTICO LISTO'], '#ffbe55');
-    trackExtraTex(labScrTex.tex);
-    const labScrMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: labScrTex.tex }));
+    // Pantallas diferenciadas para Laboratorio Espectral SPHEREx (Babor) vs Banco Óptico Láser (Estribor)
+    const spherexLabTex = makeDiegeticScreenTexture('science', 'ESPECTROMETRÍA IR SPHEREx', ['BANDAS: 0.75 - 5.0 µm (102 CANALES)', 'CRIOSTATO DETECTOR: 42.0 K', 'CALIBRACIÓN FOTOMÉTRICA: ACTIVA'], '#ffbe55', { activeScan: true });
+    trackExtraTex(spherexLabTex.tex);
+    const spherexLabMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: spherexLabTex.tex }));
 
-    const buildLabArc = (sideName, accentMat, placardTitle, placardSub, zPlacard, rotPlacard, placardHex) => {
-      C03_LAB_ARCS.filter((item) => item.side === sideName).forEach((item) => {
+    const opticsLabTex = makeDiegeticScreenTexture('sensor-calibration', 'METROLOGÍA LÁSER Y ÓPTICA', ['INTERFERÓMETRO HE-NE: EN FASE', 'ERROR FRENTE DE ONDA: < 12 nm', 'COLIMADOR PRIMARIO: ALINEADO'], '#45e8ff', { activeScan: false });
+    trackExtraTex(opticsLabTex.tex);
+    const opticsLabMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: opticsLabTex.tex }));
+
+    const buildLabArc = (sideName, accentMat, scrMat, placardTitle, placardSub, zPlacard, rotPlacard, placardHex) => {
+      const isPortSpherex = sideName === 'port';
+      C03_LAB_ARCS.filter((item) => item.side === sideName).forEach((item, idx) => {
         const g = new THREE.Group();
         g.position.set(15.2 * Math.sin(item.t), f, 15.2 * Math.cos(item.t));
         g.rotation.y = item.t;
         d3.add(g);
-        add(g, box(2.35, 1.02, 1.28), darkM, 0, 0.51, 0, 'console');
-        add(g, box(2.05, 0.05, 0.88), accentMat, 0, 1.05, 0);
+        // Mesa curva científica con zócalo técnico, encimera de acero y doble monitor
+        add(g, box(2.35, 1.02, 1.28), slateM, 0, 0.51, 0, 'console');
+        add(g, box(2.26, 0.06, 1.18), compositeM, 0, 1.03, 0);
+        add(g, box(2.05, 0.04, 0.88), accentMat, 0, 1.07, 0);
         add(g, box(1.88, 0.28, 0.12), ventM, 0, 0.22, -0.62);
-        add(g, box(1.68, 0.58, 0.05), labScrMat, 0, 1.48, -0.35);
+        add(g, box(1.74, 0.64, 0.07), darkM, 0, 1.48, -0.36);
+        add(g, box(1.66, 0.56, 0.03), scrMat, 0, 1.48, -0.32);
+        // Marquesina superior de instrumentos sobre cada estación del laboratorio
+        add(g, box(2.28, 0.16, 1.15), slateM, 0, 2.58, -0.1);
+        add(g, box(1.95, 0.035, 0.28), isPortSpherex ? warmGlow : cyanGlow, 0, 2.49, -0.1);
+
+        if (isPortSpherex) {
+          // Equipamiento específico SPHEREx: criostato cilíndrico dorado MLI, carrusel de filtros IR y cápsulas de muestra
+          add(g, cyl(0.22, 0.26, 0.68, 14), goldM, -0.78, 1.40, 0.18);
+          add(g, cyl(0.18, 0.18, 0.12, 14), steelM, -0.78, 1.78, 0.18);
+          add(g, cyl(0.06, 0.06, 0.85, 8), steelM, -0.78, 2.18, 0.18);
+          add(g, cyl(0.09, 0.09, 0.34, 10), glassM, 0.76, 1.24, 0.22);
+          add(g, cyl(0.06, 0.06, 0.28, 10), idx % 2 === 0 ? amberGlow : greenGlow, 0.76, 1.24, 0.22);
+        } else {
+          // Equipamiento específico Banco Óptico: colimador interferométrico, riel láser y osciloscopio
+          add(g, box(0.62, 0.34, 0.38), compositeM, -0.74, 1.24, 0.18);
+          add(g, cyl(0.11, 0.11, 0.44, 12), steelM, -0.32, 1.24, 0.18).rotation.z = Math.PI / 2;
+          add(g, torus(0.14, 0.025, 8, 20), cyanGlow, 0.22, 1.26, 0.18).rotation.y = Math.PI / 2;
+          add(g, box(0.46, 0.38, 0.32), slateM, 0.76, 1.26, 0.18);
+          add(g, box(0.38, 0.24, 0.02), scrMat, 0.76, 1.28, 0.35);
+        }
       });
       mountDeckPlacard(d3, 0, f + 2.55, zPlacard, rotPlacard, 'LAB', placardTitle, placardSub, placardHex);
     };
-    buildLabArc('port', amberGlow, 'LABORATORIO SPHEREx', 'DETECTOR INFRARROJO Y CRIOSTATO', -14.8, 0, '#ffbe55');
-    buildLabArc('starboard', cyanGlow, 'BANCO ÓPTICO LÁSER', 'ALINEACIÓN INTERFEROMÉTRICA', 14.8, Math.PI, '#45e8ff');
+    buildLabArc('port', amberGlow, spherexLabMat, 'LABORATORIO SPHEREx', 'DETECTOR INFRARROJO Y CRIOSTATO', -14.8, 0, '#ffbe55');
+    buildLabArc('starboard', cyanGlow, opticsLabMat, 'BANCO ÓPTICO LÁSER', 'ALINEACIÓN INTERFEROMÉTRICA', 14.8, Math.PI, '#45e8ff');
   }
 
   // ==================== CUBIERTA 4 · BODEGA, HANGAR, GRÚA Y MANTENIMIENTO (Y = -6.8) ====================
@@ -1100,8 +1407,8 @@ export function buildKronoxInterior120M() {
     const d4 = deckContainers['deck-04'];
     const f = -6.8;
 
-    // Contenedores modulares corrugados deterministas (exactamente sincronizados con C04_CARGO_CONTAINERS)
-    C04_CARGO_CONTAINERS.forEach((b) => {
+    // Contenedores modulares corrugados deterministas con bastidores de anclaje ISO y balizas de estado
+    C04_CARGO_CONTAINERS.forEach((b, cIdx) => {
       const cm = trackExtraMat(pbrSuite.makeCargoMat(b.color));
       const ax = -b.cz;
       const az = b.cx;
@@ -1110,12 +1417,26 @@ export function buildKronoxInterior120M() {
       const placeContainer = (levelIdx) => {
         const cy = f + b.h * (0.5 + levelIdx);
         add(d4, box(wX, b.h - 0.04, wZ), cm, ax, cy, az, 'console');
-        add(d4, box(wX + 0.06, 0.1, wZ + 0.06), darkM, ax, cy - b.h * 0.45, az);
+        add(d4, box(wX + 0.06, 0.1, wZ + 0.06), slateM, ax, cy - b.h * 0.45, az);
         add(d4, box(wX + 0.06, 0.1, wZ + 0.06), steelM, ax, cy + b.h * 0.45, az);
+        add(d4, box(0.08, 0.16, 0.08), cIdx % 2 === 0 ? greenGlow : amberGlow, ax + wX * 0.46, cy + b.h * 0.28, az + wZ * 0.46);
       };
       placeContainer(0);
       if (b.double) placeContainer(1);
     });
+
+    // Plataforma de apontaje y pórtico umbilical del Transbordador de Servicio en proa (Aurora +X = 11.5)
+    add(d4, box(8.6, 0.03, 5.2), slateM, 11.5, f + 0.015, 0);
+    [-2.45, 2.45].forEach((padZ) => {
+      add(d4, box(8.2, 0.035, 0.14), hazardM, 11.5, f + 0.02, padZ);
+      [-3.2, -1.0, 1.2, 3.4].forEach((padX) => {
+        add(d4, box(0.32, 0.045, 0.08), padZ > 0 ? cyanGlow : amberGlow, 11.5 + padX, f + 0.025, padZ * 0.88);
+      });
+    });
+    // Torre umbilical lateral de abastecimiento y telemetría del transbordador (x = 11.2, z = -2.35)
+    add(d4, box(0.62, 2.55, 0.48), slateM, 11.2, f + 1.275, -2.35);
+    add(d4, box(0.52, 0.14, 1.15), steelM, 11.2, f + 2.38, -1.85);
+    add(d4, cyl(0.045, 0.045, 1.1, 8), goldM, 11.2, f + 2.25, -1.85).rotation.x = Math.PI / 2;
 
     // Transbordador de servicio esculpido con compuerta lateral de mantenimiento abrible
     const shuttleM = pbrSuite.materials.shuttleCompositeMat || hullM;
@@ -1131,10 +1452,14 @@ export function buildKronoxInterior120M() {
     add(sg, box(2.4, 0.15, 7.0), finM, -0.5, 1.2, 0, 'console');
     [-1.1, 1.1].forEach((tz) => {
       add(sg, cyl(0.32, 0.36, 0.95, 16), copperM, -2.65, 1.55, tz).rotation.z = Math.PI / 2;
+      add(sg, torus(0.30, 0.035, 8, 16), cyanGlow, -3.12, 1.55, tz).rotation.y = Math.PI / 2;
     });
     add(sg, box(1.5, 0.55, 1.9), darkM, 2.55, 2.15, 0);
     add(sg, box(1.25, 0.36, 1.68), cyanGlow, 2.68, 2.22, 0);
-    [[-2, -1], [-2, 1], [2, 0]].forEach(([sx, sz]) => add(sg, cyl(0.11, 0.11, 0.6, 8), steelM, sx, 0.3, sz * 1.2));
+    [[-2, -1], [-2, 1], [2, 0]].forEach(([sx, sz]) => {
+      add(sg, cyl(0.11, 0.11, 0.6, 8), steelM, sx, 0.3, sz * 1.2);
+      add(sg, box(0.36, 0.08, 0.28), railAmberM, sx, 0.05, sz * 1.2);
+    });
 
     shuttleHatchPivot = new THREE.Group();
     shuttleHatchPivot.position.set(0.6, 1.45, 1.32);
@@ -1156,8 +1481,12 @@ export function buildKronoxInterior120M() {
     const maintGroup = new THREE.Group();
     maintGroup.position.set(-4.8, f, -7.8);
     d4.add(maintGroup);
-    add(maintGroup, box(1.65, 0.95, 2.15), darkM, 0, 0.475, 0, 'console');
-    add(maintGroup, box(1.5, 0.08, 2.0), steelM, 0, 0.98, 0);
+    add(maintGroup, box(1.65, 0.95, 2.15), slateM, 0, 0.475, 0, 'console');
+    add(maintGroup, box(1.54, 0.08, 2.04), steelM, 0, 0.98, 0);
+    // Panel portaherramientas trasero con iluminación de banco de trabajo
+    add(maintGroup, box(0.14, 1.25, 2.08), slateM, -0.76, 1.62, 0);
+    add(maintGroup, box(0.06, 0.95, 1.82), compositeM, -0.68, 1.58, 0);
+    add(maintGroup, box(0.24, 0.06, 1.92), warmGlow, -0.62, 2.18, 0);
     maintArmPivot = new THREE.Group();
     maintArmPivot.position.set(-0.3, 1.02, -0.4);
     maintGroup.add(maintArmPivot);

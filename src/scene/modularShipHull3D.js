@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import astralSentinelsLogoUrl from '../assets/astral-sentinels-logo.jpg';
 import { createShipPbrSuite } from './shipPbrMaterials.js';
 
 /**
@@ -77,6 +78,20 @@ export function buildModularShip120M() {
   const coreNozzleGlowMat = makeBasicMat(0xff9436, { transparent: true, opacity: 0.36 });
   const innerNozzleGlowMat = makeBasicMat(0xffd7a4, { transparent: true, opacity: 0.44 });
   const auxNozzleGlowMat = makeBasicMat(0x68beff, { transparent: true, opacity: 0.38 });
+
+  // Branded bow plate: the white background blends into the painted end cap,
+  // while the circular mesh keeps the mark flush with the cylindrical nose.
+  const bowLogoTexture = new THREE.TextureLoader().load(astralSentinelsLogoUrl);
+  bowLogoTexture.encoding = THREE.sRGBEncoding;
+  bowLogoTexture.anisotropy = 8;
+  extraDisposables.push(bowLogoTexture);
+  const bowLogoMaterial = new THREE.MeshBasicMaterial({
+    map: bowLogoTexture,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
+  bowLogoMaterial.clippingPlanes = [sectionClipPlane];
+  extraDisposables.push(bowLogoMaterial);
 
   const shadowCasters = [];
   let shadowsEnabledState = true;
@@ -363,6 +378,8 @@ export function buildModularShip120M() {
   addGreebles(commandModule, 42, 59, 6.5, 70);
   torusX(commandModule, 3.2, 0.45, 59.5, goldMat);
   torusX(commandModule, 2.4, 0.12, 59.85, cyanMat);
+  const bowLogo = addMesh(commandModule, circleGeo(6.42, 96), bowLogoMaterial, 60.025, 0, 0, false);
+  bowLogo.rotation.y = Math.PI / 2;
 
   // Antenas de comunicaciones y plato parabólico
   [
