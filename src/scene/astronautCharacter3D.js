@@ -605,3 +605,172 @@ export function createAstronautCharacter3D() {
     updateAnimation,
   };
 }
+
+/**
+ * First-person EVA spacesuit forearms, armored gauntlets, wrist pressure rings,
+ * and dockable handheld 3D tools (mounted below eye line to preserve sightlines).
+ */
+export function createFirstPersonHandsRig() {
+  const mats = createAstronautMaterials();
+  const root = new THREE.Group();
+  root.name = 'FirstPersonSuitHands';
+
+  const makeArmSide = (sideSign) => {
+    const arm = new THREE.Group();
+    arm.position.set(sideSign * 0.22, -0.205, -0.22);
+    arm.rotation.set(0.22, sideSign * 0.2, sideSign * -0.14);
+
+    // El perfil se extruye de y=0 a y=-0.24: rotar +90° en X proyecta el antebrazo hacia -Z (adelante)
+    const forearm = new THREE.Mesh(
+      buildSculptedSegmentProfile(0.048, 0.043, 0.036, 0.24),
+      mats.suitOuter
+    );
+    forearm.rotation.x = Math.PI * 0.5;
+    arm.add(forearm);
+
+    const elbowBand = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.046, 0.032, 16),
+      mats.jointDark
+    );
+    elbowBand.rotation.x = Math.PI * 0.5;
+    elbowBand.position.set(0, 0, -0.055);
+    arm.add(elbowBand);
+
+    const cuffCollar = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.038, 0.041, 0.026, 18),
+      mats.chromeHardware
+    );
+    cuffCollar.rotation.x = Math.PI * 0.5;
+    cuffCollar.position.set(0, 0, -0.215);
+    arm.add(cuffCollar);
+
+    const wristLed = new THREE.Mesh(new RoundedBoxGeometry(0.022, 0.008, 0.02, 2, 0.003), mats.cyanTrim);
+    wristLed.position.set(sideSign * -0.014, 0.036, -0.215);
+    arm.add(wristLed);
+
+    const gauntlet = new THREE.Group();
+    gauntlet.position.set(0, 0.004, -0.255);
+
+    const palm = new THREE.Mesh(new RoundedBoxGeometry(0.052, 0.036, 0.072, 2, 0.01), mats.armorPlate);
+    gauntlet.add(palm);
+
+    const knuckle = new THREE.Mesh(new RoundedBoxGeometry(0.054, 0.016, 0.026, 2, 0.006), mats.missionAccent);
+    knuckle.position.set(0, 0.015, -0.02);
+    gauntlet.add(knuckle);
+
+    const fingers = new THREE.Mesh(new RoundedBoxGeometry(0.046, 0.024, 0.048, 2, 0.008), mats.jointDark);
+    fingers.position.set(0, -0.006, -0.048);
+    fingers.rotation.x = 0.28;
+    gauntlet.add(fingers);
+
+    const thumb = new THREE.Mesh(new RoundedBoxGeometry(0.018, 0.02, 0.036, 2, 0.006), mats.jointDark);
+    thumb.position.set(sideSign * -0.028, 0.002, -0.018);
+    thumb.rotation.y = sideSign * 0.35;
+    gauntlet.add(thumb);
+
+    arm.add(gauntlet);
+    return { arm, gauntlet, wristLed };
+  };
+
+  const leftSide = makeArmSide(-1);
+  const rightSide = makeArmSide(1);
+  root.add(leftSide.arm, rightSide.arm);
+
+  // Socket de herramienta física sostenida en el guantelete derecho
+  const toolSocket = new THREE.Group();
+  toolSocket.position.set(-0.012, 0.022, -0.046);
+  rightSide.gauntlet.add(toolSocket);
+
+  const multitoolMesh = new THREE.Group();
+  const mtBody = new THREE.Mesh(new RoundedBoxGeometry(0.024, 0.028, 0.145, 2, 0.005), mats.armorPlate);
+  const mtTip = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.01, 0.055, 10), mats.cyanTrim);
+  mtTip.rotation.x = Math.PI * 0.5;
+  mtTip.position.set(0, 0.004, -0.092);
+  const mtGrip = new THREE.Mesh(new RoundedBoxGeometry(0.026, 0.042, 0.036, 2, 0.004), mats.missionAccent);
+  mtGrip.position.set(0, -0.016, 0.028);
+  multitoolMesh.add(mtBody, mtTip, mtGrip);
+  multitoolMesh.visible = false;
+
+  const scannerMesh = new THREE.Group();
+  const scCase = new THREE.Mesh(new RoundedBoxGeometry(0.046, 0.018, 0.105, 2, 0.005), mats.jointDark);
+  const scScreen = new THREE.Mesh(new RoundedBoxGeometry(0.034, 0.004, 0.054, 1, 0.001), mats.cyanTrim);
+  scScreen.position.set(0, 0.01, 0.008);
+  const scLens = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.02, 12), mats.missionAccent);
+  scLens.rotation.x = Math.PI * 0.5;
+  scLens.position.set(0, 0.002, -0.058);
+  scannerMesh.add(scCase, scScreen, scLens);
+  scannerMesh.visible = false;
+
+  const couplerMesh = new THREE.Group();
+  const cpRing = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.007, 8, 18), mats.visorGold);
+  const cpCore = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.08, 12), mats.cyanTrim);
+  cpCore.rotation.x = Math.PI * 0.5;
+  couplerMesh.add(cpRing, cpCore);
+  couplerMesh.visible = false;
+
+  toolSocket.add(multitoolMesh, scannerMesh, couplerMesh);
+
+  let clockT = 0;
+  let reachWeight = 0;
+  let anchorWeight = 0;
+
+  function update({
+    dt = 0.016,
+    speed = 0,
+    isMoving = false,
+    interactionPulse = 0,
+    isAnchored = false,
+    heldToolId = null,
+    thrusterActive = false,
+  } = {}) {
+    const safeDt = Math.max(0.001, Math.min(0.06, Number(dt) || 0.016));
+    clockT += safeDt;
+
+    const targetReach = Math.max(0, Math.min(1, Number(interactionPulse) || 0));
+    const targetAnchor = isAnchored ? 1 : 0;
+    const k = Math.min(1, safeDt * 12);
+    reachWeight += (targetReach - reachWeight) * k;
+    anchorWeight += (targetAnchor - anchorWeight) * k;
+
+    const bobFreq = isMoving ? 3.8 + Math.min(3.0, speed * 1.4) : 1.5;
+    const bobAmp = isMoving ? Math.min(0.014, 0.004 + speed * 0.004) : 0.0025;
+    const bobY = Math.sin(clockT * bobFreq) * bobAmp;
+    const swayX = Math.cos(clockT * bobFreq * 0.5) * bobAmp * 0.8;
+
+    multitoolMesh.visible = heldToolId === 'multitool';
+    scannerMesh.visible = heldToolId === 'scanner';
+    couplerMesh.visible = heldToolId === 'optical-coupler';
+
+    const leftFwd = anchorWeight * 0.09 + (thrusterActive ? 0.02 : 0);
+    const rightFwd = Math.max(anchorWeight * 0.09, reachWeight * 0.16);
+    const toolLift = heldToolId ? 0.026 : 0;
+
+    leftSide.arm.position.set(-0.22 + swayX, -0.205 + bobY + anchorWeight * 0.035, -0.22 - leftFwd);
+    leftSide.arm.rotation.set(0.22 - anchorWeight * 0.14, -0.2 - anchorWeight * 0.06, 0.14);
+
+    rightSide.arm.position.set(
+      0.22 - swayX - reachWeight * 0.045,
+      -0.205 + bobY + toolLift + reachWeight * 0.05 + anchorWeight * 0.03,
+      -0.22 - rightFwd
+    );
+    rightSide.arm.rotation.set(
+      0.22 - reachWeight * 0.24 - (heldToolId ? 0.06 : 0),
+      0.2 + reachWeight * 0.1,
+      -0.14 + reachWeight * 0.06
+    );
+
+    if (heldToolId === 'scanner') {
+      scannerMesh.rotation.x = Math.sin(clockT * 2.2) * 0.03;
+    } else if (heldToolId === 'multitool') {
+      multitoolMesh.rotation.z = reachWeight * Math.sin(clockT * 14) * 0.18;
+    }
+  }
+
+  return {
+    root,
+    leftArm: leftSide.arm,
+    rightArm: rightSide.arm,
+    toolSocket,
+    update,
+  };
+}

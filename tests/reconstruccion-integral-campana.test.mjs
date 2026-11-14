@@ -8,7 +8,15 @@ import {
   HULL_INTERIOR_ZONES,
   SHIP_INTERIOR_STATIONS,
 } from '../src/scene/fourDecksInterior3D.js';
-import { createAstronautCharacter3D, ASTRONAUT_ANIMATION_STATES } from '../src/scene/astronautCharacter3D.js';
+import {
+  createAstronautCharacter3D,
+  createFirstPersonHandsRig,
+  ASTRONAUT_ANIMATION_STATES,
+} from '../src/scene/astronautCharacter3D.js';
+import {
+  DIRECT_INTERACTION_IDS,
+  describeInteractablePrompt,
+} from '../src/scene/kronoxInteriorSpatialModel.js';
 import { createMicrogravityPhysicsController, MICROGRAVITY_MODES } from '../src/scene/microgravityPhysicsController.js';
 import {
   loadPlayerInventory,
@@ -338,6 +346,86 @@ test('KRONOX MEJORA INTEGRAL — Ascensor 3D C01–C04, Barreras de Puerta, Gaze
   assert.equal(interior.mechanisms.trigger('engineering', 'overclock').state.reactorMode, 'overclock');
   assert.equal(interior.mechanisms.trigger('hangar').state.hangarCraneDeployed, true);
   assert.equal(interior.mechanisms.trigger('maintenance-c04').state.maintDrawerOpen, true);
+
+  interior.dispose?.();
+});
+
+test('1P EVA suit hands, raycastable 3D interactables, tool pickups and full C01->C04->C01 elevator round-trip', () => {
+  // 1. Manos en 1P con alcance de interacción y herramienta equipada
+  const fpRig = createFirstPersonHandsRig();
+  assert.ok(fpRig.root && fpRig.leftArm && fpRig.rightArm);
+  const idleZ = fpRig.rightArm.position.z;
+  for (let i = 0; i < 12; i++) {
+    fpRig.update({ dt: 0.03, speed: 1.2, isMoving: true, interactionPulse: 1.0, heldToolId: 'multitool' });
+  }
+  assert.ok(fpRig.rightArm.position.z < idleZ - 0.05, 'El guantelete derecho 1P debe extenderse al interactuar');
+
+  // 2. Mallas físicas raycasteables y etiquetas directas en el interior
+  const interior = buildFourDecksInterior3D();
+  assert.ok(Array.isArray(interior.interactRaycasterMeshes) && interior.interactRaycasterMeshes.length >= 24);
+  const taggedIds = new Set(interior.interactRaycasterMeshes.map((m) => m.userData?.interactId));
+  assert.ok(taggedIds.has('pickup-multitool'), 'Debe existir multiherramienta 3D recogible');
+  assert.ok(taggedIds.has('pickup-scanner'), 'Debe existir escáner IR 3D recogible');
+  assert.ok(taggedIds.has('storage-c02'), 'Debe existir compuerta de taquilla raycasteable');
+  assert.ok(taggedIds.has('elevator-floor-deck-04'), 'Debe existir botón 3D de planta C04 en cabina');
+
+  // 3. Separación acciones directas vs consolas + etiquetas contextuales dinámicas
+  assert.equal(DIRECT_INTERACTION_IDS.has('storage-c02'), true);
+  assert.equal(DIRECT_INTERACTION_IDS.has('pickup-multitool'), true);
+  assert.equal(DIRECT_INTERACTION_IDS.has('nav'), false);
+  const closedPrompt = describeInteractablePrompt('storage-c02', { mechanisms: { storageC02Open: false } });
+  const openPrompt = describeInteractablePrompt('storage-c02', { mechanisms: { storageC02Open: true } });
+  assert.notEqual(closedPrompt.label, openPrompt.label);
+
+  // 4. Recogida física de herramientas 3D (C04 Multiherramienta + C03 Escáner)
+  const mtProp = interior.root.getObjectByName('PickupMultitoolProp');
+  const scProp = interior.root.getObjectByName('PickupScannerProp');
+  assert.equal(mtProp.visible, true);
+  assert.equal(scProp.visible, true);
+  assert.equal(interior.mechanisms.trigger('pickup-multitool').state.multitoolCollected, true);
+  assert.equal(interior.mechanisms.trigger('pickup-scanner').state.scannerCollected, true);
+  interior.updateStations(1.0);
+  assert.equal(mtProp.visible, false);
+  assert.equal(scProp.visible, false);
+
+  // 5. Viaje completo de ida y vuelta en ascensor 3D (C01 -> C04 -> C01) y bloqueo de hueco cerrado
+  const el = interior.elevatorSystem;
+  el.snapToDeck('deck-01');
+  const blockedOnC03 = new THREE.Vector3(0, -3.4, 0.2);
+  interior.clampAstronautPosition(blockedOnC03, 0.34, 0.25, el.state);
+  assert.ok(
+    Math.hypot(blockedOnC03.x, blockedOnC03.z) >= 1.5,
+    'Las puertas cerradas en C03 deben impedir entrar al hueco cuando la cabina está en C01'
+  );
+
+  el.requestDeck('deck-04', true);
+  for (let i = 0; i < 650; i++) el.update(0.03);
+  assert.equal(el.state.currentDeckId, 'deck-04');
+  assert.equal(el.state.phase, 'idle');
+  assert.ok(el.state.doorOpenByDeck['deck-04'] > 0.98);
+  assert.ok(el.state.chimeCount >= 1, 'Debe emitir señal acústica de llegada');
+
+  el.requestDeck('deck-01', true);
+  for (let i = 0; i < 650; i++) el.update(0.03);
+  assert.equal(el.state.currentDeckId, 'deck-01');
+  assert.equal(el.state.phase, 'idle');
+  assert.ok(el.state.doorOpenByDeck['deck-01'] > 0.98);
+  assert.ok(el.state.chimeCount >= 2);
+
+  // 6. Protección de altura ocular 1P en tránsito del ascensor y no-teletransporte sin pasajero
+  const transitRideState = { cabY: -2.2, moving: true, passengerRiding: true, doorOpenByDeck: { 'deck-01': 0, 'deck-02': 0 } };
+  const rideEyePos = new THREE.Vector3(0, -2.2 + 1.63, -0.04);
+  interior.clampAstronautPosition(rideEyePos, 0.28, 0.26, transitRideState);
+  assert.ok(
+    Math.abs(rideEyePos.y - (-2.2 + 1.63)) < 1e-4,
+    'La cámara 1P dentro de la cabina en movimiento debe conservar la altura real de los ojos (cabY + 1.63)'
+  );
+  const remoteAstro = new THREE.Vector3(4.0, 0.0, -4.0);
+  interior.clampAstronautPosition(remoteAstro, 0.34, 0.24, {
+    ...transitRideState,
+    passengerRiding: false,
+  });
+  assert.ok(Math.hypot(remoteAstro.x, remoteAstro.z) > 3.5, 'Un ascensor en movimiento sin pasajero no debe teletransportar al astronauta');
 
   interior.dispose?.();
 });

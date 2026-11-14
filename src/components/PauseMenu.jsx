@@ -728,6 +728,35 @@ export default function PauseMenu({
                         <option value="high">Rápida (1.4×)</option>
                       </select>
                     </div>
+                    <div className="kronox-setting-row">
+                      <div>
+                        <strong>Distancia de cámara en 3ª Persona [V]</strong>
+                        <p>Regula la separación del encuadre orbital tras el hombro del astronauta.</p>
+                      </div>
+                      <select
+                        value={gameSettings.cameraDistance3P || 'normal'}
+                        onChange={(e) => updateSetting('cameraDistance3P', e.target.value)}
+                        className="kronox-setting-select"
+                      >
+                        <option value="compact">Compacta (1.7 m)</option>
+                        <option value="normal">Estándar (2.3 m)</option>
+                        <option value="wide">Amplia (3.1 m)</option>
+                      </select>
+                    </div>
+                    <div className="kronox-setting-row">
+                      <div>
+                        <strong>Modo de física en microgravedad [M]</strong>
+                        <p>Asistida aplica frenado suave automático; Libre conserva la inercia 6-DOF.</p>
+                      </div>
+                      <select
+                        value={gameSettings.microgravityMode || 'ASSISTED'}
+                        onChange={(e) => updateSetting('microgravityMode', e.target.value)}
+                        className="kronox-setting-select"
+                      >
+                        <option value="ASSISTED">Asistida (Amortiguada)</option>
+                        <option value="FREE">Libre 6-DOF (Inercial)</option>
+                      </select>
+                    </div>
                   </div>
                 )}
 
@@ -837,7 +866,7 @@ export default function PauseMenu({
 
               <div className="kronox-controls-grid">
                 <div className="kronox-pause-card">
-                  <h4>Exploración en Cabina (1ª Persona)</h4>
+                  <h4>Exploración en Cabina y Cámaras</h4>
                   <ul className="kronox-pause-meta-list">
                     <li>
                       <span>Desplazamiento del astronauta:</span>
@@ -848,8 +877,20 @@ export default function PauseMenu({
                       <strong>Arrastrar con ratón</strong>
                     </li>
                     <li>
-                      <span>Operar consola o estación cercana:</span>
+                      <span>Alternar 1ª Persona / 3ª Persona EVA:</span>
+                      <strong>Tecla [V]</strong>
+                    </li>
+                    <li>
+                      <span>Alternar Cabina / Exterior Nave 120 m:</span>
+                      <strong>Tecla [C]</strong>
+                    </li>
+                    <li>
+                      <span>Operar puerta, herramienta o consola apuntada:</span>
                       <strong>Tecla [E] o Clic directo</strong>
+                    </li>
+                    <li>
+                      <span>Seleccionar planta dentro del Ascensor 3D:</span>
+                      <strong>Teclas [1 / 2 / 3 / 4] o [E]</strong>
                     </li>
                     <li>
                       <span>Salir de una consola activa:</span>
@@ -904,12 +945,12 @@ export default function PauseMenu({
                       <strong>Tecla [X]</strong>
                     </li>
                     <li>
-                      <span>Anclaje a pasamanos o consola:</span>
-                      <strong>Tecla [E]</strong>
+                      <span>Anclaje o suelta de pasamanos EVA:</span>
+                      <strong>Tecla [H] o [E]</strong>
                     </li>
                     <li>
-                      <span>Modos de microgravedad:</span>
-                      <strong>Asistida (amortiguada) / Libre</strong>
+                      <span>Cambiar modo microgravedad (Asistida / Libre):</span>
+                      <strong>Tecla [M]</strong>
                     </li>
                   </ul>
                 </div>

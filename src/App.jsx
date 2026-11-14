@@ -31,6 +31,7 @@ import { loadFindingsFromStorage } from './utils/findingsStorage.js';
 import { recordJournalActivity, loadGameState } from './utils/expeditionJournal.js';
 import { detectLanguage, hasSavedLanguage, LANGUAGES, t, voiceLanguage } from './i18n.js';
 import { createGameAudio } from './utils/gameAudio.js';
+import { INVENTORY_ITEMS, addInventoryItem, equipInventoryItem } from './utils/playerInventory.js';
 import { createCinematicSoundtrack } from './utils/cinematicSoundtrack.js';
 import { installFloatingOverlayLayout } from './utils/floatingOverlayLayout.js';
 import { createNarrativeMessage, narrativeQueue } from './state/kronoxMessages.ts';
@@ -143,6 +144,8 @@ export default function App() {
     [cabinFirstPerson, setCabinFirstPerson] = useState(true),
     [elevatorState, setElevatorState] = useState(null),
     [mechanismsState, setMechanismsState] = useState(null),
+    [interactionFeedback, setInteractionFeedback] = useState(null),
+    [heldToolId, setHeldToolId] = useState(null),
     [astronautCoords, setAstronautCoords] = useState({ x: 0, z: -44.2 }),
     [astronautSectorState, setAstronautSectorState] = useState({
       deckId: 'deck-01',
@@ -214,8 +217,10 @@ export default function App() {
     [showFullMainMenu, setShowFullMainMenu] = useState(false),
     [gameSettings, setGameSettings] = useState(() => {
       const defaults = {
-        settingsVersion: 2,
+        settingsVersion: 3,
         cameraSensitivity: 'normal',
+        cameraDistance3P: 'normal',
+        microgravityMode: 'ASSISTED',
         showSubtitles: true,
         subtitleSize: 'normal',
         masterVolume: 0.85,
@@ -374,7 +379,15 @@ export default function App() {
     }
     api.current?.quality?.(quality);
   }, [quality]);
-  const playCue = (kind) => gameAudioRef.current?.cue(kind);
+  const playCue = (kind) => {
+    if (!gameAudioRef.current) {
+      const master = Number(gameSettingsRef.current?.masterVolume ?? 0.85);
+      const sfx = Number(gameSettingsRef.current?.sfxVolume ?? 0.65);
+      gameAudioRef.current = createGameAudio();
+      gameAudioRef.current?.setVolume?.(Math.max(0, Math.min(1, master * sfx)));
+    }
+    gameAudioRef.current?.cue?.(kind);
+  };
   const ensureGameplayAudioStarted = () => {
     const master = Number(gameSettingsRef.current?.masterVolume ?? 0.85);
     const sfx = Number(gameSettingsRef.current?.sfxVolume ?? 0.65);
@@ -1096,6 +1109,14 @@ export default function App() {
       },
       onElevatorStateChange: (elState) => setElevatorState(elState || null),
       onMechanismsChange: (mechState) => setMechanismsState(mechState || null),
+      onSfxCue: (kind) => playCue(kind),
+      onInteractionFeedback: (fb) => setInteractionFeedback(fb || null),
+      onToolCollected: (itemId) => {
+        const itemDef = Object.values(INVENTORY_ITEMS).find((it) => it.id === itemId);
+        if (itemDef) addInventoryItem(itemDef);
+        equipInventoryItem(itemId);
+        setHeldToolId(itemId || null);
+      },
       onViewChange: (v) => setPv(v),
       onIntroStageChange: (stageKey, captionText, stageOpts = {}) => {
         setCinematicStage(stageKey);
@@ -1362,6 +1383,7 @@ export default function App() {
     }, 900);
     return () => clearTimeout(timer);
   }, [welcomeOpen, showFullMainMenu]);
+  const prevSettingMgRef = useRef(gameSettings.microgravityMode);
   useEffect(() => {
     try {
       localStorage.setItem('kronox-game-settings-v1', JSON.stringify(gameSettings));
@@ -1381,7 +1403,20 @@ export default function App() {
     if (voiceAudio.current) {
       voiceAudio.current.volume = voice ? Math.max(0, Math.min(1, master * vox)) : 0;
     }
+    api.current?.setCameraSettings?.({
+      sensitivity: gameSettings.cameraSensitivity || 'normal',
+      distance3P: gameSettings.cameraDistance3P || 'normal',
+    });
+    if (gameSettings.microgravityMode && prevSettingMgRef.current !== gameSettings.microgravityMode) {
+      prevSettingMgRef.current = gameSettings.microgravityMode;
+      api.current?.setMicrogravityMode?.(gameSettings.microgravityMode);
+    }
   }, [speaking, voice, gameSettings, ambientEnabled]);
+  useEffect(() => {
+    if (!interactionFeedback) return undefined;
+    const tId = setTimeout(() => setInteractionFeedback(null), 2600);
+    return () => clearTimeout(tId);
+  }, [interactionFeedback]);
   useEffect(() => {
     const levelSum = audioLevels.reduce((acc, v) => acc + v, 0);
     const normLevel = speaking
@@ -3086,6 +3121,8 @@ export default function App() {
       activeStation: activeCockpitStation,
       elevatorState,
       mechanismsState,
+      interactionFeedback,
+      heldToolId,
       onSelectElevatorFloor: (deckId) => A().selectElevatorFloor?.(deckId),
       onTriggerMechanism: (actionId, value = null) => A().interactStationMechanism?.(actionId, value),
       onActivateNearestStation: () => A().activateNearestStation?.(),

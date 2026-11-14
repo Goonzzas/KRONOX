@@ -505,40 +505,58 @@ export function clampAstronautPosition(
   const inVerticalShaft = radialFromCenter <= ELEVATOR_SHAFT_RADIUS + 0.08;
   const isEyeOrProbe = radius <= 0.28 || radius === 0.35;
 
+  const cabY = Number.isFinite(elevatorState?.cabY) ? elevatorState.cabY : 3.4;
+
   if (elevatorState?.moving) {
-    pos.y = elevatorState.cabY ?? pos.y;
-    pos.x = Math.max(-0.82, Math.min(0.82, pos.x));
-    pos.z = Math.max(-0.82, Math.min(0.82, pos.z));
-    return pos;
+    if (!isEyeOrProbe && elevatorState.passengerRiding) {
+      pos.y = cabY;
+      pos.x = Math.max(-0.82, Math.min(0.82, pos.x));
+      pos.z = Math.max(-0.82, Math.min(0.82, pos.z));
+      return pos;
+    }
+    if (isEyeOrProbe && elevatorState.passengerRiding && inVerticalShaft) {
+      pos.y = Math.max(cabY + 0.35, Math.min(cabY + 2.15, pos.y));
+      pos.x = Math.max(-0.86, Math.min(0.86, pos.x));
+      pos.z = Math.max(-0.86, Math.min(0.86, pos.z));
+      return pos;
+    }
   }
 
   if (inVerticalShaft) {
-    if (elevatorState && !isEyeOrProbe) {
-      const cabY = Number.isFinite(elevatorState.cabY) ? elevatorState.cabY : 3.4;
-      const activeDeck = resolveCurrentDeck({ y: cabY });
-      const doorOpen = Number(elevatorState.doorOpenByDeck?.[activeDeck.id] ?? 0);
-      pos.y = cabY;
-      pos.x = Math.max(-0.92 + radius * 0.4, Math.min(0.92 - radius * 0.4, pos.x));
-      if (doorOpen < 0.72) {
-        pos.z = Math.max(-0.92 + radius * 0.4, Math.min(0.92 - radius * 0.4, pos.z));
+    if (elevatorState) {
+      const refY = isEyeOrProbe ? pos.y - 1.35 : pos.y;
+      const sameDeckAsCab = Math.abs(refY - cabY) < 1.55 || Boolean(elevatorState.passengerRiding);
+      if (sameDeckAsCab) {
+        const activeDeck = resolveCurrentDeck({ y: cabY });
+        const doorOpen = Number(elevatorState.doorOpenByDeck?.[activeDeck.id] ?? 0);
+        if (isEyeOrProbe) {
+          pos.y = Math.max(cabY + 0.35, Math.min(cabY + 2.15, pos.y));
+        } else {
+          pos.y = cabY;
+        }
+        pos.x = Math.max(-0.92 + radius * 0.4, Math.min(0.92 - radius * 0.4, pos.x));
+        if (doorOpen < 0.72) {
+          pos.z = Math.max(-0.92 + radius * 0.4, Math.min(0.92 - radius * 0.4, pos.z));
+        }
+        return pos;
+      }
+      // Si la cabina NO está en esta cubierta, impedir entrar al pozo y empujar fuera de la puerta
+    } else {
+      // Modo sin estado físico de ascensor (pruebas unitarias y sondas) permite tránsito vertical continuo
+      pos.y = Math.max(
+        HULL_INTERIOR_ZONES.verticalShaft.minY,
+        Math.min(HULL_INTERIOR_ZONES.verticalShaft.maxY - (isEyeOrProbe ? 0.25 : 1.4), pos.y)
+      );
+      const maxShaftR = Math.max(0.25, ELEVATOR_SHAFT_RADIUS - Math.min(0.32, radius * 0.65));
+      if (radialFromCenter > maxShaftR && radialFromCenter > 1e-4) {
+        if (Math.abs(pos.x) > 0.72) {
+          const s = maxShaftR / radialFromCenter;
+          pos.x *= s;
+          pos.z *= s;
+        }
       }
       return pos;
     }
-
-    // Modo sin estado físico de ascensor (pruebas unitarias y sondas) permite tránsito vertical continuo
-    pos.y = Math.max(
-      HULL_INTERIOR_ZONES.verticalShaft.minY,
-      Math.min(HULL_INTERIOR_ZONES.verticalShaft.maxY - (isEyeOrProbe ? 0.25 : 1.4), pos.y)
-    );
-    const maxShaftR = Math.max(0.25, ELEVATOR_SHAFT_RADIUS - Math.min(0.32, radius * 0.65));
-    if (radialFromCenter > maxShaftR && radialFromCenter > 1e-4) {
-      if (Math.abs(pos.x) > 0.72) {
-        const s = maxShaftR / radialFromCenter;
-        pos.x *= s;
-        pos.z *= s;
-      }
-    }
-    return pos;
   }
 
   // Determinar zona de cubierta correspondiente a Y
@@ -643,7 +661,9 @@ export function clampAstronautPosition(
     const cabY = Number.isFinite(elevatorState.cabY) ? elevatorState.cabY : 3.4;
     const doorOpen = Number(elevatorState.doorOpenByDeck?.[zone.id] ?? 0);
     const cabAtThisDeck = Math.abs(cabY - zone.floorY) < 0.35;
-    if ((!cabAtThisDeck || doorOpen < 0.72) && Math.abs(pos.z) >= 1.05 && Math.abs(pos.z) < 1.52 + radius) {
+    if (!cabAtThisDeck && Math.abs(pos.z) < 1.52 + radius) {
+      pos.z = pos.z >= 0 ? 1.52 + radius : -(1.52 + radius);
+    } else if (cabAtThisDeck && doorOpen < 0.72 && Math.abs(pos.z) >= 1.05 && Math.abs(pos.z) < 1.52 + radius) {
       pos.z = pos.z >= 0 ? 1.52 + radius : -(1.52 + radius);
     }
   }
@@ -727,4 +747,82 @@ export function findNearestInteractiveStation(position, overrideRange = null, op
     }
   }
   return best;
+}
+
+export const DIRECT_INTERACTION_IDS = new Set([
+  'storage-c02',
+  'bioponics',
+  'galley',
+  'hydration',
+  'airlock',
+  'hangar',
+  'maintenance-c04',
+  'pickup-multitool',
+  'pickup-scanner',
+]);
+
+/**
+ * Devuelve etiqueta breve y clara de acción contextual para HUD diegético según el estado actual 3D.
+ */
+export function describeInteractablePrompt(interactId, ctx = {}) {
+  if (!interactId) return null;
+  const mech = ctx.mechanisms || {};
+  const deckList = CABIN_DECKS;
+
+  if (interactId === 'storage-c02') {
+    const open = Boolean(mech.storageC02Open);
+    return { id: interactId, direct: true, label: open ? 'Cerrar taquilla EVA' : 'Abrir taquilla EVA', actionLabel: open ? 'Cerrar' : 'Abrir' };
+  }
+  if (interactId === 'bioponics') {
+    const on = Boolean(mech.bioponicsActive ?? true);
+    return { id: interactId, direct: true, label: on ? 'Alternar espectro biopónico' : 'Activar iluminación biopónica', actionLabel: 'Alternar' };
+  }
+  if (interactId === 'galley' || interactId === 'hydration') {
+    const on = Boolean(mech.hydrationDispensing);
+    return { id: interactId, direct: true, label: on ? 'Cerrar dispensador H₂O' : 'Dispensar H₂O mineral', actionLabel: on ? 'Detener' : 'Dispensar' };
+  }
+  if (interactId === 'airlock') {
+    const press = mech.airlockPressurized !== false;
+    return { id: interactId, direct: true, label: press ? 'Ciclar válvula de esclusa EVA' : 'Presurizar cámara EVA', actionLabel: press ? 'Despresurizar' : 'Presurizar' };
+  }
+  if (interactId === 'hangar') {
+    const out = Boolean(mech.hangarCraneDeployed);
+    return { id: interactId, direct: true, label: out ? 'Replegar grúa y cerrar escotilla' : 'Desplegar grúa y abrir escotilla', actionLabel: out ? 'Replegar' : 'Desplegar' };
+  }
+  if (interactId === 'maintenance-c04') {
+    const out = Boolean(mech.maintDrawerOpen);
+    return { id: interactId, direct: true, label: out ? 'Cerrar cajón y brazo robótico' : 'Extender brazo y cajón de taller', actionLabel: out ? 'Replegar' : 'Activar' };
+  }
+  if (interactId === 'pickup-multitool') {
+    return { id: interactId, direct: true, label: 'Recoger Multiherramienta EVA', actionLabel: 'Recoger' };
+  }
+  if (interactId === 'pickup-scanner') {
+    return { id: interactId, direct: true, label: 'Recoger Escáner IR portátil', actionLabel: 'Recoger' };
+  }
+  if (interactId.startsWith('elevator-floor-')) {
+    const deckId = interactId.replace('elevator-floor-', '');
+    const d = deckList.find((item) => item.id === deckId);
+    return { id: interactId, direct: true, label: d ? `Viajar a ${d.code} · ${d.shortName}` : 'Seleccionar cubierta', actionLabel: d?.code || 'Viajar' };
+  }
+  if (interactId.startsWith('elevator-call-')) {
+    return { id: interactId, direct: true, label: ctx.cabHere ? 'Panel de cubiertas (Ascensor)' : 'Llamar ascensor a esta cubierta', actionLabel: ctx.cabHere ? 'Elegir piso' : 'Llamar' };
+  }
+  if (interactId === 'elevator-panel') {
+    return { id: interactId, direct: false, label: 'Selector de cubierta [1-4]', actionLabel: 'Planta' };
+  }
+  if (interactId.startsWith('rail-')) {
+    return {
+      id: interactId,
+      direct: true,
+      label: ctx.isAnchored ? 'Soltar pasamanos EVA' : 'Agarrar pasamanos EVA',
+      actionLabel: ctx.isAnchored ? 'Soltar' : 'Sujetar',
+    };
+  }
+  const st = SHIP_INTERIOR_STATIONS.find((s) => s.id === interactId);
+  return {
+    id: interactId,
+    direct: false,
+    label: st ? st.label : 'Consola',
+    actionLabel: 'Operar',
+  };
 }

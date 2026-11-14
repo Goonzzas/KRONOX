@@ -75,6 +75,17 @@ export function buildKronoxInterior120M() {
     return mesh;
   };
 
+  // Mallas físicas apuntables con el centro de cámara (Raycast interactivo)
+  const interactRaycasterMeshes = [];
+  const registerInteractMesh = (mesh, interactId, interactKind = 'panel') => {
+    if (mesh && interactId) {
+      mesh.userData.interactId = interactId;
+      mesh.userData.interactKind = interactKind;
+      interactRaycasterMeshes.push(mesh);
+    }
+    return mesh;
+  };
+
   // Grupo rotado +PI/2 en Y para trasladar coordenadas Aurora (+X = Proa) -> KRONOX (-Z = Proa)
   const auroraGroup = new THREE.Group();
   auroraGroup.name = 'AuroraInteriorArchitecture';
@@ -237,8 +248,11 @@ export function buildKronoxInterior120M() {
 
       // Pedestal exterior de llamada ([E]) junto a cada puerta
       const sideSign = endDir > 0 ? 1 : -1;
-      add(shaftGroup, box(0.18, 1.42, 0.22), darkM, doorX + endDir * 0.08, f + 0.71, sideSign * 0.85);
-      add(shaftGroup, box(0.08, 0.22, 0.14), beaconMat, doorX + endDir * 0.16, f + 1.28, sideSign * 0.85);
+      const callId = `elevator-call-${deck.id}-${endDir > 0 ? 'bow' : 'aft'}`;
+      const callPedestal = add(shaftGroup, box(0.18, 1.42, 0.22), darkM, doorX + endDir * 0.08, f + 0.71, sideSign * 0.85);
+      const callBtn = add(shaftGroup, box(0.08, 0.22, 0.14), beaconMat, doorX + endDir * 0.16, f + 1.28, sideSign * 0.85);
+      registerInteractMesh(callPedestal, callId, 'elevator-call');
+      registerInteractMesh(callBtn, callId, 'elevator-call');
     });
 
     landingDoorsByDeck[deck.id] = doors;
@@ -298,8 +312,10 @@ export function buildKronoxInterior120M() {
   const cabButtonsByDeck = {};
   CABIN_DECKS.forEach((d, idx) => {
     const btnMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: idx === 0 ? 0x45e89e : 0x38d8ff }));
-    const btn = add(elevatorCab, box(0.24, 0.09, 0.03), btnMat, 0, 1.34 - idx * 0.13, 0.82);
+    add(elevatorCab, box(0.32, 0.11, 0.02), steelM, 0, 1.34 - idx * 0.13, 0.835);
+    const btn = add(elevatorCab, box(0.28, 0.095, 0.045), btnMat, 0, 1.34 - idx * 0.13, 0.815);
     btn.userData.elevatorFloorButton = d.id;
+    registerInteractMesh(btn, `elevator-floor-${d.id}`, 'elevator-floor');
     cabButtonsByDeck[d.id] = btnMat;
   });
 
@@ -694,6 +710,8 @@ export function buildKronoxInterior120M() {
     reactorMode: 'nominal', // 'nominal' | 'overclock' | 'quiet'
     hangarCraneDeployed: false,
     maintDrawerOpen: false,
+    multitoolCollected: false,
+    scannerCollected: false,
   };
   let storageDoorPivot = null;
   let bioponicLightMat = uvVioletGlow;
@@ -707,6 +725,8 @@ export function buildKronoxInterior120M() {
   let maintArmPivot = null;
   let maintDrawerPivot = null;
   let shuttleHatchPivot = null;
+  let pickupMultitoolGroup = null;
+  let pickupScannerGroup = null;
 
   {
     const d2 = deckContainers['deck-02'];
@@ -758,8 +778,10 @@ export function buildKronoxInterior120M() {
     const hydGroup = new THREE.Group();
     hydGroup.position.set(1.5, f + 0.82, 2.95);
     d2.add(hydGroup);
-    add(hydGroup, box(0.45, 0.72, 0.45), steelM, 0, 0.36, 0);
-    add(hydGroup, cyl(0.09, 0.09, 0.22, 12), cyanGlow, 0, 0.16, 0);
+    const hydBody = add(hydGroup, box(0.45, 0.72, 0.45), steelM, 0, 0.36, 0);
+    const hydSpout = add(hydGroup, cyl(0.09, 0.09, 0.22, 12), cyanGlow, 0, 0.16, 0);
+    registerInteractMesh(hydBody, 'galley', 'direct');
+    registerInteractMesh(hydSpout, 'galley', 'direct');
     hydrationStreamMesh = add(hydGroup, cyl(0.025, 0.025, 0.22, 8), trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x38bdf8 })), 0, 0.42, 0);
     hydrationStreamMesh.visible = false;
 
@@ -769,23 +791,29 @@ export function buildKronoxInterior120M() {
     d2.add(bioBay);
     bioponicLightMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x7effb2 }));
     [-2.55, 2.55].forEach((bz) => {
-      add(bioBay, box(4.2, 2.25, 0.95), darkM, -11.4, f + 1.125, bz, 'console');
+      const bioCab = add(bioBay, box(4.2, 2.25, 0.95), darkM, -11.4, f + 1.125, bz, 'console');
       add(bioBay, box(3.9, 0.14, 0.75), steelM, -11.4, f + 2.28, bz);
-      add(bioBay, box(3.7, 0.08, 0.45), bioponicLightMat, -11.4, f + 2.18, bz);
+      const bioLamp = add(bioBay, box(3.7, 0.08, 0.45), bioponicLightMat, -11.4, f + 2.18, bz);
       add(bioBay, box(3.7, 1.4, 0.56), trackExtraMat(new THREE.MeshStandardMaterial({ color: 0x1b6b45, roughness: 0.7 })), -11.4, f + 1.15, bz);
-      add(bioBay, box(3.76, 1.46, 0.66), glassM, -11.4, f + 1.15, bz);
+      const bioGlass = add(bioBay, box(3.76, 1.46, 0.66), glassM, -11.4, f + 1.15, bz);
+      registerInteractMesh(bioCab, 'bioponics', 'direct');
+      registerInteractMesh(bioLamp, 'bioponics', 'direct');
+      registerInteractMesh(bioGlass, 'bioponics', 'direct');
     });
     mountDeckPlacard(d2, -13.8, f + 2.48, 0, Math.PI / 2, 'BIO', 'MÓDULO BIOPÓNICO', 'HIDROPONÍA Y RECICLADO H2O/O2', '#45e89e');
 
     // Esclusa EVA a proa (Aurora +X = +15.8 -> KRONOX Z = -15.8)
     airlockBeaconMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x45e89e }));
-    add(d2, box(0.45, 2.65, 2.75), doorM, 16.0, f + 1.325, 0, 'door');
-    add(d2, box(0.1, 2.12, 1.82), airlockBeaconMat, 15.72, f + 1.25, 0);
+    const airlockDoor = add(d2, box(0.45, 2.65, 2.75), doorM, 16.0, f + 1.325, 0, 'door');
+    const airlockBeacon = add(d2, box(0.1, 2.12, 1.82), airlockBeaconMat, 15.72, f + 1.25, 0);
+    registerInteractMesh(airlockDoor, 'airlock', 'direct');
+    registerInteractMesh(airlockBeacon, 'airlock', 'direct');
     airlockValvePivot = new THREE.Group();
     airlockValvePivot.position.set(15.65, f + 1.35, -0.58);
     d2.add(airlockValvePivot);
     const wheel = add(airlockValvePivot, new THREE.TorusGeometry(0.18, 0.032, 8, 20), railAmberM, 0, 0, 0);
     wheel.rotation.y = Math.PI / 2;
+    registerInteractMesh(wheel, 'airlock', 'direct');
     mountDeckPlacard(d2, 15.5, f + 2.62, 0, -Math.PI / 2, 'EVA', 'ESCLUSA RADIAL EVA', 'PRESURIZACIÓN Y TRAJES', '#5be3aa');
 
     // Compartimento abrible 3D en camarote babor-proa (`storage-c02` KRONOX (-5.95, 0, -5.95))
@@ -796,6 +824,7 @@ export function buildKronoxInterior120M() {
     root.add(storageGroup);
     add(storageGroup, box(1.28, 2.02, 0.72), darkM, 0, 1.01, -0.1, 'console');
     add(storageGroup, box(1.12, 1.78, 0.56), steelM, 0, 1.02, -0.06);
+    add(storageGroup, box(1.06, 0.04, 0.48), darkM, 0, 1.12, -0.02);
     // Suministros EVA visibles en el interior al abrirse la puerta
     add(storageGroup, cyl(0.12, 0.12, 0.75, 12), railAmberM, -0.28, 0.65, 0.05);
     add(storageGroup, cyl(0.12, 0.12, 0.75, 12), cyanGlow, 0.02, 0.65, 0.05);
@@ -803,8 +832,10 @@ export function buildKronoxInterior120M() {
     storageDoorPivot = new THREE.Group();
     storageDoorPivot.position.set(-0.56, 1.01, 0.25);
     storageGroup.add(storageDoorPivot);
-    add(storageDoorPivot, box(1.12, 1.82, 0.08), doorM, 0.56, 0, 0);
-    add(storageDoorPivot, box(0.18, 0.42, 0.12), cyanGlow, 0.96, 0.08, 0.02);
+    const storageLeaf = add(storageDoorPivot, box(1.12, 1.82, 0.08), doorM, 0.56, 0, 0);
+    const storageHandle = add(storageDoorPivot, box(0.18, 0.42, 0.12), cyanGlow, 0.96, 0.08, 0.02);
+    registerInteractMesh(storageLeaf, 'storage-c02', 'direct');
+    registerInteractMesh(storageHandle, 'storage-c02', 'direct');
   }
 
   // ==================== CUBIERTA 3 · INGENIERÍA, REACTOR Y SPHEREx (Y = -3.4) ====================
@@ -930,7 +961,8 @@ export function buildKronoxInterior120M() {
     shuttleHatchPivot = new THREE.Group();
     shuttleHatchPivot.position.set(0.6, 1.45, 1.32);
     sg.add(shuttleHatchPivot);
-    add(shuttleHatchPivot, box(1.35, 0.9, 0.08), doorM, 0, 0, 0);
+    const shuttleHatchLeaf = add(shuttleHatchPivot, box(1.35, 0.9, 0.08), doorM, 0, 0, 0);
+    registerInteractMesh(shuttleHatchLeaf, 'hangar', 'direct');
 
     // Grúa puente superior animada sobre la pista del hangar
     add(d4, box(15.5, 0.14, 0.22), darkM, 5.2, f + 2.95, -3.2);
@@ -951,24 +983,45 @@ export function buildKronoxInterior120M() {
     maintArmPivot = new THREE.Group();
     maintArmPivot.position.set(-0.3, 1.02, -0.4);
     maintGroup.add(maintArmPivot);
-    add(maintArmPivot, cyl(0.08, 0.12, 0.65, 10), railAmberM, 0, 0.32, 0);
-    add(maintArmPivot, box(0.75, 0.12, 0.12), steelM, 0.35, 0.62, 0);
+    const maintArmPost = add(maintArmPivot, cyl(0.08, 0.12, 0.65, 10), railAmberM, 0, 0.32, 0);
+    const maintArmBeam = add(maintArmPivot, box(0.75, 0.12, 0.12), steelM, 0.35, 0.62, 0);
+    registerInteractMesh(maintArmPost, 'maintenance-c04', 'direct');
+    registerInteractMesh(maintArmBeam, 'maintenance-c04', 'direct');
     maintDrawerPivot = new THREE.Group();
     maintDrawerPivot.position.set(0.84, 0.56, 0.4);
     maintGroup.add(maintDrawerPivot);
-    add(maintDrawerPivot, box(0.45, 0.22, 0.68), doorM, 0, 0, 0);
-    add(maintDrawerPivot, cyl(0.04, 0.04, 0.36, 8), cyanGlow, 0.18, 0.04, 0);
+    const drawerBox = add(maintDrawerPivot, box(0.45, 0.22, 0.68), doorM, 0, 0, 0);
+    const drawerHandle = add(maintDrawerPivot, cyl(0.04, 0.04, 0.36, 8), cyanGlow, 0.18, 0.04, 0);
+    registerInteractMesh(drawerBox, 'maintenance-c04', 'direct');
+    registerInteractMesh(drawerHandle, 'maintenance-c04', 'direct');
+
+    // Multiherramienta EVA física recogible sobre bandeja magnética en C04
+    pickupMultitoolGroup = new THREE.Group();
+    pickupMultitoolGroup.name = 'PickupMultitoolProp';
+    pickupMultitoolGroup.position.set(0.18, 1.08, 0.48);
+    maintGroup.add(pickupMultitoolGroup);
+    const mtBodyProp = add(pickupMultitoolGroup, box(0.14, 0.08, 0.42), steelM, 0, 0.04, 0);
+    const mtAccentProp = add(pickupMultitoolGroup, box(0.16, 0.05, 0.16), railAmberM, 0, 0.05, 0.12);
+    const mtTipProp = add(pickupMultitoolGroup, box(0.08, 0.06, 0.18), cyanGlow, 0, 0.05, -0.24);
+    registerInteractMesh(mtBodyProp, 'pickup-multitool', 'pickup');
+    registerInteractMesh(mtAccentProp, 'pickup-multitool', 'pickup');
+    registerInteractMesh(mtTipProp, 'pickup-multitool', 'pickup');
 
     // Señalización y línea guía del hangar
     add(d4, box(16, 0.02, 0.25), amberGlow, 5.0, f + 0.02, 0);
     mountDeckPlacard(d4, 15.2, f + 2.55, 0, -Math.PI / 2, 'C04', 'BODEGA Y HANGAR EVA', 'CARGA ISO · TRANSBORDADOR · GRÚA', '#58e2a4');
   }
 
-  // Luces interiores equilibradas por cubierta
+  // Luces interiores equilibradas por cubierta con identidad cromática por zona
   if (typeof THREE.PointLight === 'function') {
-    [0xc5e7ff, 0xffe4c4, 0xa8e2ff, 0xffe8c9].forEach((c, idx) => {
+    [
+      { c: 0xcbe8ff, intensity: 0.64 },
+      { c: 0xffdfc2, intensity: 0.62 },
+      { c: 0x9ce3ff, intensity: 0.58 },
+      { c: 0xffe4b8, intensity: 0.62 },
+    ].forEach(({ c, intensity }, idx) => {
       const deckFloorY = levels[idx + 1];
-      const pt = new THREE.PointLight(c, 0.55, 34, 1.15);
+      const pt = new THREE.PointLight(c, intensity, 35, 1.15);
       pt.position.set(0, deckFloorY + 2.55, 0);
       auroraGroup.add(pt);
     });
@@ -1030,6 +1083,8 @@ export function buildKronoxInterior120M() {
       screenMesh.rotation.x = -0.32;
     }
     screenMesh.userData.stationId = st.id;
+    const isDirectStation = ['storage-c02', 'bioponics', 'galley', 'airlock', 'hangar', 'maintenance-c04'].includes(st.id);
+    registerInteractMesh(screenMesh, st.id, isDirectStation ? 'direct' : 'panel');
 
     if (st.id === 'sensor-calibration') {
       const benchGroup = new THREE.Group();
@@ -1049,6 +1104,16 @@ export function buildKronoxInterior120M() {
       const laserBeam = add(benchGroup, new THREE.CylinderGeometry(0.035, 0.035, 1.85, 12), beamMat, 0, 0.48, 0);
       laserBeam.rotation.z = Math.PI / 2;
       calibrationBenchParts = { benchGroup, mirrorRing, lensCore, laserBeam, beamMat };
+
+      // Escáner IR portátil físico recogible en bandeja lateral del banco óptico (C03)
+      pickupScannerGroup = new THREE.Group();
+      pickupScannerGroup.name = 'PickupScannerProp';
+      pickupScannerGroup.position.set(0.76, 0.12, 0.34);
+      benchGroup.add(pickupScannerGroup);
+      const scBody = add(pickupScannerGroup, box(0.2, 0.07, 0.32), darkM, 0, 0.03, 0);
+      const scGlow = add(pickupScannerGroup, box(0.14, 0.02, 0.18), cyanGlow, 0, 0.075, 0.02);
+      registerInteractMesh(scBody, 'pickup-scanner', 'pickup');
+      registerInteractMesh(scGlow, 'pickup-scanner', 'pickup');
     }
 
     stationMeshes.push({
@@ -1065,14 +1130,16 @@ export function buildKronoxInterior120M() {
   INTERIOR_GRAB_RAILS.forEach((rail) => {
     if (rail.axis === 'y') {
       const len = Math.min(2.2, rail.span || 2.0);
-      add(root, cyl(0.035, 0.035, len, 10), railAmberM, rail.pos[0] * 1.15, rail.pos[1], rail.pos[2]);
+      const railBar = add(root, cyl(0.035, 0.035, len, 10), railAmberM, rail.pos[0] * 1.15, rail.pos[1], rail.pos[2]);
+      registerInteractMesh(railBar, rail.id, 'rail');
     } else {
       const shortLen = 1.05;
       const rx = rail.pos[0];
       const ry = rail.pos[1] - 0.12;
       const rz = rail.pos[2];
       const barGeo = rail.axis === 'x' ? box(shortLen, 0.045, 0.045) : box(0.045, 0.045, shortLen);
-      add(root, barGeo, railAmberM, rx, ry, rz);
+      const railBar = add(root, barGeo, railAmberM, rx, ry, rz);
+      registerInteractMesh(railBar, rail.id, 'rail');
       [-shortLen * 0.42, shortLen * 0.42].forEach((off) => {
         const sx = rail.axis === 'x' ? rx + off : rx;
         const sz = rail.axis === 'z' ? rz + off : rz;
@@ -1176,6 +1243,20 @@ export function buildKronoxInterior120M() {
       maintDrawerPivot.position.x += (targetDrawerX - maintDrawerPivot.position.x) * 0.14;
     }
 
+    if (pickupMultitoolGroup) {
+      pickupMultitoolGroup.visible = !interactiveMechanisms.multitoolCollected;
+      if (pickupMultitoolGroup.visible) {
+        pickupMultitoolGroup.position.y = 1.08 + Math.sin(elapsedTime * 2.4) * 0.015;
+      }
+    }
+
+    if (pickupScannerGroup) {
+      pickupScannerGroup.visible = !interactiveMechanisms.scannerCollected;
+      if (pickupScannerGroup.visible) {
+        pickupScannerGroup.position.y = 0.12 + Math.cos(elapsedTime * 2.4) * 0.012;
+      }
+    }
+
     if (calibrationBenchParts) {
       const stage = Math.max(0, Math.min(4, Number(repairStage) || 0));
       const sweep = Math.sin(elapsedTime * 2.6);
@@ -1223,6 +1304,14 @@ export function buildKronoxInterior120M() {
       interactiveMechanisms.maintDrawerOpen = value != null ? Boolean(value) : !interactiveMechanisms.maintDrawerOpen;
       return { ok: true, state: { ...interactiveMechanisms } };
     }
+    if (actionId === 'pickup-multitool') {
+      interactiveMechanisms.multitoolCollected = value != null ? Boolean(value) : true;
+      return { ok: true, itemId: 'multitool', state: { ...interactiveMechanisms } };
+    }
+    if (actionId === 'pickup-scanner') {
+      interactiveMechanisms.scannerCollected = value != null ? Boolean(value) : true;
+      return { ok: true, itemId: 'scanner', state: { ...interactiveMechanisms } };
+    }
     return { ok: false, state: { ...interactiveMechanisms } };
   }
 
@@ -1243,6 +1332,7 @@ export function buildKronoxInterior120M() {
     stationMeshes,
     grabRails: INTERIOR_GRAB_RAILS,
     cameraCollisionMeshes,
+    interactRaycasterMeshes,
     elevatorSystem: {
       state: elevatorState,
       requestDeck: requestElevatorDeck,

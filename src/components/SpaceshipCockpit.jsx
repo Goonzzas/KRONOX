@@ -69,6 +69,8 @@ export default function SpaceshipCockpit({
   onSelectElevatorFloor,
   onTriggerMechanism,
   onActivateNearestStation,
+  interactionFeedback = null,
+  heldToolId = null,
 }) {
   const [navigationMode, setNavigationMode] = useState('manual');
   const [navigationTarget, setNavigationTarget] = useState('planet:Tierra');
@@ -302,6 +304,11 @@ export default function SpaceshipCockpit({
                     μG {astronautSectorState.microgravityMode === 'FREE' ? 'Libre' : 'Asist.'} [M]
                   </span>
                 </button>
+                {heldToolId && (
+                  <span className="kronoxHudObjectivePill" title="Herramienta EVA equipada">
+                    {heldToolId === 'multitool' ? '🔧 Multiherramienta' : heldToolId === 'scanner' ? '📡 Escáner IR' : '💎 Acoplador'}
+                  </span>
+                )}
               </div>
             )}
 
@@ -500,6 +507,32 @@ export default function SpaceshipCockpit({
           </div>
         )}
 
+      {/* SUTIL MARCO PERIFÉRICO DE VISOR EVA EN 1ª PERSONA + RETÍCULA PRECISA DE INTERACCIÓN */}
+      {cockpitVisible && viewMode === 'cockpit' && (observationModeInfo?.opticalMagnification || 1) <= 1 && (
+        <>
+          {cabinFirstPerson && (
+            <div className="kronoxFpVisorRim" aria-hidden="true">
+              <span className="kronoxFpVisorArcTop" />
+              <span className="kronoxFpVisorArcBottom" />
+            </div>
+          )}
+          {!activeStation && !freeHelmMode && (
+            <div
+              className={`kronoxFpCrosshair ${nearestStation ? 'is-targeted' : ''}`}
+              aria-hidden="true"
+            />
+          )}
+        </>
+      )}
+
+      {/* CONFIRMACIÓN BREVE DIEGÉTICA AL OPERAR MECANISMOS / HERRAMIENTAS 3D DIRECTAS */}
+      {cockpitVisible && interactionFeedback?.text && (
+        <div className="kronoxInteractionToast" role="status" aria-live="polite">
+          <span>✓</span>
+          <span>{interactionFeedback.text}</span>
+        </div>
+      )}
+
       {/* DISCRETE MINIMAL CONTEXTUAL PROMPT WHEN ASTRONAUT IS NEAR A PHYSICAL 3D CONSOLE */}
       {cockpitVisible && nearestStation && !activeStation && (
         <div className="kronoxProximityPrompt" role="status" aria-live="polite">
@@ -516,11 +549,13 @@ export default function SpaceshipCockpit({
               if (nearestStation.id === 'comms') onOpenAiConsole?.();
             }}
           >
-            {String(nearestStation.id || '').startsWith('elevator-call-')
-              ? 'Llamar'
-              : nearestStation.id === 'elevator-panel'
-                ? 'Planta'
-                : 'Operar'}
+            {nearestStation.actionLabel
+              ? nearestStation.actionLabel
+              : String(nearestStation.id || '').startsWith('elevator-call-')
+                ? 'Llamar'
+                : nearestStation.id === 'elevator-panel'
+                  ? 'Planta'
+                  : 'Operar'}
           </button>
         </div>
       )}

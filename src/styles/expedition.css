@@ -2411,6 +2411,105 @@
   color: #7dd3fc;
 }
 
+/* ==========================================================================
+   ETAPA 5 — 1P SPACESUIT VISOR PERIMETER, PRECISION RETICLE & 3D FEEDBACK TOAST
+   ========================================================================== */
+.kronoxFpVisorRim {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 94% 90% at 50% 48%,
+      rgba(6, 12, 24, 0) 76%,
+      rgba(6, 14, 28, 0.24) 91%,
+      rgba(3, 8, 18, 0.56) 100%
+    );
+  box-shadow: inset 0 0 42px rgba(56, 189, 248, 0.08);
+}
+
+.kronoxFpVisorArcTop,
+.kronoxFpVisorArcBottom {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(440px, 52vw);
+  height: 14px;
+  border-color: rgba(125, 211, 252, 0.22);
+  border-style: solid;
+}
+
+.kronoxFpVisorArcTop {
+  top: 10px;
+  border-width: 1px 0 0 0;
+  border-radius: 50% 50% 0 0;
+  opacity: 0.55;
+}
+
+.kronoxFpVisorArcBottom {
+  bottom: 10px;
+  border-width: 0 0 1px 0;
+  border-radius: 0 0 50% 50%;
+  opacity: 0.4;
+}
+
+.kronoxFpCrosshair {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(226, 242, 255, 0.65);
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.45);
+  z-index: 22;
+  pointer-events: none;
+  transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.kronoxFpCrosshair.is-targeted {
+  width: 16px;
+  height: 16px;
+  background: transparent;
+  border: 1.5px solid #6eeaff;
+  box-shadow: 0 0 10px rgba(110, 234, 255, 0.72), inset 0 0 4px rgba(110, 234, 255, 0.35);
+}
+
+.kronoxFpCrosshair.is-targeted::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #6eeaff;
+}
+
+.kronoxInteractionToast {
+  position: fixed;
+  bottom: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 31;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(7, 20, 38, 0.88);
+  border: 1px solid rgba(94, 234, 212, 0.55);
+  color: #ccfbf1;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
 @media (max-width: 780px) {
   .kronox-pause-shell {
     grid-template-columns: 1fr;
