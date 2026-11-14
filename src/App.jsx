@@ -29,10 +29,23 @@ import SpaceshipCockpit from './components/SpaceshipCockpit.jsx';
 import PauseMenu from './components/PauseMenu.jsx';
 import MainMenu from './components/MainMenu.jsx';
 import RepairMissionModal from './components/RepairMissionModal.jsx';
+import AstronautPersonalHub from './components/AstronautPersonalHub.jsx';
 import { SPHEREX_MISSION_TYPES, SPHEREX_TARGETS } from './data/spherexTargets.js';
 import { processKronoxQuery, askKronoxDynamic } from './utils/kronoxAI.js';
 import { loadFindingsFromStorage } from './utils/findingsStorage.js';
-import { recordJournalActivity, loadGameState } from './utils/expeditionJournal.js';
+import {
+  recordJournalActivity,
+  loadGameState,
+  loadExpeditionJournal,
+  saveGameState,
+} from './utils/expeditionJournal.js';
+import {
+  loadAstronautInventory,
+  grantInventoryItem,
+  setEquippedInventoryTool,
+  loadRecordedAiMessages,
+  recordAiMessageToLog,
+} from './utils/astronautInventory.js';
 import { detectLanguage, hasSavedLanguage, LANGUAGES, t, voiceLanguage } from './i18n.js';
 import { createGameAudio } from './utils/gameAudio.js';
 import { createCinematicSoundtrack } from './utils/cinematicSoundtrack.js';
@@ -217,6 +230,14 @@ export default function App() {
     [planetaryTelemetry, setPlanetaryTelemetry] = useState(null),
     [reticleTarget, setReticleTarget] = useState(null),
     [showFullMainMenu, setShowFullMainMenu] = useState(false),
+    [personalHubOpen, setPersonalHubOpen] = useState(false),
+    [personalHubTab, setPersonalHubTab] = useState('journal'),
+    [inventoryState, setInventoryState] = useState(() => loadAstronautInventory()),
+    [recordedAiMessages, setRecordedAiMessages] = useState(() => loadRecordedAiMessages()),
+    [guideState, setGuideState] = useState({ active: false, step: 'free', completed: false }),
+    [heldToolId, setHeldToolId] = useState(null),
+    [interactionFeedback, setInteractionFeedback] = useState(null),
+    [voiceFailed, setVoiceFailed] = useState(false),
     [graphicsRuntime, setGraphicsRuntime] = useState(null),
     [pointerLockState, setPointerLockState] = useState({
       supported: true,
@@ -278,11 +299,14 @@ export default function App() {
     mainMenuVisibleRef = useRef(welcomeOpen || false),
     introPausedRef = useRef(false),
     pauseMenuOpenRef = useRef(false),
+    personalHubOpenRef = useRef(false),
     activeCockpitStationRef = useRef(null),
     missionOpenRef = useRef(false),
     browserVoiceActiveRef = useRef(false),
     voiceStartWatchdogRef = useRef(null),
     voiceMaxWatchdogRef = useRef(null),
+    voiceAudioBlobCacheRef = useRef(new Map()),
+    interactionFeedbackTimerRef = useRef(null),
     prevSettingMgRef = useRef(null),
     gameSettingsRef = useRef(gameSettings),
     flR = useRef(fl),
@@ -348,6 +372,19 @@ export default function App() {
     const narrative = createNarrativeMessage(t(message, language), options);
     if (options.replace) narrativeQueue.replaceActive(narrative);
     else narrativeQueue.enqueue(narrative);
+    const cat =
+      options.intent === 'orientation' || String(options.id || '').startsWith('tut-')
+        ? 'TUTORIAL'
+        : options.intent === 'response' || String(options.id || '').startsWith('reply-')
+          ? 'CONSULTA'
+          : 'NARRATIVA';
+    setRecordedAiMessages(
+      recordAiMessageToLog({
+        id: narrative.id,
+        text: narrative.text,
+        category: cat,
+      }),
+    );
     return narrative;
   };
   const localizeChildren = (child) =>
@@ -496,18 +533,18 @@ export default function App() {
   mainMenuVisibleRef.current = Boolean(welcomeOpen || showFullMainMenu);
   introPausedRef.current = introPaused;
   pauseMenuOpenRef.current = pauseMenuOpen;
+  personalHubOpenRef.current = personalHubOpen;
   activeCockpitStationRef.current = activeCockpitStation;
   missionOpenRef.current = missionOpen;
   gameSettingsRef.current = gameSettings;
   const openKronox = () => {
     clearTimeout(kronoxCloseTimer.current);
-    if (!kronoxDialogHiddenRef.current && !realTimeIntroActiveRef.current) setKronoxOpen(true);
+    if (!kronoxDialogHiddenRef.current && !realTimeIntroActiveRef.current) {
+      setKronoxDialogHidden(false);
+    }
   };
   const closeKronoxLater = () => {
     clearTimeout(kronoxCloseTimer.current);
-    kronoxCloseTimer.current = setTimeout(() => {
-      if (!speakingRef.current && !kronoxDialogHiddenRef.current) setKronoxOpen(false);
-    }, 3000);
   };
   const stopAudioAnalysis = () => {
     if (audioFrameRef.current !== null) cancelAnimationFrame(audioFrameRef.current);
@@ -711,85 +748,19 @@ export default function App() {
       closeKronoxLater();
     };
 
-    const useBrowserVoice = (remainingText) => {
-      if (token !== voiceToken.current || !voiceRef.current) return;
-      clearTimeout(voiceStartWatchdogRef.current);
-      clearTimeout(voiceMaxWatchdogRef.current);
-      browserVoiceActiveRef.current = false;
-      if (typeof window === 'undefined' || !window.speechSynthesis || !window.SpeechSynthesisUtterance) {
-        setVoiceError('No se pudo reproducir la voz de KRONOX IA. Revisa el audio del navegador.');
-        advanceQueueOrFinish();
-        return;
-      }
-      try {
-        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-        window.speechSynthesis.cancel();
-      } catch { }
-      let started = false;
-      const utterance = new SpeechSynthesisUtterance(remainingText);
-      window.__kronoxActiveUtterance = utterance;
-      utterance.lang = voiceAccentRef.current || 'es-US';
-      utterance.rate = 1.02;
-      utterance.volume = Math.max(
-        0,
-        Math.min(
-          1,
-          Number(gameSettingsRef.current?.masterVolume ?? 0.85) *
-          Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
-        ),
-      );
-      utterance.onstart = () => {
-        if (token !== voiceToken.current) return;
-        started = true;
-        browserVoiceActiveRef.current = true;
-        clearTimeout(voiceStartWatchdogRef.current);
-        clearTimeout(voiceMaxWatchdogRef.current);
-        voiceMaxWatchdogRef.current = setTimeout(() => {
-          if (token !== voiceToken.current) return;
-          browserVoiceActiveRef.current = false;
-          try {
-            window.speechSynthesis.cancel();
-          } catch { }
-          window.__kronoxActiveUtterance = null;
-          advanceQueueOrFinish();
-        }, Math.max(4500, Math.min(18000, remainingText.length * 95)));
-        setVoiceBlockedByAutoplay(false);
-        setVoiceError('');
-        setSpeaking(true);
-        speakingRef.current = true;
-      };
-      utterance.onend = () => {
-        clearTimeout(voiceStartWatchdogRef.current);
-        clearTimeout(voiceMaxWatchdogRef.current);
-        browserVoiceActiveRef.current = false;
-        window.__kronoxActiveUtterance = null;
-        advanceQueueOrFinish();
-      };
-      utterance.onerror = () => {
-        clearTimeout(voiceStartWatchdogRef.current);
-        clearTimeout(voiceMaxWatchdogRef.current);
-        browserVoiceActiveRef.current = false;
-        window.__kronoxActiveUtterance = null;
-        if (token === voiceToken.current)
-          setVoiceError('No se pudo reproducir la voz de KRONOX IA. Revisa el audio del navegador.');
-        advanceQueueOrFinish();
-      };
-      voiceStartWatchdogRef.current = setTimeout(() => {
-        if (token !== voiceToken.current || started) return;
-        browserVoiceActiveRef.current = false;
-        try {
-          window.speechSynthesis.cancel();
-        } catch { }
-        window.__kronoxActiveUtterance = null;
-        advanceQueueOrFinish();
-      }, 950);
-      window.speechSynthesis.speak(utterance);
-    };
-
     const createPreloadedAudio = (textSegment) => {
       if (typeof Audio === 'undefined') return null;
       const selectedVoice = 'Charon';
-      const audioUrl = voiceProvider.audioUrl({
+      const cacheKey = `${selectedVoice}|${voiceAccentRef.current || 'es-US'}|${textSegment}`;
+      const cachedBlobUrl = voiceAudioBlobCacheRef.current.get(cacheKey);
+      const audioUrl =
+        cachedBlobUrl ||
+        voiceProvider.audioUrl({
+          text: textSegment,
+          language: voiceAccentRef.current,
+          voiceId: selectedVoice,
+        });
+      const fallbackUrl = voiceProvider.fallbackAudioUrl({
         text: textSegment,
         language: voiceAccentRef.current,
         voiceId: selectedVoice,
@@ -804,11 +775,18 @@ export default function App() {
         Math.min(
           1,
           Number(gameSettingsRef.current?.masterVolume ?? 0.85) *
-          Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
+            Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
         ),
       );
       a.muted = false;
-      return { audio: a, audioUrl, text: textSegment, retriedFetch: false };
+      return {
+        audio: a,
+        audioUrl,
+        fallbackUrl,
+        cacheKey,
+        text: textSegment,
+        retriedFetch: false,
+      };
     };
 
     let preloadedNext = parts.length > 0 ? createPreloadedAudio(parts[0]) : null;
@@ -820,55 +798,68 @@ export default function App() {
       const currentEntry = preloadedNext || createPreloadedAudio(parts[currentIndex]);
       preloadedNext = i < parts.length ? createPreloadedAudio(parts[i]) : null;
       if (!currentEntry) {
-        if (fishVoiceStatusRef.current?.geminiTts?.configured !== true) {
-          useBrowserVoice(parts.slice(currentIndex).join(' '));
-        } else {
-          advanceQueueOrFinish();
-        }
+        advanceQueueOrFinish();
         return;
       }
-      const { audio, audioUrl, text } = currentEntry;
+      const { audio, audioUrl, fallbackUrl, cacheKey, text } = currentEntry;
       voiceAudio.current = audio;
       let fallbackStarted = false;
       const handleSegmentFailure = async (entry) => {
         if (fallbackStarted || token !== voiceToken.current) return;
-        // Reintento limpio con la misma voz oficial Gemini HD (Charon) mediante Blob antes de ceder.
-        if (!entry.retriedFetch && typeof fetch === 'function' && entry.audioUrl.startsWith('/')) {
+        // Reintentar únicamente con los endpoints de la voz oficial (Charon) y almacenar en caché Blob.
+        // JAMÁS cambiar automáticamente a window.speechSynthesis ni a otra voz robótica.
+        if (!entry.retriedFetch && typeof fetch === 'function') {
           entry.retriedFetch = true;
-          try {
-            const resp = await fetch(entry.audioUrl, { cache: 'force-cache' });
-            if (token !== voiceToken.current || !voiceRef.current) return;
-            if (resp.ok) {
-              const blob = await resp.blob();
+          const candidateUrls = [entry.audioUrl, entry.fallbackUrl].filter(
+            (u) => typeof u === 'string' && u.startsWith('/'),
+          );
+          for (const candidateUrl of candidateUrls) {
+            try {
+              const resp = await fetch(candidateUrl, { cache: 'force-cache' });
               if (token !== voiceToken.current || !voiceRef.current) return;
-              if (blob.size > 64) {
-                revokeVoiceObjectUrl();
-                const objUrl = URL.createObjectURL(blob);
-                voiceObjectUrlRef.current = objUrl;
-                const retryAudio = new Audio(objUrl);
-                retryAudio.preload = 'auto';
-                retryAudio.playbackRate = 1.0;
-                retryAudio.preservesPitch = true;
-                retryAudio.volume = Math.max(
-                  0,
-                  Math.min(
-                    1,
-                    Number(gameSettingsRef.current?.masterVolume ?? 0.85) *
-                    Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
-                  ),
-                );
-                retryAudio.muted = false;
-                attachAndPlay({
-                  audio: retryAudio,
-                  audioUrl: objUrl,
-                  text: entry.text,
-                  retriedFetch: true,
-                });
-                return;
+              if (resp.ok) {
+                const blob = await resp.blob();
+                if (token !== voiceToken.current || !voiceRef.current) return;
+                if (blob.size > 64) {
+                  const objUrl = URL.createObjectURL(blob);
+                  if (entry.cacheKey) {
+                    voiceAudioBlobCacheRef.current.set(entry.cacheKey, objUrl);
+                  }
+                  if (typeof window !== 'undefined' && window.caches) {
+                    window.caches
+                      .open('kronox-official-voice-v1')
+                      .then((c) => c.put(candidateUrl, new Response(blob)))
+                      .catch(() => {});
+                  }
+                  const retryAudio = new Audio(objUrl);
+                  retryAudio.preload = 'auto';
+                  retryAudio.playbackRate = 1.0;
+                  retryAudio.preservesPitch = true;
+                  retryAudio.volume = Math.max(
+                    0,
+                    Math.min(
+                      1,
+                      Number(gameSettingsRef.current?.masterVolume ?? 0.85) *
+                        Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
+                    ),
+                  );
+                  retryAudio.muted = false;
+                  setVoiceFailed(false);
+                  setVoiceError('');
+                  attachAndPlay({
+                    audio: retryAudio,
+                    audioUrl: objUrl,
+                    fallbackUrl: entry.fallbackUrl,
+                    cacheKey: entry.cacheKey,
+                    text: entry.text,
+                    retriedFetch: true,
+                  });
+                  return;
+                }
               }
+            } catch {
+              /* probar siguiente endpoint oficial */
             }
-          } catch {
-            /* continuar al manejo de cierre de segmento */
           }
         }
         fallbackStarted = true;
@@ -876,21 +867,26 @@ export default function App() {
         speakingRef.current = false;
         setSpeaking(false);
         stopAudioAnalysis();
-        const serverHasGeminiVoice =
-          fishVoiceStatusRef.current?.geminiTts?.configured === true ||
-          fishVoiceStatusRef.current?.activeProvider === 'gemini-2.5-flash-tts';
-        if (!serverHasGeminiVoice) {
-          useBrowserVoice([entry.text, ...parts.slice(i)].join(' '));
-        } else {
-          // Mantener coherencia de voz única: avanzar suavemente al siguiente tramo sin cambiar a otra voz.
+        setVoiceFailed(true);
+        setVoiceError(
+          'Audio oficial temporalmente no disponible. Subtítulo sincronizado activo (puedes reintentar con la voz oficial).',
+        );
+        // Mantener el subtítulo sincronizado en pantalla durante su tiempo de lectura sin cambiar jamás a otra voz.
+        const words = String(entry.text || '')
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean).length;
+        const silentReadingMs = Math.min(6500, Math.max(2200, words * 280));
+        clearTimeout(voiceGapTimerRef.current);
+        voiceGapTimerRef.current = setTimeout(() => {
+          if (token !== voiceToken.current) return;
           playNext();
-        }
+        }, silentReadingMs);
       };
       const attachAndPlay = (entry) => {
         const activeAudio = entry.audio;
         voiceAudio.current = activeAudio;
         activeAudio.onended = () => {
-          if (entry.audioUrl.startsWith('blob:')) revokeVoiceObjectUrl();
           playNext();
         };
         activeAudio.onerror = () => {
@@ -904,9 +900,26 @@ export default function App() {
             if (token === voiceToken.current) {
               voiceBlockedByAutoplayRef.current = false;
               setVoiceBlockedByAutoplay(false);
+              setVoiceFailed(false);
               setVoiceError('');
               setSpeaking(true);
               speakingRef.current = true;
+              if (
+                entry.cacheKey &&
+                !voiceAudioBlobCacheRef.current.has(entry.cacheKey) &&
+                typeof fetch === 'function' &&
+                entry.audioUrl.startsWith('/')
+              ) {
+                fetch(entry.audioUrl, { cache: 'force-cache' })
+                  .then((r) => (r.ok ? r.blob() : null))
+                  .then((b) => {
+                    if (b && b.size > 64) {
+                      const cachedUrl = URL.createObjectURL(b);
+                      voiceAudioBlobCacheRef.current.set(entry.cacheKey, cachedUrl);
+                    }
+                  })
+                  .catch(() => {});
+              }
               if (entry.audioUrl.startsWith('/') || entry.audioUrl.startsWith('blob:')) {
                 startAudioAnalysis(activeAudio);
               }
@@ -928,10 +941,28 @@ export default function App() {
             }
           });
       };
-      attachAndPlay({ audio, audioUrl, text, retriedFetch: false });
+      attachAndPlay({
+        audio,
+        audioUrl,
+        fallbackUrl,
+        cacheKey,
+        text,
+        retriedFetch: false,
+      });
     };
     playNext();
   },
+    handleRetryVoice = () => {
+      setVoiceFailed(false);
+      setVoiceError('');
+      voiceRef.current = true;
+      setVoice(true);
+      resumeSharedAudioContext();
+      const textToRetry = guide?.text || lastSpokenTextRef.current;
+      if (textToRetry) {
+        speak(textToRetry, { interrupt: true });
+      }
+    },
     resumeSharedAudioContext = () => {
       try {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -1150,9 +1181,39 @@ export default function App() {
           setKronoxDialogHidden(false);
           setKronoxOpen(true);
         } else if (stationId === 'science') {
+          setInventoryState(grantInventoryItem('data-spherex-calibration'));
           setMissionOpen(true);
         } else if (stationId === 'missions') {
           setMissionSelectorOpen(true);
+        } else if (stationId === 'bioponics') {
+          setInventoryState(grantInventoryItem('sample-bioponic-flora'));
+        } else if (stationId === 'engineering') {
+          setInventoryState(grantInventoryItem('sample-cryo-he3'));
+        } else if (stationId === 'storage-c02' || stationId === 'galley') {
+          setInventoryState(grantInventoryItem('eva-ration-pack'));
+        } else if (stationId === 'optical-bench' || stationId === 'sensor-calibration') {
+          setInventoryState(grantInventoryItem('optical-coupler'));
+        }
+      },
+      onToolCollected: (toolId) => {
+        setHeldToolId(toolId || null);
+        if (toolId) {
+          const itemKey =
+            toolId === 'multitool'
+              ? 'multitool'
+              : toolId === 'scanner'
+                ? 'scanner'
+                : 'optical-coupler';
+          setInventoryState(grantInventoryItem(itemKey));
+        }
+      },
+      onInteractionFeedback: (fb) => {
+        setInteractionFeedback(fb || null);
+        clearTimeout(interactionFeedbackTimerRef.current);
+        if (fb) {
+          interactionFeedbackTimerRef.current = setTimeout(() => {
+            setInteractionFeedback(null);
+          }, 3200);
         }
       },
       onFreeHelmChange: (enabled) => setFreeHelmMode(Boolean(enabled)),
@@ -1197,8 +1258,9 @@ export default function App() {
         return message.id;
       },
       onGuideObjective: (objective) => setGuideObjective(objective),
-      onGuideStateChange: ({ active, step }) => {
-        if (!active || step === 'free') setGuideObjective('');
+      onGuideStateChange: (st) => {
+        setGuideState(st || { active: false, step: 'free', completed: false });
+        if (!st?.active || st?.step === 'free') setGuideObjective('');
       },
       onAiScreenProjection: (proj) => {
         setAiProjection(proj);
@@ -1479,11 +1541,79 @@ export default function App() {
     return () => { cancelled = true; };
   }, []);
 
+  // Limpiar automáticamente paneles de cuerpos celestes (Luna/planetas) al recorrer cubiertas interiores (C02..C04)
+  useEffect(() => {
+    const isInteriorDeckWithoutTelescope =
+      fr &&
+      pv == 1 &&
+      astronautSectorState.deckId !== 'deck-01' &&
+      (observationModeInfo?.opticalMagnification || 1) <= 1;
+    if (isInteriorDeckWithoutTelescope) {
+      if (selectedObject) setSelectedObject(null);
+      if (more) setMore(null);
+      if (reticleTarget) setReticleTarget(null);
+      if (notice?.planet) clearNotices();
+    }
+  }, [
+    fr,
+    pv,
+    astronautSectorState.deckId,
+    observationModeInfo?.opticalMagnification,
+    selectedObject,
+    more,
+    reticleTarget,
+    notice,
+  ]);
+
+  useEffect(() => {
+    const handleKeyShortcuts = (event) => {
+      const tag = event.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (welcomeOpen || showFullMainMenu || realTimeIntroActive) return;
+
+      if (event.key === 'j' || event.key === 'J') {
+        event.preventDefault();
+        setPersonalHubOpen((prev) => {
+          if (prev && personalHubTab === 'journal') return false;
+          setPersonalHubTab('journal');
+          return true;
+        });
+        return;
+      }
+      if (event.key === 'i' || event.key === 'I') {
+        event.preventDefault();
+        setPersonalHubOpen((prev) => {
+          if (prev && personalHubTab === 'inventory') return false;
+          setPersonalHubTab('inventory');
+          return true;
+        });
+        return;
+      }
+      if (event.key === 'k' || event.key === 'K') {
+        event.preventDefault();
+        kronoxDialogHiddenRef.current = false;
+        setKronoxDialogHidden(false);
+        setKronoxOpen((prev) => !prev);
+        return;
+      }
+    };
+    window.addEventListener('keydown', handleKeyShortcuts);
+    return () => window.removeEventListener('keydown', handleKeyShortcuts);
+  }, [welcomeOpen, showFullMainMenu, realTimeIntroActive, personalHubTab]);
+
   useEffect(() => {
     const handleEscKey = (event) => {
       if (event.key !== 'Escape') return;
       const tag = event.target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (personalHubOpen) {
+        setPersonalHubOpen(false);
+        return;
+      }
+      if (kronoxOpen) {
+        setKronoxOpen(false);
+        return;
+      }
       if (pauseMenuOpen) {
         setPauseMenuOpen(false);
         api.current?.setSimulationPaused?.(false);
@@ -1519,6 +1649,8 @@ export default function App() {
     window.addEventListener('keydown', handleEscKey);
     return () => window.removeEventListener('keydown', handleEscKey);
   }, [
+    personalHubOpen,
+    kronoxOpen,
     pauseMenuOpen,
     activeCockpitStation,
     selectedObject,
@@ -1865,8 +1997,11 @@ export default function App() {
           setAiHistory((prev) => [...prev.slice(-4), { query, actionLabel }]);
           kronoxDialogHiddenRef.current = false;
           setKronoxDialogHidden(false);
-          say(finalReply);
-          setKronoxOpen(true);
+          setGuide(finalReply, {
+            id: `reply-${Date.now()}`,
+            intent: 'response',
+            replace: true,
+          });
           clearTimeout(kronoxCloseTimer.current);
           if (voiceRef.current) speak(finalReply, { interrupt: true });
         });
@@ -1876,8 +2011,11 @@ export default function App() {
       setAiHistory((prev) => [...prev.slice(-4), { query, actionLabel }]);
       kronoxDialogHiddenRef.current = false;
       setKronoxDialogHidden(false);
-      say(result.reply);
-      setKronoxOpen(true);
+      setGuide(result.reply, {
+        id: `reply-${Date.now()}`,
+        intent: 'response',
+        replace: true,
+      });
       clearTimeout(kronoxCloseTimer.current);
       if (voiceRef.current) speak(result.reply, { interrupt: true });
     },
@@ -1962,7 +2100,7 @@ export default function App() {
         A()?.reenterCabin?.();
         setFr(true);
         setPv(1);
-        setKronoxOpen(true);
+        setKronoxDialogHidden(false);
       },
       onStop: () => {
         countTimers.current.forEach(clearTimeout);
@@ -2725,17 +2863,17 @@ export default function App() {
       audioLevels,
       panelOpen: kronoxOpen,
       onClose: () => {
-        kronoxDialogHiddenRef.current = true;
-        setKronoxDialogHidden(true);
         setKronoxOpen(false);
       },
       voice,
       language,
       accent: voiceAccent,
+      voiceFailed,
+      onRetryVoice: handleRetryVoice,
       voiceError:
         voiceError ||
         (fishVoiceStatus?.configured === false && !fishVoiceStatus?.geminiTts?.configured
-          ? 'No hay servicio de síntesis de voz externo configurado en servidor; se usará la voz alternativa.'
+          ? 'Servicio de voz externo en espera. Subtítulos sincronizados activos.'
           : ''),
       near,
       onAccentChange: setVoiceAccent,
@@ -2785,15 +2923,11 @@ export default function App() {
       history: aiHistory,
       aiProjection,
       onOrbClick: () => {
-        if (!kronoxOpen || kronoxDialogHidden) {
+        if (!kronoxOpen) {
           kronoxDialogHiddenRef.current = false;
           setKronoxDialogHidden(false);
           setKronoxOpen(true);
         } else {
-          // Hiding from the orb is an explicit mute of the dialogue too:
-          // scene events must not reopen it until the user clicks Kronox again.
-          kronoxDialogHiddenRef.current = true;
-          setKronoxDialogHidden(true);
           setKronoxOpen(false);
         }
       },
@@ -3162,10 +3296,15 @@ export default function App() {
         }
       },
       onOpenArchiveJournal: () => {
-        setPauseMenuSection('journal');
-        setPauseMenuOpen(true);
-        api.current?.setSimulationPaused?.(true);
+        setPersonalHubTab('journal');
+        setPersonalHubOpen(true);
       },
+      onOpenPersonalHub: (tab = 'journal') => {
+        setPersonalHubTab(tab || 'journal');
+        setPersonalHubOpen(true);
+      },
+      interactionFeedback,
+      heldToolId,
       nearestStation: nearestCabinStation,
       activeStation: activeCockpitStation,
       elevatorState,
@@ -3510,7 +3649,78 @@ export default function App() {
       },
       language,
     }),
-    reticleTarget && !pauseMenuOpen && !welcomeOpen && !showFullMainMenu && !realTimeIntroActive &&
+    !welcomeOpen &&
+    !showFullMainMenu &&
+    !realTimeIntroActive &&
+    h(AstronautPersonalHub, {
+      open: personalHubOpen,
+      initialTab: personalHubTab,
+      onClose: () => setPersonalHubOpen(false),
+      journal: loadExpeditionJournal(),
+      inventoryState,
+      recordedAiMessages,
+      guideState,
+      guideObjective,
+      currentDeck: {
+        code: String(astronautSectorState.deckId || 'deck-01')
+          .replace('deck-', 'C')
+          .toUpperCase(),
+        name: astronautSectorState.deckName || 'Puente de Mando',
+      },
+      currentBody: f || near || 'Tierra',
+      heldToolId,
+      onEquipTool: (toolKey) => {
+        const nextTool = toolKey || null;
+        setHeldToolId(nextTool);
+        A()?.setHeldTool?.(nextTool);
+        setInventoryState(
+          setEquippedInventoryTool(
+            nextTool === 'multitool'
+              ? 'multitool'
+              : nextTool === 'scanner'
+                ? 'scanner'
+                : nextTool === 'optical-coupler'
+                  ? 'optical-coupler'
+                  : null,
+          ),
+        );
+      },
+      onInspectSampleWithAi: (item) => {
+        if (!item) return;
+        setPersonalHubOpen(false);
+        handleKronoxCommand(
+          `Analiza la muestra científica "${item.name}": ${item.scientificNote || item.description}`,
+        );
+      },
+      onRestartTutorial: () => {
+        A()?.startGuidedTour?.();
+      },
+      onOpenSpherexLab: () => {
+        setMissionOpen(true);
+      },
+      onSaveGame: () => {
+        const snap = saveGameState({
+          currentBody: f || near || 'Tierra',
+          cameraView: !fr ? 'Mapa Cartográfico' : pv == 1 ? 'Cabina 1P' : 'Exterior Nave 120 m',
+          scaleMode: real ? 'real' : 'visual',
+          activeMissionId: missionTargetKey,
+          activeObjective: guideObjective,
+          astronautDeckId: astronautSectorState.deckId,
+        });
+        setSavedGameSnapshot(snap);
+        notify('Estado de expedición guardado en la Bitácora Personal.', 'Guardado');
+      },
+    }),
+    reticleTarget &&
+    !pauseMenuOpen &&
+    !personalHubOpen &&
+    !welcomeOpen &&
+    !showFullMainMenu &&
+    !realTimeIntroActive &&
+    (!fr ||
+      pv != 1 ||
+      astronautSectorState.deckId === 'deck-01' ||
+      (observationModeInfo?.opticalMagnification || 1) > 1) &&
     h('div', {
       className: 'kronox-reticle-identifier',
       style: {

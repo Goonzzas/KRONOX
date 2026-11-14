@@ -1,8 +1,83 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import astralSentinelsLogoUrl from '../assets/astral-sentinels-logo.jpg';
+
+let cachedAstralPatchTexture = null;
+
+function getAstralSentinelsPatchTexture() {
+  if (cachedAstralPatchTexture) return cachedAstralPatchTexture;
+
+  let baseTex = null;
+  if (typeof document !== 'undefined') {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    if (ctx && typeof ctx.fillRect === 'function') {
+      ctx.fillStyle = '#091322';
+      ctx.fillRect(0, 0, 256, 256);
+      if (typeof ctx.strokeRect === 'function') {
+        ctx.strokeStyle = '#d98a2b';
+        ctx.lineWidth = 10;
+        ctx.strokeRect(10, 10, 236, 236);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(22, 22, 212, 212);
+      }
+      if (typeof ctx.fillText === 'function') {
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 26px Orbitron, Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('ASTRAL', 128, 112);
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 22px Orbitron, Segoe UI, sans-serif';
+        ctx.fillText('SENTINELS', 128, 146);
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 16px Consolas, monospace';
+        ctx.fillText('KRX-120 · DIV. CIENCIA', 128, 186);
+      }
+      baseTex = new THREE.CanvasTexture(canvas);
+      baseTex.encoding = THREE.sRGBEncoding;
+    }
+  }
+
+  if (!baseTex) {
+    baseTex = new THREE.Texture();
+  }
+
+  try {
+    if (
+      typeof window !== 'undefined' &&
+      typeof document !== 'undefined' &&
+      typeof document.createElementNS === 'function' &&
+      astralSentinelsLogoUrl
+    ) {
+      const loader = new THREE.TextureLoader();
+      loader.load(
+        astralSentinelsLogoUrl,
+        (loadedTex) => {
+          loadedTex.encoding = THREE.sRGBEncoding;
+          loadedTex.anisotropy = 4;
+          loadedTex.needsUpdate = true;
+          baseTex.image = loadedTex.image;
+          baseTex.needsUpdate = true;
+        },
+        undefined,
+        () => {
+          /* fallback canvas remains active */
+        },
+      );
+    }
+  } catch {
+    /* ignore loader errors in headless test runners */
+  }
+
+  cachedAstralPatchTexture = baseTex;
+  return cachedAstralPatchTexture;
+}
 
 /**
- * Eight required procedural microgravity EVA astronaut animation states.
+ * Procedural microgravity & bridge EVA astronaut animation states.
  */
 export const ASTRONAUT_ANIMATION_STATES = Object.freeze({
   IDLE_FLOAT: 'IDLE_FLOAT',
@@ -13,6 +88,7 @@ export const ASTRONAUT_ANIMATION_STATES = Object.freeze({
   CONSOLE_WORK: 'CONSOLE_WORK',
   REPAIR_INTERACT: 'REPAIR_INTERACT',
   CORRIDOR_SWIM: 'CORRIDOR_SWIM',
+  SEATED_COMMAND: 'SEATED_COMMAND',
 });
 
 function createAstronautMaterials() {
@@ -79,6 +155,15 @@ function createAstronautMaterials() {
       metalness: 0.86,
       roughness: 0.24,
     }),
+    astralPatch: new THREE.MeshStandardMaterial({
+      map: getAstralSentinelsPatchTexture(),
+      roughness: 0.42,
+      metalness: 0.14,
+      emissive: 0x0b1929,
+      emissiveIntensity: 0.22,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+    }),
   };
 }
 
@@ -125,7 +210,18 @@ function buildSegmentedLimb(mats, upperR, upperL, lowerR, lowerL, endType = 'glo
       mats.missionAccent,
     );
     band.position.set(side * 0.008, -upperL * 0.25, 0);
-    hipOrShoulder.add(pauldron, band);
+
+    // Emblema institucional Astral Sentinels integrado en las hombreras del traje EVA
+    const shoulderBadgeRim = new THREE.Mesh(
+      new RoundedBoxGeometry(0.006, 0.062, 0.062, 2, 0.003),
+      mats.chromeHardware,
+    );
+    shoulderBadgeRim.position.set(side * (upperR * 1.13 + 0.008), -upperL * 0.135, 0);
+    const shoulderPatch = new THREE.Mesh(new THREE.PlaneGeometry(0.054, 0.054), mats.astralPatch);
+    shoulderPatch.name = side > 0 ? 'AstralSentinelsShoulderPatchR' : 'AstralSentinelsShoulderPatchL';
+    shoulderPatch.position.set(side * (upperR * 1.135 + 0.01), -upperL * 0.135, 0);
+    shoulderPatch.rotation.y = side > 0 ? Math.PI * 0.5 : -Math.PI * 0.5;
+    hipOrShoulder.add(pauldron, band, shoulderBadgeRim, shoulderPatch);
   }
 
   const upperSeg = new THREE.Mesh(
@@ -275,7 +371,18 @@ export function createAstronautCharacter3D() {
   const dcmKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.018, 0.028, 12), mats.missionAccent);
   dcmKnob.rotation.x = Math.PI / 2;
   dcmKnob.position.set(0.06, 0.04, -0.205);
-  torso.add(dcmBox, dcmScreen, dcmKnob);
+
+  // Parche institucional Astral Sentinels en el pectoral superior del torso rígido (HUT)
+  const chestBadgeFrame = new THREE.Mesh(
+    new RoundedBoxGeometry(0.066, 0.066, 0.008, 2, 0.003),
+    mats.chromeHardware,
+  );
+  chestBadgeFrame.position.set(-0.125, 0.138, -0.132);
+  const chestAstralPatch = new THREE.Mesh(new THREE.PlaneGeometry(0.058, 0.058), mats.astralPatch);
+  chestAstralPatch.name = 'AstralSentinelsChestPatch';
+  chestAstralPatch.position.set(-0.125, 0.138, -0.137);
+  chestAstralPatch.rotation.y = Math.PI;
+  torso.add(dcmBox, dcmScreen, dcmKnob, chestBadgeFrame, chestAstralPatch);
 
   // MOLDED PORTABLE LIFE SUPPORT SYSTEM (PLSS) BACKPACK + INTEGRATED MICRO-RCS THRUSTER NOZZLES
   const backpack = new THREE.Group();
@@ -426,6 +533,9 @@ export function createAstronautCharacter3D() {
     const bankRoll = Math.max(-0.22, Math.min(0.22, Number(motionMeta?.bankRoll ?? 0)));
     const headPitch = Math.max(-0.45, Math.min(0.45, Number(motionMeta?.headPitch ?? 0)));
     const isElevatorRide = Boolean(motionMeta?.isElevatorRide);
+    const isSeatedCommand =
+      Boolean(motionMeta?.isSeatedCommand) ||
+      currentState === ASTRONAUT_ANIMATION_STATES.SEATED_COMMAND;
 
     // Objetivos articulares por estado con mezcla suave en microgravedad
     let bobY = Math.sin(clockT * 1.45) * 0.032;
@@ -443,7 +553,23 @@ export function createAstronautCharacter3D() {
       rkX = 0.18;
     let rcsOpacity = 0.0;
 
-    if (isElevatorRide) {
+    if (isSeatedCommand) {
+      // Postura de mando sentado en el sillón central del puente (C01) frente a los instrumentos
+      bobY = -0.34 + Math.sin(clockT * 1.25) * 0.003;
+      bodyPitch = -0.04 + Math.sin(clockT * 0.9) * 0.008;
+      bodyYaw = Math.sin(clockT * 0.55) * 0.025;
+      laX = 0.38 + Math.sin(clockT * 1.4) * 0.018;
+      raX = 0.42 + Math.cos(clockT * 1.5) * 0.02;
+      laZ = 0.16;
+      raZ = -0.16;
+      leX = 0.92;
+      reX = 0.96;
+      llX = 1.38;
+      rlX = 1.38;
+      lkX = -1.32;
+      rkX = -1.32;
+      rcsOpacity = 0.0;
+    } else if (isElevatorRide) {
       bobY = 0.008 * Math.sin(clockT * 2.1);
       bodyPitch = 0.02;
       laX = 0.16;
@@ -647,6 +773,13 @@ export function createFirstPersonHandsRig() {
     const wristLed = new THREE.Mesh(new RoundedBoxGeometry(0.022, 0.008, 0.02, 2, 0.003), mats.cyanTrim);
     wristLed.position.set(sideSign * -0.014, 0.036, -0.215);
     arm.add(wristLed);
+
+    // Insignia institucional Astral Sentinels en el antebrazo para vista en primera persona
+    const cuffPatch = new THREE.Mesh(new THREE.PlaneGeometry(0.026, 0.026), mats.astralPatch);
+    cuffPatch.name = sideSign > 0 ? 'FirstPersonAstralPatchR' : 'FirstPersonAstralPatchL';
+    cuffPatch.position.set(sideSign * -0.012, 0.044, -0.145);
+    cuffPatch.rotation.set(-Math.PI * 0.5, 0, sideSign * 0.15);
+    arm.add(cuffPatch);
 
     const gauntlet = new THREE.Group();
     gauntlet.position.set(0, 0.004, -0.255);

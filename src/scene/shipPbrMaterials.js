@@ -857,43 +857,105 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
 
     if (stationId === 'nav' || stationId === 'missions' || stationId === 'windows') {
       const cx = wx + ww / 2;
-      const cy = wy + wh / 2;
-      [26, 46, 62].forEach((r) => {
+      const cy = wy + wh / 2 - 6;
+      [22, 40, 56].forEach((r, idx) => {
+        g.strokeStyle = idx === 1 ? curAccent : 'rgba(125, 211, 252, 0.32)';
         g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke();
       });
+      // Ecliptic crosshair axes
+      g.strokeStyle = 'rgba(125, 211, 252, 0.25)';
+      g.beginPath();
+      g.moveTo(wx + 8, cy); g.lineTo(wx + ww - 8, cy);
+      g.moveTo(cx, wy + 8); g.lineTo(cx, wy + wh - 24);
+      g.stroke();
+      // Trajectory transfer arc
+      g.strokeStyle = '#ffcf5c';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(cx - 10, cy + 8, 38, -Math.PI * 0.75, -Math.PI * 0.12);
+      g.stroke();
       g.fillStyle = curAccent;
       g.beginPath(); g.arc(cx, cy, 5, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#ffcf5c';
-      g.beginPath(); g.arc(cx + 34, cy - 22, 4.5, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(cx + 32, cy - 20, 4.5, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#93c5fd';
+      g.font = 'bold 11px monospace';
+      g.fillText('ICRS J2000 · NAV', wx + 12, wy + wh - 8);
+    } else if (stationId === 'science') {
+      // SPHEREx 0.75-5.0 um spectrophotometric curve + absorption bands
+      g.fillStyle = 'rgba(8, 28, 48, 0.85)';
+      g.fillRect(wx + 8, wy + 10, ww - 16, wh - 42);
       g.strokeStyle = curAccent;
-      g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + 34, cy - 22); g.stroke();
-    } else if (stationId === 'science' || stationId === 'sensor-calibration') {
-      const bars = meta?.activeScan ? [0.85, 0.62, 0.94, 0.78, 0.55, 0.9] : [0.45, 0.7, 0.52, 0.88, 0.6, 0.72];
-      bars.forEach((v, idx) => {
-        const bh = Math.round(v * (wh - 30));
-        g.fillStyle = idx % 2 === 0 ? curAccent : '#ffbe55';
-        g.fillRect(wx + 12 + idx * 21, wy + wh - 12 - bh, 14, bh);
-      });
-    } else if (stationId === 'engineering') {
-      const lvl = Number(meta?.powerRatio ?? 0.74);
-      g.fillStyle = '#0c2238';
-      g.fillRect(wx + 24, wy + 22, 34, wh - 44);
-      g.fillStyle = lvl > 0.88 ? '#ff7b47' : curAccent;
-      const barH = Math.round((wh - 48) * Math.max(0.15, Math.min(1, lvl)));
-      g.fillRect(wx + 26, wy + wh - 24 - barH, 30, barH);
-      g.strokeStyle = '#67e8f9';
+      g.lineWidth = 2.2;
       g.beginPath();
-      g.arc(wx + 105, wy + 84, 30, 0, Math.PI * 2);
+      const pts = [0.62, 0.74, 0.68, 0.32, 0.78, 0.85, 0.41, 0.89, 0.76, 0.64];
+      pts.forEach((v, idx) => {
+        const px = wx + 14 + (idx / (pts.length - 1)) * (ww - 28);
+        const py = wy + wh - 40 - v * (wh - 64);
+        if (idx === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      });
       g.stroke();
-    } else if (stationId === 'galley') {
+      // Spectral band markers (H2O 3.05um, CO2 4.27um)
+      g.strokeStyle = 'rgba(251, 191, 36, 0.55)';
+      g.lineWidth = 1;
+      [0.33, 0.66].forEach((f) => {
+        const bx = wx + 14 + f * (ww - 28);
+        g.beginPath(); g.moveTo(bx, wy + 14); g.lineTo(bx, wy + wh - 34); g.stroke();
+      });
+      g.fillStyle = '#fde68a';
+      g.font = 'bold 11px monospace';
+      g.fillText('0.75–5.0μm LVF', wx + 12, wy + wh - 10);
+    } else if (stationId === 'optical-bench' || stationId === 'sensor-calibration') {
+      // Hartmann-Shack interferometric PSF wavefront rings
+      const cx = wx + ww / 2;
+      const cy = wy + wh / 2 - 8;
+      [14, 28, 42, 54].forEach((r, idx) => {
+        g.strokeStyle = idx % 2 === 0 ? curAccent : '#fbbf24';
+        g.lineWidth = idx === 0 ? 2.5 : 1.4;
+        g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke();
+      });
       g.fillStyle = '#38bdf8';
-      g.fillRect(wx + 20, wy + 40, 32, wh - 56);
+      g.beginPath(); g.arc(cx, cy, 4, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#bae6fd';
+      g.font = 'bold 11px monospace';
+      g.fillText('PSF λ/40 · COLIMADO', wx + 10, wy + wh - 10);
+    } else if (stationId === 'engineering') {
+      const lvl = Number(meta?.powerRatio ?? 0.78);
+      g.fillStyle = '#0c2238';
+      g.fillRect(wx + 16, wy + 18, 28, wh - 46);
+      g.fillStyle = lvl > 0.88 ? '#ff7b47' : curAccent;
+      const barH = Math.round((wh - 50) * Math.max(0.15, Math.min(1, lvl)));
+      g.fillRect(wx + 18, wy + wh - 30 - barH, 24, barH);
+      // Tokamak magnetic torus cross-section
+      g.strokeStyle = '#fb923c';
+      g.lineWidth = 2.5;
+      g.beginPath();
+      g.arc(wx + 98, wy + 76, 32, 0, Math.PI * 2);
+      g.stroke();
+      g.strokeStyle = '#38bdf8';
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.arc(wx + 98, wy + 76, 18, 0, Math.PI * 2);
+      g.stroke();
+      g.fillStyle = '#fed7aa';
+      g.font = 'bold 11px monospace';
+      g.fillText('D-He³ TOKAMAK', wx + 54, wy + wh - 10);
+    } else if (stationId === 'bioponics' || stationId === 'galley') {
+      // Closed-loop ECLS & Hydroponic PAR / O2-H2O balance
+      g.fillStyle = '#38bdf8';
+      g.fillRect(wx + 18, wy + 38, 26, wh - 62);
       g.fillStyle = '#34d399';
-      g.fillRect(wx + 74, wy + 26, 32, wh - 42);
+      g.fillRect(wx + 60, wy + 24, 26, wh - 48);
+      g.fillStyle = '#a78bfa';
+      g.fillRect(wx + 102, wy + 46, 26, wh - 70);
       g.fillStyle = '#dff5ff';
-      g.font = '13px monospace';
-      g.fillText('H2O', wx + 22, wy + 24);
-      g.fillText('O2', wx + 80, wy + 20);
+      g.font = 'bold 11px monospace';
+      g.fillText('H2O', wx + 19, wy + 22);
+      g.fillText('O2', wx + 65, wy + 18);
+      g.fillText('PAR', wx + 103, wy + 30);
+      g.fillStyle = '#6ee7b7';
+      g.fillText('ECLS 99.4% NOM', wx + 18, wy + wh - 8);
     } else if (stationId === 'elevator') {
       // Deck tower diagram C01..C04 with active & target deck indicators
       const deckNames = ['PUENTE', 'HABIT.', 'LABOR.', 'HANGAR'];
@@ -936,4 +998,65 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
   redraw(title, lines, accentHex, stateMeta);
   return { tex, redraw };
 }
+
+/**
+ * Creates a lightweight custom GLSL shader material for holographic projections,
+ * containment fields, and tactical bridge displays (Fresnel rim + animated scanlines).
+ */
+export function createHolographicShaderMaterial({
+  color = 0x38bdf8,
+  accentColor = 0xfbbf24,
+  opacity = 0.42,
+  scanlineDensity = 42.0,
+} = {}) {
+  const uniforms = {
+    uTime: { value: 0 },
+    uColor: { value: new THREE.Color(color) },
+    uAccentColor: { value: new THREE.Color(accentColor) },
+    uOpacity: { value: opacity },
+    uScanlineDensity: { value: scanlineDensity },
+  };
+
+  const material = new THREE.ShaderMaterial({
+    uniforms,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    vertexShader: `
+      varying vec3 vNormalView;
+      varying vec3 vViewPosition;
+      varying vec3 vLocalPos;
+      void main() {
+        vLocalPos = position;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vNormalView = normalize(normalMatrix * normal);
+        vViewPosition = -mvPosition.xyz;
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      uniform vec3 uColor;
+      uniform vec3 uAccentColor;
+      uniform float uOpacity;
+      uniform float uScanlineDensity;
+      varying vec3 vNormalView;
+      varying vec3 vViewPosition;
+      varying vec3 vLocalPos;
+      void main() {
+        vec3 viewDir = normalize(vViewPosition);
+        float fresnel = pow(1.0 - abs(dot(normalize(vNormalView), viewDir)), 2.1);
+        float scan = 0.5 + 0.5 * sin(vLocalPos.y * uScanlineDensity - uTime * 3.6);
+        float pulse = 0.5 + 0.5 * sin(uTime * 1.8 + vLocalPos.x * 4.0);
+        vec3 col = mix(uColor, uAccentColor, fresnel * 0.35 + pulse * 0.12);
+        float alpha = clamp(uOpacity * (0.38 + fresnel * 0.85 + scan * 0.28), 0.06, 0.92);
+        gl_FragColor = vec4(col * (1.05 + fresnel * 0.45), alpha);
+      }
+    `,
+  });
+
+  return material;
+}
+
 

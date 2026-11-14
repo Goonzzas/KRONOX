@@ -18,6 +18,7 @@ import {
   resolveCurrentDeck,
 } from './kronoxInteriorSpatialModel.js';
 import {
+  createHolographicShaderMaterial,
   createShipPbrSuite,
   makeDeckSignTexture,
   makeDiegeticScreenTexture,
@@ -934,6 +935,21 @@ export function buildKronoxInterior120M() {
       add(d1, box(1.0, 0.12, 0.22), darkM, 5.6, f + 1.22, k * 0.58);
       add(d1, box(0.5, 0.03, 0.16), bridgeScrMat, 5.75, f + 1.29, k * 0.58);
     });
+
+    // Sillón de Mando de Timón Central (Proa, KRONOX x=0, y=3.4, z=-9.85 -> Aurora x=9.85, z=0) y pedestal de vuelo bajo
+    chair(d1, 9.85, 0, f, Math.PI / 2);
+    const helmPedestal = new THREE.Group();
+    helmPedestal.name = 'BridgeCentralHelmConsole';
+    helmPedestal.position.set(10.68, f, 0);
+    helmPedestal.rotation.y = Math.PI / 2;
+    d1.add(helmPedestal);
+    const helmBase = add(helmPedestal, box(1.48, 0.76, 0.56), slateM, 0, 0.38, 0);
+    add(helmPedestal, box(1.54, 0.06, 0.62), steelM, 0, 0.78, 0);
+    add(helmPedestal, box(1.36, 0.03, 0.44), cyanGlow, 0, 0.82, 0);
+    const helmScr = add(helmPedestal, box(1.18, 0.34, 0.04), bridgeScrMat, 0, 0.96, 0.12);
+    helmScr.rotation.x = -0.52;
+    registerInteractMesh(helmBase, 'nav', 'panel', 'deck-01');
+    registerInteractMesh(helmScr, 'nav', 'panel', 'deck-01');
     // Franja guía de piso desde la mesa táctica hacia el ascensor central
     add(d1, box(3.8, 0.018, 0.56), steelM, -2.9, f + 0.05, 0);
     add(d1, box(3.6, 0.022, 0.08), cyanGlow, -2.9, f + 0.06, -0.22);
@@ -955,11 +971,20 @@ export function buildKronoxInterior120M() {
     const holoCanopyGlow = add(d1, torus(1.58, 0.024, 6, 32), cyanGlow, -6, f + 2.68, 0);
     holoCanopyGlow.rotation.x = Math.PI / 2;
     const wfMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x9be7ff, wireframe: true }));
+    const holoShaderMat = trackExtraMat(
+      createHolographicShaderMaterial({
+        color: 0x38bdf8,
+        accentColor: 0xfbbf24,
+        opacity: 0.38,
+        scanlineDensity: 38.0,
+      }),
+    );
     const holoTableOrb = new THREE.Group();
     holoTableOrb.name = 'BridgeHoloProjector';
     holoTableOrb.position.set(-6, f + 1.85, 0);
     d1.add(holoTableOrb);
     add(holoTableOrb, cachedGeo('ico:0.68:1', () => new THREE.IcosahedronGeometry(0.68, 1)), wfMat, 0, 0, 0);
+    add(holoTableOrb, sphereGeo(0.56, 20, 14), holoShaderMat, 0, 0, 0);
     const holoOrbit = add(holoTableOrb, torus(0.95, 0.025, 6, 40), cyanGlow, 0, 0, 0);
     holoOrbit.rotation.x = 1.2;
     holoOrbit.userData.dynamicTransform = true;
@@ -1755,6 +1780,59 @@ export function buildKronoxInterior120M() {
   const bridgeHoloProjector = auroraGroup.getObjectByName('BridgeHoloProjector');
   const reactorAssembly = reactorPlasmaCore?.parent || null;
 
+  // Baliza holográfica 3D para el tutorial progresivo en el mundo (guiado paso a paso)
+  const tutorialWaypointShaderMat = trackExtraMat(
+    createHolographicShaderMaterial({
+      color: 0x38bdf8,
+      accentColor: 0x34d399,
+      opacity: 0.42,
+      scanlineDensity: 28.0,
+    }),
+  );
+  const tutorialWaypointRingMat = trackExtraMat(
+    new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+    }),
+  );
+  const tutorialWaypointGroup = new THREE.Group();
+  tutorialWaypointGroup.name = 'KronoxTutorialWaypoint3D';
+  tutorialWaypointGroup.visible = false;
+  root.add(tutorialWaypointGroup);
+
+  const wpOuterRing = add(tutorialWaypointGroup, torus(0.92, 0.032, 10, 40), tutorialWaypointRingMat, 0, 0.06, 0);
+  wpOuterRing.rotation.x = Math.PI / 2;
+  wpOuterRing.userData.dynamicTransform = true;
+
+  const wpInnerRing = add(tutorialWaypointGroup, ringGeo(0.46, 0.62, 32), tutorialWaypointRingMat, 0, 0.05, 0);
+  wpInnerRing.rotation.x = -Math.PI / 2;
+  wpInnerRing.userData.dynamicTransform = true;
+
+  const wpBeamGeo = trackExtraGeo(new THREE.CylinderGeometry(0.58, 0.76, 2.15, 24, 1, true));
+  const wpLightColumn = add(tutorialWaypointGroup, wpBeamGeo, tutorialWaypointShaderMat, 0, 1.12, 0);
+  wpLightColumn.userData.dynamicTransform = true;
+
+  const wpChevronGeo = trackExtraGeo(new THREE.ConeGeometry(0.22, 0.38, 4));
+  const wpChevron = add(tutorialWaypointGroup, wpChevronGeo, tutorialWaypointRingMat, 0, 2.28, 0);
+  wpChevron.rotation.x = Math.PI;
+  wpChevron.userData.dynamicTransform = true;
+
+  function setTutorialWaypoint({ visible = false, position = null, colorHex = 0x38bdf8 } = {}) {
+    tutorialWaypointGroup.visible = Boolean(visible && position);
+    if (position) {
+      const px = Array.isArray(position) ? position[0] : position.x;
+      const py = Array.isArray(position) ? position[1] : position.y;
+      const pz = Array.isArray(position) ? position[2] : position.z;
+      tutorialWaypointGroup.position.set(Number(px) || 0, Number(py) || 0, Number(pz) || 0);
+    }
+    if (colorHex != null) {
+      tutorialWaypointRingMat.color.setHex(colorHex);
+      tutorialWaypointShaderMat.uniforms?.uColor?.value?.setHex?.(colorHex);
+    }
+  }
+
   function updateStations(
     elapsedTime = 0,
     nearestId = null,
@@ -1787,11 +1865,26 @@ export function buildKronoxInterior120M() {
       bridgeHoloProjector.rotation.y = elapsedTime * 0.65;
       bridgeHoloProjector.rotation.z = Math.sin(elapsedTime * 0.9) * 0.12;
       bridgeHoloProjector.position.y = 3.4 + 1.85 + Math.sin(elapsedTime * 1.9) * 0.085;
-      const orbRing = bridgeHoloProjector.children?.[1];
+      const orbRing = bridgeHoloProjector.children?.[2] || bridgeHoloProjector.children?.[1];
       if (orbRing) {
         orbRing.rotation.z = elapsedTime * 1.25;
         orbRing.rotation.y = Math.cos(elapsedTime * 0.85) * 0.45;
       }
+      const holoSphere = bridgeHoloProjector.children?.[1];
+      if (holoSphere?.material?.uniforms?.uTime) {
+        holoSphere.material.uniforms.uTime.value = elapsedTime;
+      }
+    }
+
+    if (tutorialWaypointGroup.visible) {
+      if (tutorialWaypointShaderMat.uniforms?.uTime) {
+        tutorialWaypointShaderMat.uniforms.uTime.value = elapsedTime;
+      }
+      wpOuterRing.rotation.z = elapsedTime * 1.4;
+      const wpPulse = 1.0 + 0.08 * Math.sin(elapsedTime * 3.8);
+      wpInnerRing.scale.setScalar(wpPulse);
+      wpChevron.position.y = 2.24 + 0.12 * Math.sin(elapsedTime * 3.2);
+      wpChevron.rotation.y = elapsedTime * 2.1;
     }
 
     if (reactorPlasmaCore && reactorPlasmaMat && deckContainers['deck-03']?.visible !== false) {
@@ -1961,6 +2054,8 @@ export function buildKronoxInterior120M() {
     clampAstronautPosition,
     findNearestInteractiveStation,
     resolveCurrentDeck,
+    setTutorialWaypoint,
+    tutorialWaypointGroup,
     updateStations,
     dispose,
   };

@@ -27,6 +27,7 @@ export default function SpaceshipCockpit({
   onToggleGrabRail,
   onTeleportToDeck,
   onOpenArchiveJournal,
+  onOpenPersonalHub,
   nearestStation = null,
   activeStation = null,
   onSelectStation,
@@ -102,9 +103,20 @@ export default function SpaceshipCockpit({
   };
   const releaseFlightKey = (key) => onFlightKey?.(key, false);
   // Contextual 3D Astronomical Object Inspector
+  // Never display celestial object cards while exploring interior lower decks (C02, C03, C04) without an observation instrument
+  const isInteriorNonObservation =
+    viewMode === 'cockpit' &&
+    (observationModeInfo?.opticalMagnification || 1) <= 1 &&
+    activeStation !== 'windows' &&
+    activeStation !== 'nav' &&
+    Boolean(astronautSectorState?.deckId && astronautSectorState.deckId !== 'deck-01');
+
   let objectCard = null;
-  const objectProvenance = selectedObject?.key ? getObjectProvenance(selectedObject.key) : null;
-  if (selectedObject?.kind === 'spherex') {
+  const objectProvenance =
+    !isInteriorNonObservation && selectedObject?.key
+      ? getObjectProvenance(selectedObject.key)
+      : null;
+  if (!isInteriorNonObservation && selectedObject?.kind === 'spherex') {
     const tgt = SPHEREX_TARGETS.find((item) => item.key === selectedObject.key);
     const canonicalStar = tgt?.type !== 'galaxia' ? getCanonicalStar(selectedObject.key) : null;
     const canonicalGal = tgt?.type === 'galaxia' ? getCanonicalGalaxy(selectedObject.key) : null;
@@ -136,7 +148,7 @@ export default function SpaceshipCockpit({
         target: tgt,
       };
     }
-  } else if (selectedObject?.kind === 'catalog-star') {
+  } else if (!isInteriorNonObservation && selectedObject?.kind === 'catalog-star') {
     const star = NAVIGATION_CATALOG.stars.find((item) => item.key === selectedObject.key);
     const canonicalStar = getCanonicalStar(selectedObject.key);
     if (star)
@@ -171,7 +183,7 @@ export default function SpaceshipCockpit({
         spherexBadge: 'Consulta SPHEREx no preparada para este sistema. ' + star.sourceTitle,
         source: star.source,
       };
-  } else if (selectedObject?.kind === 'planet') {
+  } else if (!isInteriorNonObservation && selectedObject?.kind === 'planet') {
     const pl = P.find((item) => item.n === selectedObject.key);
     const info = pl ? INFO[pl.n] : null;
     const sunPhysics = pl?.sun ? getCanonicalStar('sun') : null;
@@ -291,6 +303,41 @@ export default function SpaceshipCockpit({
                 title="Inspeccionar nave desde cámara orbital libre [R]"
               >
                 Inspeccionar [R]
+              </button>
+            )}
+
+            {onOpenPersonalHub && (
+              <div className="kronoxTopPersonalActions">
+                <button
+                  type="button"
+                  className="kronoxHudQuickBtn"
+                  onClick={() => onOpenPersonalHub('journal')}
+                  title="Abrir Diario de Misión y Manual de la Nave [J]"
+                >
+                  <span>📓</span>
+                  <span>Bitácora [J]</span>
+                </button>
+                <button
+                  type="button"
+                  className="kronoxHudQuickBtn"
+                  onClick={() => onOpenPersonalHub('inventory')}
+                  title="Abrir Inventario y Herramientas del Astronauta [I]"
+                >
+                  <span>🎒</span>
+                  <span>Inventario</span>
+                </button>
+              </div>
+            )}
+
+            {onOpenAiConsole && (
+              <button
+                type="button"
+                className="kronoxHudQuickBtn is-ai-consult"
+                onClick={() => onOpenAiConsole()}
+                title="Consultar a KRONOX IA [K]"
+              >
+                <span>✦</span>
+                <span>Consultar IA [K]</span>
               </button>
             )}
           </div>

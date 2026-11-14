@@ -2588,6 +2588,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (exteriorCameraMode) leaveExteriorCamera(true);
     sceneDirector.skipActiveSequence(); releaseInputs(); tw = null; vel.set(0, 0, 0); bk = 0; ti = 9;
     activeCabinStation = null; freeHelmMode = false; S.onFreeHelmChange?.(false); arrivalTarget = null;
+    if (astronautSeatedInBridge) {
+      astronautSeatedInBridge = false;
+      S.onSeatedStateChange?.(false);
+    }
+    currentLockedDeckId = 'deck-01';
+    fourDecksInterior?.elevatorSystem?.snapToDeck?.('deck-01');
     astronomicalHologram?.clearHologram();
     const distance = sp.distanceTo(target), long = distance > Math.max(clearance * 3, 0.08);
     const startLocalMeters = localCam.position.lengthSq() > 1e-6
@@ -2965,6 +2971,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   localShipScene.add(localCabinWorld);
 
   const BRIDGE_SPAWN_POS = new THREE.Vector3(0.0, 3.4, -10.4);
+  const BRIDGE_COMMAND_SEAT_POS = new THREE.Vector3(0.0, 3.4, -9.85);
+  let astronautSeatedInBridge = false;
   let activeRepairStage = 0;
 
   // Cabina y 4 cubiertas unificadas estrictamente dentro del casco de 120m (cero cajas superpuestas):
@@ -3836,26 +3844,65 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       [0.0, -1.95, 6.6],
     ]),
   };
-  // Guided In-World Tour State (Section 6)
+  // Guided In-World Progressive Tutorial State (Section 6)
   let guidedTourState = null;
   const tourNarratives = {
-    nav: 'Esta es la consola de navegación. Desde aquí podemos seleccionar los destinos de nuestra exploración.',
-    science: 'Aquí comienza la investigación SPHEREx. Explora una observación real y compara sus épocas infrarrojas.',
+    stand_up:
+      'Bienvenido al puente de mando de KRONOX-1, Comandante. Todos los sistemas orbitales están en línea. Pulsa WASD o la tecla E para levantarte del sillón de mando.',
+    nav: 'Dirígete a la consola de control y navegación iluminada en el Puente de Mando y pulsa E para inspeccionar los sistemas de vuelo.',
+    elevator_c03:
+      'Panel de puente verificado. Ahora acércate al Ascensor Central en el eje de la cubierta, pulsa E y selecciona la Cubierta Científica (Nivel 3) para descender al Laboratorio.',
+    science:
+      'Has llegado a la Cubierta Científica. Sigue la baliza luminosa hacia babor hasta el Laboratorio Espectral SPHEREx y pulsa E para iniciar el análisis.',
     missions: 'En la consola de misiones puedes revisar y elegir objetivos para la expedición.',
     comms: 'Esta consola abre el canal de comunicaciones de la nave.',
     windows: 'El mirador panorámico permite observar el sistema desde la nave.',
   };
+
+  function syncTutorialWaypointForStep(step) {
+    if (!fourDecksInterior?.setTutorialWaypoint) return;
+    if (step === 'stand_up') {
+      fourDecksInterior.setTutorialWaypoint({
+        visible: true,
+        position: { x: 0.0, y: 3.42, z: -9.85 },
+        colorHex: 0x38bdf8,
+      });
+    } else if (step === 'bridge' || step === 'nav') {
+      fourDecksInterior.setTutorialWaypoint({
+        visible: true,
+        position: { x: -1.65, y: 3.42, z: -9.95 },
+        colorHex: 0x38bdf8,
+      });
+    } else if (step === 'elevator_c03') {
+      fourDecksInterior.setTutorialWaypoint({
+        visible: true,
+        position: { x: 0.0, y: 3.42, z: -2.45 },
+        colorHex: 0x34d399,
+      });
+    } else if (step === 'science') {
+      fourDecksInterior.setTutorialWaypoint({
+        visible: true,
+        position: { x: -11.2, y: -3.38, z: -2.2 },
+        colorHex: 0xfbbf24,
+      });
+    } else {
+      fourDecksInterior.setTutorialWaypoint({ visible: false });
+    }
+  }
 
   function setTourStep(step, stationId = null) {
     if (!guidedTourState || guidedTourState.step === 'free') return;
     guidedTourState.step = step;
     guidedTourState.focus = stationId;
     guidedTourState.proximityAnnounced = false;
+    syncTutorialWaypointForStep(step);
     S.onGuideStateChange?.({ step, stationId, active: true });
     const objectives = {
-      bridge: 'OBJETIVO: Explora el puente de mando. Muévete libremente con WASD.',
-      nav: 'OBJETIVO: Acércate a la consola de navegación y úsala con E.',
-      science: 'OBJETIVO: En SPHEREx, abre una observación y cambia de etapa o registra un hallazgo.',
+      stand_up: 'PASO 1/4 · PUESTO DE MANDO: Pulsa [WASD] o [E] para levantarte del sillón de mando.',
+      bridge: 'PASO 2/4 · CONSOLA DE CONTROL: Acércate a la consola iluminada del Puente de Mando y pulsa [E].',
+      nav: 'PASO 2/4 · CONSOLA DE CONTROL: Acércate a la consola de navegación en el Puente y úsala con [E].',
+      elevator_c03: 'PASO 3/4 · ASCENSOR CENTRAL: Entra al ascensor central y desciende a la Cubierta Científica (Nivel 3).',
+      science: 'PASO 4/4 · LABORATORIO SPHEREx: Dirígete al Laboratorio SPHEREx en la Cubierta Científica y pulsa [E].',
       missions: 'OBJETIVO: Interactúa con la consola de misiones.',
       comms: 'OBJETIVO: Interactúa con la consola de comunicaciones.',
       windows: 'OBJETIVO: Acércate al mirador o interactúa con él.',
@@ -3870,17 +3917,71 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
   }
 
+  function standUpFromBridgeSeat() {
+    if (!astronautSeatedInBridge) return false;
+    astronautSeatedInBridge = false;
+    astronautPos.set(0.0, 3.4, -9.65);
+    microgravityController.setPosition(astronautPos);
+    S.onSeatedStateChange?.(false);
+    S.onSfxCue?.('grab');
+    S.onInteractionFeedback?.({
+      id: 'stand-up-seat',
+      text: 'De pie en el Puente de Mando.',
+      ts: Date.now(),
+    });
+    if (guidedTourState && guidedTourState.step === 'stand_up') {
+      setTourStep('nav', 'nav');
+      S.onAiTourNarrative?.(
+        tourNarratives.nav,
+        'Orientación',
+        'nav',
+        { id: 'tut-step-nav', priority: 8, replace: true },
+      );
+    }
+    return true;
+  }
+
   function onGuidedStationInteraction(stationId) {
     if (!guidedTourState || guidedTourState.step === 'free' || !stationId) return;
+    if (guidedTourState.step === 'stand_up') {
+      standUpFromBridgeSeat();
+    }
+    if (
+      (guidedTourState.step === 'nav' || guidedTourState.step === 'bridge') &&
+      (stationId === 'nav' || stationId === 'missions' || stationId === 'windows')
+    ) {
+      setTourStep('elevator_c03', 'elevator');
+      S.onAiTourNarrative?.(
+        tourNarratives.elevator_c03,
+        'Orientación',
+        'elevator',
+        { id: 'tut-step-elevator', priority: 8, replace: true },
+      );
+      return;
+    }
+    if (
+      (guidedTourState.step === 'science' || guidedTourState.step === 'elevator_c03') &&
+      (stationId === 'science' || stationId === 'sensor-calibration')
+    ) {
+      guidedTourState.scienceInteracted = true;
+      guidedTourState.step = 'free';
+      guidedTourState.focus = null;
+      aiFollowAstronaut = true;
+      luminousAI.pointAtWorldPosition(null, false);
+      fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+      S.onGuideObjective?.(null);
+      S.onGuideStateChange?.({ step: 'free', stationId: null, active: false, completed: true });
+      S.onAiTourNarrative?.(
+        'Entrenamiento operativo completado. Tienes acceso libre a las cuatro cubiertas, a la Bitácora Personal [J] y a la navegación interestelar.',
+        'Confirmación',
+        'science',
+        { id: 'tut-completed', priority: 9, replace: true },
+      );
+      return;
+    }
     const expected = guidedTourState.focus;
     if (stationId !== expected) return;
-    if (stationId === 'nav') {
-      S.onAiTourNarrative?.('Perfecto. Ahora seleccionemos nuestro primer destino.', 'Confirmación', 'nav');
-      setTourStep('science', 'science');
-    } else if (stationId === 'science') {
-      // The scientific step completes only after the mission UI reports a real user action.
-      guidedTourState.scienceInteracted = true;
-    } else if (stationId === 'missions') {
+    if (stationId === 'missions') {
       setTourStep('comms', 'comms');
     } else if (stationId === 'comms') {
       setTourStep('windows', 'windows');
@@ -3890,13 +3991,22 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       guidedTourState.focus = null;
       aiFollowAstronaut = true;
       luminousAI.pointAtWorldPosition(null, false);
-      S.onGuideStateChange?.({ step: 'free', stationId: null, active: false });
+      fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+      S.onGuideObjective?.(null);
+      S.onGuideStateChange?.({ step: 'free', stationId: null, active: false, completed: true });
     }
   }
 
   function onGuidedScienceAction() {
-    if (guidedTourState?.step !== 'science' || !guidedTourState.scienceInteracted) return;
-    setTourStep('missions', 'missions');
+    if (!guidedTourState || guidedTourState.step === 'free') return;
+    guidedTourState.scienceInteracted = true;
+    guidedTourState.step = 'free';
+    guidedTourState.focus = null;
+    aiFollowAstronaut = true;
+    luminousAI.pointAtWorldPosition(null, false);
+    fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+    S.onGuideObjective?.(null);
+    S.onGuideStateChange?.({ step: 'free', stationId: null, active: false, completed: true });
   }
 
   function endGuidedCabinTour() {
@@ -3904,6 +4014,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     guidedTourState = null;
     aiFollowAstronaut = true;
     luminousAI.pointAtWorldPosition(null, false);
+    fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+    S.onGuideObjective?.(null);
     S.onGuideStateChange?.({ step: 'free', stationId: null, active: false });
   }
 
@@ -3992,20 +4104,37 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     if (wasInIntro || !shipPoseKnown || Math.abs(fp) > 1.15) {
       alignShipInEarthOrbit();
-    } else {
-      astronautPos.copy(BRIDGE_SPAWN_POS);
-      astronautVel.set(0, 0, 0);
-      microgravityController.setPosition(astronautPos);
-      astronautYaw = 0;
-      astronautPitch = 0;
-      targetYaw = 0;
-      targetPitch = 0;
     }
+    currentLockedDeckId = 'deck-01';
+    fourDecksInterior?.elevatorSystem?.snapToDeck?.('deck-01');
+    astronautPos.copy(BRIDGE_COMMAND_SEAT_POS);
+    astronautVel.set(0, 0, 0);
+    microgravityController.setPosition(astronautPos);
+    astronautYaw = 0;
+    astronautPitch = -0.04;
+    targetYaw = 0;
+    targetPitch = -0.04;
+    astronautBodyYaw = 0;
+    prevAstronautYaw = 0;
+    astronautSeatedInBridge = true;
     pv = 1;
-    cabinFirstPerson = true;
+    cabinFirstPerson = false;
+    camViewBlend = 1.0;
     astronaut3D.root.visible = false;
     astronaut3D.firstPersonHands.visible = false;
-    articulatedAstronaut.root.visible = false;
+    if (articulatedAstronaut) {
+      articulatedAstronaut.root.position.copy(astronautPos);
+      articulatedAstronaut.root.rotation.y = 0;
+      articulatedAstronaut.root.visible = true;
+      articulatedAstronaut.updateAnimation(0.016, ASTRONAUT_ANIMATION_STATES.SEATED_COMMAND, {
+        speed: 0,
+        bankRoll: 0,
+        headPitch: astronautPitch,
+        isSeatedCommand: true,
+      });
+    }
+    S.onCabinFirstPersonChange?.(false);
+    S.onSeatedStateChange?.(true);
     luminousAI.pointAtWorldPosition(null, false);
     ship.visible = false;
     localCabinWorld.visible = true;
@@ -4028,9 +4157,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     localCabinWorld.scale.set(1, 1, 1);
     localCabinWorld.quaternion.copy(qNow);
     const localEye = new V(
-      astronautPos.x,
-      astronautPos.y + SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
-      astronautPos.z,
+      astronautPos.x + 0.38,
+      astronautPos.y + 1.48,
+      astronautPos.z + 2.15,
     ).applyQuaternion(qNow);
     localCam.position.copy(localEye);
     localCam.quaternion.copy(qNow);
@@ -4048,21 +4177,28 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
 
   function startGuidedCabinTour() {
+    const initialStep = astronautSeatedInBridge ? 'stand_up' : 'nav';
+    const initialFocus = astronautSeatedInBridge ? null : 'nav';
     guidedTourState = {
-      step: 'bridge',
-      focus: null,
+      step: initialStep,
+      focus: initialFocus,
       proximityAnnounced: false,
       scienceInteracted: false,
     };
     aiFollowAstronaut = true;
     lastContextualDeckId = 'deck-01';
-    S.onGuideStateChange?.({ step: 'bridge', stationId: null, active: true });
-    S.onGuideObjective?.('OBJETIVO: Explora el puente de mando (WASD). Usa [E] en cada consola o avanza por la espina a C02-C04.');
+    syncTutorialWaypointForStep(initialStep);
+    S.onGuideStateChange?.({ step: initialStep, stationId: initialFocus, active: true });
+    S.onGuideObjective?.(
+      astronautSeatedInBridge
+        ? 'PASO 1/4 · PUESTO DE MANDO: Pulsa [WASD] o [E] para levantarte del sillón de mando.'
+        : 'PASO 2/4 · CONSOLA DE CONTROL: Acércate a la consola iluminada del Puente de Mando y pulsa [E].',
+    );
     S.onAiTourNarrative?.(
-      DECK_CONTEXT_BRIEFINGS['deck-01'].text,
+      astronautSeatedInBridge ? tourNarratives.stand_up : tourNarratives.nav,
       'Orientación',
       'nav',
-      { id: 'deck-ctx-deck-01', priority: 8, replace: true },
+      { id: astronautSeatedInBridge ? 'tut-step-stand' : 'tut-step-nav', priority: 8, replace: true },
     );
   }
 
@@ -4525,7 +4661,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
     }
     // Bloque 3: Selección interactiva de objetos astronómicos en el universo 3D
-    if (clickMoved < 6 && !nearbyMapState) {
+    // Sólo se permite cuando se usa el sistema de exploración/observación astronómica exterior
+    // o el ventanal panorámico del puente (nunca a través de paredes o pisos en las cubiertas interiores).
+    const allowSkyObjectClick =
+      !free ||
+      pv === 3 ||
+      exteriorCameraMode ||
+      opticalTelescopeState.enabled ||
+      freeHelmMode ||
+      activeCabinStation === 'windows' ||
+      activeCabinStation === 'nav';
+    if (clickMoved < 6 && !nearbyMapState && allowSkyObjectClick) {
       if (wasPointerLockedOnDown) {
         nearbyPointer.set(0, 0);
       } else {
@@ -4535,27 +4681,49 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           -((e.clientY - rect.top) / rect.height) * 2 + 1,
         );
       }
-      nearbyRaycaster.setFromCamera(nearbyPointer, cam);
-      const starNodes = [...missionMarkers.values()].map((m) => m.marker);
-      const planetNodes = B.map((b) => b.pivot);
-      const hits = nearbyRaycaster.intersectObjects([...starNodes, ...planetNodes], true);
-      for (const hit of hits) {
-        let node = hit.object;
-        while (node) {
-          if (node.userData?.spherexTargetKey) {
-            const key = node.userData.spherexTargetKey;
-            const found = missionMarkers.get(key);
-            if (found) found.label.visible = true;
-            S.onObjectSelect?.({ kind: 'spherex', key });
-            return;
+      // Si el jugador está dentro del puente (pv === 1), verificar que el rayo no atraviese paredes/consolas interiores
+      let blockedByInterior = false;
+      if (free && pv === 1 && !exteriorCameraMode && !opticalTelescopeState.enabled) {
+        const curDeckClick = resolveCurrentDeck(astronautPos);
+        if (curDeckClick?.id !== 'deck-01') {
+          blockedByInterior = true;
+        } else {
+          const solidMeshes =
+            fourDecksInterior?.getCollisionMeshesForDeck?.('deck-01') ||
+            fourDecksInterior?.cameraCollisionMeshes ||
+            [];
+          if (solidMeshes.length) {
+            nearbyRaycaster.setFromCamera(nearbyPointer, localCam);
+            nearbyRaycaster.far = 30;
+            const wallHits = nearbyRaycaster.intersectObjects(solidMeshes, false);
+            nearbyRaycaster.far = Infinity;
+            if (wallHits.length > 0) blockedByInterior = true;
           }
-          if (node.userData?.planetName) {
-            const name = node.userData.planetName;
-            promotePlanetTexture(name);
-            S.onObjectSelect?.({ kind: 'planet', key: name });
-            return;
+        }
+      }
+      if (!blockedByInterior) {
+        nearbyRaycaster.setFromCamera(nearbyPointer, cam);
+        const starNodes = [...missionMarkers.values()].map((m) => m.marker);
+        const planetNodes = B.map((b) => b.pivot);
+        const hits = nearbyRaycaster.intersectObjects([...starNodes, ...planetNodes], true);
+        for (const hit of hits) {
+          let node = hit.object;
+          while (node) {
+            if (node.userData?.spherexTargetKey) {
+              const key = node.userData.spherexTargetKey;
+              const found = missionMarkers.get(key);
+              if (found) found.label.visible = true;
+              S.onObjectSelect?.({ kind: 'spherex', key });
+              return;
+            }
+            if (node.userData?.planetName) {
+              const name = node.userData.planetName;
+              promotePlanetTexture(name);
+              S.onObjectSelect?.({ kind: 'planet', key: name });
+              return;
+            }
+            node = node.parent;
           }
-          node = node.parent;
         }
       }
     }
@@ -4780,8 +4948,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       startPhysicalElevatorRide(`deck-0${k}`);
       return;
     }
-    // Tecla contextual [E] para operar objeto apuntado, consola física o pasamanos
+    // Tecla contextual [E] para levantarse del sillón de mando, operar objeto apuntado, consola física o pasamanos
+    if (k === 'e' && free && pv == 1 && !realTimeIntro && astronautSeatedInBridge) {
+      standUpFromBridgeSeat();
+      return;
+    }
     if (k === 'e' && free && pv == 1 && !realTimeIntro && nearestCabinStation && activeCabinStation !== 'nav') {
+      if (nearestCabinStation.station?.id === 'stand-up-seat') {
+        standUpFromBridgeSeat();
+        return;
+      }
       triggerCabinStationInteraction(nearestCabinStation.station.id, nearestCabinStation.station);
     } else if (k === 'e' && free && pv == 1 && !realTimeIntro && !nearestCabinStation) {
       if (activeCabinStation) {
@@ -5801,14 +5977,39 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             earth.spherex.root.scale.setScalar(0.052);
           }
           releaseInputs(); vel.set(0, 0, 0); activeCabinStation = null; freeHelmMode = false;
+          currentLockedDeckId = 'deck-01';
+          fourDecksInterior?.elevatorSystem?.snapToDeck?.('deck-01');
+          astronautPos.copy(BRIDGE_COMMAND_SEAT_POS);
+          astronautVel.set(0, 0, 0);
+          microgravityController.setPosition(astronautPos);
+          astronautYaw = 0;
+          astronautPitch = -0.04;
+          targetYaw = 0;
+          targetPitch = -0.04;
+          astronautBodyYaw = 0;
+          prevAstronautYaw = 0;
+          astronautSeatedInBridge = true;
           pv = 1;
-          cabinFirstPerson = true;
+          cabinFirstPerson = false;
+          camViewBlend = 1.0;
           astronaut3D.root.visible = false;
           astronaut3D.firstPersonHands.visible = false;
-          if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
+          if (articulatedAstronaut) {
+            articulatedAstronaut.root.position.copy(astronautPos);
+            articulatedAstronaut.root.rotation.y = 0;
+            articulatedAstronaut.root.visible = true;
+            articulatedAstronaut.updateAnimation(0.016, ASTRONAUT_ANIMATION_STATES.SEATED_COMMAND, {
+              speed: 0,
+              bankRoll: 0,
+              headPitch: astronautPitch,
+              isSeatedCommand: true,
+            });
+          }
+          S.onCabinFirstPersonChange?.(false);
+          S.onSeatedStateChange?.(true);
           ship.visible = false;
           localCabinWorld.visible = true;
-          fourDecksInterior?.setActiveVisibleDeck?.(resolveCurrentDeck(astronautPos)?.id || currentLockedDeckId, { showAll: false });
+          fourDecksInterior?.setActiveVisibleDeck?.('deck-01', { showAll: false });
           emitPointerLockState();
           const cabinFov = Math.min(fovBase, 42);
           localCam.near = 0.05;
@@ -5820,9 +6021,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           cam.updateProjectionMatrix();
 
           const pilotEyeLocal = new V(
-            astronautPos.x,
-            astronautPos.y + SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS,
-            astronautPos.z,
+            astronautPos.x + 0.38,
+            astronautPos.y + 1.48,
+            astronautPos.z + 2.15,
           ).applyQuaternion(q);
           localCam.position.copy(pilotEyeLocal);
           localCam.quaternion.copy(q);
@@ -5978,9 +6179,25 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           if (deckTransitState?.active && hasManualThrustInput) {
             deckTransitState = null;
           }
+          if (astronautSeatedInBridge && hasManualThrustInput) {
+            standUpFromBridgeSeat();
+          }
 
           let mgResult;
-          if (isElevatorTransitLocked) {
+          if (astronautSeatedInBridge) {
+            astronautPos.copy(BRIDGE_COMMAND_SEAT_POS);
+            astronautVel.set(0, 0, 0);
+            microgravityController.setPosition(astronautPos);
+            mgResult = {
+              position: astronautPos,
+              velocity: astronautVel,
+              speed: 0,
+              mode: microgravityController.getMode(),
+              anchoredRailId: null,
+              isStabilizing: false,
+              isBoosting: false,
+            };
+          } else if (isElevatorTransitLocked) {
             deckTransitState = null;
             currentLockedDeckId = resolveCurrentDeck({ y: elSys.state.cabY }).id;
             astronautPos.y = elSys.state.cabY;
@@ -6084,7 +6301,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
           if (articulatedAstronaut) {
             let animState = ASTRONAUT_ANIMATION_STATES.IDLE_FLOAT;
-            if (isElevatorTransitLocked) {
+            if (astronautSeatedInBridge) {
+              animState = ASTRONAUT_ANIMATION_STATES.SEATED_COMMAND;
+            } else if (isElevatorTransitLocked) {
               animState = ASTRONAUT_ANIMATION_STATES.GRAB_RAIL;
             } else if (mgResult.anchoredRailId) {
               animState = ASTRONAUT_ANIMATION_STATES.GRAB_RAIL;
@@ -6102,13 +6321,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               animState = ASTRONAUT_ANIMATION_STATES.HAND_PUSH;
             }
             articulatedAstronaut.root.position.copy(astronautPos);
-            articulatedAstronaut.root.rotation.y = astronautBodyYaw;
+            articulatedAstronaut.root.rotation.y = astronautSeatedInBridge ? 0 : astronautBodyYaw;
             articulatedAstronaut.root.visible = !cabinFirstPerson || camViewBlend > 0.25 || pv === 3 || exteriorCameraMode;
             articulatedAstronaut.updateAnimation(dt, animState, {
               speed: currentSpeed,
-              bankRoll,
+              bankRoll: astronautSeatedInBridge ? 0 : bankRoll,
               headPitch: astronautPitch,
               isElevatorRide: isElevatorTransitLocked,
+              isSeatedCommand: astronautSeatedInBridge,
             });
           }
 
@@ -6289,11 +6509,28 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
           }
 
-          // Prompt [E] priorizando Raycast central de cámara + respaldo por proximidad y mirada
+          // Prompt [E] priorizando sillón de mando inicial, Raycast central de cámara + respaldo por proximidad y mirada
           _gazeEyePos.set(eyeX, eyeY, eyeZ);
           _gazeLookDir.set(0, 0, -1).applyQuaternion(localLookQuat).normalize();
           if (isElevatorTransitLocked || exteriorCameraMode || pv !== 1) {
             nearestCabinStation = null;
+          } else if (astronautSeatedInBridge) {
+            nearestCabinStation = {
+              station: {
+                id: 'stand-up-seat',
+                kind: 'direct',
+                deckId: 'deck-01',
+                label: 'Sillón de Mando Central (Puente de Mando)',
+                title: 'Sillón de Mando Central (Puente de Mando)',
+                actionLabel: 'Levantarse [E / WASD]',
+                directAction: true,
+                tag: 'PUENTE DE MANDO',
+                position: { x: 0, y: 3.4, z: -9.85 },
+                consolePos: { x: 0, y: 4.35, z: -10.65 },
+                aiHoverPos: { x: 1.35, y: 5.05, z: -10.25 },
+              },
+              distance: 0.4,
+            };
           } else {
             let rayMatched = null;
             const activeInteractMeshes =
@@ -6430,7 +6667,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           }
           if (guidedTourState && guidedTourState.step === 'bridge' && nearId === 'nav') {
             setTourStep('nav', 'nav');
-            S.onGuideObjective?.('OBJETIVO: Acércate a la consola de navegación y úsala con E.');
+            S.onGuideObjective?.('PASO 2/4 · CONSOLA DE CONTROL: Acércate a la consola de navegación en el Puente y úsala con [E].');
+          }
+          if (guidedTourState && guidedTourState.step === 'elevator_c03' && activeDeck?.id === 'deck-03') {
+            setTourStep('science', 'science');
+            S.onAiTourNarrative?.(
+              tourNarratives.science,
+              'Orientación',
+              'science',
+              { id: 'tut-step-science', priority: 8, replace: true },
+            );
           }
           if (guidedTourState?.focus && nearId === guidedTourState.focus && !guidedTourState.proximityAnnounced) {
             guidedTourState.proximityAnnounced = true;
@@ -7918,17 +8164,38 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     getMechanismsState: () =>
       fourDecksInterior?.mechanisms?.state ? { ...fourDecksInterior.mechanisms.state } : null,
     activateNearestStation: () => {
+      if (astronautSeatedInBridge) {
+        return standUpFromBridgeSeat();
+      }
       if (!nearestCabinStation?.station) return false;
+      if (nearestCabinStation.station.id === 'stand-up-seat') {
+        return standUpFromBridgeSeat();
+      }
       triggerCabinStationInteraction(nearestCabinStation.station.id, nearestCabinStation.station);
       return true;
     },
+    standUpFromBridgeSeat,
+    isAstronautSeated: () => astronautSeatedInBridge,
     setRepairMissionStage: (stage) => {
       activeRepairStage = Math.max(0, Math.min(4, Number(stage) || 0));
       return activeRepairStage;
     },
     getRepairMissionStage: () => activeRepairStage,
     getAsteroidBelt: () => realisticAsteroidBelt,
-    identifyTargetUnderCrosshair: () => naturalGalaxySky?.identifyTargetUnderCrosshair?.(cam) || null,
+    identifyTargetUnderCrosshair: () => {
+      if (
+        free &&
+        pv === 1 &&
+        !exteriorCameraMode &&
+        !opticalTelescopeState.enabled &&
+        !freeHelmMode &&
+        activeCabinStation !== 'windows' &&
+        activeCabinStation !== 'nav'
+      ) {
+        return null;
+      }
+      return naturalGalaxySky?.identifyTargetUnderCrosshair?.(cam) || null;
+    },
     verifyFloatingOriginPrecision,
     computeDoublePrecisionRelativeVector,
   };

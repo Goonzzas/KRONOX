@@ -476,3 +476,843 @@
   pointer-events: none;
   z-index: 24;
 }
+
+/* =========================================================================
+   HUD SUPERIOR DISCRETO — ACCESOS A BITÁCORA [J], INVENTARIO E IA [K]
+   ========================================================================= */
+.kronoxTopPersonalActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kronoxHudQuickBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(11, 22, 40, 0.84);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+}
+
+.kronoxHudQuickBtn:hover {
+  background: rgba(14, 165, 233, 0.22);
+  border-color: #38bdf8;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.kronoxHudQuickBtn.is-ai-consult {
+  background: linear-gradient(135deg, rgba(8, 47, 73, 0.9), rgba(15, 23, 42, 0.92));
+  border-color: rgba(56, 189, 248, 0.52);
+  color: #7dd3fc;
+}
+
+/* =========================================================================
+   SUBTÍTULO CINEMATOGRÁFICO INFERIOR CENTRADO DE KRONOX IA
+   ========================================================================= */
+.kronoxCinematicSubtitleBar {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  width: min(820px, calc(100vw - 32px));
+  z-index: 82;
+  padding: 12px 20px 14px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(6, 13, 25, 0.88) 0%, rgba(4, 9, 18, 0.94) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.34);
+  box-shadow:
+    0 14px 38px rgba(0, 0, 0, 0.72),
+    0 0 24px rgba(14, 165, 233, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: #f8fafc;
+  animation: kronoxSubtitleSlideUp 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes kronoxSubtitleSlideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.kronoxCinematicSubtitleBar.is-tutorial {
+  border-color: rgba(251, 191, 36, 0.48);
+  box-shadow:
+    0 14px 38px rgba(0, 0, 0, 0.72),
+    0 0 24px rgba(245, 158, 11, 0.14);
+}
+
+.kronoxCinematicSubtitleBar.is-response {
+  border-color: rgba(52, 211, 153, 0.46);
+  box-shadow:
+    0 14px 38px rgba(0, 0, 0, 0.72),
+    0 0 24px rgba(16, 185, 129, 0.14);
+}
+
+.kronoxSubtitleHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.kronoxSubtitleIdentity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kronoxSubtitleOrbIcon {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(56, 189, 248, 0.24);
+  border: 1px solid rgba(125, 211, 252, 0.7);
+}
+
+.kronoxSubtitleOrbIcon.is-pulsing {
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.85);
+}
+
+.kronoxSubtitleOrbCore {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7dd3fc;
+}
+
+.kronoxSubtitleSpeakerName {
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #e0f2fe;
+}
+
+.kronoxSubtitleCategoryBadge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  color: #7dd3fc;
+}
+
+.kronoxSubtitleCategoryBadge.is-tutorial {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(251, 191, 36, 0.45);
+  color: #fde68a;
+}
+
+.kronoxSubtitleCategoryBadge.is-response {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #6ee7b7;
+}
+
+.kronoxSubtitleVoiceWave {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 12px;
+}
+
+.kronoxSubtitleVoiceWave i {
+  display: block;
+  width: 2.5px;
+  height: calc(4px + var(--bar-level, 0.4) * 7px);
+  max-height: 12px;
+  border-radius: 2px;
+  background: #38bdf8;
+  transition: height 90ms ease;
+}
+
+.kronoxSubtitleControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.kronoxSubtitleGhostBtn {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kronoxSubtitleGhostBtn:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #f8fafc;
+}
+
+.kronoxSubtitleGhostBtn.is-consult {
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #7dd3fc;
+}
+
+.kronoxSubtitleGhostBtn.is-warning {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(251, 191, 36, 0.52);
+  color: #fde68a;
+}
+
+.kronoxSubtitleCloseBtn {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kronoxSubtitleCloseBtn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fecaca;
+}
+
+.kronoxSubtitleText {
+  margin: 0;
+  font-size: 0.96rem;
+  line-height: 1.5;
+  color: #f8fafc;
+  text-align: center;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+}
+
+/* =========================================================================
+   MODAL DE CONSULTA A KRONOX IA (BAJO DEMANDA [K])
+   ========================================================================= */
+.kronoxConsultModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 145;
+  background: rgba(3, 8, 18, 0.76);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.kronoxConsultModalCard {
+  width: min(680px, 95vw);
+  max-height: min(620px, 88vh);
+  background: linear-gradient(160deg, rgba(8, 18, 36, 0.97) 0%, rgba(4, 10, 22, 0.99) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  border-radius: 16px;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.82), 0 0 32px rgba(14, 165, 233, 0.16);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #f1f5f9;
+}
+
+.kronoxConsultModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  background: rgba(6, 14, 28, 0.88);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.22);
+}
+
+.kronoxConsultKicker {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #38bdf8;
+}
+
+.kronoxConsultTitle {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  color: #f8fafc;
+}
+
+.kronoxConsultBody {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.kronoxConsultIntro {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.kronoxConsultLastReply {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(14, 165, 233, 0.09);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.kronoxConsultReplyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.kronoxConsultLastReply p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #f1f5f9;
+}
+
+.kronoxConsultSectionLabel {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #7dd3fc;
+  margin-bottom: 8px;
+}
+
+.kronoxConsultChipGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.kronoxConsultChip {
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #cbd5e1;
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kronoxConsultChip:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.kronoxConsultChip.is-highlight {
+  border-color: rgba(251, 191, 36, 0.5);
+  color: #fde68a;
+}
+
+.kronoxConsultInputRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.kronoxConsultInputRow input {
+  flex: 1;
+  padding: 9px 13px;
+  border-radius: 9px;
+  background: rgba(2, 6, 16, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #f8fafc;
+  font-size: 0.86rem;
+  outline: none;
+}
+
+.kronoxConsultInputRow input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+}
+
+.kronoxConsultMicBtn {
+  padding: 8px 12px;
+  border-radius: 9px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.kronoxConsultSendBtn {
+  padding: 9px 16px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  border: 1px solid #38bdf8;
+  color: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* =========================================================================
+   TERMINAL PERSONAL DEL ASTRONAUTA — DIARIO, MANUAL E INVENTARIO [J]
+   ========================================================================= */
+.kronoxPersonalHubBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 155;
+  background: rgba(2, 6, 16, 0.84);
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.kronoxPersonalHubModal {
+  width: min(1120px, 96vw);
+  height: min(760px, 90vh);
+  background: linear-gradient(165deg, rgba(8, 16, 32, 0.98) 0%, rgba(4, 9, 20, 0.99) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  border-radius: 16px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.85), 0 0 40px rgba(14, 165, 233, 0.14);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #f1f5f9;
+}
+
+.kronoxPersonalHubHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 22px;
+  background: rgba(5, 11, 24, 0.92);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.22);
+  flex-wrap: wrap;
+}
+
+.kronoxPersonalHubBrand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kronoxPersonalHubLogo {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+}
+
+.kronoxPersonalHubKicker {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #38bdf8;
+}
+
+.kronoxPersonalHubTitle {
+  margin: 2px 0 0;
+  font-size: 1.12rem;
+  letter-spacing: 0.06em;
+  color: #f8fafc;
+}
+
+.kronoxPersonalHubTabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kronoxHubTabBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 15px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.kronoxHubTabBtn.is-active,
+.kronoxHubTabBtn:hover {
+  background: rgba(14, 165, 233, 0.22);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.kronoxPersonalHubHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kronoxHubActionBtn,
+.kronoxHubCloseBtn {
+  padding: 7px 13px;
+  border-radius: 9px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #e2e8f0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kronoxHubCloseBtn:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fecaca;
+}
+
+.kronoxPersonalHubStatusBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 22px;
+  background: rgba(10, 20, 38, 0.75);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  font-size: 0.75rem;
+  color: #94a3b8;
+  flex-wrap: wrap;
+}
+
+.kronoxPersonalHubStatusBar strong {
+  color: #7dd3fc;
+}
+
+.kronoxPersonalHubBody {
+  flex: 1;
+  padding: 18px 22px;
+  overflow-y: auto;
+}
+
+.kronoxJournalGrid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 18px;
+}
+
+@media (max-width: 900px) {
+  .kronoxJournalGrid,
+  .kronoxInventoryLayout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.kronoxHubColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.kronoxHubCard {
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: rgba(12, 22, 42, 0.78);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+}
+
+.kronoxHubCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.kronoxHubCardHeader h3 {
+  margin: 4px 0 0;
+  font-size: 1rem;
+  color: #f8fafc;
+}
+
+.kronoxHubSectionBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  background: rgba(56, 189, 248, 0.15);
+  color: #7dd3fc;
+}
+
+.kronoxHubSectionBadge.is-tutorial {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fde68a;
+}
+
+.kronoxHubSectionBadge.is-ai {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+}
+
+.kronoxHubMiniBtn {
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(14, 165, 233, 0.16);
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  color: #bae6fd;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.kronoxHubActiveObjectiveBanner {
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.42);
+  color: #fef3c7;
+  font-size: 0.8rem;
+  margin-bottom: 12px;
+}
+
+.kronoxTutorialChecklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kronoxTutorialStepRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: rgba(6, 12, 24, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.kronoxTutorialStepRow.is-active {
+  border-color: rgba(251, 191, 36, 0.55);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.kronoxTutorialStepRow.is-done {
+  border-color: rgba(52, 211, 153, 0.38);
+  opacity: 0.88;
+}
+
+.kronoxTutorialCheckIcon {
+  font-weight: 800;
+  color: #38bdf8;
+}
+
+.kronoxTutorialStepTitle {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.kronoxTutorialStepDetail {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.kronoxHubMetricsRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.kronoxHubMetricBox {
+  padding: 10px;
+  border-radius: 9px;
+  background: rgba(4, 9, 20, 0.72);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  text-align: center;
+}
+
+.kronoxHubMetricVal {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #38bdf8;
+}
+
+.kronoxHubMetricLbl {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.kronoxHubScrollList {
+  max-height: 210px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kronoxHubAiLogItem,
+.kronoxHubEventRow {
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: rgba(4, 9, 20, 0.68);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  font-size: 0.8rem;
+}
+
+.kronoxHubAiLogMeta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.kronoxHubAiLogItem p {
+  margin: 0;
+  color: #e2e8f0;
+  line-height: 1.42;
+}
+
+.kronoxManualSubnav,
+.kronoxInventoryCategoryBar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.kronoxManualSubBtn {
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.kronoxManualSubBtn.is-active {
+  background: rgba(14, 165, 233, 0.22);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.kronoxManualDeckGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.kronoxManualDeckCard,
+.kronoxManualInstrumentCard {
+  padding: 15px 17px;
+  border-radius: 12px;
+  background: rgba(12, 22, 42, 0.78);
+  border: 1px solid rgba(56, 189, 248, 0.24);
+}
+
+.kronoxInventoryLayout {
+  display: grid;
+  grid-template-columns: 1.25fr 0.85fr;
+  gap: 18px;
+}
+
+.kronoxInventoryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.kronoxInventoryItemCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  background: rgba(12, 22, 42, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #f1f5f9;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kronoxInventoryItemCard.is-selected {
+  border-color: #38bdf8;
+  background: rgba(14, 165, 233, 0.18);
+}
+
+.kronoxInventoryItemCard.is-locked {
+  opacity: 0.55;
+}
+
+.kronoxInventoryItemIcon {
+  font-size: 1.45rem;
+}
+
+.kronoxInventoryItemTitle {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.kronoxInventoryItemCat {
+  font-size: 0.68rem;
+  color: #94a3b8;
+}
+
+.kronoxInventoryDetailPane {
+  padding: 18px;
+  border-radius: 12px;
+  background: rgba(10, 19, 36, 0.9);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kronoxInventoryActionBtn {
+  padding: 10px 14px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  border: 1px solid #38bdf8;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
