@@ -768,6 +768,8 @@
   border-color: transparent;
   background: transparent;
   box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   pointer-events: auto;
 }
 .kronox-title-btn:hover,
