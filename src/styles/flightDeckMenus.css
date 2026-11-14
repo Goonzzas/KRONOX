@@ -749,7 +749,7 @@
   .kronox-title-btn.is-primary:focus-visible { transform: perspective(760px) rotateY(3deg) translateX(6px) translateZ(18px); }
 }
 
-/* Keep the real button rectangle as the hit target; only its glass face tilts. */
+/* Keep the hit target visually clear; the pseudo-element alone draws and animates the glass face. */
 .kronox-title-btn,
 .kronox-title-btn:nth-child(2),
 .kronox-title-btn:nth-child(3),
