@@ -89,7 +89,8 @@ function apiDevServerPlugin() {
       );
     },
     configurePreviewServer(server) {
-      server.middlewares.use(handleApi);
+      // Connect treats 4-arg functions (req, res, next, loadModule) as error middleware; wrap as 3-arg.
+      server.middlewares.use((req, res, next) => handleApi(req, res, next));
     },
   };
 }

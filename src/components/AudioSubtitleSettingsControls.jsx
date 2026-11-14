@@ -1,4 +1,5 @@
 import React from 'react';
+import { GEMINI_TTS_VOICES } from '../utils/voiceProvider.js';
 
 function VolumeSliderRow({ id, label, description, value, onChange }) {
   const pct = Math.round((Number.isFinite(value) ? value : 0.8) * 100);
@@ -36,7 +37,9 @@ export function AudioSettingsGroup({
   onUpdateSetting,
   voiceMuted = false,
   onToggleVoiceMute,
+  onTestVoice,
 }) {
+  const activeVoiceName = gameSettings.voiceName || 'Charon';
   return (
     <div className="kronox-settings-group">
       <VolumeSliderRow
@@ -79,6 +82,35 @@ export function AudioSettingsGroup({
         >
           {voiceMuted ? 'Voz Silenciada (Activar)' : 'Voz Activa (Silenciar)'}
         </button>
+      </div>
+      <div className="kronox-setting-row">
+        <div>
+          <strong>Timbre neuronal de KRONOX IA (Google Gemini)</strong>
+          <p>Locución de estudio en alta definición con rotación automática de claves en servidor.</p>
+        </div>
+        <div className="kronox-voice-picker-control">
+          <select
+            aria-label="Timbre de voz de KRONOX IA"
+            className="kronox-setting-select"
+            value={activeVoiceName}
+            onChange={(e) => onUpdateSetting('voiceName', e.target.value)}
+          >
+            {GEMINI_TTS_VOICES.map((voiceOpt) => (
+              <option key={voiceOpt.id} value={voiceOpt.id}>
+                {voiceOpt.label}
+              </option>
+            ))}
+          </select>
+          {onTestVoice && (
+            <button
+              type="button"
+              className="kronox-pause-secondary-btn"
+              onClick={() => onTestVoice(activeVoiceName)}
+            >
+              Probar voz
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

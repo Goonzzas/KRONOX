@@ -55,6 +55,7 @@ export default function PauseMenu({
   activeObjective = null,
   voiceMuted = false,
   onToggleVoiceMute,
+  onTestVoice,
   onRepeatLastKronoxMessage,
   gameSettings = {},
   onUpdateGameSettings,
@@ -706,6 +707,7 @@ export default function PauseMenu({
                     onUpdateSetting={updateSetting}
                     voiceMuted={voiceMuted}
                     onToggleVoiceMute={onToggleVoiceMute}
+                    onTestVoice={onTestVoice}
                   />
                 )}
 

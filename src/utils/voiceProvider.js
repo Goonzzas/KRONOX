@@ -1,5 +1,13 @@
-/** Provider contract for existing voice and server-side Fish Audio adapters. No keys in client. */
+/** Provider contract for existing voice and server-side Fish Audio / Gemini TTS adapters. No keys in client. */
 export const FISH_AUDIO_VOICE_ID = '8150d8bf74d245cd84a154b785aa7fab';
+
+export const GEMINI_TTS_VOICES = Object.freeze([
+  { id: 'Charon', label: 'Charon · Documental Espacial (Por defecto)' },
+  { id: 'Orus', label: 'Orus · Comandante Técnico' },
+  { id: 'Kore', label: 'Kore · IA Femenina Nítida' },
+  { id: 'Aoede', label: 'Aoede · Narradora Serena' },
+  { id: 'Iapetus', label: 'Iapetus · Estudio Equilibrado' },
+]);
 
 export function createHttpVoiceProvider({
   id = 'legacy-irsa-game-voice',

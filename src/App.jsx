@@ -223,6 +223,7 @@ export default function App() {
         musicVolume: 0.7,
         sfxVolume: 0.65,
         voiceVolume: 0.95,
+        voiceName: 'Charon',
         showTelescopeTelemetry: true,
       };
       try {
@@ -588,13 +589,21 @@ export default function App() {
     }
     stopAudioAnalysis();
 
-    // Keep short captions in one request, avoiding gaps between individual sentences.
+    // Mantener locuciones completas en un solo bloque fluido (hasta 480 caracteres para síntesis Gemini de estudio)
     const parts = [];
     let remaining = cleanMsg;
-    while (remaining.length > 170) {
-      let cut = remaining.lastIndexOf(' ', 170);
-      if (cut < 60) cut = 170;
-      parts.push(remaining.slice(0, cut));
+    while (remaining.length > 480) {
+      let cut = -1;
+      for (const sep of ['. ', '? ', '! ', '; ', ', ']) {
+        const idx = remaining.lastIndexOf(sep, 480);
+        if (idx >= 180) {
+          cut = idx + 1;
+          break;
+        }
+      }
+      if (cut < 0) cut = remaining.lastIndexOf(' ', 480);
+      if (cut < 120) cut = 480;
+      parts.push(remaining.slice(0, cut).trim());
       remaining = remaining.slice(cut).trim();
     }
     if (remaining) parts.push(remaining);
@@ -703,14 +712,23 @@ export default function App() {
 
     const createPreloadedAudio = (textSegment, useFallbackEndpoint = false) => {
       if (typeof Audio === 'undefined') return null;
+      const selectedVoice = options.voiceName || gameSettingsRef.current?.voiceName || 'Charon';
       const audioUrl =
         useFallbackEndpoint && voiceProvider.fallbackAudioUrl
-          ? voiceProvider.fallbackAudioUrl({ text: textSegment, language: voiceAccentRef.current })
-          : voiceProvider.audioUrl({ text: textSegment, language: voiceAccentRef.current });
+          ? voiceProvider.fallbackAudioUrl({
+            text: textSegment,
+            language: voiceAccentRef.current,
+            voiceId: selectedVoice,
+          })
+          : voiceProvider.audioUrl({
+            text: textSegment,
+            language: voiceAccentRef.current,
+            voiceId: selectedVoice,
+          });
       const a = new Audio();
       a.src = audioUrl;
       a.preload = 'auto';
-      a.playbackRate = 1.02;
+      a.playbackRate = 1.0;
       a.preservesPitch = true;
       a.volume = Math.max(
         0,
@@ -816,6 +834,21 @@ export default function App() {
       if (pendingText) {
         speak(pendingText, { interrupt: false });
       }
+    },
+    handleToggleVoiceMute = () => {
+      const next = !voice;
+      voiceRef.current = next;
+      setVoice(next);
+      if (!next) stopVoiceAndClearQueue();
+    },
+    handleTestVoice = (voiceNameToTest) => {
+      voiceRef.current = true;
+      setVoice(true);
+      const testMsg =
+        language === 'en'
+          ? 'I am KRONOX AI. All navigation and SPHEREx scientific instruments are online.'
+          : 'Soy KRONOX IA. Todos los sistemas científicos y de navegación están en línea bajo tu mando.';
+      speak(testMsg, { interrupt: true, voiceName: voiceNameToTest });
     },
     toggleIntroPause = () => {
       const nextPaused = !introPausedRef.current;
@@ -1184,8 +1217,13 @@ export default function App() {
   useEffect(() => {
     if (realTimeIntroActive) {
       if (!introPaused) introSoundtrackRef.current?.start();
-      // Precarga anticipada de las 10 locuciones (Acto I Cósmico + Acto II Nave KRONOX)
-      if (typeof Audio !== 'undefined') {
+      // Precarga escalonada de las 10 locuciones (concurrencia acotada y caché WAV en servidor)
+      if (
+        typeof Audio !== 'undefined' &&
+        typeof fetch === 'function' &&
+        typeof window !== 'undefined' &&
+        !window.__KRONOX_SCENE_HARNESS__
+      ) {
         const introTexts = [
           'Durante siglos, contemplamos el universo desde un pequeño mundo, buscando respuestas entre las estrellas.',
           'Observatorios como NASA SPHEREx abrieron una nueva ventana infrarroja, permitiéndonos ver aquello que nuestros ojos no pueden alcanzar.',
@@ -1198,21 +1236,58 @@ export default function App() {
           'En ingeniería, el reactor toroidal de fusión y la propulsión magnetoplasmadinámica garantizan la energía y autonomía necesarias para viajar más allá de nuestro sistema.',
           'Soy KRONOX IA. Todos los sistemas científicos y de navegación están en línea bajo tu mando; comienza tu expedición analizando tu primer objetivo.',
         ];
-        introTexts.forEach((text) => {
-          try {
-            const url = voiceProvider.audioUrl({ text, language: voiceAccentRef.current });
-            const pre = new Audio();
-            pre.preload = 'auto';
-            pre.src = url;
-          } catch {
-            /* ignore prefetch error */
+        const selectedVoice = gameSettingsRef.current?.voiceName || 'Charon';
+        (async () => {
+          for (let idx = 0; idx < introTexts.length; idx += 3) {
+            if (!voiceRef.current || !realTimeIntroActiveRef.current) break;
+            const batch = introTexts.slice(idx, idx + 3);
+            await Promise.allSettled(
+              batch.map((text) =>
+                fetch(
+                  voiceProvider.audioUrl({
+                    text,
+                    language: voiceAccentRef.current,
+                    voiceId: selectedVoice,
+                  }),
+                ).catch(() => {}),
+              ),
+            );
           }
-        });
+        })();
       }
     } else {
       introSoundtrackRef.current?.fadeOut?.(2.5);
     }
   }, [realTimeIntroActive]);
+  useEffect(() => {
+    if (
+      !(welcomeOpen || showFullMainMenu) ||
+      !voiceRef.current ||
+      typeof Audio === 'undefined' ||
+      typeof fetch !== 'function' ||
+      typeof window === 'undefined' ||
+      window.__KRONOX_SCENE_HARNESS__
+    ) {
+      return undefined;
+    }
+    const warmupTexts = [
+      'Durante siglos, contemplamos el universo desde un pequeño mundo, buscando respuestas entre las estrellas.',
+      'Observatorios como NASA SPHEREx abrieron una nueva ventana infrarroja, permitiéndonos ver aquello que nuestros ojos no pueden alcanzar.',
+    ];
+    const selectedVoice = gameSettingsRef.current?.voiceName || 'Charon';
+    const timer = setTimeout(() => {
+      warmupTexts.forEach((text) => {
+        fetch(
+          voiceProvider.audioUrl({
+            text,
+            language: voiceAccentRef.current,
+            voiceId: selectedVoice,
+          }),
+        ).catch(() => {});
+      });
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [welcomeOpen, showFullMainMenu]);
   useEffect(() => {
     try {
       localStorage.setItem('kronox-game-settings-v1', JSON.stringify(gameSettings));
@@ -2471,7 +2546,11 @@ export default function App() {
       voice,
       language,
       accent: voiceAccent,
-      voiceError: voiceError || (fishVoiceStatus?.configured === false ? 'La voz de Fish Audio necesita configurar su clave. Mientras tanto se usa la voz alternativa.' : ''),
+      voiceError:
+        voiceError ||
+        (fishVoiceStatus?.configured === false && !fishVoiceStatus?.geminiTts?.configured
+          ? 'No hay servicio de síntesis de voz externo configurado en servidor; se usará la voz alternativa.'
+          : ''),
       near,
       onAccentChange: setVoiceAccent,
       onMore: setMore,
@@ -3123,12 +3202,8 @@ export default function App() {
       activeMissionId: missionTargetKey,
       activeObjective: guideObjective,
       voiceMuted: !voice,
-      onToggleVoiceMute: () => {
-        const next = !voice;
-        voiceRef.current = next;
-        setVoice(next);
-        if (!next) stopVoiceAndClearQueue();
-      },
+      onToggleVoiceMute: handleToggleVoiceMute,
+      onTestVoice: handleTestVoice,
       onRepeatLastKronoxMessage: () => {
         const lastMsg = narrativeQueue.repeat();
         if (lastMsg && voiceRef.current) speak(lastMsg.text);
@@ -3165,12 +3240,8 @@ export default function App() {
       gameSettings,
       onUpdateGameSettings: setGameSettings,
       voiceMuted: !voice,
-      onToggleVoiceMute: () => {
-        const next = !voice;
-        voiceRef.current = next;
-        setVoice(next);
-        if (!next) stopVoiceAndClearQueue();
-      },
+      onToggleVoiceMute: handleToggleVoiceMute,
+      onTestVoice: handleTestVoice,
       quality,
       onQualityChange: setQuality,
       visualProfile,

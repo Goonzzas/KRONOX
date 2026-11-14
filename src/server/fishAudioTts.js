@@ -1,4 +1,5 @@
 import fallbackVoiceHandler from '../../api/voice.js';
+import { getGeminiTtsStatus } from './geminiTts.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -237,18 +238,34 @@ export default async function fishTtsHandler(req, res) {
 
   if (query.status === '1' || query.verify === '1') {
     const status = await verifyFishVoiceAccess(query.reference_id || FISH_AUDIO_VOICE_ID);
+    const geminiTts = getGeminiTtsStatus();
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(200).json(status);
+    return res.status(200).json({
+      ...status,
+      geminiTts,
+      activeProvider: status.accessible
+        ? 'fish-audio'
+        : geminiTts.configured
+          ? 'gemini-2.5-flash-tts'
+          : 'fallback',
+    });
   }
 
   const text = String(query.text || '')
     .trim()
-    .slice(0, 650);
+    .slice(0, 900);
   if (!text) {
     return res.status(400).json({ error: 'Missing text' });
   }
 
   const referenceId = sanitizeReferenceId(query.reference_id || FISH_AUDIO_VOICE_ID);
+  const preferGemini =
+    String(query.provider || '').trim().toLowerCase() === 'gemini' || !getServerFishApiKey();
+
+  if (preferGemini) {
+    res.setHeader('X-Kronox-Voice-Reference', referenceId);
+    return fallbackVoiceHandler(req, res);
+  }
 
   try {
     const result = await synthesizeWithFishAudio({
@@ -262,7 +279,6 @@ export default async function fishTtsHandler(req, res) {
     res.setHeader('X-Kronox-TTS-Cache', result.cached ? 'HIT' : 'MISS');
     return res.status(200).send(result.buffer);
   } catch (_fishError) {
-    res.setHeader('X-Kronox-TTS-Provider', 'fallback-voice');
     res.setHeader('X-Kronox-Voice-Reference', referenceId);
     return fallbackVoiceHandler(req, res);
   }

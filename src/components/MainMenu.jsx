@@ -24,6 +24,7 @@ export default function MainMenu({
   onUpdateGameSettings,
   voiceMuted = false,
   onToggleVoiceMute,
+  onTestVoice,
   quality = 'auto',
   onQualityChange,
   visualProfile = 'cinematic',
@@ -283,6 +284,7 @@ export default function MainMenu({
               onUpdateSetting={updateSetting}
               voiceMuted={voiceMuted}
               onToggleVoiceMute={onToggleVoiceMute}
+              onTestVoice={onTestVoice}
             />
           )}
 
