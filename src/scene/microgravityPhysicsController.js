@@ -22,10 +22,20 @@ export function createMicrogravityPhysicsController({
   let activeMode = mode;
   let anchoredRailId = null;
 
-  const baseAccelMps2 = 5.2;
-  const boostMult = 2.1;
-  const maxAssistedSpeed = 3.2;
-  const maxFreeSpeed = 4.6;
+  const baseAccelMps2 = 5.4;
+  const boostMult = 2.05;
+  const maxAssistedSpeed = 3.25;
+  const maxFreeSpeed = 4.65;
+
+  // Vectores reutilizables para eliminar asignaciones por fotograma (cero presión al GC)
+  const _fwdVec = new THREE.Vector3();
+  const _rightVec = new THREE.Vector3();
+  const _upVec = new THREE.Vector3(0, 1, 0);
+  const _thrustDir = new THREE.Vector3();
+  const _prevPos = new THREE.Vector3();
+  const _intended = new THREE.Vector3();
+  const _outPos = new THREE.Vector3();
+  const _outVel = new THREE.Vector3();
 
   function setMode(nextMode) {
     if (Object.values(MICROGRAVITY_MODES).includes(nextMode)) {
@@ -58,9 +68,11 @@ export function createMicrogravityPhysicsController({
 
     if (anchoredRailId) {
       velocity.set(0, 0, 0);
+      _outPos.copy(position);
+      _outVel.copy(velocity);
       return {
-        position: position.clone(),
-        velocity: velocity.clone(),
+        position: _outPos,
+        velocity: _outVel,
         speed: 0,
         mode: activeMode,
         anchoredRailId,
@@ -73,54 +85,54 @@ export function createMicrogravityPhysicsController({
     const strafe = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
     const vert = (keys[' '] || keys.space ? 1 : 0) - (keys.control || keys.ctrl || keys.q ? 1 : 0);
 
-    const forwardVec = new THREE.Vector3(0, 0, -1).applyQuaternion(viewQuat).normalize();
-    const rightVec = new THREE.Vector3(1, 0, 0).applyQuaternion(viewQuat).normalize();
-    const upVec = new THREE.Vector3(0, 1, 0);
+    _fwdVec.set(0, 0, -1).applyQuaternion(viewQuat).normalize();
+    _rightVec.set(1, 0, 0).applyQuaternion(viewQuat).normalize();
 
-    const thrustDir = new THREE.Vector3()
-      .addScaledVector(forwardVec, fwd)
-      .addScaledVector(rightVec, strafe)
-      .addScaledVector(upVec, vert);
+    _thrustDir
+      .set(0, 0, 0)
+      .addScaledVector(_fwdVec, fwd)
+      .addScaledVector(_rightVec, strafe)
+      .addScaledVector(_upVec, vert);
 
-    const hasThrust = thrustDir.lengthSq() > 1e-4;
+    const hasThrust = _thrustDir.lengthSq() > 1e-4;
     if (hasThrust) {
-      thrustDir.normalize();
+      _thrustDir.normalize();
       const accel = baseAccelMps2 * (isBoosting ? boostMult : 1.0);
-      velocity.addScaledVector(thrustDir, accel * safeDt);
+      velocity.addScaledVector(_thrustDir, accel * safeDt);
     }
 
     if (isStabilizing) {
       velocity.multiplyScalar(Math.max(0, Math.exp(-safeDt * 6.8)));
     } else if (activeMode === MICROGRAVITY_MODES.ASSISTED && !hasThrust) {
-      // Smooth RCS auto-damping brings drift gently to rest when no thrusters fire
-      velocity.multiplyScalar(Math.max(0, Math.exp(-safeDt * 2.8)));
+      // Amortiguación progresiva suave al soltar impulsores
+      velocity.multiplyScalar(Math.max(0, Math.exp(-safeDt * 3.1)));
     } else if (activeMode === MICROGRAVITY_MODES.FREE) {
-      // Pure Newtonian conservation (minus minuscule air-drag in pressurized cabin)
       velocity.multiplyScalar(Math.max(0, Math.exp(-safeDt * 0.04)));
     }
 
     const speedLimit = (activeMode === MICROGRAVITY_MODES.FREE ? maxFreeSpeed : maxAssistedSpeed) * (isBoosting ? 1.45 : 1.0);
-    if (velocity.length() > speedLimit) {
+    const speedSq = velocity.lengthSq();
+    if (speedSq > speedLimit * speedLimit) {
       velocity.setLength(speedLimit);
-    }
-    if (velocity.length() < 0.004 && !hasThrust) {
+    } else if (speedSq < 1.6e-5 && !hasThrust) {
       velocity.set(0, 0, 0);
     }
 
-    const prevPos = position.clone();
+    _prevPos.copy(position);
     position.addScaledVector(velocity, safeDt);
     if (typeof clampPositionFn === 'function') {
       clampPositionFn(position);
-      // Dampen velocity along axes blocked cleanly by walls/bulkheads to avoid jitter
-      const intended = prevPos.clone().addScaledVector(velocity, safeDt);
-      if (Math.abs(position.x - intended.x) > 0.002) velocity.x *= 0.15;
-      if (Math.abs(position.y - intended.y) > 0.002) velocity.y *= 0.15;
-      if (Math.abs(position.z - intended.z) > 0.002) velocity.z *= 0.15;
+      _intended.copy(_prevPos).addScaledVector(velocity, safeDt);
+      if (Math.abs(position.x - _intended.x) > 0.002) velocity.x *= 0.12;
+      if (Math.abs(position.y - _intended.y) > 0.002) velocity.y *= 0.12;
+      if (Math.abs(position.z - _intended.z) > 0.002) velocity.z *= 0.12;
     }
 
+    _outPos.copy(position);
+    _outVel.copy(velocity);
     return {
-      position: position.clone(),
-      velocity: velocity.clone(),
+      position: _outPos,
+      velocity: _outVel,
       speed: Number(velocity.length().toFixed(3)),
       mode: activeMode,
       anchoredRailId,

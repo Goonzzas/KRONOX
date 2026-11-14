@@ -416,13 +416,21 @@ export function createAstronautCharacter3D() {
     }
   }
 
-  function updateAnimation(dt = 0.016, stateOverride = null) {
+  function updateAnimation(dt = 0.016, stateOverride = null, motionMeta = null) {
     if (stateOverride) setState(stateOverride);
-    clockT += dt;
+    const safeDt = Math.max(0.001, Math.min(0.08, Number(dt) || 0.016));
+    clockT += safeDt;
 
-    // Reset targets per pose then blend smoothly
-    let bobY = Math.sin(clockT * 1.45) * 0.035;
-    let bodyPitch = 0.06 * Math.sin(clockT * 1.1);
+    const speed = Math.max(0, Number(motionMeta?.speed ?? 0));
+    const speedRatio = Math.min(1.4, speed / 3.2);
+    const bankRoll = Math.max(-0.22, Math.min(0.22, Number(motionMeta?.bankRoll ?? 0)));
+    const headPitch = Math.max(-0.45, Math.min(0.45, Number(motionMeta?.headPitch ?? 0)));
+    const isElevatorRide = Boolean(motionMeta?.isElevatorRide);
+
+    // Objetivos articulares por estado con mezcla suave en microgravedad
+    let bobY = Math.sin(clockT * 1.45) * 0.032;
+    let bodyPitch = 0.05 * Math.sin(clockT * 1.1);
+    let bodyYaw = 0.0;
     let laX = 0.18,
       laZ = 0.14,
       leX = -0.35;
@@ -435,108 +443,127 @@ export function createAstronautCharacter3D() {
       rkX = 0.18;
     let rcsOpacity = 0.0;
 
-    switch (currentState) {
-      case ASTRONAUT_ANIMATION_STATES.IDLE_FLOAT: {
-        laX = 0.22 + Math.sin(clockT * 1.3) * 0.08;
-        raX = 0.18 + Math.cos(clockT * 1.2) * 0.08;
-        leX = -0.45;
-        reX = -0.42;
-        llX = -0.15 + Math.sin(clockT * 1.1) * 0.06;
-        rlX = 0.12 - Math.sin(clockT * 1.1) * 0.06;
-        break;
-      }
-      case ASTRONAUT_ANIMATION_STATES.HAND_PUSH: {
-        const s = Math.sin(clockT * 5.2);
-        bobY = Math.abs(s) * 0.025;
-        bodyPitch = 0.16;
-        laX = 0.45 + s * 0.35;
-        raX = 0.45 - s * 0.35;
-        leX = -0.55;
-        reX = -0.55;
-        llX = -0.25 + s * 0.25;
-        rlX = -0.25 - s * 0.25;
-        lkX = 0.45;
-        rkX = 0.45;
-        break;
-      }
-      case ASTRONAUT_ANIMATION_STATES.THRUSTER_BURST: {
-        bodyPitch = 0.24;
-        bobY = Math.sin(clockT * 7.5) * 0.018;
-        laX = -0.15;
-        laZ = 0.32;
-        raX = -0.15;
-        raZ = -0.32;
-        llX = 0.18;
-        rlX = 0.26;
-        lkX = 0.32;
-        rkX = 0.42;
-        rcsOpacity = 0.65 + 0.25 * Math.sin(clockT * 24);
-        break;
-      }
-      case ASTRONAUT_ANIMATION_STATES.GRAB_RAIL: {
-        bobY = 0;
-        bodyPitch = 0.08;
-        raX = 1.28;
-        raZ = 0.08;
-        reX = -0.45;
-        laX = 0.32;
-        leX = -0.35;
-        llX = -0.1;
-        rlX = 0.12;
-        break;
-      }
-      case ASTRONAUT_ANIMATION_STATES.STABILIZE: {
-        bodyPitch = 0.02;
-        laZ = 0.72;
-        raZ = -0.72;
-        laX = 0.28;
-        raX = 0.28;
-        llX = -0.22;
-        rlX = -0.22;
-        lkX = 0.42;
-        rkX = 0.42;
-        rcsOpacity = 0.48 + 0.22 * Math.cos(clockT * 20);
-        break;
-      }
-      case ASTRONAUT_ANIMATION_STATES.CONSOLE_WORK: {
-        bodyPitch = 0.04;
-        laX = 0.85 + Math.sin(clockT * 4.2) * 0.08;
-        raX = 0.88 + Math.cos(clockT * 4.8) * 0.08;
-        laZ = -0.12;
-        raZ = 0.12;
-        leX = -0.75;
-        reX = -0.75;
-        break;
-      }
-      case ASTRONAUT_ANIMATION_STATES.REPAIR_INTERACT: {
-        bodyPitch = 0.12;
-        raX = 1.05 + Math.sin(clockT * 6.5) * 0.14;
-        reX = -0.62 + Math.cos(clockT * 6.5) * 0.12;
-        laX = 0.78;
-        leX = -0.82;
-        break;
-      }
-      case ASTRONAUT_ANIMATION_STATES.CORRIDOR_SWIM: {
-        const sw = Math.sin(clockT * 6.2);
-        bodyPitch = 0.58;
-        bobY = 0.04 + sw * 0.03;
-        laX = 1.25 + sw * 0.28;
-        raX = 1.25 - sw * 0.28;
-        leX = -0.35;
-        reX = -0.35;
-        llX = 0.32 - sw * 0.25;
-        rlX = 0.32 + sw * 0.25;
-        lkX = 0.22;
-        rkX = 0.22;
-        rcsOpacity = 0.0;
-        break;
+    if (isElevatorRide) {
+      bobY = 0.008 * Math.sin(clockT * 2.1);
+      bodyPitch = 0.02;
+      laX = 0.16;
+      raX = 0.42;
+      raZ = -0.22;
+      reX = -0.62;
+      leX = -0.28;
+      llX = -0.05;
+      rlX = 0.05;
+      lkX = 0.14;
+      rkX = 0.14;
+      rcsOpacity = 0.0;
+    } else {
+      switch (currentState) {
+        case ASTRONAUT_ANIMATION_STATES.IDLE_FLOAT: {
+          laX = 0.22 + Math.sin(clockT * 1.3) * 0.08;
+          raX = 0.18 + Math.cos(clockT * 1.2) * 0.08;
+          leX = -0.45 + Math.sin(clockT * 1.1) * 0.05;
+          reX = -0.42 + Math.cos(clockT * 1.15) * 0.05;
+          llX = -0.14 + Math.sin(clockT * 1.1) * 0.06;
+          rlX = 0.11 - Math.sin(clockT * 1.1) * 0.06;
+          break;
+        }
+        case ASTRONAUT_ANIMATION_STATES.HAND_PUSH: {
+          const s = Math.sin(clockT * (4.4 + speedRatio * 1.8));
+          bobY = Math.abs(s) * 0.024;
+          bodyPitch = 0.1 + speedRatio * 0.14;
+          bodyYaw = s * 0.06;
+          laX = 0.38 + s * (0.28 + speedRatio * 0.15);
+          raX = 0.38 - s * (0.28 + speedRatio * 0.15);
+          leX = -0.48;
+          reX = -0.48;
+          llX = -0.18 + s * (0.22 + speedRatio * 0.12);
+          rlX = -0.18 - s * (0.22 + speedRatio * 0.12);
+          lkX = 0.34;
+          rkX = 0.34;
+          break;
+        }
+        case ASTRONAUT_ANIMATION_STATES.THRUSTER_BURST: {
+          bodyPitch = 0.18 + speedRatio * 0.14;
+          bobY = Math.sin(clockT * 7.2) * 0.016;
+          laX = -0.12;
+          laZ = 0.3;
+          raX = -0.12;
+          raZ = -0.3;
+          llX = 0.18;
+          rlX = 0.26;
+          lkX = 0.32;
+          rkX = 0.42;
+          rcsOpacity = 0.45 + 0.18 * Math.sin(clockT * 24);
+          break;
+        }
+        case ASTRONAUT_ANIMATION_STATES.GRAB_RAIL: {
+          bobY = 0.008 * Math.sin(clockT * 1.8);
+          bodyPitch = 0.06;
+          raX = 1.24;
+          raZ = 0.08;
+          reX = -0.45;
+          laX = 0.32;
+          leX = -0.35;
+          llX = -0.1;
+          rlX = 0.12;
+          break;
+        }
+        case ASTRONAUT_ANIMATION_STATES.STABILIZE: {
+          bodyPitch = 0.02;
+          laZ = 0.68;
+          raZ = -0.68;
+          laX = 0.28;
+          raX = 0.28;
+          llX = -0.22;
+          rlX = -0.22;
+          lkX = 0.42;
+          rkX = 0.42;
+          rcsOpacity = 0.38 + 0.16 * Math.cos(clockT * 20);
+          break;
+        }
+        case ASTRONAUT_ANIMATION_STATES.CONSOLE_WORK: {
+          bodyPitch = 0.05;
+          laX = 0.85 + Math.sin(clockT * 4.2) * 0.08;
+          raX = 0.88 + Math.cos(clockT * 4.8) * 0.08;
+          laZ = -0.12;
+          raZ = 0.12;
+          leX = -0.75;
+          reX = -0.75;
+          break;
+        }
+        case ASTRONAUT_ANIMATION_STATES.REPAIR_INTERACT: {
+          bodyPitch = 0.12;
+          raX = 1.05 + Math.sin(clockT * 6.5) * 0.14;
+          reX = -0.62 + Math.cos(clockT * 6.5) * 0.12;
+          laX = 0.78;
+          leX = -0.82;
+          break;
+        }
+        case ASTRONAUT_ANIMATION_STATES.CORRIDOR_SWIM: {
+          const sw = Math.sin(clockT * (4.6 + speedRatio * 2.0));
+          bodyPitch = 0.16 + Math.min(0.26, speedRatio * 0.24);
+          bodyYaw = sw * 0.07;
+          bobY = 0.03 + sw * 0.026;
+          laX = 0.85 + sw * 0.3;
+          raX = 0.85 - sw * 0.3;
+          leX = -0.4;
+          reX = -0.4;
+          llX = 0.22 - sw * (0.24 + speedRatio * 0.1);
+          rlX = 0.22 + sw * (0.24 + speedRatio * 0.1);
+          lkX = 0.28;
+          rkX = 0.28;
+          rcsOpacity = speedRatio > 1.05 ? 0.25 : 0.0;
+          break;
+        }
       }
     }
 
-    const k = Math.min(1, Math.max(0.08, dt * 10));
+    const k = Math.min(1, Math.max(0.08, safeDt * 10));
     pelvis.position.y += (0.9 + bobY - pelvis.position.y) * k;
     pelvis.rotation.x += (bodyPitch - pelvis.rotation.x) * k;
-    headGroup.rotation.x += (-bodyPitch * 0.65 - headGroup.rotation.x) * k;
+    pelvis.rotation.y += (bodyYaw - pelvis.rotation.y) * k;
+    pelvis.rotation.z += (bankRoll - pelvis.rotation.z) * k;
+    headGroup.rotation.x += (-bodyPitch * 0.6 + headPitch * 0.48 - headGroup.rotation.x) * k;
 
     leftArmRig.root.rotation.x += (laX - leftArmRig.root.rotation.x) * k;
     leftArmRig.root.rotation.z += (laZ - leftArmRig.root.rotation.z) * k;
@@ -553,10 +580,10 @@ export function createAstronautCharacter3D() {
     rightLegRig.midJoint.rotation.x += (rkX - rightLegRig.midJoint.rotation.x) * k;
 
     rcsPlumes.forEach((pl, i) => {
-      const nextOp = Math.min(0.45, rcsOpacity * (0.62 + 0.18 * Math.sin(clockT * 18 + i)));
+      const nextOp = Math.min(0.28, rcsOpacity * (0.58 + 0.18 * Math.sin(clockT * 18 + i)));
       pl.material.opacity = nextOp;
       pl.visible = nextOp > 0.02;
-      pl.scale.y = 0.55 + rcsOpacity * 0.6;
+      pl.scale.y = 0.45 + rcsOpacity * 0.5;
     });
   }
 

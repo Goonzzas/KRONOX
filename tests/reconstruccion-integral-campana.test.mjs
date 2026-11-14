@@ -270,3 +270,74 @@ test('KRONOX RECONSTRUCCIÓN INTEGRAL — Bóveda Celeste Natural y Raycaster de
   assert.equal(identified.key, 'jupiter');
   assert.equal(identified.name, 'Júpiter');
 });
+
+test('KRONOX MEJORA INTEGRAL — Ascensor 3D C01–C04, Barreras de Puerta, Gaze+[E] y Mecanismos', () => {
+  const interior = buildFourDecksInterior3D();
+  assert.ok(interior.elevatorSystem, 'Debe exponer elevatorSystem físico 3D');
+  assert.ok(interior.mechanisms, 'Debe exponer mechanisms interactivos 3D');
+
+  // 1. Tránsito completo del ascensor desde C01 hacia C04 con animación por fases y timbre
+  const initialChimes = interior.elevatorSystem.state.chimeCount;
+  assert.equal(interior.elevatorSystem.state.currentDeckId, 'deck-01');
+  const accepted = interior.elevatorSystem.selectFloor('deck-04', true);
+  assert.equal(accepted, true);
+
+  for (let i = 0; i < 180 && interior.elevatorSystem.state.phase !== 'idle'; i += 1) {
+    interior.elevatorSystem.update(0.08);
+  }
+  assert.equal(interior.elevatorSystem.state.phase, 'idle', 'El ascensor debe completar apertura y quedar listo');
+  assert.equal(interior.elevatorSystem.state.moving, false, 'El ascensor debe completar su recorrido a C04');
+  assert.equal(interior.elevatorSystem.state.currentDeckId, 'deck-04');
+  assert.equal(interior.elevatorSystem.state.cabY, -6.8);
+  assert.ok(interior.elevatorSystem.state.doorOpenByDeck['deck-04'] > 0.9, 'La puerta de C04 debe estar abierta');
+  assert.equal(interior.elevatorSystem.state.doorOpenByDeck['deck-02'], 0, 'La puerta de C02 debe estar cerrada');
+  assert.ok(interior.elevatorSystem.state.chimeCount > initialChimes, 'El timbre de llegada debe incrementarse');
+
+  // 2. Barrera física cuando la puerta del ascensor en C02 está cerrada
+  const closedDoorTestPos = new THREE.Vector3(0, 0, -1.6);
+  interior.clampAstronautPosition(closedDoorTestPos, 0.36, 0.25, interior.elevatorSystem.state);
+  assert.ok(
+    Math.hypot(closedDoorTestPos.x, closedDoorTestPos.z) >= 1.85,
+    `No debe poder entrar al hueco de C02 con puerta cerrada (obtenido z=${closedDoorTestPos.z.toFixed(2)})`,
+  );
+
+  // 3. Gating de [E] por modo interior + dirección de mirada (Gaze + Distance)
+  const nearOpticalPos = new THREE.Vector3(12.8, -3.4, 0.2);
+  const eyePos = new THREE.Vector3(12.8, -1.8, 0.2);
+  assert.equal(
+    interior.findNearestInteractiveStation(nearOpticalPos, undefined, {
+      exteriorMode: true,
+      eyePos,
+      lookDir: new THREE.Vector3(1, 0, 0),
+    }),
+    null,
+    'En modo Exterior nunca debe aparecer ningún prompt [E]',
+  );
+  assert.equal(
+    interior.findNearestInteractiveStation(nearOpticalPos, undefined, {
+      exteriorMode: false,
+      eyePos,
+      lookDir: new THREE.Vector3(-1, 0, 0),
+      minDot: 0.45,
+    }),
+    null,
+    'Mirando en dirección contraria no debe mostrar [E]',
+  );
+  const matchedOptical = interior.findNearestInteractiveStation(nearOpticalPos, undefined, {
+    exteriorMode: false,
+    eyePos,
+    lookDir: new THREE.Vector3(1, 0, 0),
+    minDot: 0.45,
+  });
+  assert.ok(matchedOptical);
+  assert.equal(matchedOptical.id, 'sensor-calibration');
+
+  // 4. Accionamiento real de mecanismos 3D
+  assert.equal(interior.mechanisms.trigger('storage-c02').state.storageC02Open, true);
+  assert.equal(interior.mechanisms.trigger('bioponics').state.bioponicsActive, false);
+  assert.equal(interior.mechanisms.trigger('engineering', 'overclock').state.reactorMode, 'overclock');
+  assert.equal(interior.mechanisms.trigger('hangar').state.hangarCraneDeployed, true);
+  assert.equal(interior.mechanisms.trigger('maintenance-c04').state.maintDrawerOpen, true);
+
+  interior.dispose?.();
+});

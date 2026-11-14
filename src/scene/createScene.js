@@ -2071,9 +2071,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     ct.enabled = saved.controlsEnabled;
   }
 
+  const enterExteriorCameraClearHud = () => {
+    nearestCabinStation = null;
+    lastNearestStationId = null;
+    activeCabinStation = null;
+    freeHelmMode = false;
+    S.onNearestStationChange?.(null);
+    S.onStationInteract?.(null);
+    S.onFreeHelmChange?.(false);
+  };
+
   function userCameraAvailable() { return !(realTimeIntro || mainMenuOrbitActive || launchSequence || launchCameraBlend || cabinReentryBlend || nav); }
   function enterExteriorCamera() {
     if (!userCameraAvailable()) return false;
+    enterExteriorCameraClearHud();
     const alreadyExterior = exteriorCameraMode;
     if (!alreadyExterior) {
       exteriorCameraMode = true;
@@ -2633,7 +2644,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const microgravityController = createMicrogravityPhysicsController({
     initialPosition: BRIDGE_SPAWN_POS.clone(),
     mode: MICROGRAVITY_MODES.ASSISTED,
-    clampPositionFn: (pos) => fourDecksInterior.clampAstronautPosition(pos),
+    clampPositionFn: (pos) =>
+      fourDecksInterior.clampAstronautPosition(
+        pos,
+        undefined,
+        undefined,
+        fourDecksInterior.elevatorSystem?.state || null,
+      ),
   });
 
   const luminousAI = createKronoxCompanionEntity3D({
@@ -2700,10 +2717,35 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const astronautPos = BRIDGE_SPAWN_POS.clone();
   const astronautVel = new V(0, 0, 0); // Velocidad 6-DOF sincronizada con microgravityController
   let astronautYaw = 0;
+  let astronautBodyYaw = 0;
+  let prevAstronautYaw = 0;
   let astronautPitch = 0;
   let targetYaw = 0;
   let targetPitch = 0;
-  let cabinFirstPerson = true; // Exclusivamente en 1ª persona (altura ocular 1.65 m)
+  let cabinFirstPerson = true; // Alternable entre 1P y 3P EVA [V]
+  let camViewBlend = 0; // 0 = 1P ojos, 1 = 3P persecución suave
+  let smooth3PDist = 2.28;
+  const _localLookEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+  const _localLookQuat = new THREE.Quaternion();
+  const _camPivot = new V();
+  const _camTarget = new V();
+  const _camDir = new V();
+  const _camSide = new V();
+  const _camUp = new V(0, 1, 0);
+  const _camRayOrigin = new V();
+  const _camRayDir = new V();
+  const _camWhiskerOffsets = [
+    [0, 0],
+    [0.24, 0],
+    [-0.24, 0],
+    [0, 0.18],
+    [0, -0.16],
+  ];
+  const _armRaycaster = typeof THREE.Raycaster === 'function' ? new THREE.Raycaster() : null;
+  const _gazeEyePos = new V();
+  const _gazeLookDir = new V();
+  const _aiOffVec = new V();
+  const _aiCompanionTarget = new V();
   let activeCabinStation = null;
   let shipPoseKnown = false,
     cabinReentryBlend = null;
@@ -2714,8 +2756,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let lastContextualDeckId = 'deck-01';
   const DECK_SPAWNS = {
     'deck-01': { pos: new V(0.0, 3.4, -10.4), yaw: 0 },
-    'deck-02': { pos: new V(0.0, 0.0, -5.2), yaw: Math.PI * 0.85 },
-    'deck-03': { pos: new V(0.0, -3.4, 3.2), yaw: Math.PI },
+    'deck-02': { pos: new V(0.0, 0.0, -6.2), yaw: Math.PI * 0.88 },
+    'deck-03': { pos: new V(0.0, -3.4, 4.35), yaw: Math.PI },
     'deck-04': { pos: new V(2.8, -6.8, -5.0), yaw: 0.35 },
   };
   let deckTransitState = null;
@@ -3701,6 +3743,77 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       dom.setPointerCapture(e.pointerId);
     }
   };
+  const triggerCabinStationInteraction = (stId, candidateObj = null) => {
+    if (!stId) return;
+    if (stId === 'elevator-panel' || stId.startsWith('elevator-call-')) {
+      const elSys = fourDecksInterior?.elevatorSystem;
+      if (!elSys) return;
+      const elState = elSys.state;
+      if (elState.moving || elState.passengerRiding) return;
+      const curDeck = resolveCurrentDeck(astronautPos);
+      if (stId.startsWith('elevator-call-')) {
+        const doorHere = Number(elState.doorOpenByDeck?.[curDeck.id] ?? 0);
+        const cabHere = Math.abs(elState.cabY - curDeck.elevationY) < 0.25 && doorHere > 0.72;
+        if (!cabHere) {
+          elSys.requestDeck(curDeck.id, false);
+          S.onElevatorStateChange?.({ ...elState, doorOpenByDeck: { ...elState.doorOpenByDeck } });
+          return;
+        }
+      }
+      activeCabinStation = 'elevator-panel';
+      S.onElevatorStateChange?.({ ...elState, doorOpenByDeck: { ...elState.doorOpenByDeck } });
+      S.onStationInteract?.('elevator-panel');
+      return;
+    }
+
+    if (stId === 'nav') occupyNavigationSeat();
+    else activeCabinStation = stId;
+
+    if (stId === 'storage-c02') {
+      fourDecksInterior?.mechanisms?.trigger('storage-c02', true);
+    }
+
+    const stObj = candidateObj || getStationDef(stId);
+    if (stObj) {
+      aiFollowAstronaut = false;
+      luminousAI.setTargetPosition(stObj.aiHoverPos, 'Explicación');
+      luminousAI.pointAtWorldPosition(stObj.consolePos, true);
+    }
+    if (stId === 'nav') sceneDirector.dispatchEvent('NAVIGATION_SELECTED', {});
+    else if (stId === 'science') sceneDirector.dispatchEvent('SCIENTIFIC_SCAN_STARTED', {});
+    else if (stId === 'missions') sceneDirector.dispatchEvent('MISSION_ACTIVATED', {});
+    else if (stId === 'comms') sceneDirector.dispatchEvent('AI_ACTIVATED', {});
+    else if (stId === 'sensor-calibration') {
+      activeRepairStage = Math.max(1, activeRepairStage);
+      sceneDirector.dispatchEvent('MISSION_ACTIVATED', {});
+    }
+    S.onMechanismsChange?.(fourDecksInterior?.mechanisms?.state ? { ...fourDecksInterior.mechanisms.state } : null);
+    S.onStationInteract?.(stId);
+  };
+
+  const startPhysicalElevatorRide = (targetDeckId) => {
+    const elSys = fourDecksInterior?.elevatorSystem;
+    if (!elSys) return false;
+    const isInsideCab = Math.hypot(astronautPos.x, astronautPos.z) <= 1.26;
+    if (!isInsideCab) {
+      const curDeck = resolveCurrentDeck(astronautPos);
+      const cabHere = Math.abs(elSys.state.cabY - curDeck.elevationY) < 0.35;
+      if (cabHere && (elSys.state.doorOpenByDeck?.[curDeck.id] ?? 0) > 0.72) {
+        astronautPos.set(0, elSys.state.cabY, 0);
+        microgravityController.setPosition(astronautPos);
+      }
+    }
+    const passengerInside = Math.hypot(astronautPos.x, astronautPos.z) <= 1.26;
+    const started = elSys.requestDeck(targetDeckId, passengerInside);
+    if (started && passengerInside) {
+      activeCabinStation = null;
+      S.onStationInteract?.(null);
+      astronautVel.set(0, 0, 0);
+    }
+    S.onElevatorStateChange?.({ ...elSys.state, doorOpenByDeck: { ...elSys.state.doorOpenByDeck } });
+    return started;
+  };
+
   const onPointerUp = (e) => {
     drag = 0;
     const clickMoved = pointerClickStart
@@ -3752,24 +3865,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         let node = stHits[0].object;
         while (node && !node.userData?.stationId) node = node.parent;
         if (node?.userData?.stationId) {
-          const stId = node.userData.stationId;
-          if (stId === 'nav') occupyNavigationSeat();
-          else activeCabinStation = stId;
-          const stObj = getStationDef(stId);
-          if (stObj) {
-            aiFollowAstronaut = false;
-            luminousAI.setTargetPosition(stObj.aiHoverPos, 'Explicación');
-            luminousAI.pointAtWorldPosition(stObj.consolePos, true);
-          }
-          if (stId === 'nav') sceneDirector.dispatchEvent('NAVIGATION_SELECTED', {});
-          else if (stId === 'science') sceneDirector.dispatchEvent('SCIENTIFIC_SCAN_STARTED', {});
-          else if (stId === 'missions') sceneDirector.dispatchEvent('MISSION_ACTIVATED', {});
-          else if (stId === 'comms') sceneDirector.dispatchEvent('AI_ACTIVATED', {});
-          else if (stId === 'sensor-calibration') {
-            activeRepairStage = Math.max(1, activeRepairStage);
-            sceneDirector.dispatchEvent('MISSION_ACTIVATED', {});
-          }
-          S.onStationInteract?.(stId);
+          triggerCabinStationInteraction(node.userData.stationId);
           return;
         }
       }
@@ -3931,25 +4027,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       resetExteriorCamera(false);
       return;
     }
-    // Tecla contextual [E] para operar la consola física más cercana en cabina 3D
+    // Teclas [1..4] cuando está abierto el panel del ascensor 3D
+    if (['1', '2', '3', '4'].includes(k) && free && pv == 1 && !realTimeIntro && activeCabinStation === 'elevator-panel') {
+      startPhysicalElevatorRide(`deck-0${k}`);
+      return;
+    }
+    // Tecla contextual [E] para operar la consola física o terminal de ascensor más cercano
     if (k === 'e' && free && pv == 1 && !realTimeIntro && nearestCabinStation && activeCabinStation !== 'nav') {
-      const stId = nearestCabinStation.station.id;
-      if (stId === 'nav') occupyNavigationSeat();
-      else activeCabinStation = stId;
-      const stObj = nearestCabinStation.station;
-      aiFollowAstronaut = false;
-      luminousAI.setTargetPosition(stObj.aiHoverPos, 'Explicación');
-      luminousAI.pointAtWorldPosition(stObj.consolePos, true);
-      if (stId === 'nav') sceneDirector.dispatchEvent('NAVIGATION_SELECTED', {});
-      else if (stId === 'science') sceneDirector.dispatchEvent('SCIENTIFIC_SCAN_STARTED', {});
-      else if (stId === 'missions') sceneDirector.dispatchEvent('MISSION_ACTIVATED', {});
-      else if (stId === 'comms') sceneDirector.dispatchEvent('AI_ACTIVATED', {});
-      else if (stId === 'sensor-calibration') {
-        activeRepairStage = Math.max(1, activeRepairStage);
-        sceneDirector.dispatchEvent('MISSION_ACTIVATED', {});
-      }
-      S.onStationInteract?.(stId);
+      triggerCabinStationInteraction(nearestCabinStation.station.id, nearestCabinStation.station);
     } else if (k === 'e' && free && pv == 1 && !realTimeIntro && !nearestCabinStation) {
+      if (activeCabinStation === 'elevator-panel') {
+        activeCabinStation = null;
+        S.onStationInteract?.(null);
+        return;
+      }
       const nearRail = fourDecksInterior.grabRails.find((rail) => {
         const dx = astronautPos.x - rail.pos[0];
         const dz = astronautPos.z - rail.pos[2];
@@ -5032,14 +5123,31 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           localCabinWorld.quaternion.copy(q);
 
           // 1. Interpolación suave de giro de vista del astronauta en 1P / 3P
+          const yawDelta = targetYaw - prevAstronautYaw;
+          prevAstronautYaw = astronautYaw;
           astronautYaw += (targetYaw - astronautYaw) * Math.min(1, dt * 14);
           astronautPitch += (targetPitch - astronautPitch) * Math.min(1, dt * 14);
 
-          const localLookQuat = new THREE.Quaternion().setFromEuler(
-            new THREE.Euler(astronautPitch, astronautYaw, 0, 'YXZ'),
-          );
+          _localLookEuler.set(astronautPitch, astronautYaw, 0, 'YXZ');
+          _localLookQuat.setFromEuler(_localLookEuler);
+          const localLookQuat = _localLookQuat;
 
-          // 2. Motor físico 6-DOF real de microgravedad o tránsito físico animado por espina central
+          // Actualizar máquina de estados física del ascensor 3D
+          const elSys = fourDecksInterior?.elevatorSystem;
+          if (elSys) {
+            const prevPhase = elSys.state.phase;
+            const prevDeck = elSys.state.currentDeckId;
+            elSys.update(dt);
+            if (elSys.state.phase !== prevPhase || elSys.state.currentDeckId !== prevDeck) {
+              S.onElevatorStateChange?.({
+                ...elSys.state,
+                doorOpenByDeck: { ...elSys.state.doorOpenByDeck },
+              });
+            }
+          }
+
+          // 2. Motor físico 6-DOF real de microgravedad, viaje físico en ascensor o tránsito por espina
+          const isElevatorTransitLocked = Boolean(elSys?.state?.passengerRiding);
           const hasManualThrustInput = Boolean(
             keys.w ||
             keys.s ||
@@ -5060,7 +5168,23 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           }
 
           let mgResult;
-          if (deckTransitState?.active) {
+          if (isElevatorTransitLocked) {
+            deckTransitState = null;
+            astronautPos.y = elSys.state.cabY;
+            astronautPos.x += (0 - astronautPos.x) * Math.min(1, dt * 6);
+            astronautPos.z += (0 - astronautPos.z) * Math.min(1, dt * 6);
+            astronautVel.set(0, 0, 0);
+            microgravityController.setPosition(astronautPos);
+            mgResult = {
+              position: astronautPos,
+              velocity: astronautVel,
+              speed: 0,
+              mode: microgravityController.getMode(),
+              anchoredRailId: null,
+              isStabilizing: false,
+              isBoosting: false,
+            };
+          } else if (deckTransitState?.active) {
             const wp = deckTransitState.waypoints[deckTransitState.index];
             const toWp = new V().subVectors(wp, astronautPos);
             const distToWp = toWp.length();
@@ -5069,12 +5193,21 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               astronautPos.copy(wp);
               deckTransitState.index += 1;
               if (deckTransitState.index >= deckTransitState.waypoints.length) {
+                const finishedDeckId = deckTransitState.targetDeckId;
                 targetYaw = deckTransitState.targetYaw;
                 astronautYaw = deckTransitState.targetYaw;
+                astronautBodyYaw = deckTransitState.targetYaw;
                 targetPitch = -0.05;
                 astronautPitch = -0.05;
                 deckTransitState = null;
                 astronautVel.set(0, 0, 0);
+                if (finishedDeckId && elSys?.snapToDeck) {
+                  elSys.snapToDeck(finishedDeckId);
+                  S.onElevatorStateChange?.({
+                    ...elSys.state,
+                    doorOpenByDeck: { ...elSys.state.doorOpenByDeck },
+                  });
+                }
               }
             } else {
               toWp.normalize();
@@ -5084,11 +5217,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                 targetYaw = Math.atan2(-toWp.x, -toWp.z);
               }
             }
-            fourDecksInterior.clampAstronautPosition(astronautPos);
+            fourDecksInterior.clampAstronautPosition(astronautPos, undefined, undefined, elSys?.state || null);
             microgravityController.setPosition(astronautPos);
             mgResult = {
-              position: astronautPos.clone(),
-              velocity: astronautVel.clone(),
+              position: astronautPos,
+              velocity: astronautVel,
               speed: deckTransitState ? deckTransitState.speed : 0,
               mode: microgravityController.getMode(),
               anchoredRailId: null,
@@ -5099,8 +5232,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             astronautVel.set(0, 0, 0);
             microgravityController.setPosition(astronautPos);
             mgResult = {
-              position: astronautPos.clone(),
-              velocity: astronautVel.clone(),
+              position: astronautPos,
+              velocity: astronautVel,
               speed: 0,
               mode: microgravityController.getMode(),
               anchoredRailId: microgravityController.getAnchoredRailId(),
@@ -5116,19 +5249,33 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           const currentSpeed = mgResult.speed;
           const isWalking = currentSpeed > 0.06;
 
-          // Actualización de avatar EVA 3D de 1.75 m articulado
+          // Actualización suave de orientación y balanceo corporal del astronauta 3D
+          const horizSpeed = Math.hypot(astronautVel.x, astronautVel.z);
+          let desiredBodyYaw = astronautYaw;
+          if (!cabinFirstPerson && horizSpeed > 0.22 && !activeCabinStation) {
+            const moveYaw = Math.atan2(-astronautVel.x, -astronautVel.z);
+            desiredBodyYaw = moveYaw;
+          }
+          // Camino angular más corto hacia desiredBodyYaw
+          let yawDiff = ((desiredBodyYaw - astronautBodyYaw + Math.PI) % (Math.PI * 2)) - Math.PI;
+          if (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+          astronautBodyYaw += yawDiff * Math.min(1, dt * 8.5);
+          const bankRoll = Math.max(-0.14, Math.min(0.14, -yawDelta * 1.4));
+
           astronaut3D.root.visible = false;
           astronaut3D.firstPersonHands.visible = false;
 
           if (articulatedAstronaut) {
             let animState = ASTRONAUT_ANIMATION_STATES.IDLE_FLOAT;
-            if (mgResult.anchoredRailId) {
+            if (isElevatorTransitLocked) {
+              animState = ASTRONAUT_ANIMATION_STATES.GRAB_RAIL;
+            } else if (mgResult.anchoredRailId) {
               animState = ASTRONAUT_ANIMATION_STATES.GRAB_RAIL;
             } else if (mgResult.isStabilizing) {
               animState = ASTRONAUT_ANIMATION_STATES.STABILIZE;
             } else if (mgResult.isBoosting && isWalking) {
               animState = ASTRONAUT_ANIMATION_STATES.THRUSTER_BURST;
-            } else if (activeCabinStation === 'sensor-calibration') {
+            } else if (activeCabinStation === 'sensor-calibration' || activeCabinStation === 'maintenance-c04') {
               animState = ASTRONAUT_ANIMATION_STATES.REPAIR_INTERACT;
             } else if (activeCabinStation) {
               animState = ASTRONAUT_ANIMATION_STATES.CONSOLE_WORK;
@@ -5138,65 +5285,90 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               animState = ASTRONAUT_ANIMATION_STATES.HAND_PUSH;
             }
             articulatedAstronaut.root.position.copy(astronautPos);
-            articulatedAstronaut.root.rotation.y = astronautYaw;
+            articulatedAstronaut.root.rotation.y = astronautBodyYaw;
             articulatedAstronaut.root.visible = !cabinFirstPerson || (pv === 3 || exteriorCameraMode);
-            articulatedAstronaut.updateAnimation(dt, animState);
+            articulatedAstronaut.updateAnimation(dt, animState, {
+              speed: currentSpeed,
+              bankRoll,
+              headPitch: astronautPitch,
+              isElevatorRide: isElevatorTransitLocked,
+            });
           }
 
-          // 3. Cámara interior 1P (ojos 1.65 m) o 3P (cuerpo completo EVA 1.75 m dentro del casco)
-          let localCamPos;
-          if (cabinFirstPerson) {
-            const headBob = isWalking ? Math.sin(clk.elapsedTime * (keys.shift ? 11.5 : 8.2)) * (0.01 * Math.min(1.2, currentSpeed / 1.4)) : 0;
-            localCamPos = new V(
-              astronautPos.x,
-              astronautPos.y + SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + headBob + freeHelmBlend * 0.18,
-              astronautPos.z + (-13.2 - astronautPos.z) * freeHelmBlend,
-            );
-            fourDecksInterior.clampAstronautPosition(localCamPos, 0.25, 0.24);
-          } else {
-            const distBehind = 2.38;
-            const shoulderBias = 0.56;
-            const camBack = new V(
-              Math.sin(astronautYaw) * distBehind * Math.cos(astronautPitch) + Math.cos(astronautYaw) * shoulderBias,
-              -Math.sin(astronautPitch) * distBehind,
-              Math.cos(astronautYaw) * distBehind * Math.cos(astronautPitch) - Math.sin(astronautYaw) * shoulderBias,
-            );
-            localCamPos = new V(
-              astronautPos.x + camBack.x,
-              astronautPos.y + 1.18 + camBack.y,
-              astronautPos.z + camBack.z,
-            );
-            // Brazo elástico 3P: evita que una silla, mamparo o consola tape al astronauta (excluye sprites y hologramas)
-            if (fourDecksInterior?.root && typeof THREE.Raycaster === 'function') {
-              const pivotOrigin = new V(astronautPos.x, astronautPos.y + 1.32, astronautPos.z);
-              const armVec = localCamPos.clone().sub(pivotOrigin);
-              const armLen = armVec.length();
-              if (armLen > 0.2) {
-                localCabinWorld.updateMatrixWorld(true);
-                localCam.updateMatrixWorld(true);
-                const armRay = new THREE.Raycaster(pivotOrigin, armVec.clone().divideScalar(armLen), 0.15, armLen);
-                armRay.camera = localCam;
-                const armMeshes = [];
-                fourDecksInterior.root.traverse((obj) => {
-                  if (obj.isMesh && obj.visible) armMeshes.push(obj);
-                });
-                const armHits = armRay.intersectObjects(armMeshes, false);
-                const blocking = armHits.find((h) => {
-                  const m = h.object?.material;
-                  if (!m) return false;
-                  if (m.transparent && !m.isShaderMaterial && m.opacity < 0.6) return false;
-                  return h.distance > 0.25 && h.distance < armLen - 0.12;
-                });
-                if (blocking) {
-                  const safeDist = Math.max(0.85, blocking.distance - 0.28);
-                  localCamPos.copy(pivotOrigin).addScaledVector(armVec.normalize(), safeDist);
+          // 3. Cámara interior 1P/3P unificada con mezcla suave y anti-clipping multi-rayo
+          const blendTarget = cabinFirstPerson ? 0 : 1;
+          camViewBlend += (blendTarget - camViewBlend) * Math.min(1, dt * 10);
+
+          const headBob = isWalking ? Math.sin(clk.elapsedTime * (keys.shift ? 11.5 : 8.2)) * (0.009 * Math.min(1.2, currentSpeed / 1.4)) : 0;
+          const eyeX = astronautPos.x;
+          const eyeY = astronautPos.y + SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + headBob + freeHelmBlend * 0.18;
+          const eyeZ = astronautPos.z + (-13.2 - astronautPos.z) * freeHelmBlend;
+
+          // Posición ideal en 3ª persona sobre el hombro del astronauta (compacta dentro de la cabina del ascensor)
+          const inNarrowShaft = isElevatorTransitLocked || Math.hypot(astronautPos.x, astronautPos.z) < 1.5;
+          const desiredBoom = inNarrowShaft ? 0.72 : 2.32;
+          const shoulderOffset = inNarrowShaft ? 0.28 : 0.46;
+
+          _camPivot.set(astronautPos.x, astronautPos.y + (inNarrowShaft ? 1.54 : 1.44), astronautPos.z);
+          _camDir.set(
+            Math.sin(astronautYaw) * Math.cos(astronautPitch),
+            -Math.sin(astronautPitch),
+            Math.cos(astronautYaw) * Math.cos(astronautPitch),
+          ).normalize();
+          _camSide.set(Math.cos(astronautYaw), 0, -Math.sin(astronautYaw));
+
+          _camTarget.copy(_camPivot)
+            .addScaledVector(_camDir, desiredBoom)
+            .addScaledVector(_camSide, shoulderOffset);
+
+          // Brazo anti-colisión con 5 rayos paralelos contra mamparos, consolas y puertas sólidas
+          let minSafeDist = desiredBoom;
+          if (_armRaycaster && fourDecksInterior?.cameraCollisionMeshes?.length && !cabinFirstPerson && !inNarrowShaft) {
+            localCabinWorld.updateMatrixWorld(true);
+            const colliders = fourDecksInterior.cameraCollisionMeshes;
+            for (let wi = 0; wi < _camWhiskerOffsets.length; wi++) {
+              const [ox, oy] = _camWhiskerOffsets[wi];
+              _camRayOrigin.copy(_camPivot)
+                .addScaledVector(_camSide, ox * 0.5)
+                .addScaledVector(_camUp, oy * 0.5);
+              _camRayDir.copy(_camTarget).sub(_camRayOrigin);
+              const segLen = _camRayDir.length();
+              if (segLen < 0.2) continue;
+              _camRayDir.divideScalar(segLen);
+              _armRaycaster.set(_camRayOrigin, _camRayDir);
+              _armRaycaster.far = segLen;
+              const hits = _armRaycaster.intersectObjects(colliders, false);
+              for (let hi = 0; hi < hits.length; hi++) {
+                const hd = hits[hi].distance;
+                if (hd > 0.18 && hd - 0.36 < minSafeDist) {
+                  minSafeDist = Math.max(0.55, hd - 0.36);
                 }
               }
             }
-            fourDecksInterior.clampAstronautPosition(localCamPos, 0.24, 0.24);
           }
+
+          const retractRate = minSafeDist < smooth3PDist ? 18 : 6.0;
+          smooth3PDist += (minSafeDist - smooth3PDist) * Math.min(1, dt * retractRate);
+
+          const ratio3P = Math.max(0.24, Math.min(1.0, smooth3PDist / desiredBoom));
+          _camTarget.copy(_camPivot)
+            .addScaledVector(_camDir, smooth3PDist)
+            .addScaledVector(_camSide, shoulderOffset * ratio3P);
+          fourDecksInterior.clampAstronautPosition(_camTarget, 0.24, 0.24);
+
+          const localCamPos = new V(
+            THREE.MathUtils.lerp(eyeX, _camTarget.x, camViewBlend),
+            THREE.MathUtils.lerp(eyeY, _camTarget.y, camViewBlend),
+            THREE.MathUtils.lerp(eyeZ, _camTarget.z, camViewBlend),
+          );
+          if (camViewBlend < 0.05) {
+            fourDecksInterior.clampAstronautPosition(localCamPos, 0.25, 0.24);
+          }
+
           const localEyeOffsetMeters = localCamPos.clone().applyQuaternion(q);
-          const baseCabinFov = cabinFirstPerson ? Math.min(fovBase, 42) : Math.min(fovBase, 48);
+          const fov1P = Math.min(fovBase, 42);
+          const fov3P = Math.min(fovBase, 46);
+          const baseCabinFov = THREE.MathUtils.lerp(fov1P, fov3P, camViewBlend);
 
           localCam.position.copy(localEyeOffsetMeters);
           localCam.quaternion.copy(q).multiply(localLookQuat);
@@ -5214,25 +5386,68 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               : baseCabinFov;
           cam.updateProjectionMatrix();
 
-          // Si el astronauta se aleja de una consola activa (> 3.0 m), cerrar automáticamente la interfaz
+          // Cerrar consola activa al alejarse (> 3.0 m) o durante viaje en ascensor
           if (activeCabinStation) {
-            const activeStObj = getStationDef(activeCabinStation);
-            if (activeStObj) {
-              const distFromActive = Math.hypot(
-                astronautPos.x - activeStObj.position.x,
-                (astronautPos.y - activeStObj.position.y) * 0.65,
-                astronautPos.z - activeStObj.position.z,
-              );
-              if (distFromActive > 3.0) {
-                activeCabinStation = null;
-                aiFollowAstronaut = true;
-                luminousAI.pointAtWorldPosition(null, false);
-                S.onStationInteract?.(null);
+            if (isElevatorTransitLocked) {
+              activeCabinStation = null;
+              S.onStationInteract?.(null);
+            } else if (activeCabinStation !== 'elevator-panel') {
+              const activeStObj = getStationDef(activeCabinStation);
+              if (activeStObj) {
+                const distFromActive = Math.hypot(
+                  astronautPos.x - activeStObj.position.x,
+                  (astronautPos.y - activeStObj.position.y) * 0.65,
+                  astronautPos.z - activeStObj.position.z,
+                );
+                if (distFromActive > 3.0) {
+                  activeCabinStation = null;
+                  aiFollowAstronaut = true;
+                  luminousAI.pointAtWorldPosition(null, false);
+                  S.onStationInteract?.(null);
+                }
               }
+            } else if (Math.hypot(astronautPos.x, astronautPos.z) > 2.45) {
+              activeCabinStation = null;
+              S.onStationInteract?.(null);
             }
           }
 
-          nearestCabinStation = fourDecksInterior.findNearestInteractiveStation(astronautPos, 2.15);
+          // Prompt [E] basado en distancia + orientación de mirada (nunca durante viaje en ascensor ni exterior)
+          _gazeEyePos.set(eyeX, eyeY, eyeZ);
+          _gazeLookDir.set(0, 0, -1).applyQuaternion(localLookQuat).normalize();
+          if (isElevatorTransitLocked || exteriorCameraMode || pv !== 1) {
+            nearestCabinStation = null;
+          } else {
+            nearestCabinStation = fourDecksInterior.findNearestInteractiveStation(astronautPos, 2.15, {
+              eyePos: _gazeEyePos,
+              lookDir: _gazeLookDir,
+              minDot: 0.35,
+              includeElevator: true,
+              exteriorMode: exteriorCameraMode || pv !== 1,
+            });
+            // Si el jugador está dentro de la cabina del ascensor estacionada y mirando adelante, priorizar panel del ascensor
+            if (
+              !nearestCabinStation &&
+              Math.hypot(astronautPos.x, astronautPos.z) <= 1.08 &&
+              elSys &&
+              elSys.state.phase === 'idle'
+            ) {
+              const curFloor = resolveCurrentDeck(astronautPos);
+              nearestCabinStation = {
+                station: {
+                  id: 'elevator-panel',
+                  kind: 'elevator-panel',
+                  deckId: curFloor.id,
+                  label: `Panel del Ascensor (${curFloor.code})`,
+                  tag: 'ASCENSOR 3D',
+                  position: { x: 0, y: curFloor.elevationY, z: 0 },
+                  consolePos: { x: 0.78, y: curFloor.elevationY + 1.4, z: 0 },
+                  aiHoverPos: { x: 0, y: curFloor.elevationY + 1.75, z: -2.2 },
+                },
+                distance: 0.65,
+              };
+            }
+          }
 
           // Detección contextual inteligente de aproximación de KRONOX IA a la consola más cercana
           if (nearestCabinStation && !activeCabinStation && !guidedTourState) {
@@ -5357,6 +5572,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           }
         } else {
           localCabinWorld.visible = false;
+          if (nearestCabinStation || lastNearestStationId || activeCabinStation) {
+            nearestCabinStation = null;
+            lastNearestStationId = null;
+            activeCabinStation = null;
+            freeHelmMode = false;
+            S.onNearestStationChange?.(null);
+            S.onStationInteract?.(null);
+          }
           if (exteriorCameraMode) {
             const shipDelta = sp.clone().sub(exteriorLastShipPosition);
             if (shipDelta.lengthSq() > 0) {
@@ -5845,17 +6068,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     pv = v;
     if (v == 1) {
       cabinFirstPerson = true;
+      camViewBlend = 0;
       astronaut3D.root.visible = false;
       astronaut3D.firstPersonHands.visible = false;
       if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
       if (!nav && !arrivalTarget) {
         astronautYaw = 0;
+        astronautBodyYaw = 0;
         targetYaw = 0;
         astronautPitch = 0;
         targetPitch = 0;
       }
-    } else if (articulatedAstronaut) {
-      articulatedAstronaut.root.visible = false;
+    } else {
+      enterExteriorCameraClearHud();
+      if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
     }
     const baseFov = v == 1 ? Math.min(fovBase, 42) : fovBase;
     const activeMag = opticalTelescopeState.enabled ? opticalTelescopeState.magnification : 1;
@@ -6161,6 +6387,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     endGuidedCabinTour,
     setCabinFirstPerson: (firstPerson = true) => {
       cabinFirstPerson = Boolean(firstPerson);
+      camViewBlend = cabinFirstPerson ? 0 : 1;
       astronaut3D.root.visible = false;
       astronaut3D.firstPersonHands.visible = false;
       if (articulatedAstronaut) {
@@ -6569,17 +6796,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       localCabinWorld.visible = true;
       activeCabinStation = null;
       freeHelmMode = false;
+      fourDecksInterior.elevatorSystem?.snapToDeck?.(cfg === DECK_SPAWNS[deckId] ? deckId : 'deck-01');
       astronautPos.copy(cfg.pos);
       astronautVel.set(0, 0, 0);
-      fourDecksInterior.clampAstronautPosition(astronautPos);
+      fourDecksInterior.clampAstronautPosition(astronautPos, undefined, undefined, fourDecksInterior.elevatorSystem?.state || null);
       microgravityController.setPosition(astronautPos);
       astronautYaw = Number.isFinite(yawOverride) ? yawOverride : cfg.yaw;
+      astronautBodyYaw = astronautYaw;
+      prevAstronautYaw = astronautYaw;
       targetYaw = astronautYaw;
       astronautPitch = -0.05;
       targetPitch = -0.05;
       if (articulatedAstronaut) {
         articulatedAstronaut.root.position.copy(astronautPos);
-        articulatedAstronaut.root.rotation.y = astronautYaw;
+        articulatedAstronaut.root.rotation.y = astronautBodyYaw;
         articulatedAstronaut.root.visible = !cabinFirstPerson;
       }
       const deckInfo = resolveCurrentDeck(astronautPos);
@@ -6595,6 +6825,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         luminousAI.resetWake?.(snapAiPos);
       }
       announceDeckContextIfChanged(deckInfo?.id, true);
+      if (fourDecksInterior?.elevatorSystem) {
+        S.onElevatorStateChange?.({
+          ...fourDecksInterior.elevatorSystem.state,
+          doorOpenByDeck: { ...fourDecksInterior.elevatorSystem.state.doorOpenByDeck },
+        });
+      }
       return {
         deckId: deckInfo.id,
         deckNumber: deckInfo.deckNumber,
@@ -6602,6 +6838,26 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         position: astronautPos.toArray(),
         yaw: astronautYaw,
       };
+    },
+    selectElevatorFloor: (deckId) => startPhysicalElevatorRide(deckId),
+    getElevatorState: () =>
+      fourDecksInterior?.elevatorSystem
+        ? {
+          ...fourDecksInterior.elevatorSystem.state,
+          doorOpenByDeck: { ...fourDecksInterior.elevatorSystem.state.doorOpenByDeck },
+        }
+        : null,
+    interactStationMechanism: (actionId, value = null) => {
+      const res = fourDecksInterior?.mechanisms?.trigger(actionId, value);
+      if (res?.state) S.onMechanismsChange?.({ ...res.state });
+      return res || { ok: false, state: null };
+    },
+    getMechanismsState: () =>
+      fourDecksInterior?.mechanisms?.state ? { ...fourDecksInterior.mechanisms.state } : null,
+    activateNearestStation: () => {
+      if (!nearestCabinStation?.station) return false;
+      triggerCabinStationInteraction(nearestCabinStation.station.id, nearestCabinStation.station);
+      return true;
     },
     setRepairMissionStage: (stage) => {
       activeRepairStage = Math.max(0, Math.min(4, Number(stage) || 0));

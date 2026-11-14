@@ -141,6 +141,8 @@ export default function App() {
     [freeHelmMode, setFreeHelmMode] = useState(false),
     [nearestCabinStation, setNearestCabinStation] = useState(null),
     [cabinFirstPerson, setCabinFirstPerson] = useState(true),
+    [elevatorState, setElevatorState] = useState(null),
+    [mechanismsState, setMechanismsState] = useState(null),
     [astronautCoords, setAstronautCoords] = useState({ x: 0, z: -44.2 }),
     [astronautSectorState, setAstronautSectorState] = useState({
       deckId: 'deck-01',
@@ -272,6 +274,10 @@ export default function App() {
     cockpitInsideRef = useRef(false);
   useEffect(() => {
     cockpitInsideRef.current = Boolean(fr && pv == 1);
+    if (!fr || pv != 1) {
+      setNearestCabinStation(null);
+      setActiveCockpitStation(null);
+    }
   }, [fr, pv]);
   const missionOfferTimer = useRef(null);
   const clearMissionOffer = () => {
@@ -1088,6 +1094,9 @@ export default function App() {
           anchoredRailId: mg.anchored ? (mg.anchoredRailId || 'rail') : null,
         }));
       },
+      onElevatorStateChange: (elState) => setElevatorState(elState || null),
+      onMechanismsChange: (mechState) => setMechanismsState(mechState || null),
+      onViewChange: (v) => setPv(v),
       onIntroStageChange: (stageKey, captionText, stageOpts = {}) => {
         setCinematicStage(stageKey);
         setRealTimeIntroActive(true);
@@ -3075,6 +3084,11 @@ export default function App() {
       },
       nearestStation: nearestCabinStation,
       activeStation: activeCockpitStation,
+      elevatorState,
+      mechanismsState,
+      onSelectElevatorFloor: (deckId) => A().selectElevatorFloor?.(deckId),
+      onTriggerMechanism: (actionId, value = null) => A().interactStationMechanism?.(actionId, value),
+      onActivateNearestStation: () => A().activateNearestStation?.(),
       freeHelmMode,
       onToggleFreeHelm: (enabled) => {
         setFreeHelmMode(Boolean(enabled));

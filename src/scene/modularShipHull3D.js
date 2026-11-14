@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createShipPbrSuite } from './shipPbrMaterials.js';
 
 /**
  * AURORA-120 / KRONOX 120-Meter Modular Exploration Cruiser Exterior 3D Architecture.
@@ -24,26 +25,6 @@ export const SHIP_METRIC_DIMENSIONS = Object.freeze({
   STRUCTURAL_ALLOY: 'Aerospace Steel Paneling & Gold MLI Thermal Rings',
 });
 
-function createProceduralTexture(width, height, drawFn, fallbackRgba = [123, 132, 142, 255]) {
-  if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
-    const tex = new THREE.DataTexture(new Uint8Array(fallbackRgba), 1, 1, THREE.RGBAFormat);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
-    tex.needsUpdate = true;
-    return tex;
-  }
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext?.('2d');
-  if (ctx) drawFn(ctx, width, height);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  tex.anisotropy = 8;
-  return tex;
-}
-
 export function buildModularShip120M() {
   const root = new THREE.Group();
   root.name = 'KronoxModularResearchCruiser120M';
@@ -59,56 +40,31 @@ export function buildModularShip120M() {
 
   const sectionClipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e4);
 
-  const panels = createProceduralTexture(512, 512, (g) => {
-    g.fillStyle = '#7b848e';
-    g.fillRect(0, 0, 512, 512);
-    for (let i = 0; i < 14; i++) {
-      for (let j = 0; j < 14; j++) {
-        const v = (125 + rnd() * 75) | 0;
-        g.fillStyle = `rgb(${v},${v + 4},${v + 10})`;
-        g.fillRect(i * 36 + 1, j * 36 + 1, 34, 34);
-        if (rnd() < 0.14) {
-          g.fillStyle = '#2a2f36';
-          g.fillRect(i * 36 + 8, j * 36 + 9, 18, 6);
-        }
-      }
-    }
+  // Shared PBR exterior material suite with tangent-space normals, roughness maps & metallic trims
+  const pbrSuite = createShipPbrSuite(11);
+  Object.values(pbrSuite.materials).forEach((m) => {
+    if (m) m.clippingPlanes = [sectionClipPlane];
   });
-  panels.repeat.set(3, 3);
 
-  const makeStdMat = (opts) => {
-    const m = new THREE.MeshStandardMaterial(opts);
-    m.clippingPlanes = [sectionClipPlane];
-    return m;
-  };
   const makeBasicMat = (color, extra = {}) => {
     const m = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, ...extra });
     m.clippingPlanes = [sectionClipPlane];
     return m;
   };
 
-  const hullMat = makeStdMat({
-    color: 0xdde3e9,
-    map: panels,
-    bumpMap: panels,
-    bumpScale: 1.4,
-    metalness: 0.55,
-    roughness: 0.5,
-  });
-  const hullDoubleMat = makeStdMat({
-    color: 0xdde3e9,
-    map: panels,
-    bumpMap: panels,
-    bumpScale: 1.4,
-    metalness: 0.5,
-    roughness: 0.55,
-    side: THREE.DoubleSide,
-  });
-  const darkMat = makeStdMat({ color: 0x39404a, metalness: 0.7, roughness: 0.4 });
-  const goldMat = makeStdMat({ color: 0xc9a24b, metalness: 0.9, roughness: 0.32 });
-  const finMat = makeStdMat({ color: 0xcfd6dc, metalness: 0.3, roughness: 0.6 });
-  const cyanMat = makeBasicMat(0x9be7ff);
-  const warmMat = makeBasicMat(0xffe6b0);
+  const hullMat = pbrSuite.materials.hullExteriorMat;
+  const hullDoubleMat = pbrSuite.materials.hullExteriorDoubleMat;
+  const darkMat = pbrSuite.materials.darkTrimMat;
+  const goldMat = pbrSuite.materials.goldMliMat;
+  const steelMat = pbrSuite.materials.brushedSteelMat;
+  const copperMat = pbrSuite.materials.copperCoilMat;
+  const finMat = pbrSuite.materials.radiatorGrapheneMat;
+  const glassMat = pbrSuite.materials.glassViewportMat;
+  const cyanMat = makeBasicMat(0x88dfff, { transparent: true, opacity: 0.88 });
+  const warmMat = makeBasicMat(0xffdca0, { transparent: true, opacity: 0.92 });
+  const coreNozzleGlowMat = makeBasicMat(0xff9436, { transparent: true, opacity: 0.36 });
+  const innerNozzleGlowMat = makeBasicMat(0xffd7a4, { transparent: true, opacity: 0.44 });
+  const auxNozzleGlowMat = makeBasicMat(0x68beff, { transparent: true, opacity: 0.38 });
 
   const addMesh = (parent, geo, mat, x = 0, y = 0, z = 0, shadow = true) => {
     const mesh = new THREE.Mesh(geo, mat);
@@ -136,21 +92,38 @@ export function buildModularShip120M() {
     return o;
   };
   const addGreebles = (parent, x0, x1, radius, count) => {
+    // GPU-instanced structural armor plates, MLI blanket modules & fastener studs
+    const darkPos = [];
+    const goldPos = [];
+    const dummy = new THREE.Object3D();
     for (let i = 0; i < count; i++) {
       const a = rnd() * 2 * Math.PI;
       const x = x0 + rnd() * (x1 - x0);
       const w = 0.8 + rnd() * 3;
       const l = 0.8 + rnd() * 2.4;
       const h = 0.3 + rnd() * 1.2;
-      const m = addMesh(
-        parent,
-        boxGeo(l, h, w),
-        rnd() < 0.22 ? goldMat : darkMat,
-        x,
-        Math.cos(a) * (radius + h / 2 - 0.1),
-        Math.sin(a) * (radius + h / 2 - 0.1),
-      );
-      m.rotation.x = a;
+      dummy.position.set(x, Math.cos(a) * (radius + h / 2 - 0.1), Math.sin(a) * (radius + h / 2 - 0.1));
+      dummy.rotation.set(a, 0, 0);
+      dummy.scale.set(l, h, w);
+      dummy.updateMatrix();
+      (rnd() < 0.24 ? goldPos : darkPos).push(dummy.matrix.clone());
+    }
+    const unitBox = boxGeo(1, 1, 1);
+    if (darkPos.length > 0) {
+      const inst = new THREE.InstancedMesh(unitBox, darkMat, darkPos.length);
+      darkPos.forEach((m, idx) => inst.setMatrixAt(idx, m));
+      inst.instanceMatrix.needsUpdate = true;
+      inst.castShadow = true;
+      inst.receiveShadow = true;
+      parent.add(inst);
+    }
+    if (goldPos.length > 0) {
+      const inst = new THREE.InstancedMesh(unitBox, goldMat, goldPos.length);
+      goldPos.forEach((m, idx) => inst.setMatrixAt(idx, m));
+      inst.instanceMatrix.needsUpdate = true;
+      inst.castShadow = true;
+      inst.receiveShadow = true;
+      parent.add(inst);
     }
   };
 
@@ -207,25 +180,49 @@ export function buildModularShip120M() {
     const y = 8.3 * Math.cos(a);
     const z = 8.3 * Math.sin(a);
     cylX(engineCluster, 1.6, 1, 4, -54, darkMat, 16).position.set(-54, y, z);
-    const gg = new THREE.Mesh(
-      new THREE.CircleGeometry(1.4, 20),
-      new THREE.MeshBasicMaterial({ color: 0xbfe3ff, side: THREE.DoubleSide }),
-    );
+    const baffle = torusX(engineCluster, 1.25, 0.14, -55.9, copperMat);
+    baffle.position.set(-55.9, y, z);
+    const gg = new THREE.Mesh(new THREE.CircleGeometry(1.08, 20), auxNozzleGlowMat);
     gg.rotation.y = -Math.PI / 2;
-    gg.position.set(-56.05, y, z);
+    gg.position.set(-56.02, y, z);
     engineCluster.add(gg);
   }
+
+  // 4 aletas radiadoras con costillas de enfriamiento instanciadas y bordes en acero cepillado
+  const radiatorRibMats = [];
+  const radiatorRibGeo = boxGeo(0.28, 10.1, 0.42);
   for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2 + Math.PI / 4;
     const f = new THREE.Group();
-    f.rotation.x = (i * Math.PI) / 2 + Math.PI / 4;
+    f.rotation.x = a;
     engineCluster.add(f);
     addMesh(f, boxGeo(14, 10, 0.2), finMat, -43, 14, 0);
+    addMesh(f, boxGeo(14.1, 0.35, 0.34), steelMat, -43, 18.85, 0, false);
+    addMesh(f, boxGeo(14.1, 0.35, 0.34), darkMat, -43, 9.15, 0, false);
+    for (let rx = -49; rx <= -37; rx += 3) {
+      const m4 = new THREE.Matrix4();
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), a);
+      const p = new THREE.Vector3(rx, 14 * Math.cos(a), 14 * Math.sin(a));
+      m4.compose(p, q, new THREE.Vector3(1, 1, 1));
+      radiatorRibMats.push(m4);
+    }
+  }
+  if (radiatorRibMats.length > 0) {
+    const ribInst = new THREE.InstancedMesh(radiatorRibGeo, steelMat, radiatorRibMats.length);
+    radiatorRibMats.forEach((m4, idx) => ribInst.setMatrixAt(idx, m4));
+    ribInst.instanceMatrix.needsUpdate = true;
+    engineCluster.add(ribInst);
   }
 
-  const mainGlow = new THREE.Mesh(
-    new THREE.CircleGeometry(7.4, 40),
-    new THREE.MeshBasicMaterial({ color: 0xffe6b0, side: THREE.DoubleSide }),
-  );
+  // Tobera principal con anillo de refrigeración en cobre + plasma en dos etapas (sin saturación blanca)
+  torusX(engineCluster, 6.2, 0.32, -59.5, copperMat);
+  torusX(engineCluster, 4.1, 0.22, -59.65, steelMat);
+  const mainGlowOuter = new THREE.Mesh(new THREE.CircleGeometry(6.9, 40), coreNozzleGlowMat);
+  mainGlowOuter.rotation.y = -Math.PI / 2;
+  mainGlowOuter.position.x = -59.82;
+  engineCluster.add(mainGlowOuter);
+
+  const mainGlow = new THREE.Mesh(new THREE.CircleGeometry(4.2, 32), innerNozzleGlowMat);
   mainGlow.rotation.y = -Math.PI / 2;
   mainGlow.position.x = -59.9;
   engineCluster.add(mainGlow);
@@ -240,7 +237,7 @@ export function buildModularShip120M() {
       vertexShader:
         'varying vec2 vu;void main(){vu=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
       fragmentShader:
-        'uniform float t,w;varying vec2 vu;void main(){float a=pow(1.-vu.y,1.8);float f=.78+.22*sin(vu.y*28.-t*20.)*sin(t*6.);vec3 c=mix(vec3(1.,.58,.22),vec3(.45,.78,1.),w);c=mix(c,vec3(1.,.95,.88),a*.35);gl_FragColor=vec4(c*f*a*(.54+w*.95),a*.82);}',
+        'uniform float t,w;varying vec2 vu;void main(){float a=pow(1.-vu.y,1.8);float f=.78+.22*sin(vu.y*28.-t*20.)*sin(t*6.);vec3 c=mix(vec3(1.,.58,.22),vec3(.45,.78,1.),w);c=mix(c,vec3(1.,.95,.88),a*.2);gl_FragColor=vec4(c*f*a*(.34+w*.62),a*.44);}',
     });
 
   const plumes = [
@@ -272,13 +269,16 @@ export function buildModularShip120M() {
     });
     torusX(g, 2.6, 0.1, -41, cyanMat).position.y = 16;
     torusX(g, 2.6, 0.1, -49, cyanMat).position.y = 16;
+    torusX(g, 2.9, 0.18, -55.7, copperMat).position.y = 16;
 
-    const gl = new THREE.Mesh(
-      new THREE.CircleGeometry(3.3, 28),
-      new THREE.MeshBasicMaterial({ color: 0xffe6b0, side: THREE.DoubleSide }),
-    );
+    const glOuter = new THREE.Mesh(new THREE.CircleGeometry(3.0, 28), coreNozzleGlowMat);
+    glOuter.rotation.y = -Math.PI / 2;
+    glOuter.position.set(-55.98, 16, 0);
+    g.add(glOuter);
+
+    const gl = new THREE.Mesh(new THREE.CircleGeometry(1.7, 24), innerNozzleGlowMat);
     gl.rotation.y = -Math.PI / 2;
-    gl.position.set(-56.05, 16, 0);
+    gl.position.set(-56.06, 16, 0);
     g.add(gl);
 
     const m = new THREE.Mesh(new THREE.ConeGeometry(3.2, 18, 24, 1, true), makePlumeMat());
@@ -290,7 +290,7 @@ export function buildModularShip120M() {
     plumes.push(m);
   }
 
-  const engineLight = new THREE.PointLight(0xffa860, 2.8, 70);
+  const engineLight = new THREE.PointLight(0xffa860, 1.9, 68);
   engineLight.position.set(-64, 0, 0);
   engineCluster.add(engineLight);
 
@@ -469,8 +469,10 @@ export function buildModularShip120M() {
   );
 
   {
-    const inst = new THREE.InstancedMesh(boxGeo(1.6, 0.9, 0.2), warmMat, 200);
+    const inst = new THREE.InstancedMesh(boxGeo(1.5, 0.8, 0.16), warmMat, 200);
+    const frameInst = new THREE.InstancedMesh(boxGeo(1.76, 1.04, 0.12), steelMat, 200);
     const dummy = new THREE.Object3D();
+    const frameDummy = new THREE.Object3D();
     let count = 0;
     for (let n = 1; n <= 4; n++) {
       const y = 6.8 - n * 3.4 + 1.7;
@@ -481,22 +483,48 @@ export function buildModularShip120M() {
         dummy.position.set(r * Math.cos(a), y, r * Math.sin(a));
         dummy.lookAt(dummy.position.x * 2, y * 2, dummy.position.z * 2);
         dummy.updateMatrix();
-        inst.setMatrixAt(count++, dummy.matrix);
+        inst.setMatrixAt(count, dummy.matrix);
+
+        frameDummy.position.set((r - 0.02) * Math.cos(a), y, (r - 0.02) * Math.sin(a));
+        frameDummy.lookAt(frameDummy.position.x * 2, y * 2, frameDummy.position.z * 2);
+        frameDummy.updateMatrix();
+        frameInst.setMatrixAt(count, frameDummy.matrix);
+        count++;
       }
     }
     inst.count = count;
     inst.instanceMatrix.needsUpdate = true;
-    hubG.add(inst);
+    frameInst.count = count;
+    frameInst.instanceMatrix.needsUpdate = true;
+    hubG.add(frameInst, inst);
+
+    // Sujetadores estructurales instanciados sobre el cinturón ecuatorial de la esfera habitable
+    const boltCount = 48;
+    const bolts = new THREE.InstancedMesh(cylGeo(0.16, 0.16, 0.24, 6), goldMat, boltCount);
+    for (let i = 0; i < boltCount; i++) {
+      const a = (i / boltCount) * Math.PI * 2;
+      dummy.position.set((SPHERE_R + 0.06) * Math.cos(a), 0, (SPHERE_R + 0.06) * Math.sin(a));
+      dummy.rotation.set(0, -a, Math.PI / 2);
+      dummy.updateMatrix();
+      bolts.setMatrixAt(i, dummy.matrix);
+    }
+    bolts.instanceMatrix.needsUpdate = true;
+    hubG.add(bolts);
   }
 
-  // Ventana frontal de proa saliente (tolva facetada del puente sobre el ecuador de la esfera)
+  // Ventana frontal de proa saliente (tolva facetada del puente con cristal blindado y parteluces)
   {
     const w = addMesh(scienceModules, cylGeo(2, 4.2, 2.8, 4), hullMat, 20.7, 5, 0);
     w.rotation.z = -Math.PI / 2;
     w.rotation.x = Math.PI / 4;
-    addMesh(scienceModules, boxGeo(0.15, 1.2, 2.4), cyanMat, 22.15, 5, 0, false);
-    addMesh(scienceModules, boxGeo(0.3, 0.25, 3.2), goldMat, 21.9, 6.5, 0);
-    addMesh(scienceModules, boxGeo(0.3, 0.25, 3.2), goldMat, 21.9, 3.5, 0);
+    addMesh(scienceModules, boxGeo(0.14, 1.35, 2.65), darkMat, 22.02, 5, 0, false);
+    addMesh(scienceModules, boxGeo(0.08, 1.18, 2.38), glassMat, 22.14, 5, 0, false);
+    addMesh(scienceModules, boxGeo(0.06, 0.26, 2.2), cyanMat, 22.08, 4.65, 0, false);
+    [-0.75, 0, 0.75].forEach((mz) =>
+      addMesh(scienceModules, boxGeo(0.16, 1.3, 0.08), steelMat, 22.16, 5, mz, false),
+    );
+    addMesh(scienceModules, boxGeo(0.32, 0.26, 3.25), goldMat, 21.92, 6.45, 0);
+    addMesh(scienceModules, boxGeo(0.32, 0.26, 3.25), goldMat, 21.92, 3.55, 0);
   }
 
   // Marcador estructural de cámara de reactor exterior / bahía ventral
@@ -555,12 +583,16 @@ export function buildModularShip120M() {
       m.material.uniforms.w.value = smoothWarp;
     });
 
-    engineLight.intensity = 2.0 + thr * 1.2 + smoothWarp * 5.0;
+    engineLight.intensity = 1.45 + thr * 0.85 + smoothWarp * 3.8;
     engineLight.color.copy(warpColorAmber).lerp(warpColorBlue, smoothWarp);
 
     bubble.material.uniforms.w.value = smoothWarp;
     bubble.visible = sectionClipPlane.constant > 1e3 && smoothWarp > 0.01;
   }
+
+  const dispose = () => {
+    pbrSuite.dispose();
+  };
 
   return {
     root,
@@ -579,6 +611,7 @@ export function buildModularShip120M() {
       sectionClipPlane.constant = Number.isFinite(yPlane) ? yPlane : 1e4;
     },
     update,
+    dispose,
   };
 }
 
@@ -588,5 +621,6 @@ export function createModularShipHull() {
     group: shipData.root,
     update: shipData.update,
     dimensions: shipData.dimensions,
+    dispose: shipData.dispose,
   };
 }

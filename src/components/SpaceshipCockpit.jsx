@@ -64,6 +64,11 @@ export default function SpaceshipCockpit({
   onSetOpticalTelescope,
   planetaryTelemetry = null,
   activeObjectiveText = '',
+  elevatorState = null,
+  mechanismsState = null,
+  onSelectElevatorFloor,
+  onTriggerMechanism,
+  onActivateNearestStation,
 }) {
   const [navigationMode, setNavigationMode] = useState('manual');
   const [navigationTarget, setNavigationTarget] = useState('planet:Tierra');
@@ -506,11 +511,16 @@ export default function SpaceshipCockpit({
             type="button"
             className="kronoxProximityActivateBtn"
             onClick={() => {
+              if (onActivateNearestStation?.()) return;
               onSelectStation(nearestStation.id);
               if (nearestStation.id === 'comms') onOpenAiConsole?.();
             }}
           >
-            Operar
+            {String(nearestStation.id || '').startsWith('elevator-call-')
+              ? 'Llamar'
+              : nearestStation.id === 'elevator-panel'
+                ? 'Planta'
+                : 'Operar'}
           </button>
         </div>
       )}
@@ -1102,18 +1112,120 @@ export default function SpaceshipCockpit({
         </div>
       )}
 
+      {cockpitVisible && activeStation === 'elevator-panel' && (
+        <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Panel del Ascensor Central">
+          <div className="kronoxStationDrawerHead">
+            <div>
+              <span className="kronoxDiegeticTag">
+                CABINA ASCENSOR · PLANTA ACTUAL {String(elevatorState?.currentDeckId || 'deck-01').replace('deck-', 'C')}
+                {elevatorState?.moving ? ' · EN TRÁNSITO' : ' · PUERTAS ABIERTAS'}
+              </span>
+              <h4>ASCENSOR CENTRAL DE CUBIERTAS (TECLAS [1–4])</h4>
+            </div>
+            <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar panel de ascensor">×</button>
+          </div>
+          <p className="kronoxStationDesc">
+            Selecciona una cubierta para cerrar compuertas e iniciar desplazamiento vertical en tiempo real dentro de la cabina:
+          </p>
+          <div className="kronoxStationBtnRow">
+            {[
+              ['deck-01', '[1] C01 · Puente (Y +3.4m)'],
+              ['deck-02', '[2] C02 · Habitacional (Y 0.0m)'],
+              ['deck-03', '[3] C03 · Lab y Reactor (Y -3.4m)'],
+              ['deck-04', '[4] C04 · Bodega y Hangar (Y -6.8m)'],
+            ].map(([dId, label]) => (
+              <button
+                key={dId}
+                type="button"
+                className={elevatorState?.currentDeckId === dId ? 'active' : undefined}
+                onClick={() => onSelectElevatorFloor?.(dId)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {cockpitVisible && activeStation === 'bioponics' && (
+        <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Módulo de Biopónica e Hidroponía">
+          <div className="kronoxStationDrawerHead">
+            <div>
+              <span className="kronoxDiegeticTag">CUBIERTA 02 · INVERNADERO BIOPÓNICO (Z +10.6 m)</span>
+              <h4>CÁMARA DE CULTIVO HIDROPÓNICO DE MICROGRAVEDAD</h4>
+            </div>
+            <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar biopónica">×</button>
+          </div>
+          <p className="kronoxStationDesc">
+            Humedad radicular: <strong>74%</strong> · Espectro activo:{' '}
+            <strong>{mechanismsState?.bioponicsActive === false ? 'Reposado (UV bajo)' : 'FOTOSINTÉTICO ESMERALDA 445nm'}</strong>.
+          </p>
+          <div className="kronoxStationBtnRow">
+            <button
+              type="button"
+              className="active"
+              onClick={() => onTriggerMechanism?.('bioponics')}
+            >
+              {mechanismsState?.bioponicsActive === false
+                ? '✦ Activar Luminarias Fotosintéticas 3D'
+                : '☾ Atenuar a Ciclo Nocturno 3D'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {cockpitVisible && activeStation === 'storage-c02' && (
+        <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Taquilla Técnica C02">
+          <div className="kronoxStationDrawerHead">
+            <div>
+              <span className="kronoxDiegeticTag">CUBIERTA 02 · ARMARIO LOGÍSTICO ESTANCO</span>
+              <h4>TAQUILLA DE SUMINISTROS Y EQUIPO EVA</h4>
+            </div>
+            <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar taquilla">×</button>
+          </div>
+          <p className="kronoxStationDesc">
+            Compuerta física 3D:{' '}
+            <strong>{mechanismsState?.storageC02Open ? 'ABIERTA' : 'SELLADA'}</strong> ·
+            Contenido: <strong>Botiquín médico EVA · Célula O₂ #04 · Sellador de casco</strong>.
+          </p>
+          <div className="kronoxStationBtnRow">
+            <button
+              type="button"
+              className="active"
+              onClick={() => onTriggerMechanism?.('storage-c02')}
+            >
+              {mechanismsState?.storageC02Open
+                ? '× Cerrar Compuerta de Taquilla 3D'
+                : '↗ Abrir Compuerta de Taquilla 3D'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {cockpitVisible && activeStation === 'galley' && (
         <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Estación de Habitabilidad">
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">CUBIERTA 02 · ANILLO HABITACIONAL Y COMEDOR (Y 0.0 m)</span>
-              <h4>COMEDOR CIRCULAR Y OCHO CAMAROTES RADIALES</h4>
+              <h4>COMEDOR CIRCULAR Y DISPENSADOR DE HIDRATACIÓN</h4>
             </div>
             <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar habitabilidad">×</button>
           </div>
           <p className="kronoxStationDesc">
-            Presión de cabina nominal: <strong>101.3 kPa</strong> · O₂: <strong>21.0%</strong> · Cámara hidropónica activa con iluminación fotosintética y ojos de buey libres al vacío exterior.
+            Presión nominal: <strong>101.3 kPa</strong> · O₂: <strong>21.0%</strong> · Dispensador:{' '}
+            <strong>{mechanismsState?.hydrationDispensing ? 'CICLO ACTIVO (H₂O MINERALIZADA)' : 'EN ESPERA'}</strong>.
           </p>
+          <div className="kronoxStationBtnRow">
+            <button
+              type="button"
+              className={mechanismsState?.hydrationDispensing ? 'active' : undefined}
+              onClick={() => onTriggerMechanism?.('hydration')}
+            >
+              {mechanismsState?.hydrationDispensing
+                ? '■ Detener Dispensador 3D'
+                : '💧 Activar Dispensador de Hidratación 3D'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -1121,23 +1233,33 @@ export default function SpaceshipCockpit({
         <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Esclusa Ventral y Tránsito de Cubiertas">
           <div className="kronoxStationDrawerHead">
             <div>
-              <span className="kronoxDiegeticTag">CUBIERTA 02 · ESCLUSA RADIAL EVA Y NÚCLEO CENTRAL</span>
-              <h4>NÚCLEO VERTICAL DE TRANSPORTE ENTRE CUBIERTAS</h4>
+              <span className="kronoxDiegeticTag">CUBIERTA 02 · ESCLUSA RADIAL EVA Y ASCENSOR</span>
+              <h4>CONTROL DE PRESURIZACIÓN EVA Y TRANSPORTE VERTICAL</h4>
             </div>
             <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar esclusa">×</button>
           </div>
           <p className="kronoxStationDesc">
-            Puedes desplazarte flotando en 6-DOF a lo largo de la espina central o utilizar las esclusas presurizadas de transferencia rápida:
+            Estado de cámara EVA:{' '}
+            <strong>{mechanismsState?.airlockPressurized === false ? 'DESPRESURIZADA (0.0 kPa · Ámbar)' : 'PRESURIZADA (101.3 kPa · Verde)'}</strong>.
           </p>
           <div className="kronoxStationBtnRow">
+            <button
+              type="button"
+              className="active"
+              onClick={() => onTriggerMechanism?.('airlock')}
+            >
+              {mechanismsState?.airlockPressurized === false
+                ? '◎ Presurizar Esclusa EVA 3D'
+                : '⚠ Despresurizar Cámara EVA 3D'}
+            </button>
             {[
-              ['deck-01', 'Cubierta 01 · Puente de Mando'],
-              ['deck-02', 'Cubierta 02 · Habitacional'],
-              ['deck-03', 'Cubierta 03 · Ingeniería y SPHEREx'],
-              ['deck-04', 'Cubierta 04 · Bodega y Hangar'],
+              ['deck-01', 'C01 · Puente'],
+              ['deck-02', 'C02 · Habitacional'],
+              ['deck-03', 'C03 · Lab y Reactor'],
+              ['deck-04', 'C04 · Hangar'],
             ].map(([dId, label]) => (
-              <button key={dId} type="button" onClick={() => onTeleportToDeck?.(dId)}>
-                ↗ Ir a {label}
+              <button key={dId} type="button" onClick={() => onSelectElevatorFloor?.(dId) || onTeleportToDeck?.(dId)}>
+                ↕ {label}
               </button>
             ))}
           </div>
@@ -1149,13 +1271,30 @@ export default function SpaceshipCockpit({
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">CUBIERTA 03 · NÚCLEO DEL REACTOR AURORA (Y -3.4 m, Z +9.0 m)</span>
-              <h4>INGENIERÍA, REACTOR Y TANQUES CRIOGÉNICOS</h4>
+              <h4>INGENIERÍA, REACTOR Y MODOS DE PLASMA</h4>
             </div>
             <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar ingeniería">×</button>
           </div>
           <p className="kronoxStationDesc">
-            Núcleo principal y tanques criogénicos dorados alineados con Aurora-120 (empuje de plasma en 5 toberas nominal · anillo orbital estabilizado).
+            Régimen actual del núcleo:{' '}
+            <strong>{String(mechanismsState?.reactorMode || 'nominal').toUpperCase()}</strong> · Tanques criogénicos presurizados.
           </p>
+          <div className="kronoxStationBtnRow">
+            {[
+              ['nominal', '◎ Régimen Nominal'],
+              ['overclock', '⚡ Alta Potencia'],
+              ['quiet', '☾ Modo Silencioso'],
+            ].map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                className={(mechanismsState?.reactorMode || 'nominal') === mode ? 'active' : undefined}
+                onClick={() => onTriggerMechanism?.('engineering', mode)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -1164,13 +1303,52 @@ export default function SpaceshipCockpit({
           <div className="kronoxStationDrawerHead">
             <div>
               <span className="kronoxDiegeticTag">CUBIERTA 04 · BODEGA Y HANGAR DE PROA (Y -6.8 m)</span>
-              <h4>TRANSBORDADOR AUXILIAR Y BODEGA DE CARGA</h4>
+              <h4>GRÚA PÓRTICO Y ESCOTILLA DE TRANSBORDADOR</h4>
             </div>
             <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar hangar">×</button>
           </div>
           <p className="kronoxStationDesc">
-            Contenedores logísticos presurizados estibados en popa y transbordador de servicio listo en pista de proa.
+            Pórtico logístico:{' '}
+            <strong>{mechanismsState?.hangarCraneDeployed ? 'DESPLEGADO EN PISTA DE PROA' : 'ESTIBADO SOBRE BAHÍA DE CARGA'}</strong> · Escotilla acoplada al estado del pórtico.
           </p>
+          <div className="kronoxStationBtnRow">
+            <button
+              type="button"
+              className="active"
+              onClick={() => onTriggerMechanism?.('hangar')}
+            >
+              {mechanismsState?.hangarCraneDeployed
+                ? '↓ Replegar Grúa y Cerrar Escotilla 3D'
+                : '↑ Desplegar Grúa y Abrir Escotilla 3D'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {cockpitVisible && activeStation === 'maintenance-c04' && (
+        <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Estación de Mantenimiento C04">
+          <div className="kronoxStationDrawerHead">
+            <div>
+              <span className="kronoxDiegeticTag">CUBIERTA 04 · TALLER Y DIAGNÓSTICO MECÁNICO</span>
+              <h4>BANCO DE MANTENIMIENTO Y BRAZO ROBÓTICO</h4>
+            </div>
+            <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar mantenimiento">×</button>
+          </div>
+          <p className="kronoxStationDesc">
+            Cajón de herramientas y actuador articular:{' '}
+            <strong>{mechanismsState?.maintDrawerOpen ? 'EXTENDIDO · BRAZO EN SERVICIO' : 'REPLEGADO EN BANCO'}</strong>.
+          </p>
+          <div className="kronoxStationBtnRow">
+            <button
+              type="button"
+              className="active"
+              onClick={() => onTriggerMechanism?.('maintenance-c04')}
+            >
+              {mechanismsState?.maintDrawerOpen
+                ? '× Replegar Brazo y Cerrar Cajón 3D'
+                : '⚙ Activar Brazo Robótico y Cajón 3D'}
+            </button>
+          </div>
         </div>
       )}
     </>
