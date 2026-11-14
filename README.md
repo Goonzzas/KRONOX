@@ -6,7 +6,7 @@
 
 **Explora el sistema solar · Sigue las señales · Descubre el cielo infrarrojo**
 
-[🚀 Abrir KRONOX](https://kronox-three.vercel.app) · [📖 Guía de usuario](docs/GUIA_USUARIO.md) · [🧭 Arquitectura](docs/ARQUITECTURA.md) · [📚 Wiki del proyecto](docs/wiki/README.md)
+[ Abrir KRONOX](https://kronox-three.vercel.app) · [ Guía de usuario](docs/GUIA_USUARIO.md) · [ Arquitectura](docs/ARQUITECTURA.md) · [ Wiki del proyecto](docs/wiki/README.md)
 
 <img src="docs/kronox-badges.svg" alt="React 18 · Vite 8 · Three.js · SPHEREx con alineación WCS · API Vercel · español e inglés · WebGL" width="100%" />
 
@@ -14,17 +14,17 @@
 
 ---
 
-## 🌌 KRONOX en breve
+##  KRONOX en breve
 
 KRONOX es una aplicación web educativa e interactiva que combina una exploración 3D del sistema solar con una consola para consultar y comparar observaciones infrarrojas públicas de la misión **SPHEREx**. El usuario puede recorrer el espacio con una nave, aprender sobre los planetas y revisar recortes astronómicos en una interfaz disponible en español e inglés.
 
-| 🪐 Explorar | 🚀 Pilotar | 🔭 Investigar |
+|  Explorar |  Pilotar |  Investigar |
 |---|---|---|
 | Recorre el Sol, los planetas, cinco planetas enanos y una Vía Láctea con mayor profundidad visual. Ajusta escalas, fecha y velocidad de simulación. | Ocupa el asiento de navegación con yugo de avión, planifica un viaje manual o automático, o toma el timón libre desde la ventana de proa con telemetría lateral y propulsores. | Busca observaciones SPHEREx, compara dos fechas con alineación WCS, registra notas sobre hallazgos y expórtalas a CSV. |
 
 También incluye texturas procedurales para planetas enanos, asteroides y lunas, satélites más visibles, entrada a la nave desde la Tierra, fichas planetarias con referencias de NASA, Kronox en español e inglés y controles táctiles para móvil. Las preferencias incluyen calidad gráfica, alto contraste, reducción de movimiento y sonidos de juego opcionales.
 
-## 🛰️ Consola SPHEREx: Ecos en infrarrojo
+## Consola SPHEREx: Ecos en infrarrojo
 
 La consola integra selección de misión, objetivos astronómicos, navegación hasta el observatorio y visualización de recortes FITS. Permite trabajar con los archivos públicos **QR2** y **QR3**, filtrar observaciones por banda y recorrerlas mediante una línea de tiempo o reproducción automática.
 
@@ -49,11 +49,11 @@ Los tipos de misión orientan la exploración hacia el rastreo de estrellas y el
 
 > La reproyección sirve para comparar la posición aparente de las fuentes; no equivale a una calibración científica ni a fotometría. El color es una ayuda de visualización y no representa luz visible.
 
-## 🌐 Idiomas y voz
+##  Idiomas y voz
 
 La interfaz está disponible en **español e inglés**. KRONOX puede sugerir un idioma a partir del navegador o del país informado por Vercel, permite elegirlo manualmente y recuerda la preferencia en el navegador. Los controles de vuelo y los avisos de misión también están traducidos. La voz usa Google Translate TTS y acepta español latino, español de España e inglés de EE. UU.; los avisos hablados se envían al servicio para generar audio.
 
-## 🕹️ Controles rápidos
+##  Controles rápidos
 
 | Acción | Control |
 |---|---|
@@ -88,7 +88,7 @@ En timón libre, la nave responde a estos controles:
 
 Dos indicadores compactos a los lados muestran velocidad actual, marcha seleccionada (**órbita planetaria**, **sistema solar**, **galáctica** o **hipergaláctica**), aceleración/inercia, rumbo e inclinación. Los botones de propulsión y rumbo se pueden mantener pulsados, por lo que también sirven en pantallas táctiles.
 
-## 🧰 Tecnologías y servicios
+##  Tecnologías y servicios
 
 | Área | Tecnología / servicio |
 |---|---|
@@ -105,7 +105,7 @@ Dos indicadores compactos a los lados muestran velocidad actual, marcha seleccio
 
 Las versiones exactas y dependencias se encuentran en `package.json` y `package-lock.json`. El procesamiento y la reproyección de imágenes FITS se realizan en el navegador con utilidades propias del proyecto.
 
-## 🏗️ Arquitectura del repositorio
+##  Arquitectura del repositorio
 
 ```text
 .
@@ -146,7 +146,7 @@ Interfaz ── /api/voice ─────────────────> 
 
 La búsqueda valida coordenadas, limita el radio y devuelve hasta 250 resultados. La acción de recorte valida el origen IRSA y solicita un campo de 0,5°. La función de voz acepta hasta 200 caracteres. Las anotaciones no se guardan en servidor: se mantienen durante la sesión y el usuario las exporta manualmente.
 
-## ▶️ Ejecutar localmente
+##  Ejecutar localmente
 
 **Requisitos:** Node.js 20.19+ o 22.12+, npm y navegador con soporte WebGL.
 
@@ -170,11 +170,6 @@ El frontend se puede servir como sitio estático. Para habilitar consultas SPHER
 
 Vite usa la ruta base `/` en Vercel y `/KRONOX/` en otros entornos, configuración prevista para GitHub Pages. Sin funciones serverless, la escena 3D sigue disponible, pero las consultas de misión y los endpoints de voz/localización no tienen backend.
 
-## ⚠️ Alcance y limitaciones
-
-KRONOX es una experiencia educativa y visual, no una herramienta de navegación espacial ni de efemérides de precisión. La escala visual altera tamaños y distancias; las órbitas son aproximadas, y la Luna y la Vía Láctea se representan de forma simplificada. Las imágenes reproyectadas facilitan la comparación visual, pero no sustituyen análisis astrométrico o fotométrico calibrado.
-
-La aplicación depende de internet para imágenes, observaciones IRSA y voz. El texto de los avisos se envía a Google Translate TTS para generar audio. La disponibilidad y cadencia de SPHEREx varían según el objetivo y los datos publicados en QR2/QR3. No hay base de datos ni sistema de cuentas para guardar sesiones o hallazgos.
 
 ## 📚 Documentación
 
