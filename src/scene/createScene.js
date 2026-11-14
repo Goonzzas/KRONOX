@@ -7500,9 +7500,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     // PASO 2 DE RENDERIZADO: Mundo Local Métrico (`localShipScene`, `1 u = 1 m`) con limpieza de profundidad
     if (localCabinWorld.visible || ship.visible) {
       const inInteriorLighting = Boolean(localCabinWorld.visible && !exteriorCameraMode && !spectator);
-      localShipAmbient.intensity = inInteriorLighting ? 0.24 : 0.52;
-      localShipHemi.intensity = inInteriorLighting ? 0.31 : 0.45;
-      localShipSunLight.intensity = inInteriorLighting ? 0.72 : 2.35;
+      const inBridgeLighting = inInteriorLighting && resolveCurrentDeck(astronautPos)?.id === 'deck-01';
+      localShipAmbient.intensity = inBridgeLighting ? 0.11 : inInteriorLighting ? 0.24 : 0.52;
+      localShipHemi.intensity = inBridgeLighting ? 0.15 : inInteriorLighting ? 0.31 : 0.45;
+      localShipSunLight.intensity = inBridgeLighting ? 0.20 : inInteriorLighting ? 0.72 : 2.35;
+      localShipRimLight.intensity = inBridgeLighting ? 0.15 : inInteriorLighting ? 0.32 : 0.55;
       const prevAutoClear = R.autoClear;
       R.autoClear = false;
       R.clearDepth?.();

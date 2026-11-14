@@ -577,7 +577,7 @@ export function resolveCurrentDeck(position) {
   return best;
 }
 
-function getBridgeHalfWidthAtZ(z) {
+export function getBridgeHalfWidthAtZ(z) {
   // Heptágono Punta de Flecha (rotado +90° Y):
   // P_KRONOX = [[0,-15.5], [6.2,-11], [12,-1], [10.5,12], [-10.5,12], [-12,-1], [-6.2,-11]]
   if (z <= -11.0) {
