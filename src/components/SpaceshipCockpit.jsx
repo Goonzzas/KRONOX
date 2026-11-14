@@ -71,6 +71,8 @@ export default function SpaceshipCockpit({
   onActivateNearestStation,
   interactionFeedback = null,
   heldToolId = null,
+  pointerLockState = null,
+  assetLoadingState = null,
 }) {
   const [navigationMode, setNavigationMode] = useState('manual');
   const [navigationTarget, setNavigationTarget] = useState('planet:Tierra');
@@ -454,6 +456,18 @@ export default function SpaceshipCockpit({
               className={`kronoxFpCrosshair ${nearestStation ? 'is-targeted' : ''}`}
               aria-hidden="true"
             />
+          )}
+          {!activeStation && !freeHelmMode && pointerLockState?.eligible && !pointerLockState?.active && (
+            <div className="kronoxPointerLockHint" role="status" aria-live="polite">
+              {pointerLockState.fallbackMode || !pointerLockState.supported
+                ? 'Arrastra con el mouse para girar la cámara · [ESC] Pausa'
+                : 'Haz clic para activar el control de cámara · [ESC] Pausa'}
+            </div>
+          )}
+          {assetLoadingState?.active && (
+            <div className="kronoxAssetStreamPill" aria-live="polite">
+              Cargando detalles planetarios ({assetLoadingState.loaded}/{assetLoadingState.total})
+            </div>
           )}
         </>
       )}

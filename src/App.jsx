@@ -10,6 +10,10 @@ import {
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { P, INFO } from './data/planetData.js';
 import { setupScene } from './scene/createScene.js';
+import {
+  DEFAULT_GRAPHICS_SETTINGS,
+  normalizeGraphicsPreset,
+} from './scene/graphicsConfig.js';
 import KronoxWidget from './components/KronoxWidget.tsx';
 import ToastNotification from './components/ToastNotification.jsx';
 import PlanetInfoModal from './components/PlanetInfoModal.jsx';
@@ -66,9 +70,9 @@ export default function App() {
     [kronoxOpen, setKronoxOpen] = useState(false),
     [kronoxDialogHidden, setKronoxDialogHidden] = useState(false),
     [deviceMode, setDeviceMode] = useState(deviceGuess),
-    [quality, setQuality] = useState(() => {
+    [quality, setQualityState] = useState(() => {
       try {
-        return localStorage.getItem('kronox-quality') || 'auto';
+        return normalizeGraphicsPreset(localStorage.getItem('kronox-quality') || 'auto', 'auto');
       } catch {
         return 'auto';
       }
@@ -215,9 +219,23 @@ export default function App() {
     [planetaryTelemetry, setPlanetaryTelemetry] = useState(null),
     [reticleTarget, setReticleTarget] = useState(null),
     [showFullMainMenu, setShowFullMainMenu] = useState(false),
+    [graphicsRuntime, setGraphicsRuntime] = useState(null),
+    [pointerLockState, setPointerLockState] = useState({
+      supported: true,
+      active: false,
+      eligible: false,
+      fallbackMode: false,
+    }),
+    [assetLoadingState, setAssetLoadingState] = useState(null),
     [gameSettings, setGameSettings] = useState(() => {
+      let initialPreset = 'auto';
+      try {
+        initialPreset = normalizeGraphicsPreset(localStorage.getItem('kronox-quality') || 'auto', 'auto');
+      } catch {
+        initialPreset = 'auto';
+      }
       const defaults = {
-        settingsVersion: 3,
+        settingsVersion: 4,
         cameraSensitivity: 'normal',
         cameraDistance3P: 'normal',
         microgravityMode: 'ASSISTED',
@@ -229,6 +247,10 @@ export default function App() {
         voiceVolume: 0.95,
         voiceName: 'Charon',
         showTelescopeTelemetry: true,
+        graphics: {
+          ...DEFAULT_GRAPHICS_SETTINGS,
+          preset: initialPreset,
+        },
       };
       try {
         const raw = localStorage.getItem('kronox-game-settings-v1');
@@ -238,12 +260,19 @@ export default function App() {
           !parsed.settingsVersion && Number(parsed.musicVolume) === 0.7
             ? 0.38
             : parsed.musicVolume ?? defaults.musicVolume;
+        const mergedGraphics = {
+          ...DEFAULT_GRAPHICS_SETTINGS,
+          preset: initialPreset,
+          ...(parsed.graphics && typeof parsed.graphics === 'object' ? parsed.graphics : {}),
+        };
+        mergedGraphics.preset = normalizeGraphicsPreset(mergedGraphics.preset, 'auto');
         return {
           ...defaults,
           ...parsed,
-          settingsVersion: 2,
+          settingsVersion: 4,
           musicVolume: migratedMusic,
           voiceName: 'Charon',
+          graphics: mergedGraphics,
         };
       } catch {
         return defaults;
@@ -252,6 +281,9 @@ export default function App() {
     realTimeIntroActiveRef = useRef(false),
     mainMenuVisibleRef = useRef(welcomeOpen || false),
     introPausedRef = useRef(false),
+    pauseMenuOpenRef = useRef(false),
+    activeCockpitStationRef = useRef(null),
+    missionOpenRef = useRef(false),
     browserVoiceActiveRef = useRef(false),
     voiceStartWatchdogRef = useRef(null),
     voiceMaxWatchdogRef = useRef(null),
@@ -371,13 +403,28 @@ export default function App() {
       /* Preference stays in memory. */
     }
   }, [highContrast]);
+  const setQuality = (nextPreset) => {
+    const normalized = normalizeGraphicsPreset(nextPreset, 'auto');
+    setQualityState(normalized);
+    setGameSettings((prev) => ({
+      ...prev,
+      graphics: {
+        ...DEFAULT_GRAPHICS_SETTINGS,
+        ...(prev.graphics || {}),
+        preset: normalized,
+        renderScale: null,
+        shadowQuality: null,
+        visualEffects: null,
+        fpsLimit: null,
+      },
+    }));
+  };
   useEffect(() => {
     try {
       localStorage.setItem('kronox-quality', quality);
     } catch {
       /* Preference stays in memory. */
     }
-    api.current?.quality?.(quality);
   }, [quality]);
   const playCue = (kind) => {
     if (!gameAudioRef.current) {
@@ -459,6 +506,9 @@ export default function App() {
   realTimeIntroActiveRef.current = realTimeIntroActive;
   mainMenuVisibleRef.current = Boolean(welcomeOpen || showFullMainMenu);
   introPausedRef.current = introPaused;
+  pauseMenuOpenRef.current = pauseMenuOpen;
+  activeCockpitStationRef.current = activeCockpitStation;
+  missionOpenRef.current = missionOpen;
   gameSettingsRef.current = gameSettings;
   const openKronox = () => {
     clearTimeout(kronoxCloseTimer.current);
@@ -1044,6 +1094,25 @@ export default function App() {
   useEffect(() => {
     api.current = setupScene(el.current, {
       quality,
+      graphicsSettings: gameSettingsRef.current?.graphics,
+      onGraphicsStateChange: (info) => setGraphicsRuntime(info),
+      onPointerLockChange: (st) => {
+        if (st) setPointerLockState(st);
+      },
+      onPointerLockEscape: () => {
+        if (
+          !pauseMenuOpenRef.current &&
+          !activeCockpitStationRef.current &&
+          !mainMenuVisibleRef.current &&
+          !realTimeIntroActiveRef.current &&
+          !missionOpenRef.current
+        ) {
+          setPauseMenuSection('save');
+          setPauseMenuOpen(true);
+          api.current?.setSimulationPaused?.(true);
+        }
+      },
+      onAssetLoadingState: (st) => setAssetLoadingState(st || null),
       onNavigationScale: setNavigationScale,
       onNearbyMapChange: setNearbyMapActive,
       reducedMotion: () => reducedMotion,
@@ -1407,6 +1476,11 @@ export default function App() {
       sensitivity: gameSettings.cameraSensitivity || 'normal',
       distance3P: gameSettings.cameraDistance3P || 'normal',
     });
+    if (gameSettings.graphics) {
+      const nextPreset = normalizeGraphicsPreset(gameSettings.graphics.preset, 'auto');
+      if (nextPreset !== quality) setQualityState(nextPreset);
+      api.current?.setGraphicsSettings?.(gameSettings.graphics);
+    }
     if (gameSettings.microgravityMode && prevSettingMgRef.current !== gameSettings.microgravityMode) {
       prevSettingMgRef.current = gameSettings.microgravityMode;
       api.current?.setMicrogravityMode?.(gameSettings.microgravityMode);
@@ -2149,13 +2223,18 @@ export default function App() {
                 h('option', { value: 'auto' }, language === 'es' ? 'Automática' : 'Automatic'),
                 h(
                   'option',
-                  { value: 'performance' },
-                  language === 'es' ? 'Fluidez' : 'Performance',
+                  { value: 'low' },
+                  language === 'es' ? 'Bajo (Fluidez)' : 'Low (Performance)',
                 ),
                 h(
                   'option',
-                  { value: 'quality' },
-                  language === 'es' ? 'Alta calidad' : 'High quality',
+                  { value: 'medium' },
+                  language === 'es' ? 'Medio (Equilibrado)' : 'Medium (Balanced)',
+                ),
+                h(
+                  'option',
+                  { value: 'high' },
+                  language === 'es' ? 'Alto (Máxima calidad)' : 'High (Best quality)',
                 ),
               ),
             ),
@@ -3291,6 +3370,8 @@ export default function App() {
       onSetOpticalTelescope: handleSetOpticalTelescope,
       planetaryTelemetry:
         gameSettings.showTelescopeTelemetry === false ? null : planetaryTelemetry,
+      pointerLockState,
+      assetLoadingState,
       activeObjectiveText: guideObjective,
       onToggleVisualProfile: () => {
         const next = visualProfile === 'scientific' ? 'cinematic' : 'scientific';
@@ -3370,6 +3451,7 @@ export default function App() {
       },
       gameSettings,
       onUpdateGameSettings: setGameSettings,
+      graphicsRuntime,
       onOpenMissionTarget: (targetKey) => {
         setMissionTargetKey(targetKey);
         setMissionInitialStage('investigate');

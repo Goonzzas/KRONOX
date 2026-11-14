@@ -20,38 +20,42 @@ function makeDataFallback(r = 128, g = 136, b = 148, a = 255) {
  * Generates a tangent-space Three.js CanvasTexture normal map from a heightfield callback `(x, y) => [0..1]`.
  */
 function buildNormalTexture(size, heightFn, strength = 2.2, repeat = [1, 1], registry = null) {
+  const texSize = Math.min(256, size);
   if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
     const fb = makeDataFallback(128, 128, 255, 255);
     if (registry) registry.push(fb);
     return fb;
   }
   const c = document.createElement('canvas');
-  c.width = size;
-  c.height = size;
+  c.width = texSize;
+  c.height = texSize;
   const ctx = c.getContext?.('2d');
   if (!ctx) return makeDataFallback(128, 128, 255, 255);
 
-  const img = ctx.createImageData(size, size);
-  const hMap = new Float32Array(size * size);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      hMap[y * size + x] = heightFn(x, y, size);
+  const img = ctx.createImageData(texSize, texSize);
+  const hMap = new Float32Array(texSize * texSize);
+  for (let y = 0; y < texSize; y++) {
+    const rowOff = y * texSize;
+    for (let x = 0; x < texSize; x++) {
+      hMap[rowOff + x] = heightFn(x, y, texSize);
     }
   }
-  const at = (x, y) => hMap[((y + size) % size) * size + ((x + size) % size)];
   const d = img.data;
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const dx = (at(x + 1, y) - at(x - 1, y)) * strength;
-      const dy = (at(x, y + 1) - at(x, y - 1)) * strength;
-      let nx = -dx;
-      let ny = -dy;
-      let nz = 1.0;
-      const inv = 1 / Math.hypot(nx, ny, nz);
-      nx *= inv;
-      ny *= inv;
-      nz *= inv;
-      const idx = (y * size + x) * 4;
+  const last = texSize - 1;
+  for (let y = 0; y < texSize; y++) {
+    const rowOff = y * texSize;
+    const ymOff = (y === 0 ? last : y - 1) * texSize;
+    const ypOff = (y === last ? 0 : y + 1) * texSize;
+    for (let x = 0; x < texSize; x++) {
+      const xm = x === 0 ? last : x - 1;
+      const xp = x === last ? 0 : x + 1;
+      const dx = (hMap[rowOff + xp] - hMap[rowOff + xm]) * strength;
+      const dy = (hMap[ypOff + x] - hMap[ymOff + x]) * strength;
+      const inv = 1 / Math.sqrt(dx * dx + dy * dy + 1.0);
+      const nx = -dx * inv;
+      const ny = -dy * inv;
+      const nz = inv;
+      const idx = (rowOff + x) * 4;
       d[idx] = Math.round((nx * 0.5 + 0.5) * 255);
       d[idx + 1] = Math.round((ny * 0.5 + 0.5) * 255);
       d[idx + 2] = Math.round((nz * 0.5 + 0.5) * 255);
@@ -63,7 +67,7 @@ function buildNormalTexture(size, heightFn, strength = 2.2, repeat = [1, 1], reg
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(repeat[0], repeat[1]);
-  tex.anisotropy = 8;
+  tex.anisotropy = 4;
   tex.needsUpdate = true;
   if (registry) registry.push(tex);
   return tex;
@@ -84,7 +88,7 @@ function buildCanvasTexture(size, drawFn, repeat = [1, 1], isColor = true, regis
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(repeat[0], repeat[1]);
-  tex.anisotropy = 8;
+  tex.anisotropy = 4;
   if (isColor && 'encoding' in tex && THREE.sRGBEncoding) {
     tex.encoding = THREE.sRGBEncoding;
   }
@@ -105,18 +109,11 @@ function drawRivetsAlongRect(ctx, x, y, w, h, step = 28, color = 'rgba(20,28,38,
   }
 }
 
-/**
- * Shared procedural PBR texture & material suite for KRONOX exterior and 4 interior decks.
- */
-export function createShipPbrSuite(seed = 29) {
-  const textures = [];
-  const materials = [];
-  const rng = createRng(seed);
+let sharedPbrTexturesEntry = null;
 
-  const trackMat = (mat) => {
-    materials.push(mat);
-    return mat;
-  };
+function createSharedPbrTextures(seed = 29) {
+  const textures = [];
+  const rng = createRng(seed);
 
   // 1. Exterior / Aerospace Titanium Modular Hull Plating
   const hullHeight = (x, y, s) => {
@@ -129,8 +126,7 @@ export function createShipPbrSuite(seed = 29) {
     if (lx < 5 || ly < 5 || lx > cell - 4 || ly > cell - 4) return 0.68;
     const hash = ((gx * 73856093) ^ (gy * 19349663)) & 255;
     const base = 0.72 + (hash / 255) * 0.14;
-    // Rivet dimples near border
-    if ((lx < 9 || lx > cell - 9) && (Math.abs((ly % 20) - 10) < 1.6)) return 0.92;
+    if ((lx < 9 || lx > cell - 9) && Math.abs((ly % 20) - 10) < 1.6) return 0.92;
     return base;
   };
 
@@ -176,10 +172,8 @@ export function createShipPbrSuite(seed = 29) {
 
   const hullNormalTex = buildNormalTexture(256, hullHeight, 1.4, [2, 2], textures);
 
-  // Subtle fine brushed aluminum normal map for small pedestals, trims & craft fuselages (zero boxy tiling)
   const brushedMetalNormalTex = buildNormalTexture(128, (x, y) => {
-    const brush = 0.5 + 0.08 * Math.sin(y * 1.35) + 0.04 * Math.cos(x * 0.25);
-    return brush;
+    return 0.5 + 0.08 * Math.sin(y * 1.35) + 0.04 * Math.cos(x * 0.25);
   }, 0.85, [1, 1], textures);
 
   // 2. Interior Anti-Slip Diamond / Technical Deck Floor PBR
@@ -187,13 +181,12 @@ export function createShipPbrSuite(seed = 29) {
     const cell = s / 4;
     const lx = x % cell;
     const ly = y % cell;
-    if (lx < 3 || ly < 3) return 0.1; // plate seam
+    if (lx < 3 || ly < 3) return 0.1;
     if (lx > cell * 0.14 && lx < cell * 0.86 && ly > cell * 0.14 && ly < cell * 0.86) {
-      // Anti-slip staggered tread ridges
       const d = ((Math.floor(x / 6) + Math.floor(y / 6)) % 2 === 0) && ((x % 6) < 3) && ((y % 6) < 3);
       return d ? 0.88 : 0.52;
     }
-    return 0.72; // raised brushed edge border
+    return 0.72;
   };
 
   const floorColorTex = buildCanvasTexture(512, (g, s) => {
@@ -204,20 +197,16 @@ export function createShipPbrSuite(seed = 29) {
       for (let i = 0; i < 4; i++) {
         const px = i * cell;
         const py = j * cell;
-        // Brushed frame
         g.fillStyle = '#2a374b';
         g.fillRect(px + 2, py + 2, cell - 4, cell - 4);
-        // Anti-slip rubberized metallic center pad
         g.fillStyle = '#17212f';
         g.fillRect(px + 14, py + 14, cell - 28, cell - 28);
-        // Micro diamond studs
         g.fillStyle = '#253447';
         for (let ty = py + 18; ty < py + cell - 20; ty += 10) {
           for (let tx = px + 18; tx < px + cell - 20; tx += 10) {
             g.fillRect(tx + ((ty / 10) % 2) * 3, ty, 5, 3);
           }
         }
-        // Subtle hazard corner clip & bolt holes
         g.fillStyle = '#536880';
         g.fillRect(px + 6, py + 6, 4, 4);
         g.fillRect(px + cell - 10, py + 6, 4, 4);
@@ -231,12 +220,12 @@ export function createShipPbrSuite(seed = 29) {
   }, [11, 11], true, textures);
 
   const floorRoughTex = buildCanvasTexture(256, (g, s) => {
-    g.fillStyle = '#606060'; // polished brushed rail border (~0.38 roughness)
+    g.fillStyle = '#606060';
     g.fillRect(0, 0, s, s);
     const cell = s / 4;
     for (let j = 0; j < 4; j++) {
       for (let i = 0; i < 4; i++) {
-        g.fillStyle = '#c8c8c8'; // matte anti-slip insert (~0.78 roughness)
+        g.fillStyle = '#c8c8c8';
         g.fillRect(i * cell + 8, j * cell + 8, cell - 16, cell - 16);
       }
     }
@@ -253,7 +242,7 @@ export function createShipPbrSuite(seed = 29) {
     const ly = y % (s / 2);
     if (ly < 3) return 0.2;
     if (lx > colW * 0.16 && lx < colW * 0.84 && ly > 16 && ly < s / 2 - 16) {
-      return 0.45 + 0.06 * Math.sin(x * 0.3) * Math.cos(y * 0.3); // acoustic/thermal liner quilt
+      return 0.45 + 0.06 * Math.sin(x * 0.3) * Math.cos(y * 0.3);
     }
     return 0.72;
   };
@@ -269,13 +258,10 @@ export function createShipPbrSuite(seed = 29) {
         const py = row * rowH;
         g.fillStyle = (col + row) % 2 === 0 ? '#78899e' : '#6d7e93';
         g.fillRect(px + 3, py + 3, colW - 6, rowH - 6);
-        // Inner recessed thermal acoustic liner
         g.fillStyle = '#5c6d82';
         g.fillRect(px + 18, py + 24, colW - 36, rowH - 48);
-        // Conduit / trim stripe near dado rail
         g.fillStyle = '#334254';
         g.fillRect(px + 3, py + rowH - 18, colW - 6, 12);
-        // Rivet fasteners
         drawRivetsAlongRect(g, px + 2, py + 2, colW - 4, rowH - 4, 30, 'rgba(22,30,40,0.7)');
         g.strokeStyle = '#202b38';
         g.lineWidth = 3;
@@ -292,7 +278,7 @@ export function createShipPbrSuite(seed = 29) {
     const rowH = s / 2;
     for (let row = 0; row < 2; row++) {
       for (let col = 0; col < 4; col++) {
-        g.fillStyle = '#bebebe'; // matte thermal quilt inside
+        g.fillStyle = '#bebebe';
         g.fillRect(col * colW + 10, row * rowH + 12, colW - 20, rowH - 24);
       }
     }
@@ -309,11 +295,9 @@ export function createShipPbrSuite(seed = 29) {
     g.fillRect(0, 0, s, s);
     g.fillStyle = '#38485c';
     g.fillRect(16, 18, s - 32, s - 36);
-    // Viewport observation cutout frame look
     g.strokeStyle = '#18222e';
     g.lineWidth = 8;
     g.strokeRect(20, 22, s - 40, s - 44);
-    // Caution hazard chevron band at bottom & seam edge
     g.save();
     g.beginPath();
     g.rect(16, s - 56, s - 32, 26);
@@ -346,72 +330,6 @@ export function createShipPbrSuite(seed = 29) {
     g.fillStyle = '#6e6e6e';
     g.strokeRect(8, 8, s - 16, s - 16);
   }, [1, 1], false, textures);
-
-  // Material instances (reused cleanly across the ship & 4 decks)
-  const hullExteriorMat = trackMat(new THREE.MeshStandardMaterial({
-    color: 0xd4dde7,
-    map: hullColorTex,
-    normalMap: hullNormalTex,
-    normalScale: new THREE.Vector2(0.85, 0.85),
-    roughnessMap: hullRoughTex,
-    roughness: 0.72,
-    metalness: 0.72,
-  }));
-
-  const hullExteriorDoubleMat = trackMat(new THREE.MeshStandardMaterial({
-    color: 0xd4dde7,
-    map: hullColorTex,
-    normalMap: hullNormalTex,
-    normalScale: new THREE.Vector2(0.85, 0.85),
-    roughnessMap: hullRoughTex,
-    roughness: 0.72,
-    metalness: 0.68,
-    side: THREE.DoubleSide,
-  }));
-
-  const deckFloorMat = trackMat(new THREE.MeshStandardMaterial({
-    color: 0x384658,
-    map: floorColorTex,
-    normalMap: floorNormalTex,
-    normalScale: new THREE.Vector2(0.9, 0.9),
-    roughnessMap: floorRoughTex,
-    roughness: 0.88,
-    metalness: 0.56,
-  }));
-
-  const bulkheadWallMat = trackMat(new THREE.MeshStandardMaterial({
-    color: 0xa2b1c4,
-    map: wallColorTex,
-    normalMap: wallNormalTex,
-    normalScale: new THREE.Vector2(0.8, 0.8),
-    roughnessMap: wallRoughTex,
-    roughness: 0.82,
-    metalness: 0.48,
-  }));
-
-  const darkTrimMat = trackMat(new THREE.MeshStandardMaterial({
-    color: 0x1b2431,
-    normalMap: brushedMetalNormalTex,
-    normalScale: new THREE.Vector2(0.32, 0.32),
-    roughness: 0.42,
-    metalness: 0.74,
-  }));
-
-  const brushedSteelMat = trackMat(new THREE.MeshStandardMaterial({
-    color: 0x99abc0,
-    normalMap: brushedMetalNormalTex,
-    normalScale: new THREE.Vector2(0.35, 0.35),
-    roughness: 0.3,
-    metalness: 0.85,
-  }));
-
-  const shuttleCompositeMat = trackMat(new THREE.MeshStandardMaterial({
-    color: 0xdce4ee,
-    normalMap: brushedMetalNormalTex,
-    normalScale: new THREE.Vector2(0.28, 0.28),
-    roughness: 0.32,
-    metalness: 0.36,
-  }));
 
   // 7. Perforated Aerospace Ceiling Coffer + Vent Louvres + Quilted Crew Wall + Hazard Trim
   const ceilingHeight = (x, y, s) => {
@@ -480,6 +398,142 @@ export function createShipPbrSuite(seed = 29) {
   const ventGrilleNormalTex = buildNormalTexture(128, (_x, y) => {
     return (y % 12) < 4 ? 0.22 : 0.78;
   }, 2.2, [4, 4], textures);
+
+  return {
+    refCount: 0,
+    list: textures,
+    map: {
+      hullColorTex,
+      hullRoughTex,
+      hullNormalTex,
+      brushedMetalNormalTex,
+      floorColorTex,
+      floorRoughTex,
+      floorNormalTex,
+      wallColorTex,
+      wallNormalTex,
+      wallRoughTex,
+      mliNormalTex,
+      doorColorTex,
+      cargoNormalTex,
+      cargoRoughTex,
+      ceilingColorTex,
+      ceilingNormalTex,
+      quiltedColorTex,
+      quiltedNormalTex,
+      hazardStripeTex,
+      ventGrilleNormalTex,
+    },
+  };
+}
+
+/**
+ * Shared procedural PBR texture & material suite for KRONOX exterior and 4 interior decks.
+ * Uses reference-counted GPU CanvasTexture caching so hull & interior suites never regenerate
+ * or duplicate procedural textures in VRAM.
+ */
+export function createShipPbrSuite(seed = 29) {
+  if (!sharedPbrTexturesEntry) {
+    sharedPbrTexturesEntry = createSharedPbrTextures(seed);
+  }
+  const texEntry = sharedPbrTexturesEntry;
+  texEntry.refCount += 1;
+
+  const {
+    hullColorTex,
+    hullRoughTex,
+    hullNormalTex,
+    brushedMetalNormalTex,
+    floorColorTex,
+    floorRoughTex,
+    floorNormalTex,
+    wallColorTex,
+    wallNormalTex,
+    wallRoughTex,
+    mliNormalTex,
+    doorColorTex,
+    cargoNormalTex,
+    cargoRoughTex,
+    ceilingColorTex,
+    ceilingNormalTex,
+    quiltedColorTex,
+    quiltedNormalTex,
+    hazardStripeTex,
+    ventGrilleNormalTex,
+  } = texEntry.map;
+
+  const materials = [];
+
+  const trackMat = (mat) => {
+    materials.push(mat);
+    return mat;
+  };
+
+  // Material instances (reused cleanly across the ship & 4 decks)
+  const hullExteriorMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0xd4dde7,
+    map: hullColorTex,
+    normalMap: hullNormalTex,
+    normalScale: new THREE.Vector2(0.85, 0.85),
+    roughnessMap: hullRoughTex,
+    roughness: 0.72,
+    metalness: 0.72,
+  }));
+
+  const hullExteriorDoubleMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0xd4dde7,
+    map: hullColorTex,
+    normalMap: hullNormalTex,
+    normalScale: new THREE.Vector2(0.85, 0.85),
+    roughnessMap: hullRoughTex,
+    roughness: 0.72,
+    metalness: 0.68,
+    side: THREE.DoubleSide,
+  }));
+
+  const deckFloorMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0x384658,
+    map: floorColorTex,
+    normalMap: floorNormalTex,
+    normalScale: new THREE.Vector2(0.9, 0.9),
+    roughnessMap: floorRoughTex,
+    roughness: 0.88,
+    metalness: 0.56,
+  }));
+
+  const bulkheadWallMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0xa2b1c4,
+    map: wallColorTex,
+    normalMap: wallNormalTex,
+    normalScale: new THREE.Vector2(0.8, 0.8),
+    roughnessMap: wallRoughTex,
+    roughness: 0.82,
+    metalness: 0.48,
+  }));
+
+  const darkTrimMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0x1b2431,
+    normalMap: brushedMetalNormalTex,
+    normalScale: new THREE.Vector2(0.32, 0.32),
+    roughness: 0.42,
+    metalness: 0.74,
+  }));
+
+  const brushedSteelMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0x99abc0,
+    normalMap: brushedMetalNormalTex,
+    normalScale: new THREE.Vector2(0.35, 0.35),
+    roughness: 0.3,
+    metalness: 0.85,
+  }));
+
+  const shuttleCompositeMat = trackMat(new THREE.MeshStandardMaterial({
+    color: 0xdce4ee,
+    normalMap: brushedMetalNormalTex,
+    normalScale: new THREE.Vector2(0.28, 0.28),
+    roughness: 0.32,
+    metalness: 0.36,
+  }));
 
   const ceilingCofferMat = trackMat(new THREE.MeshStandardMaterial({
     color: 0x3b495d,
@@ -590,9 +644,29 @@ export function createShipPbrSuite(seed = 29) {
       metalness: 0.52,
     }));
 
+  let disposed = false;
   const dispose = () => {
-    textures.forEach((t) => t?.dispose?.());
+    if (disposed) return;
+    disposed = true;
     materials.forEach((m) => m?.dispose?.());
+    texEntry.refCount -= 1;
+    if (texEntry.refCount <= 0) {
+      texEntry.list.forEach((t) => t?.dispose?.());
+      if (sharedPbrTexturesEntry === texEntry) {
+        sharedPbrTexturesEntry = null;
+      }
+    }
+  };
+
+  const setAnisotropy = (val = 4) => {
+    const next = Math.max(1, Math.min(8, Number(val) || 4));
+    for (let i = 0; i < texEntry.list.length; i += 1) {
+      const tex = texEntry.list[i];
+      if (tex && tex.anisotropy !== next) {
+        tex.anisotropy = next;
+        tex.needsUpdate = true;
+      }
+    }
   };
 
   return {
@@ -636,6 +710,7 @@ export function createShipPbrSuite(seed = 29) {
       hazardStripeMat,
     },
     makeCargoMat,
+    setAnisotropy,
     dispose,
   };
 }

@@ -737,18 +737,32 @@ function createDeterministicRng(seedString = 'kronox') {
  * - Oscurecimiento de limbo latitudinal para dar volumen esférico inmediato.
  */
 const starTextureCache = new Map();
+function getSpectralBucket(spectralType = 'G2V', temperatureK = 5772) {
+  const T = Number(temperatureK) || 5772;
+  const sp = String(spectralType || '').toUpperCase();
+  if (sp.startsWith('Y') || T < 500) return 'Y';
+  if (sp.startsWith('T') || T < 1500) return 'T';
+  if (T < 3150) return 'M_COOL';
+  if (T < 3650) return 'M_MID';
+  if (T < 4200) return 'M_WARM';
+  if (T < 5300) return 'K';
+  if (T < 6200) return 'G';
+  if (T < 7600) return 'F';
+  if (T < 11000) return 'A';
+  return 'OB';
+}
 export function getStellarPhotosphereTexture(
   colorHex,
   spectralType = 'G2V',
   temperatureK = 5772,
 ) {
-  const cacheKey = `${colorHex}:${spectralType}:${Math.round((Number(temperatureK) || 5772) / 100)}`;
-  if (starTextureCache.has(cacheKey)) return starTextureCache.get(cacheKey);
+  const bucket = getSpectralBucket(spectralType, temperatureK);
+  if (starTextureCache.has(bucket)) return starTextureCache.get(bucket);
   if (typeof document === 'undefined') return null;
 
   const isHarness = Boolean(globalThis.__KRONOX_SCENE_HARNESS__);
-  const W = isHarness ? 64 : 256;
-  const H = isHarness ? 32 : 128;
+  const W = isHarness ? 64 : 128;
+  const H = isHarness ? 32 : 64;
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -769,45 +783,45 @@ export function getStellarPhotosphereTexture(
   let hotG = 253;
   let hotB = 248;
 
-  if (sp.startsWith('Y') || T < 500) {
+  if (bucket === 'Y') {
     baseR = 148; baseG = 42; baseB = 82;
     darkR = 58; darkG = 14; darkB = 34;
     hotR = 210; hotG = 78; hotB = 115;
-  } else if (sp.startsWith('T') || T < 1500) {
+  } else if (bucket === 'T') {
     baseR = 198; baseG = 58; baseB = 44;
     darkR = 92; darkG = 20; darkB = 18;
     hotR = 245; hotG = 110; hotB = 68;
-  } else if (T < 3150) {
+  } else if (bucket === 'M_COOL') {
     // M5–M9V / Mira (Próxima Centauri, R Draconis): rojo profundo convectivo
     baseR = 242; baseG = 78; baseB = 28;
     darkR = 138; darkG = 26; darkB = 8;
     hotR = 255; hotG = 135; hotB = 58;
-  } else if (T < 3650) {
+  } else if (bucket === 'M_MID') {
     // M2–M4V (Estrella de Barnard, 3220 K): rojo-anaranjado cálido convectivo muy distinguible
     baseR = 250; baseG = 98; baseB = 38;
     darkR = 156; darkG = 38; darkB = 12;
     hotR = 255; hotG = 158; hotB = 76;
-  } else if (T < 4200) {
+  } else if (bucket === 'M_WARM') {
     // M0–M1V
     baseR = 252; baseG = 134; baseB = 64;
     darkR = 175; darkG = 68; darkB = 24;
     hotR = 255; hotG = 188; hotB = 110;
-  } else if (T < 5300) {
+  } else if (bucket === 'K') {
     // K0–K7V (RW Aurigae 4900 K): ámbar dorado cálido
     baseR = 255; baseG = 188; baseB = 108;
     darkR = 198; darkG = 122; darkB = 52;
     hotR = 255; hotG = 224; hotB = 158;
-  } else if (T < 6200) {
+  } else if (bucket === 'G') {
     // G0–G9V (Sol 5772 K): blanco solar cálido natural
     baseR = 255; baseG = 247; baseB = 234;
     darkR = 228; darkG = 205; darkB = 172;
     hotR = 255; hotG = 253; hotB = 248;
-  } else if (T < 7600) {
+  } else if (bucket === 'F') {
     // F0–F9V
     baseR = 242; baseG = 248; baseB = 255;
     darkR = 198; darkG = 215; darkB = 242;
     hotR = 255; hotG = 255; hotB = 255;
-  } else if (T < 11000) {
+  } else if (bucket === 'A') {
     // A0–A9V (Sirio 9940 K): blanco-azulado brillante
     baseR = 186; baseG = 216; baseB = 255;
     darkR = 128; darkG = 168; darkB = 238;
@@ -823,12 +837,12 @@ export function getStellarPhotosphereTexture(
   if (img && img.data) {
     const d = img.data;
     const isSubstellar = /^([YTL])/i.test(sp) || T < 1800;
-    const cellFreq = T < 3800 ? 14 : T < 6200 ? 26 : 18;
 
     for (let y = 0; y < H; y++) {
       const v = y / H;
       const lat = (v - 0.5) * Math.PI;
       const cosLat = Math.cos(lat);
+      const sinLat = Math.sin(lat);
       // Oscurecimiento suave hacia los polos para reforzar la tridimensionalidad esférica
       const limbFactor = 0.72 + 0.28 * Math.pow(Math.max(0.05, cosLat), 0.55);
 
@@ -843,16 +857,16 @@ export function getStellarPhotosphereTexture(
           // Coordenadas esféricas 3D sin costuras UV para granulación convectiva orgánica
           const lon = u * Math.PI * 2;
           const sx = cosLat * Math.cos(lon);
-          const sy = Math.sin(lat);
+          const sy = sinLat;
           const sz = cosLat * Math.sin(lon);
           const freq = T < 3800 ? 5.5 : T < 6200 ? 9.0 : 7.0;
-          const n1 = fbmGalaxy(sx * freq + 3.1, sy * freq + sz * (freq * 0.72), 3);
-          const n2 = fbmGalaxy(sz * (freq * 1.8) - 1.7, sx * (freq * 1.6) + sy * 2.3, 2);
+          const n1 = fbmGalaxy(sx * freq + 3.1, sy * freq + sz * (freq * 0.72), 3, 2);
+          const n2 = noise2D(sz * (freq * 1.8) - 1.7, sx * (freq * 1.6) + sy * 2.3, 2);
           // Celdas convectivas brillantes separadas por carriles intergranulares más oscuros
           const cells = Math.pow(Math.min(1, Math.max(0, n1 * 0.68 + n2 * 0.32)), 0.85);
           const spotNoise =
             T < 4000
-              ? fbmGalaxy(sx * 2.4 + 0.9, sy * 2.4 - sz * 1.9, 2)
+              ? fbmGalaxy(sx * 2.4 + 0.9, sy * 2.4 - sz * 1.9, 2, 2)
               : 0;
           const spot = spotNoise > 0.68 ? Math.pow((spotNoise - 0.68) / 0.32, 1.6) * 0.45 : 0;
           tone = Math.max(0.06, Math.min(0.98, 0.24 + 0.72 * cells - spot));
@@ -886,7 +900,7 @@ export function getStellarPhotosphereTexture(
   const texture = new THREE.CanvasTexture(canvas);
   if (THREE.sRGBEncoding) texture.encoding = THREE.sRGBEncoding;
   texture.needsUpdate = true;
-  starTextureCache.set(cacheKey, texture);
+  starTextureCache.set(bucket, texture);
   return texture;
 }
 
@@ -1598,13 +1612,32 @@ function fbmGalaxy(x, y, seed = 1, octaves = 4) {
  * - Enana de Sagitario: corriente dSph/E7 difusa de bajo brillo superficial y elongación de marea (~3:1).
  */
 const galaxyTextureCache = new Map();
+const pendingGalaxyTextureHydrators = [];
+
+export function getPendingGalaxyTextureCount() {
+  return pendingGalaxyTextureHydrators.length;
+}
+
+export function flushPendingGalaxyTextures(maxCount = 1, targetKey = null) {
+  let flushed = 0;
+  for (let i = pendingGalaxyTextureHydrators.length - 1; i >= 0; i -= 1) {
+    const task = pendingGalaxyTextureHydrators[i];
+    if (targetKey && task.key !== targetKey) continue;
+    pendingGalaxyTextureHydrators.splice(i, 1);
+    task.hydrate();
+    flushed += 1;
+    if (!targetKey && flushed >= maxCount) break;
+  }
+  return flushed;
+}
+
 export function getGalaxyPhotographicVolumeTexture(galaxyKey) {
   if (galaxyTextureCache.has(galaxyKey)) return galaxyTextureCache.get(galaxyKey);
   if (typeof document === 'undefined') return null;
 
   const meta = GALAXY_MORPHOLOGY_METADATA[galaxyKey] || GALAXY_MORPHOLOGY_METADATA['milky-way'];
   const isHarness = Boolean(globalThis.__KRONOX_SCENE_HARNESS__);
-  const N = isHarness ? 48 : 256;
+  const N = isHarness ? 48 : 80;
   const canvas = document.createElement('canvas');
   canvas.width = N;
   canvas.height = N;
@@ -1632,8 +1665,8 @@ export function getGalaxyPhotographicVolumeTexture(galaxyKey) {
         }
 
         const edgeFade = Math.pow(Math.max(0, 1 - Math.pow(r / 0.96, 2.4)), 1.6);
-        const turb = fbmGalaxy(x * 3.8 + 4.1, y * 3.8 - 2.3, seed, 4);
-        const fine = fbmGalaxy(x * 11.5 - 1.7, y * 11.5 + 5.2, seed + 71, 3);
+        const turb = fbmGalaxy(x * 3.8 + 4.1, y * 3.8 - 2.3, seed, 3);
+        const fine = fbmGalaxy(x * 11.5 - 1.7, y * 11.5 + 5.2, seed + 71, 2);
 
         let R = 0;
         let G = 0;
@@ -1984,7 +2017,12 @@ function getSoftBulgeGlowTexture() {
  * 3. Nube 3D de poblaciones estelares, polvo interestelar y regiones HII con espesor vertical real.
  * 4. Satélites compañeros M32 y M110 en Andrómeda (M31), corrientes de marea en Sagitario y superviento bipolar en M82.
  */
-export function buildGalaxyMorphologyLayer3D(galaxyKey, radius = 12, glowTexture = null) {
+export function buildGalaxyMorphologyLayer3D(
+  galaxyKey,
+  radius = 12,
+  glowTexture = null,
+  { deferTexture = false } = {},
+) {
   const meta = GALAXY_MORPHOLOGY_METADATA[galaxyKey];
   if (!meta) return null;
 
@@ -2012,8 +2050,13 @@ export function buildGalaxyMorphologyLayer3D(galaxyKey, radius = 12, glowTexture
   const sinBar = Math.sin(barAngleRad);
 
   // 1. CAPAS VOLUMÉTRICAS CONTINUAS DE DISCO Y POLVO (Planos apilados en 3D con transparencia y extinción de polvo)
-  const volumeTex = getGalaxyPhotographicVolumeTexture(galaxyKey);
-  if (volumeTex) {
+  const bulgeFallbackTex = getSoftBulgeGlowTexture() || glowTexture;
+  const volumeTex =
+    deferTexture && !galaxyTextureCache.has(galaxyKey)
+      ? null
+      : getGalaxyPhotographicVolumeTexture(galaxyKey);
+  const activeDiskTex = volumeTex || bulgeFallbackTex;
+  if (activeDiskTex || deferTexture) {
     const planeDiameter = radius * 2.15;
     const planeGeo = new THREE.PlaneGeometry(planeDiameter, planeDiameter);
     const layerOffsets =
@@ -2036,15 +2079,17 @@ export function buildGalaxyMorphologyLayer3D(galaxyKey, radius = 12, glowTexture
             { y: -radius * 0.075, opacity: 0.18, scale: 0.94, rotY: -0.03, additive: true },
           ];
 
+    const diskMats = [];
     layerOffsets.forEach((layer, idx) => {
       const mat = new THREE.MeshBasicMaterial({
-        map: volumeTex,
+        map: activeDiskTex || null,
         transparent: true,
-        opacity: layer.opacity,
+        opacity: volumeTex ? layer.opacity : Math.min(0.25, layer.opacity),
         side: THREE.DoubleSide,
         depthWrite: false,
         blending: layer.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
       });
+      diskMats.push({ mat, targetOpacity: layer.opacity });
       const mesh = new THREE.Mesh(planeGeo, mat);
       mesh.rotation.x = -Math.PI / 2;
       mesh.rotation.z = layer.rotY;
@@ -2054,6 +2099,20 @@ export function buildGalaxyMorphologyLayer3D(galaxyKey, radius = 12, glowTexture
       mesh.userData.nearbyGalaxyKey = galaxyKey;
       group.add(mesh);
     });
+    if (!volumeTex && deferTexture) {
+      pendingGalaxyTextureHydrators.push({
+        key: galaxyKey,
+        hydrate: () => {
+          const fullTex = getGalaxyPhotographicVolumeTexture(galaxyKey);
+          if (!fullTex) return;
+          for (let mIdx = 0; mIdx < diskMats.length; mIdx += 1) {
+            diskMats[mIdx].mat.map = fullTex;
+            diskMats[mIdx].mat.opacity = diskMats[mIdx].targetOpacity;
+            diskMats[mIdx].mat.needsUpdate = true;
+          }
+        },
+      });
+    }
   }
 
   // 2. DISTRIBUCIÓN VOLUMÉTRICA SUAVE DEL BULBO Y BARRA CENTRAL (Cero esferas sólidas opacas)
@@ -2374,44 +2433,62 @@ export function buildGalaxyMorphologyLayer3D(galaxyKey, radius = 12, glowTexture
  * aportando la barra central de 28°, los 4 brazos espirales con carriles oscuros de polvo y regiones HII rosadas
  * de acuerdo con el modelo de Spitzer/Hurt (`sig05-010a-milky-way-bar`).
  */
-export function buildMacroMilkyWayVolumetricDisk(macroRadius = 45000) {
+export function buildMacroMilkyWayVolumetricDisk(
+  macroRadius = 45000,
+  { deferTexture = false } = {},
+) {
   const group = new THREE.Group();
   group.name = 'macro-milky-way-volumetric-hurt-spitzer';
-  const mwTex = getGalaxyPhotographicVolumeTexture('milky-way');
   const bulgeTex = getSoftBulgeGlowTexture();
+  const mwTex =
+    deferTexture && !galaxyTextureCache.has('milky-way')
+      ? null
+      : getGalaxyPhotographicVolumeTexture('milky-way');
 
-  if (mwTex) {
+  if (mwTex || deferTexture) {
     const diameter = macroRadius * 2.08;
     const planeGeo = new THREE.PlaneGeometry(diameter, diameter);
-    const mainPlane = new THREE.Mesh(
-      planeGeo,
-      new THREE.MeshBasicMaterial({
-        map: mwTex,
-        transparent: true,
-        opacity: 0.84,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-        blending: THREE.NormalBlending,
-      }),
-    );
+    const mainMat = new THREE.MeshBasicMaterial({
+      map: mwTex || bulgeTex || null,
+      transparent: true,
+      opacity: mwTex ? 0.84 : 0.25,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.NormalBlending,
+    });
+    const mainPlane = new THREE.Mesh(planeGeo, mainMat);
     mainPlane.rotation.x = -Math.PI / 2;
     mainPlane.position.y = -40;
     group.add(mainPlane);
 
-    const glowPlane = new THREE.Mesh(
-      planeGeo,
-      new THREE.MeshBasicMaterial({
-        map: mwTex,
-        transparent: true,
-        opacity: 0.12,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-      }),
-    );
+    const glowMat = new THREE.MeshBasicMaterial({
+      map: mwTex || bulgeTex || null,
+      transparent: true,
+      opacity: mwTex ? 0.12 : 0.05,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const glowPlane = new THREE.Mesh(planeGeo, glowMat);
     glowPlane.rotation.x = -Math.PI / 2;
     glowPlane.position.y = 45;
     group.add(glowPlane);
+
+    if (!mwTex && deferTexture) {
+      pendingGalaxyTextureHydrators.push({
+        key: 'milky-way',
+        hydrate: () => {
+          const fullMw = getGalaxyPhotographicVolumeTexture('milky-way');
+          if (!fullMw) return;
+          mainMat.map = fullMw;
+          mainMat.opacity = 0.84;
+          mainMat.needsUpdate = true;
+          glowMat.map = fullMw;
+          glowMat.opacity = 0.12;
+          glowMat.needsUpdate = true;
+        },
+      });
+    }
   }
 
   if (bulgeTex) {
@@ -2447,6 +2524,7 @@ export function upgradeSceneGalaxiesWithMorphology({
   macroGalacticGroup,
   atlasRadii,
   glowTexture = null,
+  deferGalaxyTextures = false,
 } = {}) {
   const upgradedKeys = [];
 
@@ -2488,7 +2566,9 @@ export function upgradeSceneGalaxiesWithMorphology({
       const targetParent = legacyModel || markerGroup;
       let morphLayer = targetParent.getObjectByName(`kronox-galaxy-morphology-${key}`);
       if (!morphLayer) {
-        morphLayer = buildGalaxyMorphologyLayer3D(key, radius, glowTexture);
+        morphLayer = buildGalaxyMorphologyLayer3D(key, radius, glowTexture, {
+          deferTexture: deferGalaxyTextures,
+        });
         if (morphLayer) {
           const rotX =
             key === 'milky-way'
@@ -2554,7 +2634,9 @@ export function upgradeSceneGalaxiesWithMorphology({
         const parentForMorph = detailGroup || markerGroup;
         let morphLayer = parentForMorph.getObjectByName(`kronox-galaxy-morphology-${key}`);
         if (!morphLayer) {
-          morphLayer = buildGalaxyMorphologyLayer3D(key, galRadius, glowTexture);
+          morphLayer = buildGalaxyMorphologyLayer3D(key, galRadius, glowTexture, {
+            deferTexture: deferGalaxyTextures,
+          });
           if (morphLayer) {
             morphLayer.rotation.set(
               (meta.inclinationDeg || 0) * DEG2RAD,
@@ -2594,7 +2676,9 @@ export function upgradeSceneGalaxiesWithMorphology({
         }
       }
     });
-    const macroDisk = buildMacroMilkyWayVolumetricDisk(45000);
+    const macroDisk = buildMacroMilkyWayVolumetricDisk(45000, {
+      deferTexture: deferGalaxyTextures,
+    });
     // Añadir ancla sutil del Espolón de Orión (~8.18 kpc) sin apilar múltiples discos aditivos saturados
     const orionMarker = new THREE.Sprite(
       new THREE.SpriteMaterial({

@@ -46,9 +46,21 @@ export function buildModularShip120M() {
     if (m) m.clippingPlanes = [sectionClipPlane];
   });
 
+  const extraDisposables = [];
+  const geoCache = new Map();
+  const cachedGeo = (key, factory) => {
+    let g = geoCache.get(key);
+    if (!g) {
+      g = factory();
+      geoCache.set(key, g);
+      extraDisposables.push(g);
+    }
+    return g;
+  };
   const makeBasicMat = (color, extra = {}) => {
     const m = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, ...extra });
     m.clippingPlanes = [sectionClipPlane];
+    extraDisposables.push(m);
     return m;
   };
 
@@ -66,33 +78,51 @@ export function buildModularShip120M() {
   const innerNozzleGlowMat = makeBasicMat(0xffd7a4, { transparent: true, opacity: 0.44 });
   const auxNozzleGlowMat = makeBasicMat(0x68beff, { transparent: true, opacity: 0.38 });
 
-  const addMesh = (parent, geo, mat, x = 0, y = 0, z = 0, shadow = true) => {
+  const shadowCasters = [];
+  let shadowsEnabledState = true;
+  const staticFreezeCandidates = [];
+
+  const addMesh = (parent, geo, mat, x = 0, y = 0, z = 0, shadow = true, freezeMatrix = true) => {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x, y, z);
-    mesh.castShadow = shadow;
-    mesh.receiveShadow = shadow;
+    mesh.castShadow = shadow && shadowsEnabledState;
+    mesh.receiveShadow = shadow && shadowsEnabledState;
+    if (shadow) shadowCasters.push(mesh);
+    if (freezeMatrix) staticFreezeCandidates.push(mesh);
     parent.add(mesh);
     return mesh;
   };
-  const boxGeo = (a, b, c) => new THREE.BoxGeometry(a, b, c);
-  const cylGeo = (a, b, l, s = 32) => new THREE.CylinderGeometry(a, b, l, s);
+  const boxGeo = (a, b, c) =>
+    cachedGeo(`box:${a}:${b}:${c}`, () => new THREE.BoxGeometry(a, b, c));
+  const cylGeo = (a, b, l, s = 32) =>
+    cachedGeo(`cyl:${a}:${b}:${l}:${s}`, () => new THREE.CylinderGeometry(a, b, l, s));
+  const torusGeo = (R, t, rs = 12, ts = 96) =>
+    cachedGeo(`tor:${R.toFixed(3)}:${t.toFixed(3)}:${rs}:${ts}`, () => new THREE.TorusGeometry(R, t, rs, ts));
+  const sphereGeo = (r, ws = 24, hs = 16, ps = 0, pl = Math.PI * 2, ts = 0, tl = Math.PI) =>
+    cachedGeo(`sph:${r}:${ws}:${hs}:${ps}:${pl.toFixed(3)}:${ts}:${tl.toFixed(3)}`, () => new THREE.SphereGeometry(r, ws, hs, ps, pl, ts, tl));
+  const circleGeo = (r, s = 24) =>
+    cachedGeo(`cir:${r}:${s}`, () => new THREE.CircleGeometry(r, s));
   const cylX = (parent, r1, r2, l, x, mat, s = 40) => {
     const o = addMesh(parent, cylGeo(r1, r2, l, s), mat, x);
     o.rotation.z = Math.PI / 2;
     return o;
   };
   const torusX = (parent, R, t, x, mat) => {
-    const o = addMesh(parent, new THREE.TorusGeometry(R, t, 12, 96), mat, x);
+    const o = addMesh(parent, torusGeo(R, t, 12, 96), mat, x);
     o.rotation.y = Math.PI / 2;
     return o;
   };
   const torusY = (parent, R, t, y, mat) => {
-    const o = addMesh(parent, new THREE.TorusGeometry(R, t, 10, 96), mat, 0, y, 0, false);
+    const o = addMesh(parent, torusGeo(R, t, 10, 96), mat, 0, y, 0, false);
     o.rotation.x = Math.PI / 2;
     return o;
   };
   const addGreebles = (parent, x0, x1, radius, count) => {
-    // GPU-instanced structural armor plates, MLI blanket modules & fastener studs
+    // GPU-instanced structural armor plates, MLI blanket modules & fastener studs wrapped in LOD
+    const lod = new THREE.LOD();
+    lod.name = 'HullGreeblesLOD';
+    const highGrp = new THREE.Group();
+    const farGrp = new THREE.Group();
     const darkPos = [];
     const goldPos = [];
     const dummy = new THREE.Object3D();
@@ -115,7 +145,9 @@ export function buildModularShip120M() {
       inst.instanceMatrix.needsUpdate = true;
       inst.castShadow = true;
       inst.receiveShadow = true;
-      parent.add(inst);
+      inst.matrixAutoUpdate = false;
+      shadowCasters.push(inst);
+      highGrp.add(inst);
     }
     if (goldPos.length > 0) {
       const inst = new THREE.InstancedMesh(unitBox, goldMat, goldPos.length);
@@ -123,8 +155,13 @@ export function buildModularShip120M() {
       inst.instanceMatrix.needsUpdate = true;
       inst.castShadow = true;
       inst.receiveShadow = true;
-      parent.add(inst);
+      inst.matrixAutoUpdate = false;
+      shadowCasters.push(inst);
+      highGrp.add(inst);
     }
+    lod.addLevel(highGrp, 0);
+    lod.addLevel(farGrp, 240);
+    parent.add(lod);
   };
 
   // Semantic sub-groups expected by callers & telemetry
@@ -182,9 +219,10 @@ export function buildModularShip120M() {
     cylX(engineCluster, 1.6, 1, 4, -54, darkMat, 16).position.set(-54, y, z);
     const baffle = torusX(engineCluster, 1.25, 0.14, -55.9, copperMat);
     baffle.position.set(-55.9, y, z);
-    const gg = new THREE.Mesh(new THREE.CircleGeometry(1.08, 20), auxNozzleGlowMat);
+    const gg = new THREE.Mesh(circleGeo(1.08, 20), auxNozzleGlowMat);
     gg.rotation.y = -Math.PI / 2;
     gg.position.set(-56.02, y, z);
+    staticFreezeCandidates.push(gg);
     engineCluster.add(gg);
   }
 
@@ -217,18 +255,20 @@ export function buildModularShip120M() {
   // Tobera principal con anillo de refrigeración en cobre + plasma en dos etapas (sin saturación blanca)
   torusX(engineCluster, 6.2, 0.32, -59.5, copperMat);
   torusX(engineCluster, 4.1, 0.22, -59.65, steelMat);
-  const mainGlowOuter = new THREE.Mesh(new THREE.CircleGeometry(6.9, 40), coreNozzleGlowMat);
+  const mainGlowOuter = new THREE.Mesh(circleGeo(6.9, 36), coreNozzleGlowMat);
   mainGlowOuter.rotation.y = -Math.PI / 2;
   mainGlowOuter.position.x = -59.82;
+  staticFreezeCandidates.push(mainGlowOuter);
   engineCluster.add(mainGlowOuter);
 
-  const mainGlow = new THREE.Mesh(new THREE.CircleGeometry(4.2, 32), innerNozzleGlowMat);
+  const mainGlow = new THREE.Mesh(circleGeo(4.2, 28), innerNozzleGlowMat);
   mainGlow.rotation.y = -Math.PI / 2;
   mainGlow.position.x = -59.9;
+  staticFreezeCandidates.push(mainGlow);
   engineCluster.add(mainGlow);
 
-  const makePlumeMat = () =>
-    new THREE.ShaderMaterial({
+  const makePlumeMat = () => {
+    const pm = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
       side: THREE.FrontSide,
@@ -239,12 +279,18 @@ export function buildModularShip120M() {
       fragmentShader:
         'uniform float t,w;varying vec2 vu;void main(){float a=pow(1.-vu.y,1.8);float f=.78+.22*sin(vu.y*28.-t*20.)*sin(t*6.);vec3 c=mix(vec3(1.,.58,.22),vec3(.45,.78,1.),w);c=mix(c,vec3(1.,.95,.88),a*.2);gl_FragColor=vec4(c*f*a*(.34+w*.62),a*.44);}',
     });
+    extraDisposables.push(pm);
+    return pm;
+  };
+
+  const mainPlumeGeo = (r, h, s) =>
+    cachedGeo(`cone:${r}:${h}:${s}`, () => new THREE.ConeGeometry(r, h, s, 1, true));
 
   const plumes = [
     [6.5, 32],
     [3.2, 22],
   ].map(([r, h]) => {
-    const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 32, 1, true), makePlumeMat());
+    const m = new THREE.Mesh(mainPlumeGeo(r, h, 32), makePlumeMat());
     m.rotation.z = Math.PI / 2;
     m.userData.h = h;
     m.userData.isPlume = true;
@@ -271,17 +317,19 @@ export function buildModularShip120M() {
     torusX(g, 2.6, 0.1, -49, cyanMat).position.y = 16;
     torusX(g, 2.9, 0.18, -55.7, copperMat).position.y = 16;
 
-    const glOuter = new THREE.Mesh(new THREE.CircleGeometry(3.0, 28), coreNozzleGlowMat);
+    const glOuter = new THREE.Mesh(circleGeo(3.0, 24), coreNozzleGlowMat);
     glOuter.rotation.y = -Math.PI / 2;
     glOuter.position.set(-55.98, 16, 0);
+    staticFreezeCandidates.push(glOuter);
     g.add(glOuter);
 
-    const gl = new THREE.Mesh(new THREE.CircleGeometry(1.7, 24), innerNozzleGlowMat);
+    const gl = new THREE.Mesh(circleGeo(1.7, 20), innerNozzleGlowMat);
     gl.rotation.y = -Math.PI / 2;
     gl.position.set(-56.06, 16, 0);
+    staticFreezeCandidates.push(gl);
     g.add(gl);
 
-    const m = new THREE.Mesh(new THREE.ConeGeometry(3.2, 18, 24, 1, true), makePlumeMat());
+    const m = new THREE.Mesh(mainPlumeGeo(3.2, 18, 20), makePlumeMat());
     m.rotation.z = Math.PI / 2;
     m.userData.h = 18;
     m.userData.isPlume = true;
@@ -326,7 +374,7 @@ export function buildModularShip120M() {
   });
   addMesh(
     antennaGroup,
-    new THREE.SphereGeometry(2.6, 24, 12, 0, 2 * Math.PI, 0, 0.9),
+    sphereGeo(2.6, 20, 10, 0, 2 * Math.PI, 0, 0.9),
     finMat,
     -28,
     5.4,
@@ -367,7 +415,7 @@ export function buildModularShip120M() {
       );
       addStrutBeam(at(t, 1), at(t, -1), 0.55, darkMat);
       const q = at(t, 1);
-      addMesh(structuralSpine, new THREE.SphereGeometry(0.22, 8, 6), cyanMat, q.x, q.y + 1.9, q.z, false);
+      addMesh(structuralSpine, sphereGeo(0.22, 8, 6), cyanMat, q.x, q.y + 1.9, q.z, false);
       if (i < 5) {
         const u = ts[i + 1];
         addStrutBeam(at(t, 1), at(u, -1), 0.4, darkMat);
@@ -423,7 +471,7 @@ export function buildModularShip120M() {
     const g = new THREE.Group();
     g.rotation.y = (i * Math.PI) / 3;
     atomG.add(g);
-    addMesh(g, new THREE.TorusGeometry(r, 0.45, 12, 128), mt, 0, 0, 0);
+    addMesh(g, torusGeo(r, 0.45, 12, 96), mt, 0, 0, 0);
     for (let k = 0; k < 12; k++) {
       const a = (k / 12) * 2 * Math.PI;
       const m = addMesh(
@@ -444,8 +492,8 @@ export function buildModularShip120M() {
       const e = new THREE.Group();
       e.position.x = x;
       orb.add(e);
-      addMesh(e, new THREE.SphereGeometry(1.4, 24, 16), hullMat, 0, 0, 0);
-      addMesh(e, new THREE.TorusGeometry(1.45, 0.18, 8, 24), goldMat, 0, 0, 0);
+      addMesh(e, sphereGeo(1.4, 20, 14), hullMat, 0, 0, 0);
+      addMesh(e, torusGeo(1.45, 0.18, 8, 24), goldMat, 0, 0, 0);
       addMesh(e, boxGeo(0.5, 0.5, 3.6), darkMat, 0, 0, 0);
     });
   });
@@ -459,9 +507,19 @@ export function buildModularShip120M() {
   const cageG = new THREE.Group();
   habitatModule.add(hubG, cageG);
 
-  addMesh(hubG, new THREE.SphereGeometry(SPHERE_R, 64, 48), hullDoubleMat, 0, 0, 0, false);
+  const hubSphereLod = new THREE.LOD();
+  hubSphereLod.name = 'HabitatSphereLOD';
+  const hubSphereHi = new THREE.Mesh(sphereGeo(SPHERE_R, 48, 36), hullDoubleMat);
+  const hubSphereLo = new THREE.Mesh(sphereGeo(SPHERE_R, 24, 18), hullDoubleMat);
+  hubSphereHi.matrixAutoUpdate = false;
+  hubSphereLo.matrixAutoUpdate = false;
+  hubSphereLod.addLevel(hubSphereHi, 0);
+  hubSphereLod.addLevel(hubSphereLo, 210);
+  hubG.add(hubSphereLod);
+
+  const cageTorusGeo = torusGeo(SPHERE_R + 0.25, 0.3, 8, 84);
   for (let i = 0; i < 8; i++) {
-    const o = addMesh(cageG, new THREE.TorusGeometry(SPHERE_R + 0.25, 0.3, 8, 96), darkMat, 0, 0, 0, false);
+    const o = addMesh(cageG, cageTorusGeo, darkMat, 0, 0, 0, false);
     o.rotation.y = (i * Math.PI) / 8;
   }
   [-15, -10, 10, 15].forEach((y) =>
@@ -529,9 +587,10 @@ export function buildModularShip120M() {
 
   // Marcador estructural de cámara de reactor exterior / bahía ventral
   {
-    const ventRing = new THREE.Mesh(new THREE.TorusGeometry(6.2, 0.32, 10, 48), goldMat);
+    const ventRing = new THREE.Mesh(torusGeo(6.2, 0.32, 10, 48), goldMat);
     ventRing.rotation.x = Math.PI / 2;
     ventRing.position.set(0, -SPHERE_R + 0.4, 0);
+    staticFreezeCandidates.push(ventRing);
     engineeringModule.add(ventRing);
   }
 
@@ -548,11 +607,41 @@ export function buildModularShip120M() {
     fragmentShader:
       'uniform float w;varying vec3 n;varying vec3 v;varying vec3 p;void main(){float f=pow(1.-abs(dot(n,v)),3.);float b=.6+.4*sin(p.x*9.);gl_FragColor=vec4(.45,.75,1.,1.)*f*w*b*.9;}',
   });
-  const bubble = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), bubbleMat);
+  extraDisposables.push(bubbleMat);
+  const bubble = new THREE.Mesh(sphereGeo(1, 36, 24), bubbleMat);
   bubble.scale.set(95, 55, 55);
   bubble.visible = false;
   bubble.userData.isWarpBubble = true;
   shipFrame.add(bubble);
+
+  // Congelar transformaciones locales de piezas estáticas para evitar updateMatrix cada frame
+  for (let i = 0; i < staticFreezeCandidates.length; i += 1) {
+    const obj = staticFreezeCandidates[i];
+    if (obj && !obj.userData?.isPlume && !obj.userData?.isWarpBubble) {
+      obj.updateMatrix();
+      obj.matrixAutoUpdate = false;
+    }
+  }
+
+  const setShadowsEnabled = (enabled) => {
+    const active = Boolean(enabled);
+    if (shadowsEnabledState === active) return;
+    shadowsEnabledState = active;
+    for (let i = 0; i < shadowCasters.length; i += 1) {
+      const m = shadowCasters[i];
+      if (m) {
+        m.castShadow = active;
+        m.receiveShadow = active;
+      }
+    }
+  };
+
+  let visualEffectsLevel = 'high';
+  const setVisualEffectsLevel = (level = 'high') => {
+    const next = level === 'low' || level === 'medium' ? level : 'high';
+    visualEffectsLevel = next;
+    engineLight.visible = next !== 'low';
+  };
 
   let simClock = 0;
   let smoothWarp = 0;
@@ -575,16 +664,25 @@ export function buildModularShip120M() {
     atomG.rotation.x = Math.sin(simClock * 0.4) * 0.45;
 
     const thr = Math.max(0.05, Math.min(2.0, Number(throttle) || 0.2));
-    plumes.forEach((m) => {
+    const showAuxPlumes = visualEffectsLevel !== 'low' || smoothWarp > 0.05;
+    for (let i = 0; i < plumes.length; i += 1) {
+      const m = plumes[i];
+      if (!showAuxPlumes && i > 1) {
+        m.visible = false;
+        continue;
+      }
+      m.visible = true;
       const s = 0.36 + thr * 0.55 + smoothWarp * 1.4 + Math.sin(simClock * 12.0) * 0.03;
       m.scale.y = s;
       m.position.x = -60 - (m.userData.h * s) / 2;
       m.material.uniforms.t.value = simClock;
       m.material.uniforms.w.value = smoothWarp;
-    });
+    }
 
-    engineLight.intensity = 1.45 + thr * 0.85 + smoothWarp * 3.8;
-    engineLight.color.copy(warpColorAmber).lerp(warpColorBlue, smoothWarp);
+    if (engineLight.visible) {
+      engineLight.intensity = 1.45 + thr * 0.85 + smoothWarp * 3.8;
+      engineLight.color.copy(warpColorAmber).lerp(warpColorBlue, smoothWarp);
+    }
 
     bubble.material.uniforms.w.value = smoothWarp;
     bubble.visible = sectionClipPlane.constant > 1e3 && smoothWarp > 0.01;
@@ -592,6 +690,7 @@ export function buildModularShip120M() {
 
   const dispose = () => {
     pbrSuite.dispose();
+    extraDisposables.forEach((d) => d?.dispose?.());
   };
 
   return {
@@ -610,6 +709,9 @@ export function buildModularShip120M() {
     setSectionCutaway: (yPlane = null) => {
       sectionClipPlane.constant = Number.isFinite(yPlane) ? yPlane : 1e4;
     },
+    setShadowsEnabled,
+    setVisualEffectsLevel,
+    setAnisotropy: (v) => pbrSuite.setAnisotropy(v),
     update,
     dispose,
   };

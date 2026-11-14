@@ -17,6 +17,15 @@ import {
   AudioSettingsGroup,
   SubtitleSettingsGroup,
 } from './AudioSubtitleSettingsControls.jsx';
+import {
+  DEFAULT_GRAPHICS_SETTINGS,
+  GRAPHICS_PRESET_OPTIONS,
+  RENDER_SCALE_OPTIONS,
+  SHADOW_QUALITY_OPTIONS,
+  VISUAL_EFFECTS_OPTIONS,
+  FPS_LIMIT_OPTIONS,
+  normalizeGraphicsPreset,
+} from '../scene/graphicsConfig.js';
 
 const PAUSE_SECTIONS = [
   { id: 'continue', label: '1. Continuar', subtitle: 'Reanudar exploración espacial' },
@@ -68,6 +77,7 @@ export default function PauseMenu({
   onRepeatLastKronoxMessage,
   gameSettings = {},
   onUpdateGameSettings,
+  graphicsRuntime = null,
   onOpenMissionTarget,
 }) {
   const [activeSection, setActiveSection] = useState(initialSection || 'continue');
@@ -660,55 +670,192 @@ export default function PauseMenu({
               </div>
 
               <div className="kronox-pause-card">
-                {activeSettingsTab === 'graphics' && (
-                  <div className="kronox-settings-group">
-                    <div className="kronox-setting-row">
-                      <div>
-                        <strong>Modo de firmamento y cielo estelar</strong>
-                        <p>
-                          Alterna entre Modo Científico (brillo estelar estricto según magnitud aparente
-                          física y menor dispersión) y Modo Cinematográfico (mayor riqueza visual de la
-                          Vía Láctea, polvo oscuro y nebulosas).
-                        </p>
+                {activeSettingsTab === 'graphics' && (() => {
+                  const gfx = { ...DEFAULT_GRAPHICS_SETTINGS, ...(gameSettings.graphics || {}) };
+                  const activePreset = normalizeGraphicsPreset(gfx.preset, 'auto');
+                  const eff = graphicsRuntime?.effective;
+                  const hw = graphicsRuntime?.hardware;
+                  const updateGfx = (patch) =>
+                    updateSetting('graphics', {
+                      ...gfx,
+                      ...patch,
+                    });
+                  return (
+                    <div className="kronox-settings-group">
+                      <div className="kronox-setting-row">
+                        <div>
+                          <strong>Calidad gráfica del motor 3D</strong>
+                          <p>
+                            Se aplica en tiempo real sin reiniciar.
+                            {hw ? ` Equipo detectado: ${hw.renderer ? hw.renderer.slice(0, 42) : `${hw.cores || '?'} núcleos`} · Perfil sugerido: ${eff?.presetLabel || hw.autoDetectedPreset}.` : ''}
+                          </p>
+                        </div>
+                        <div className="kronox-pause-seg-group" role="group" aria-label="Calidad gráfica">
+                          {GRAPHICS_PRESET_OPTIONS.map((opt) => (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              className={`kronox-pause-seg-btn${activePreset === opt.id ? ' is-active' : ''}`}
+                              onClick={() =>
+                                updateGfx({
+                                  preset: opt.id,
+                                  renderScale: null,
+                                  shadowQuality: null,
+                                  visualEffects: null,
+                                  fpsLimit: null,
+                                })
+                              }
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        className="kronox-pause-secondary-btn"
-                        onClick={onToggleVisualProfile}
-                      >
-                        {visualProfile === 'scientific'
-                          ? '✦ Cielo: Científico (Activo)'
-                          : '✦ Cielo: Cinematográfico (Activo)'}
-                      </button>
-                    </div>
-                    <div className="kronox-setting-row">
-                      <div>
-                        <strong>Escala astronómica del Sistema Solar</strong>
-                        <p>
-                          En modo Física Real (J2000.0), los planetas lejanos conservan su tamaño
-                          angular real (θ = 2·arctan(R/D)) y requieren el Telescopio Óptico [T]
-                          para resolver su disco.
-                        </p>
+
+                      <div className="kronox-setting-row">
+                        <div>
+                          <strong>Resolución de renderizado</strong>
+                          <p>Escala interna del lienzo WebGL ({eff ? `${Math.round(eff.renderScale * 100)}% · DPR ${eff.effectivePixelRatio.toFixed(2)}` : 'automática'}).</p>
+                        </div>
+                        <select
+                          aria-label="Resolución de renderizado"
+                          className="kronox-setting-select"
+                          value={gfx.renderScale == null ? 'auto' : String(gfx.renderScale)}
+                          onChange={(e) =>
+                            updateGfx({
+                              renderScale: e.target.value === 'auto' ? null : Number(e.target.value),
+                            })
+                          }
+                        >
+                          <option value="auto">Automática ({eff ? `${Math.round(eff.renderScale * 100)}%` : 'perfil'})</option>
+                          {RENDER_SCALE_OPTIONS.map((opt) => (
+                            <option key={opt.id} value={String(opt.id)}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                      <button
-                        type="button"
-                        className="kronox-pause-secondary-btn"
-                        onClick={onToggleScaleMode}
-                      >
-                        {scaleMode === 'real'
-                          ? 'Física Real J2000.0 (Activo)'
-                          : 'Escala Visual Comprimida'}
-                      </button>
-                    </div>
-                    <div className="kronox-setting-row">
-                      <div>
-                        <strong>Mapeo tonal cinematográfico</strong>
-                        <p>ACES Filmic con iluminación física atenuada y contraste día/noche real.</p>
+
+                      <div className="kronox-setting-row">
+                        <div>
+                          <strong>Calidad de sombras</strong>
+                          <p>Sombras direccionales en casco y cubiertas ({eff?.shadowsEnabled ? `${eff.shadowMapSize}px` : 'desactivadas'}).</p>
+                        </div>
+                        <select
+                          aria-label="Calidad de sombras"
+                          className="kronox-setting-select"
+                          value={gfx.shadowQuality ?? 'auto'}
+                          onChange={(e) =>
+                            updateGfx({
+                              shadowQuality: e.target.value === 'auto' ? null : e.target.value,
+                            })
+                          }
+                        >
+                          <option value="auto">Automática (según calidad)</option>
+                          {SHADOW_QUALITY_OPTIONS.map((opt) => (
+                            <option key={opt.id} value={opt.id}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                      <span className="kronox-setting-pill">ACES Filmic · Activo</span>
+
+                      <div className="kronox-setting-row">
+                        <div>
+                          <strong>Efectos visuales</strong>
+                          <p>Densidad estelar, atmósferas planetarias, reflejos IBL y propulsores.</p>
+                        </div>
+                        <select
+                          aria-label="Efectos visuales"
+                          className="kronox-setting-select"
+                          value={gfx.visualEffects ?? 'auto'}
+                          onChange={(e) =>
+                            updateGfx({
+                              visualEffects: e.target.value === 'auto' ? null : e.target.value,
+                            })
+                          }
+                        >
+                          <option value="auto">Automática (según calidad)</option>
+                          {VISUAL_EFFECTS_OPTIONS.map((opt) => (
+                            <option key={opt.id} value={opt.id}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="kronox-setting-row">
+                        <div>
+                          <strong>Límite de FPS</strong>
+                          <p>Limita los cuadros por segundo para mantener temperaturas estables y menor consumo.</p>
+                        </div>
+                        <select
+                          aria-label="Límite de FPS"
+                          className="kronox-setting-select"
+                          value={gfx.fpsLimit == null ? 'auto' : String(gfx.fpsLimit)}
+                          onChange={(e) =>
+                            updateGfx({
+                              fpsLimit: e.target.value === 'auto' ? null : Number(e.target.value),
+                            })
+                          }
+                        >
+                          <option value="auto">Automático ({eff?.fpsLimit ? `${eff.fpsLimit} FPS` : 'Ilimitado'})</option>
+                          {FPS_LIMIT_OPTIONS.map((opt) => (
+                            <option key={opt.id} value={String(opt.id)}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="kronox-setting-row">
+                        <div>
+                          <strong>Modo de firmamento y cielo estelar</strong>
+                          <p>
+                            Alterna entre Modo Científico (brillo estelar estricto según magnitud aparente
+                            física y menor dispersión) y Modo Cinematográfico (mayor riqueza visual de la
+                            Vía Láctea, polvo oscuro y nebulosas).
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="kronox-pause-secondary-btn"
+                          onClick={onToggleVisualProfile}
+                        >
+                          {visualProfile === 'scientific'
+                            ? '✦ Cielo: Científico (Activo)'
+                            : '✦ Cielo: Cinematográfico (Activo)'}
+                        </button>
+                      </div>
+                      <div className="kronox-setting-row">
+                        <div>
+                          <strong>Escala astronómica del Sistema Solar</strong>
+                          <p>
+                            En modo Física Real (J2000.0), los planetas lejanos conservan su tamaño
+                            angular real (θ = 2·arctan(R/D)) y requieren el Telescopio Óptico [T]
+                            para resolver su disco.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="kronox-pause-secondary-btn"
+                          onClick={onToggleScaleMode}
+                        >
+                          {scaleMode === 'real'
+                            ? 'Física Real J2000.0 (Activo)'
+                            : 'Escala Visual Comprimida'}
+                        </button>
+                      </div>
+                      <div className="kronox-setting-row">
+                        <div>
+                          <strong>Mapeo tonal cinematográfico</strong>
+                          <p>ACES Filmic con iluminación física atenuada y contraste día/noche real.</p>
+                        </div>
+                        <span className="kronox-setting-pill">ACES Filmic · Activo</span>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {activeSettingsTab === 'audio' && (
                   <AudioSettingsGroup

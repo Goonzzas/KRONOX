@@ -222,8 +222,8 @@ function getPanoramicMilkyWayBandTexture() {
   if (typeof document === 'undefined') return null;
 
   const isHarness = Boolean(globalThis.__KRONOX_SCENE_HARNESS__);
-  const W = isHarness ? 64 : 2048;
-  const H = isHarness ? 32 : 1024;
+  const W = isHarness ? 64 : 1024;
+  const H = isHarness ? 32 : 512;
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;

@@ -162,8 +162,18 @@ export function createAsteroidBeltVisuals({
   });
   root.add(majorGroup);
 
-  // Animation Update for Orbital Movement
+  // Animation Update for Orbital Movement (throttled when orbital phase delta is negligible)
+  let lastBeltUpdatedDays = -Infinity;
+  let lastBeltScaleFn = null;
   const update = (elapsedDays = 0, currentAuScaleFn = auToSceneDistance) => {
+    if (
+      lastBeltScaleFn === currentAuScaleFn &&
+      Math.abs(elapsedDays - lastBeltUpdatedDays) < 0.0018
+    ) {
+      return;
+    }
+    lastBeltUpdatedDays = elapsedDays;
+    lastBeltScaleFn = currentAuScaleFn;
     for (let i = 0; i < count; i++) {
       const d = asteroidData[i];
       const meanAnomaly = d.meanAnomaly + (elapsedDays * 0.015 * d.orbitSpeed);

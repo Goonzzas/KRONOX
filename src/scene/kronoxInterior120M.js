@@ -84,6 +84,23 @@ export function buildKronoxInterior120M() {
   const rnd = createSeededRng(17);
   const pbrSuite = createShipPbrSuite(23);
   const disposableExtras = [];
+  const geoCache = new Map();
+  const trackedGeos = new Set();
+  const trackExtraGeo = (g) => {
+    if (g && !trackedGeos.has(g)) {
+      trackedGeos.add(g);
+      disposableExtras.push(g);
+    }
+    return g;
+  };
+  const cachedGeo = (key, factory) => {
+    let g = geoCache.get(key);
+    if (!g) {
+      g = trackExtraGeo(factory());
+      geoCache.set(key, g);
+    }
+    return g;
+  };
   const trackExtraTex = (tex) => {
     if (tex) disposableExtras.push(tex);
     return tex;
@@ -93,23 +110,60 @@ export function buildKronoxInterior120M() {
     return mat;
   };
 
-  // Mallas sólidas usadas para evitar clipping de cámara en 3ª/1ª persona
+  const resolveOwnerDeckId = (obj) => {
+    let cur = obj;
+    while (cur) {
+      if (cur.userData?.deckId) return cur.userData.deckId;
+      cur = cur.parent;
+    }
+    return null;
+  };
+
+  // Mallas sólidas usadas para evitar clipping de cámara en 3ª/1ª persona (indexadas por cubierta)
   const cameraCollisionMeshes = [];
+  const cameraCollisionMeshesByDeck = {
+    'deck-01': [],
+    'deck-02': [],
+    'deck-03': [],
+    'deck-04': [],
+    global: [],
+  };
   const registerColliderMesh = (mesh, kind = 'wall') => {
     if (mesh) {
       mesh.userData.cameraCollider = kind;
       cameraCollisionMeshes.push(mesh);
+      const deckId = resolveOwnerDeckId(mesh);
+      mesh.userData.ownerDeckId = deckId || 'global';
+      if (deckId && cameraCollisionMeshesByDeck[deckId]) {
+        cameraCollisionMeshesByDeck[deckId].push(mesh);
+      } else {
+        cameraCollisionMeshesByDeck.global.push(mesh);
+      }
     }
     return mesh;
   };
 
-  // Mallas físicas apuntables con el centro de cámara (Raycast interactivo)
+  // Mallas físicas apuntables con el centro de cámara (Raycast interactivo indexado por cubierta)
   const interactRaycasterMeshes = [];
-  const registerInteractMesh = (mesh, interactId, interactKind = 'panel') => {
+  const interactRaycasterMeshesByDeck = {
+    'deck-01': [],
+    'deck-02': [],
+    'deck-03': [],
+    'deck-04': [],
+    global: [],
+  };
+  const registerInteractMesh = (mesh, interactId, interactKind = 'panel', explicitDeckId = null) => {
     if (mesh && interactId) {
       mesh.userData.interactId = interactId;
       mesh.userData.interactKind = interactKind;
       interactRaycasterMeshes.push(mesh);
+      const deckId = explicitDeckId || resolveOwnerDeckId(mesh);
+      mesh.userData.ownerDeckId = deckId || 'global';
+      if (deckId && interactRaycasterMeshesByDeck[deckId]) {
+        interactRaycasterMeshesByDeck[deckId].push(mesh);
+      } else {
+        interactRaycasterMeshesByDeck.global.push(mesh);
+      }
     }
     return mesh;
   };
@@ -126,9 +180,20 @@ export function buildKronoxInterior120M() {
     'deck-03': new THREE.Group(),
     'deck-04': new THREE.Group(),
   };
+  const deckOverlayGroups = {
+    'deck-01': new THREE.Group(),
+    'deck-02': new THREE.Group(),
+    'deck-03': new THREE.Group(),
+    'deck-04': new THREE.Group(),
+  };
   Object.entries(deckContainers).forEach(([id, grp]) => {
     grp.name = `Container_${id}`;
+    grp.userData.deckId = id;
     auroraGroup.add(grp);
+    const ov = deckOverlayGroups[id];
+    ov.name = `Overlay_${id}`;
+    ov.userData.deckId = id;
+    root.add(ov);
   });
 
   // Materiales PBR compartidos + emisivos calibrados
@@ -156,15 +221,26 @@ export function buildKronoxInterior120M() {
   const uvVioletGlow = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0xb788ff }));
   const warmGlow = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0xffdfad }));
 
+  const staticFreezeCandidates = [];
   const add = (parent, geo, mat, x = 0, y = 0, z = 0, colliderKind = null) => {
+    trackExtraGeo(geo);
     const m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, z);
     parent.add(m);
     if (colliderKind) registerColliderMesh(m, colliderKind);
+    staticFreezeCandidates.push(m);
     return m;
   };
-  const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
-  const cyl = (a, b, l, s = 24) => new THREE.CylinderGeometry(a, b, l, s);
+  const box = (w, h, d) =>
+    cachedGeo(`box:${w}:${h}:${d}`, () => new THREE.BoxGeometry(w, h, d));
+  const cyl = (a, b, l, s = 24) =>
+    cachedGeo(`cyl:${a}:${b}:${l}:${s}`, () => new THREE.CylinderGeometry(a, b, l, s));
+  const torus = (r, t, rs = 8, ts = 32) =>
+    cachedGeo(`tor:${r.toFixed(3)}:${t.toFixed(3)}:${rs}:${ts}`, () => new THREE.TorusGeometry(r, t, rs, ts));
+  const ringGeo = (rIn, rOut, s = 32) =>
+    cachedGeo(`rng:${rIn}:${rOut}:${s}`, () => new THREE.RingGeometry(rIn, rOut, s));
+  const sphereGeo = (r, ws = 20, hs = 12, ps = 0, pl = Math.PI * 2, ts = 0, tl = Math.PI) =>
+    cachedGeo(`sph:${r}:${ws}:${hs}:${ps}:${pl.toFixed(3)}:${ts}:${tl.toFixed(3)}`, () => new THREE.SphereGeometry(r, ws, hs, ps, pl, ts, tl));
 
   const levels = [6.8, 3.4, 0.0, -3.4, -6.8];
 
@@ -192,14 +268,14 @@ export function buildKronoxInterior120M() {
       }
     }
 
-    const trimRing = add(targetParent, new THREE.TorusGeometry(slabR - 0.24, 0.05, 8, 56), steelM, 0, y + 0.025, 0);
+    const trimRing = add(targetParent, torus(slabR - 0.24, 0.05, 8, 56), steelM, 0, y + 0.025, 0);
     trimRing.rotation.x = Math.PI / 2;
 
     // Aro superior arquitectónico de techo técnico en cubiertas 2, 3 y 4
     if (idx > 0 && idx < 4) {
-      const ceilBeam = add(targetParent, new THREE.TorusGeometry(slabR * 0.56, 0.09, 8, 48), darkM, 0, y - 0.35, 0);
+      const ceilBeam = add(targetParent, torus(slabR * 0.56, 0.09, 8, 48), darkM, 0, y - 0.35, 0);
       ceilBeam.rotation.x = Math.PI / 2;
-      const ceilLed = add(targetParent, new THREE.TorusGeometry(slabR * 0.56, 0.025, 6, 48), idx === 1 ? warmGlow : cyanGlow, 0, y - 0.43, 0);
+      const ceilLed = add(targetParent, torus(slabR * 0.56, 0.025, 6, 48), idx === 1 ? warmGlow : cyanGlow, 0, y - 0.43, 0);
       ceilLed.rotation.x = Math.PI / 2;
     }
   });
@@ -291,6 +367,8 @@ export function buildKronoxInterior120M() {
       // Hojas correderas dobles (bipartitas) sincronizadas con la apertura real
       const leftLeaf = add(shaftGroup, box(0.09, 2.24, 0.68), doorM, doorX, f + 1.13, -0.34, 'door');
       const rightLeaf = add(shaftGroup, box(0.09, 2.24, 0.68), doorM, doorX, f + 1.13, 0.34, 'door');
+      leftLeaf.userData.dynamicTransform = true;
+      rightLeaf.userData.dynamicTransform = true;
       add(leftLeaf, box(0.11, 1.18, 0.34), glassM, 0, 0.25, -0.02);
       add(rightLeaf, box(0.11, 1.18, 0.34), glassM, 0, 0.25, 0.02);
       add(leftLeaf, box(0.1, 1.9, 0.04), cyanGlow, 0, 0, 0.31);
@@ -302,8 +380,8 @@ export function buildKronoxInterior120M() {
       const callId = `elevator-call-${deck.id}-${endDir > 0 ? 'bow' : 'aft'}`;
       const callPedestal = add(shaftGroup, box(0.18, 1.42, 0.22), darkM, doorX + endDir * 0.08, f + 0.71, sideSign * 0.85);
       const callBtn = add(shaftGroup, box(0.08, 0.22, 0.14), beaconMat, doorX + endDir * 0.16, f + 1.28, sideSign * 0.85);
-      registerInteractMesh(callPedestal, callId, 'elevator-call');
-      registerInteractMesh(callBtn, callId, 'elevator-call');
+      registerInteractMesh(callPedestal, callId, 'elevator-call', deck.id);
+      registerInteractMesh(callBtn, callId, 'elevator-call', deck.id);
     });
 
     landingDoorsByDeck[deck.id] = doors;
@@ -318,7 +396,7 @@ export function buildKronoxInterior120M() {
 
   // Plataforma antideslizante, chasis, techo luminoso y pasamanos interiores
   add(elevatorCab, box(1.94, 0.14, 1.94), floorM, 0, -0.05, 0, 'floor');
-  const cabFloorRim = add(elevatorCab, new THREE.TorusGeometry(1.06, 0.035, 8, 28), cyanGlow, 0, 0.03, 0);
+  const cabFloorRim = add(elevatorCab, torus(1.06, 0.035, 8, 28), cyanGlow, 0, 0.03, 0);
   cabFloorRim.rotation.x = Math.PI / 2;
   add(elevatorCab, box(1.94, 0.14, 1.94), darkM, 0, 2.38, 0);
   add(elevatorCab, box(1.2, 0.04, 1.2), warmGlow, 0, 2.29, 0);
@@ -343,6 +421,8 @@ export function buildKronoxInterior120M() {
     const cx = endDir * 1.02;
     const cLeft = add(elevatorCab, box(0.06, 2.18, 0.62), steelM, cx, 1.12, -0.31);
     const cRight = add(elevatorCab, box(0.06, 2.18, 0.62), steelM, cx, 1.12, 0.31);
+    cLeft.userData.dynamicTransform = true;
+    cRight.userData.dynamicTransform = true;
     add(cLeft, box(0.07, 1.15, 0.22), glassM, 0, 0.25, 0);
     add(cRight, box(0.07, 1.15, 0.22), glassM, 0, 0.25, 0);
     cabDoorLeaves.push({ leftLeaf: cLeft, rightLeaf: cRight });
@@ -592,7 +672,7 @@ export function buildKronoxInterior120M() {
     const midY = floorY + 1.65;
     const rTop = Math.sqrt(Math.max(40, AURORA_SPHERE_RADIUS ** 2 - (floorY + 3.25) ** 2)) - 0.35;
     const rBot = Math.sqrt(Math.max(40, AURORA_SPHERE_RADIUS ** 2 - floorY ** 2)) - 0.35;
-    add(dParent, new THREE.CylinderGeometry(rTop, rBot, 3.25, 48, 1, true), outerShellInnerWallM, 0, midY, 0);
+    add(dParent, cachedGeo(`shellCyl:${rTop.toFixed(2)}:${rBot.toFixed(2)}`, () => new THREE.CylinderGeometry(rTop, rBot, 3.25, 48, 1, true)), outerShellInnerWallM, 0, midY, 0);
 
     for (let i = 0; i < 16; i++) {
       const a = (i / 16) * Math.PI * 2;
@@ -772,10 +852,11 @@ export function buildKronoxInterior120M() {
     holoTableOrb.name = 'BridgeHoloProjector';
     holoTableOrb.position.set(-6, f + 1.85, 0);
     d1.add(holoTableOrb);
-    add(holoTableOrb, new THREE.IcosahedronGeometry(0.68, 1), wfMat, 0, 0, 0);
-    const holoOrbit = add(holoTableOrb, new THREE.TorusGeometry(0.95, 0.025, 6, 40), cyanGlow, 0, 0, 0);
+    add(holoTableOrb, cachedGeo('ico:0.68:1', () => new THREE.IcosahedronGeometry(0.68, 1)), wfMat, 0, 0, 0);
+    const holoOrbit = add(holoTableOrb, torus(0.95, 0.025, 6, 40), cyanGlow, 0, 0, 0);
     holoOrbit.rotation.x = 1.2;
-    const baseRing = add(d1, new THREE.TorusGeometry(1.95, 0.04, 4, 6), cyanGlow, -6, f + 1.08, 0);
+    holoOrbit.userData.dynamicTransform = true;
+    const baseRing = add(d1, torus(1.95, 0.04, 4, 6), cyanGlow, -6, f + 1.08, 0);
     baseRing.rotation.x = Math.PI / 2;
 
     // Mamparo trasero de popa con señalización del puente
@@ -914,7 +995,7 @@ export function buildKronoxInterior120M() {
     airlockValvePivot = new THREE.Group();
     airlockValvePivot.position.set(15.65, f + 1.35, -0.58);
     d2.add(airlockValvePivot);
-    const wheel = add(airlockValvePivot, new THREE.TorusGeometry(0.18, 0.032, 8, 20), railAmberM, 0, 0, 0);
+    const wheel = add(airlockValvePivot, torus(0.18, 0.032, 8, 20), railAmberM, 0, 0, 0);
     wheel.rotation.y = Math.PI / 2;
     registerInteractMesh(wheel, 'airlock', 'direct');
     mountDeckPlacard(d2, 15.5, f + 2.62, 0, -Math.PI / 2, 'EVA', 'ESCLUSA RADIAL EVA', 'PRESURIZACIÓN Y TRAJES', '#5be3aa');
@@ -924,7 +1005,7 @@ export function buildKronoxInterior120M() {
     storageGroup.name = 'StorageLockerC02';
     storageGroup.position.set(-5.95, f, -5.95);
     storageGroup.rotation.y = Math.PI / 4;
-    root.add(storageGroup);
+    deckOverlayGroups['deck-02'].add(storageGroup);
     add(storageGroup, box(1.28, 2.02, 0.72), darkM, 0, 1.01, -0.1, 'console');
     add(storageGroup, box(1.12, 1.78, 0.56), steelM, 0, 1.02, -0.06);
     add(storageGroup, box(1.06, 0.04, 0.48), darkM, 0, 1.12, -0.02);
@@ -955,15 +1036,17 @@ export function buildKronoxInterior120M() {
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2 + 0.25;
       add(rg, cyl(0.15, 0.15, 2.8, 12), steelM, 2.2 * Math.cos(a), 1.46, 2.2 * Math.sin(a));
-      const coil = add(rg, new THREE.TorusGeometry(0.38, 0.09, 8, 18), copperM, 2.02 * Math.cos(a), 1.46, 2.02 * Math.sin(a));
+      const coil = add(rg, torus(0.38, 0.09, 8, 18), copperM, 2.02 * Math.cos(a), 1.46, 2.02 * Math.sin(a));
       coil.rotation.y = -a;
     }
     reactorPlasmaMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x7ce6ff }));
     reactorPlasmaCore = add(rg, cyl(1.05, 1.05, 2.85, 24), reactorPlasmaMat, 0, 1.48, 0);
     reactorPlasmaCore.name = 'ReactorPlasmaCore';
+    reactorPlasmaCore.userData.dynamicTransform = true;
     [0.68, 1.45, 2.22].forEach((ty) => {
-      const t = add(rg, new THREE.TorusGeometry(2.46, 0.12, 8, 32), goldM, 0, ty, 0);
+      const t = add(rg, torus(2.46, 0.12, 8, 32), goldM, 0, ty, 0);
       t.rotation.x = Math.PI / 2;
+      t.userData.dynamicTransform = true;
     });
     [-4, 4].forEach((cz) => add(d3, cyl(0.26, 0.26, 3.05, 12), steelM, -9, f + 1.52, cz, 'console'));
     // Conductos criogénicos en techo, colectores de refrigeración y canaleta de seguridad en piso
@@ -978,14 +1061,14 @@ export function buildKronoxInterior120M() {
     cryoValvePivot = new THREE.Group();
     cryoValvePivot.position.set(-6.0, f + 1.1, 0);
     d3.add(cryoValvePivot);
-    const rv = add(cryoValvePivot, new THREE.TorusGeometry(0.22, 0.04, 8, 20), railAmberM, 0, 0, 0);
+    const rv = add(cryoValvePivot, torus(0.22, 0.04, 8, 20), railAmberM, 0, 0, 0);
     rv.rotation.y = Math.PI / 2;
     mountDeckPlacard(d3, -6.4, f + 2.68, 0, Math.PI / 2, 'C03', 'NÚCLEO DEL REACTOR AURORA', 'CONFINAMIENTO MAGNÉTICO Y CRIOGENIA', '#6ce0ff');
 
     // Tanques criogénicos dorados MLI a proa con cunas estructurales y domos
     [-6, 6].forEach((cz) => {
       add(d3, cyl(1.32, 1.32, 2.35, 24), goldM, 9, f + 1.38, cz, 'console');
-      add(d3, new THREE.SphereGeometry(1.3, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), steelM, 9, f + 2.52, cz);
+      add(d3, sphereGeo(1.3, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), steelM, 9, f + 2.52, cz);
       add(d3, cyl(1.42, 1.42, 0.26, 24), darkM, 9, f + 0.16, cz);
       add(d3, cyl(1.38, 1.38, 0.14, 24), copperM, 9, f + 1.8, cz);
     });
@@ -1111,18 +1194,26 @@ export function buildKronoxInterior120M() {
     mountDeckPlacard(d4, 15.2, f + 2.55, 0, -Math.PI / 2, 'C04', 'BODEGA Y HANGAR EVA', 'CARGA ISO · TRANSBORDADOR · GRÚA', '#58e2a4');
   }
 
-  // Luces interiores equilibradas por cubierta con identidad cromática por zona
+  // Luz interior única con identidad cromática dinámica por cubierta (mantiene constante NUM_POINT_LIGHTS en WebGL)
+  const deckPointLights = {};
+  const deckLightConfigs = {
+    'deck-01': { c: 0xcbe8ff, intensity: 0.68, y: (levels[1] ?? 0) + 2.55 },
+    'deck-02': { c: 0xffdfc2, intensity: 0.64, y: (levels[2] ?? 0) + 2.55 },
+    'deck-03': { c: 0x9ce3ff, intensity: 0.62, y: (levels[3] ?? 0) + 2.55 },
+    'deck-04': { c: 0xffe4b8, intensity: 0.64, y: (levels[4] ?? 0) + 2.55 },
+  };
+  let activeDeckPointLight = null;
   if (typeof THREE.PointLight === 'function') {
-    [
-      { c: 0xcbe8ff, intensity: 0.64 },
-      { c: 0xffdfc2, intensity: 0.62 },
-      { c: 0x9ce3ff, intensity: 0.58 },
-      { c: 0xffe4b8, intensity: 0.62 },
-    ].forEach(({ c, intensity }, idx) => {
-      const deckFloorY = levels[idx + 1];
-      const pt = new THREE.PointLight(c, intensity, 35, 1.15);
-      pt.position.set(0, deckFloorY + 2.55, 0);
-      auroraGroup.add(pt);
+    activeDeckPointLight = new THREE.PointLight(
+      deckLightConfigs['deck-01'].c,
+      deckLightConfigs['deck-01'].intensity,
+      36,
+      1.15,
+    );
+    activeDeckPointLight.position.set(0, deckLightConfigs['deck-01'].y, 0);
+    (auroraGroup || root).add(activeDeckPointLight);
+    Object.keys(deckLightConfigs).forEach((deckId) => {
+      deckPointLights[deckId] = activeDeckPointLight;
     });
   }
 
@@ -1139,9 +1230,10 @@ export function buildKronoxInterior120M() {
     const stGroup = new THREE.Group();
     stGroup.name = `Station_${st.id}`;
     stGroup.userData.stationId = st.id;
+    stGroup.userData.deckId = st.deckId;
     stGroup.position.set(px, py, pz);
     stGroup.rotation.y = Math.atan2(lx - px, lz - pz);
-    root.add(stGroup);
+    (deckOverlayGroups[st.deckId] || root).add(stGroup);
 
     const accentStr = `#${st.colorHex.toString(16).padStart(6, '0')}`;
     const screenData = makeDiegeticScreenTexture(
@@ -1154,8 +1246,9 @@ export function buildKronoxInterior120M() {
     trackExtraTex(screenData.tex);
 
     const trimBarMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: st.colorHex }));
-    const floorBeacon = add(stGroup, new THREE.RingGeometry(0.68, 0.82, 32), trimBarMat, 0, 0.04, 0);
+    const floorBeacon = add(stGroup, ringGeo(0.68, 0.82, 32), trimBarMat, 0, 0.04, 0);
     floorBeacon.rotation.x = -Math.PI / 2;
+    floorBeacon.userData.dynamicTransform = true;
     const scrMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: screenData.tex }));
 
     let screenMesh;
@@ -1195,12 +1288,14 @@ export function buildKronoxInterior120M() {
       add(benchGroup, cyl(0.12, 0.16, 0.92, 12), steelM, -0.8, -0.46, 0);
       add(benchGroup, cyl(0.12, 0.16, 0.92, 12), steelM, 0.8, -0.46, 0);
 
-      const mirrorRing = add(benchGroup, new THREE.TorusGeometry(0.34, 0.045, 10, 32), cyanGlow, -0.65, 0.48, 0);
-      const lensCore = add(benchGroup, new THREE.CylinderGeometry(0.24, 0.24, 0.18, 20), goldM, 0.0, 0.48, 0);
+      const mirrorRing = add(benchGroup, torus(0.34, 0.045, 10, 32), cyanGlow, -0.65, 0.48, 0);
+      mirrorRing.userData.dynamicTransform = true;
+      const lensCore = add(benchGroup, cyl(0.24, 0.24, 0.18, 20), goldM, 0.0, 0.48, 0);
       lensCore.rotation.z = Math.PI / 2;
-      add(benchGroup, new THREE.TorusGeometry(0.32, 0.035, 10, 28), amberGlow, 0.65, 0.48, 0).rotation.y = Math.PI / 2;
+      lensCore.userData.dynamicTransform = true;
+      add(benchGroup, torus(0.32, 0.035, 10, 28), amberGlow, 0.65, 0.48, 0).rotation.y = Math.PI / 2;
       const beamMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x45e8ff, transparent: true, opacity: 0.78 }));
-      const laserBeam = add(benchGroup, new THREE.CylinderGeometry(0.035, 0.035, 1.85, 12), beamMat, 0, 0.48, 0);
+      const laserBeam = add(benchGroup, cyl(0.035, 0.035, 1.85, 12), beamMat, 0, 0.48, 0);
       laserBeam.rotation.z = Math.PI / 2;
       calibrationBenchParts = { benchGroup, mirrorRing, lensCore, laserBeam, beamMat };
 
@@ -1211,12 +1306,13 @@ export function buildKronoxInterior120M() {
       benchGroup.add(pickupScannerGroup);
       const scBody = add(pickupScannerGroup, box(0.2, 0.07, 0.32), darkM, 0, 0.03, 0);
       const scGlow = add(pickupScannerGroup, box(0.14, 0.02, 0.18), cyanGlow, 0, 0.075, 0.02);
-      registerInteractMesh(scBody, 'pickup-scanner', 'pickup');
-      registerInteractMesh(scGlow, 'pickup-scanner', 'pickup');
+      registerInteractMesh(scBody, 'pickup-scanner', 'pickup', st.deckId);
+      registerInteractMesh(scGlow, 'pickup-scanner', 'pickup', st.deckId);
     }
 
     stationMeshes.push({
       id: st.id,
+      deckId: st.deckId,
       group: stGroup,
       screenMesh,
       trimBarMat,
@@ -1227,25 +1323,105 @@ export function buildKronoxInterior120M() {
 
   // 5. Pasamanos físicos EVA anclados a suelo o mamparo
   INTERIOR_GRAB_RAILS.forEach((rail) => {
+    const railParent = deckOverlayGroups[rail.deckId] || root;
     if (rail.axis === 'y') {
       const len = Math.min(2.2, rail.span || 2.0);
-      const railBar = add(root, cyl(0.035, 0.035, len, 10), railAmberM, rail.pos[0] * 1.15, rail.pos[1], rail.pos[2]);
-      registerInteractMesh(railBar, rail.id, 'rail');
+      const railBar = add(railParent, cyl(0.035, 0.035, len, 10), railAmberM, rail.pos[0] * 1.15, rail.pos[1], rail.pos[2]);
+      registerInteractMesh(railBar, rail.id, 'rail', rail.deckId);
     } else {
       const shortLen = 1.05;
       const rx = rail.pos[0];
       const ry = rail.pos[1] - 0.12;
       const rz = rail.pos[2];
       const barGeo = rail.axis === 'x' ? box(shortLen, 0.045, 0.045) : box(0.045, 0.045, shortLen);
-      const railBar = add(root, barGeo, railAmberM, rx, ry, rz);
-      registerInteractMesh(railBar, rail.id, 'rail');
+      const railBar = add(railParent, barGeo, railAmberM, rx, ry, rz);
+      registerInteractMesh(railBar, rail.id, 'rail', rail.deckId);
       [-shortLen * 0.42, shortLen * 0.42].forEach((off) => {
         const sx = rail.axis === 'x' ? rx + off : rx;
         const sz = rail.axis === 'z' ? rz + off : rz;
-        add(root, cyl(0.025, 0.025, 0.98, 8), darkM, sx, ry - 0.49, sz);
+        add(railParent, cyl(0.025, 0.025, 0.98, 8), darkM, sx, ry - 0.49, sz);
       });
     }
   });
+
+  // Congelar transformaciones estáticas de piezas interiores que nunca cambian localmente
+  for (let i = 0; i < staticFreezeCandidates.length; i += 1) {
+    const m = staticFreezeCandidates[i];
+    if (m && !m.userData?.dynamicTransform) {
+      m.updateMatrix();
+      m.matrixAutoUpdate = false;
+    }
+  }
+
+  let activeDeckVisibilityKey = 'all';
+  const applyDeckLightSpec = (deckId) => {
+    if (!activeDeckPointLight) return;
+    const cfg = deckLightConfigs[deckId] || deckLightConfigs['deck-01'];
+    if (cfg) {
+      activeDeckPointLight.position.y = cfg.y;
+      activeDeckPointLight.color?.setHex?.(cfg.c);
+      activeDeckPointLight.intensity = cfg.intensity;
+    }
+  };
+  function setActiveVisibleDeck(
+    deckId = null,
+    { elevatorActive = false, showAll = false } = {},
+  ) {
+    applyDeckLightSpec(deckId);
+    if (showAll || !deckId) {
+      if (activeDeckVisibilityKey === 'all') return;
+      activeDeckVisibilityKey = 'all';
+      Object.keys(deckContainers).forEach((id) => {
+        deckContainers[id].visible = true;
+        if (deckOverlayGroups[id]) deckOverlayGroups[id].visible = true;
+      });
+      return;
+    }
+    const visibleSet = new Set([deckId]);
+    if (elevatorActive) {
+      visibleSet.add(elevatorState.currentFloorId || deckId);
+      visibleSet.add(elevatorState.targetFloorId || deckId);
+      const idx = CABIN_DECKS.findIndex((d) => d.id === deckId);
+      if (idx > 0) visibleSet.add(CABIN_DECKS[idx - 1].id);
+      if (idx >= 0 && idx < CABIN_DECKS.length - 1) visibleSet.add(CABIN_DECKS[idx + 1].id);
+    }
+    const nextKey = Array.from(visibleSet).sort().join('|');
+    if (nextKey === activeDeckVisibilityKey) return;
+    activeDeckVisibilityKey = nextKey;
+    Object.keys(deckContainers).forEach((id) => {
+      const show = visibleSet.has(id);
+      deckContainers[id].visible = show;
+      if (deckOverlayGroups[id]) deckOverlayGroups[id].visible = show;
+    });
+  }
+
+  const deckCollisionListCache = {};
+  function getCollisionMeshesForDeck(deckId) {
+    if (!deckId || !cameraCollisionMeshesByDeck[deckId]) {
+      return cameraCollisionMeshes;
+    }
+    if (!deckCollisionListCache[deckId]) {
+      deckCollisionListCache[deckId] = [
+        ...cameraCollisionMeshesByDeck[deckId],
+        ...cameraCollisionMeshesByDeck.global,
+      ];
+    }
+    return deckCollisionListCache[deckId];
+  }
+
+  const deckInteractListCache = {};
+  function getInteractMeshesForDeck(deckId) {
+    if (!deckId || !interactRaycasterMeshesByDeck[deckId]) {
+      return interactRaycasterMeshes;
+    }
+    if (!deckInteractListCache[deckId]) {
+      deckInteractListCache[deckId] = [
+        ...interactRaycasterMeshesByDeck[deckId],
+        ...interactRaycasterMeshesByDeck.global,
+      ];
+    }
+    return deckInteractListCache[deckId];
+  }
 
   const bridgeHoloProjector = auroraGroup.getObjectByName('BridgeHoloProjector');
   const reactorAssembly = reactorPlasmaCore?.parent || null;
@@ -1260,7 +1436,11 @@ export function buildKronoxInterior120M() {
     repairStage = 0
   ) {
     const pulse = 0.75 + 0.25 * Math.sin(elapsedTime * 3.2);
-    stationMeshes.forEach((st, idx) => {
+    for (let idx = 0; idx < stationMeshes.length; idx += 1) {
+      const st = stationMeshes[idx];
+      if (st.deckId && deckOverlayGroups[st.deckId] && !deckOverlayGroups[st.deckId].visible) {
+        continue;
+      }
       const highlighted = st.id === activeId || st.id === focusedId || st.id === nearestId;
       if (st.floorBeacon) {
         const wave = 1.0 + 0.045 * Math.sin(elapsedTime * 2.4 + idx * 0.7);
@@ -1272,9 +1452,9 @@ export function buildKronoxInterior120M() {
           st.trimBarMat.color.offsetHSL(0, 0, 0.08 * Math.sin(elapsedTime * 5.0));
         }
       }
-    });
+    }
 
-    if (bridgeHoloProjector) {
+    if (bridgeHoloProjector && deckContainers['deck-01']?.visible !== false) {
       bridgeHoloProjector.rotation.y = elapsedTime * 0.65;
       bridgeHoloProjector.rotation.z = Math.sin(elapsedTime * 0.9) * 0.12;
       bridgeHoloProjector.position.y = 3.4 + 1.85 + Math.sin(elapsedTime * 1.9) * 0.085;
@@ -1285,7 +1465,7 @@ export function buildKronoxInterior120M() {
       }
     }
 
-    if (reactorPlasmaCore && reactorPlasmaMat) {
+    if (reactorPlasmaCore && reactorPlasmaMat && deckContainers['deck-03']?.visible !== false) {
       const isOver = interactiveMechanisms.reactorMode === 'overclock';
       const isQuiet = interactiveMechanisms.reactorMode === 'quiet';
       const freq = isOver ? 7.2 : isQuiet ? 2.1 : 4.4;
@@ -1425,6 +1605,8 @@ export function buildKronoxInterior120M() {
     auroraGroup,
     decks: CABIN_DECKS,
     deckContainers,
+    deckOverlayGroups,
+    deckPointLights,
     zones: HULL_INTERIOR_ZONES,
     interactiveStations: SHIP_INTERIOR_STATIONS,
     elevatorStations: ELEVATOR_CALL_STATIONS,
@@ -1432,6 +1614,10 @@ export function buildKronoxInterior120M() {
     grabRails: INTERIOR_GRAB_RAILS,
     cameraCollisionMeshes,
     interactRaycasterMeshes,
+    getCollisionMeshesForDeck,
+    getInteractMeshesForDeck,
+    setActiveVisibleDeck,
+    setAnisotropy: (v) => pbrSuite.setAnisotropy(v),
     elevatorSystem: {
       state: elevatorState,
       requestDeck: requestElevatorDeck,

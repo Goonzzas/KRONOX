@@ -305,12 +305,13 @@ export default function MainMenu({
                 <select
                   aria-label="Calidad gráfica"
                   className="kronox-setting-select"
-                  value={quality}
+                  value={quality === 'performance' ? 'low' : quality === 'quality' ? 'high' : quality}
                   onChange={(e) => onQualityChange?.(e.target.value)}
                 >
-                  <option value="auto">Automática</option>
-                  <option value="high">Alta (Cinematográfica)</option>
-                  <option value="low">Ligera (Alto rendimiento)</option>
+                  <option value="auto">Automática (según hardware)</option>
+                  <option value="low">Bajo (Alto rendimiento)</option>
+                  <option value="medium">Medio (Equilibrado)</option>
+                  <option value="high">Alto (Máxima calidad)</option>
                 </select>
               </div>
               <div className="kronox-setting-row">

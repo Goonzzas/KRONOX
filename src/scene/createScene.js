@@ -19,7 +19,6 @@ import { NEARBY_GALAXIES } from '../data/nearbyGalaxies.js';
 import {
   SHIP_WORLD_UNITS,
   PHYSICAL_CABIN_STATIONS,
-  buildHabitableCabin3D,
   createAstronautModel3D,
 } from './habitableShipWorld.js';
 import {
@@ -36,7 +35,17 @@ import {
   getCanonicalStar,
   getCanonicalGalaxy,
   upgradeSceneGalaxiesWithMorphology,
+  flushPendingGalaxyTextures,
+  getPendingGalaxyTextureCount,
 } from './astronomicalUniverse.js';
+import {
+  DEFAULT_GRAPHICS_SETTINGS,
+  normalizeGraphicsPreset,
+  detectHardwareCapabilities,
+  extractWebGLHardwareInfo,
+  detectCompressedTextureSupport,
+  resolveEffectiveGraphicsSettings,
+} from './graphicsConfig.js';
 import {
   createObserverAwareFirmament,
   updateCrossScaleContinuity,
@@ -122,21 +131,24 @@ function vn(x, y, Q) {
     d = hs(i + 1, j + 1, Q);
   return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
 }
-function fbm(u, v, f) {
+function fbm(u, v, f, octaves = 5) {
   let s = 0,
     a = 0.5,
-    k = f;
-  for (let o = 0; o < 5; o++) {
+    k = f,
+    weight = 0;
+  for (let o = 0; o < octaves; o++) {
     s += a * vn(u * k, (v * k) / 2, k);
+    weight += a;
     k *= 2;
-    a /= 2;
+    a *= 0.5;
   }
-  return s / 0.97;
+  return s / (weight || 1);
 }
 const mix = (a, b, t) => a.map((q, i) => q + (b[i] - q) * t);
+const IS_NODE_SCENE_HARNESS = Boolean(globalThis.__KRONOX_SCENE_HARNESS__);
 function sunTexture(p) {
-  const W = 512,
-    H = 256,
+  const W = IS_NODE_SCENE_HARNESS ? 64 : 192,
+    H = IS_NODE_SCENE_HARNESS ? 32 : 96,
     cv = document.createElement('canvas');
   cv.width = W;
   cv.height = H;
@@ -147,15 +159,13 @@ function sunTexture(p) {
     for (let i = 0; i < W; i++) {
       const u = i / W,
         v = j / H;
-      let c;
-      const n = fbm(u, v, 10);
+      const n = fbm(u, v, 10, 3);
       // Luz integrada del Sol (estrella G2V, Teff ≈ 5772 K) en el espacio exterior:
       // prácticamente blanca (#fffaf2) con granulación fotosférica cálida sutil, evitando una esfera naranja artificial.
-      c = [255, Math.min(255, Math.round(244 + n * 11)), Math.min(255, Math.round(226 + n * 28))];
       const o = (j * W + i) * 4;
-      d[o] = c[0];
-      d[o + 1] = c[1];
-      d[o + 2] = c[2];
+      d[o] = 255;
+      d[o + 1] = Math.min(255, Math.round(244 + n * 11));
+      d[o + 2] = Math.min(255, Math.round(226 + n * 28));
       d[o + 3] = 255;
     }
   g.putImageData(im, 0, 0);
@@ -188,11 +198,13 @@ function makeDeepGalaxyTexture({ seed = 1, color = '#8ecbff', arms = 4, edgeOn =
     state = (1664525 * state + 1013904223) >>> 0;
     return state / 4294967296;
   };
+  const scale = IS_NODE_SCENE_HARNESS ? 0.25 : 0.5;
   const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 384;
+  canvas.width = Math.round(512 * scale);
+  canvas.height = Math.round(384 * scale);
   const context = canvas.getContext('2d');
   context.save();
+  context.scale(scale, scale);
   context.translate(256, 192);
   context.rotate(seed * 0.37);
   context.scale(1, edgeOn ? 0.19 : 0.68);
@@ -208,8 +220,9 @@ function makeDeepGalaxyTexture({ seed = 1, color = '#8ecbff', arms = 4, edgeOn =
   context.fill();
 
   context.globalCompositeOperation = 'lighter';
+  const dotsPerArm = IS_NODE_SCENE_HARNESS ? 60 : 210;
   for (let arm = 0; arm < arms; arm++) {
-    for (let i = 0; i < 420; i++) {
+    for (let i = 0; i < dotsPerArm; i++) {
       const progress = 0.04 + random() * 0.96;
       const angle = (arm / arms) * TAU + progress * 5.3 + (random() - 0.5) * 0.38;
       const radius = 15 + progress * 158;
@@ -224,8 +237,8 @@ function makeDeepGalaxyTexture({ seed = 1, color = '#8ecbff', arms = 4, edgeOn =
       context.fill();
     }
   }
-  // A handful of bright star-forming knots give each distant silhouette depth.
-  for (let i = 0; i < 90; i++) {
+  const knotCount = IS_NODE_SCENE_HARNESS ? 18 : 48;
+  for (let i = 0; i < knotCount; i++) {
     const angle = random() * TAU;
     const radius = 18 + Math.pow(random(), 0.7) * 145;
     const x = Math.cos(angle) * radius;
@@ -251,14 +264,15 @@ function makeNebulaBackdropTexture({ seed = 1, color = '#a88cff' } = {}) {
   };
   const rgb = [1, 3, 5].map((offset) => parseInt(color.slice(offset, offset + 2), 16));
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 512;
+  canvas.width = canvas.height = 128;
   const context = canvas.getContext('2d');
   context.save();
+  context.scale(0.25, 0.25);
   context.translate(256, 256);
   context.rotate(seed * 0.21);
   context.scale(1, 0.62 + random() * 0.2);
   context.globalCompositeOperation = 'screen';
-  for (let i = 0; i < 15; i++) {
+  for (let i = 0; i < 8; i++) {
     const x = (random() - 0.5) * 320;
     const y = (random() - 0.5) * 250;
     const radius = 55 + random() * 115;
@@ -280,87 +294,118 @@ export function setupScene(el, S) {
   const destinationResources = createDestinationResources();
   sharedPointMap = destinationResources.softMap;
   let qualityMode = S.quality || 'auto';
-  const isMobileDevice = () =>
-    window.matchMedia?.('(max-width: 760px), (pointer: coarse)')?.matches;
-  const pixelRatioFor = (mode) => {
-    if (mode === 'performance') return 1;
-    if (mode === 'quality') return Math.min(2, devicePixelRatio || 1);
-    return Math.min(isMobileDevice() ? 1.25 : 1.75, devicePixelRatio || 1);
-  };
-  const R = new THREE.WebGLRenderer({
-    antialias: qualityMode !== 'performance' && !isMobileDevice(),
-    logarithmicDepthBuffer: true,
+  const preHardwareDetection = detectHardwareCapabilities({
+    navigatorObj: globalThis.navigator,
+    windowObj: globalThis.window,
   });
+  let graphicsUserSettings = {
+    ...DEFAULT_GRAPHICS_SETTINGS,
+    ...(S.graphicsSettings || {}),
+    ...(S.graphicsSettings?.preset ? {} : S.quality ? { preset: normalizeGraphicsPreset(S.quality, 'auto') } : {}),
+  };
+  let effectiveGraphics = resolveEffectiveGraphicsSettings(graphicsUserSettings, {
+    autoDetectedPreset: preHardwareDetection.recommendedPreset,
+    devicePixelRatio: globalThis.devicePixelRatio || 1,
+  });
+  const R = new THREE.WebGLRenderer({
+    antialias: effectiveGraphics.antialias,
+    logarithmicDepthBuffer: true,
+    powerPreference: 'high-performance',
+  });
+  const hardwareInfo = extractWebGLHardwareInfo(R);
+  const compressedTextureSupport = detectCompressedTextureSupport(R);
+  const hardwareCapabilities = {
+    ...detectHardwareCapabilities({
+      navigatorObj: globalThis.navigator,
+      windowObj: globalThis.window,
+      glRendererString: hardwareInfo.glRendererString,
+      glVendorString: hardwareInfo.glVendorString,
+      maxTextureSize: hardwareInfo.maxTextureSize,
+    }),
+    compressedTextures: compressedTextureSupport,
+  };
+  effectiveGraphics = resolveEffectiveGraphicsSettings(graphicsUserSettings, {
+    autoDetectedPreset: hardwareCapabilities.recommendedPreset,
+    devicePixelRatio: globalThis.devicePixelRatio || 1,
+  });
+  const pixelRatioFor = () => effectiveGraphics.effectivePixelRatio;
   R.toneMapping = THREE.ACESFilmicToneMapping;
   R.toneMappingExposure = 0.94;
   R.outputEncoding = THREE.sRGBEncoding;
   if (R.shadowMap) {
-    R.shadowMap.enabled = true;
+    R.shadowMap.enabled = effectiveGraphics.shadowsEnabled;
     R.shadowMap.type = THREE.PCFSoftShadowMap;
+    R.shadowMap.autoUpdate = effectiveGraphics.shadowsEnabled;
   }
-  R.setPixelRatio(pixelRatioFor(qualityMode));
+  R.setPixelRatio(pixelRatioFor());
   R.setSize(innerWidth, innerHeight);
   el.appendChild(R.domElement);
   const textureLoader = new THREE.TextureLoader();
-  const loadTexture = (file, colorMap = true, planetName = '') => {
+  const managedPlanetTextures = new Set();
+  const getCapAnisotropy = () => {
+    const cap = typeof R.capabilities?.getMaxAnisotropy === 'function' ? R.capabilities.getMaxAnisotropy() : 4;
+    return Math.min(effectiveGraphics.maxAnisotropy || 4, cap);
+  };
+  const applyLoadedTexture = (file, colorMap = true, planetName = '', onReady = null) => {
     const texture = textureLoader.load(
       `${import.meta.env.BASE_URL}textures/planets/${file}`,
       (loaded) => {
-        if (planetName !== 'Urano' && planetName !== 'Neptuno') return;
-        const source = loaded.image;
-        const canvas = document.createElement('canvas');
-        canvas.width = source.width;
-        canvas.height = source.height;
-        const context = canvas.getContext('2d');
-        if (planetName === 'Neptuno') {
-          // The source already contains cloud bands and a storm; lift their
-          // contrast gently so the detail survives the planet's shading.
-          context.filter = 'contrast(1.4) saturate(0.92)';
-          context.drawImage(source, 0, 0);
-        } else {
-          context.drawImage(source, 0, 0);
-          // The source Uranus map is almost featureless. Add restrained,
-          // soft latitude bands and a few high cloud streaks for depth.
-          const banding = context.createLinearGradient(0, 0, 0, canvas.height);
-          banding.addColorStop(0, 'rgba(72, 158, 174, 0.12)');
-          banding.addColorStop(0.12, 'rgba(231, 255, 255, 0.08)');
-          banding.addColorStop(0.27, 'rgba(64, 154, 171, 0.13)');
-          banding.addColorStop(0.43, 'rgba(235, 255, 255, 0.07)');
-          banding.addColorStop(0.57, 'rgba(58, 143, 163, 0.14)');
-          banding.addColorStop(0.72, 'rgba(226, 255, 255, 0.08)');
-          banding.addColorStop(0.88, 'rgba(72, 158, 174, 0.12)');
-          banding.addColorStop(1, 'rgba(220, 250, 255, 0.08)');
-          context.fillStyle = banding;
-          context.fillRect(0, 0, canvas.width, canvas.height);
-          context.filter = 'blur(5px)';
-          context.fillStyle = 'rgba(246, 255, 255, 0.22)';
-          [
-            [0.22, 0.29, 0.04],
-            [0.63, 0.39, 0.06],
-            [0.81, 0.61, 0.045],
-            [0.4, 0.72, 0.035],
-          ].forEach(([x, y, width]) => {
-            context.beginPath();
-            context.ellipse(
-              canvas.width * x,
-              canvas.height * y,
-              canvas.width * width,
-              canvas.height * 0.006,
-              0,
-              0,
-              Math.PI * 2,
-            );
-            context.fill();
-          });
+        if (planetName === 'Neptuno' || planetName === 'Urano') {
+          const source = loaded.image;
+          const canvas = document.createElement('canvas');
+          canvas.width = source.width;
+          canvas.height = source.height;
+          const context = canvas.getContext('2d');
+          if (planetName === 'Neptuno') {
+            context.filter = 'contrast(1.4) saturate(0.92)';
+            context.drawImage(source, 0, 0);
+          } else {
+            context.drawImage(source, 0, 0);
+            const banding = context.createLinearGradient(0, 0, 0, canvas.height);
+            banding.addColorStop(0, 'rgba(72, 158, 174, 0.12)');
+            banding.addColorStop(0.12, 'rgba(231, 255, 255, 0.08)');
+            banding.addColorStop(0.27, 'rgba(64, 154, 171, 0.13)');
+            banding.addColorStop(0.43, 'rgba(235, 255, 255, 0.07)');
+            banding.addColorStop(0.57, 'rgba(58, 143, 163, 0.14)');
+            banding.addColorStop(0.72, 'rgba(226, 255, 255, 0.08)');
+            banding.addColorStop(0.88, 'rgba(72, 158, 174, 0.12)');
+            banding.addColorStop(1, 'rgba(220, 250, 255, 0.08)');
+            context.fillStyle = banding;
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.filter = 'blur(5px)';
+            context.fillStyle = 'rgba(246, 255, 255, 0.22)';
+            [
+              [0.22, 0.29, 0.04],
+              [0.63, 0.39, 0.06],
+              [0.81, 0.61, 0.045],
+              [0.4, 0.72, 0.035],
+            ].forEach(([x, y, width]) => {
+              context.beginPath();
+              context.ellipse(
+                canvas.width * x,
+                canvas.height * y,
+                canvas.width * width,
+                canvas.height * 0.006,
+                0,
+                0,
+                Math.PI * 2,
+              );
+              context.fill();
+            });
+          }
+          loaded.image = canvas;
+          loaded.needsUpdate = true;
         }
-        loaded.image = canvas;
-        loaded.needsUpdate = true;
+        onReady?.(loaded);
       },
     );
     if (colorMap) texture.encoding = THREE.sRGBEncoding;
-    texture.anisotropy = Math.min(8, R.capabilities.getMaxAnisotropy());
+    texture.anisotropy = getCapAnisotropy();
+    managedPlanetTextures.add(texture);
     return texture;
   };
+  const loadTexture = (file, colorMap = true, planetName = '', onReady = null) =>
+    applyLoadedTexture(file, colorMap, planetName, onReady);
   const sc = new THREE.Scene(),
     cam = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.0005, 4e5),
     ct = new OrbitControls(cam, R.domElement);
@@ -392,19 +437,25 @@ export function setupScene(el, S) {
   localShipScene.add(localShipAmbient, localShipHemi, localShipSunLight, localShipRimLight);
   let localShipPmremGenerator = null;
   let localShipEnvRenderTarget = null;
-  if (typeof R.getContext === 'function' && R.getContext()) {
-    try {
-      const pmremRoom = new RoomEnvironment();
-      localShipPmremGenerator = new THREE.PMREMGenerator(R);
-      localShipPmremGenerator.compileEquirectangularShader?.();
-      localShipEnvRenderTarget = localShipPmremGenerator.fromScene(pmremRoom, 0.04);
-      localShipScene.environment = localShipEnvRenderTarget.texture;
-      disposeSceneResources(pmremRoom);
-    } catch {
-      localShipPmremGenerator = null;
-      localShipEnvRenderTarget = null;
+  let localShipEnvInitialized = false;
+  let localShipShadersWarmed = false;
+  const ensureLocalShipEnvironment = () => {
+    if (localShipEnvInitialized || disposed) return;
+    localShipEnvInitialized = true;
+    if (typeof R.getContext === 'function' && R.getContext()) {
+      try {
+        const pmremRoom = new RoomEnvironment();
+        localShipPmremGenerator = new THREE.PMREMGenerator(R);
+        localShipPmremGenerator.compileEquirectangularShader?.();
+        localShipEnvRenderTarget = localShipPmremGenerator.fromScene(pmremRoom, 0.04);
+        localShipScene.environment = localShipEnvRenderTarget.texture;
+        disposeSceneResources(pmremRoom);
+      } catch {
+        localShipPmremGenerator = null;
+        localShipEnvRenderTarget = null;
+      }
     }
-  }
+  };
   let rafId = 0,
     disposed = false,
     lastNavigationPublish = -1,
@@ -416,6 +467,22 @@ export function setupScene(el, S) {
   sc.add(new THREE.AmbientLight(0xffffff, 0.055));
   sc.add(new THREE.PointLight(0xfff7ec, 1.85, 0, 0));
   const planetaryBeaconMap = createPlanetaryPointBeaconTexture(globalThis.document);
+  const starBudgetTargets = [];
+  const registerStarBudgetTarget = (ptsObj, minCount = 120) => {
+    const count = ptsObj?.geometry?.attributes?.position?.count || 0;
+    if (count > 0 && ptsObj?.geometry?.setDrawRange) {
+      starBudgetTargets.push({ ptsObj, maxCount: count, minCount: Math.min(count, minCount) });
+    }
+    return ptsObj;
+  };
+  const applyStarBudgetFactor = (factor = 1) => {
+    const clamped = Math.max(0.25, Math.min(1, Number(factor) || 1));
+    for (let i = 0; i < starBudgetTargets.length; i++) {
+      const target = starBudgetTargets[i];
+      const count = Math.max(target.minCount, Math.round(target.maxCount * clamped));
+      target.ptsObj.geometry.setDrawRange(0, count);
+    }
+  };
   // estrellas
   let a = [],
     c = [];
@@ -426,7 +493,7 @@ export function setupScene(el, S) {
     const b = 0.5 + 0.5 * Math.random();
     c.push(b * (0.8 + 0.2 * t), b * 0.9, b * (1 - 0.2 * t));
   }
-  sc.add(pts(a, c, 1.5, 0.9));
+  sc.add(registerStarBudgetTarget(pts(a, c, 1.5, 0.9), 2400));
   // polvo estelar cercano (moderado para conservar la oscuridad y profundidad del espacio)
   a = [];
   c = [];
@@ -435,7 +502,7 @@ export function setupScene(el, S) {
     a.push(v.x, v.y, v.z);
     c.push(0.5 + Math.random() * 0.4, 0.55 + Math.random() * 0.2, 0.8);
   }
-  sc.add(pts(a, c, 0.9, 0.14));
+  sc.add(registerStarBudgetTarget(pts(a, c, 0.9, 0.14), 1200));
   const naturalGalaxySky = createNaturalGalaxySky();
   sc.add(naturalGalaxySky.root);
   // Decorative deep-sky galaxies sit far beyond the Milky Way starfield.
@@ -799,6 +866,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     marker.traverse(child => { child.userData.spherexTargetKey = target.key; });
     missionDestinationGroup.add(marker); missionMarkers.set(target.key, { target, marker, label }); missionMarkerEffects.push(effect);
   });
+  macroGalacticGroup.traverse((child) => {
+    if (child?.isPoints) registerStarBudgetTarget(child, 320);
+  });
+  applyStarBudgetFactor(effectiveGraphics.starBudgetFactor);
   upgradeSceneGalaxiesWithMorphology({
     nearbyGalaxyMarkers,
     missionMarkers,
@@ -808,6 +879,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     macroGalacticGroup,
     atlasRadii,
     glowTexture: sharedPointMap,
+    deferGalaxyTextures: !IS_NODE_SCENE_HARNESS,
   });
   const observerFirmament = createObserverAwareFirmament({
     scene: sc,
@@ -973,14 +1045,51 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     const texture = new THREE.CanvasTexture(canvas);
     texture.encoding = THREE.sRGBEncoding;
-    texture.anisotropy = Math.min(8, R.capabilities.getMaxAnisotropy());
+    texture.anisotropy = getCapAnisotropy();
+    managedPlanetTextures.add(texture);
     return texture;
   };
+  const createPlaceholderPlanetTexture = (planet) => {
+    const cv = document.createElement('canvas');
+    cv.width = 16;
+    cv.height = 16;
+    const ctx = cv.getContext('2d');
+    const toRgb = (arr) =>
+      Array.isArray(arr) && arr.length >= 3
+        ? arr.slice(0, 3).map((v) => {
+          const n = Number(v);
+          return Number.isFinite(n) ? n : 168;
+        })
+        : [160, 175, 195];
+    const fmt = (rgb, m = 1) =>
+      `rgb(${Math.max(12, Math.min(255, Math.round(rgb[0] * m)))},${Math.max(12, Math.min(255, Math.round(rgb[1] * m)))},${Math.max(12, Math.min(255, Math.round(rgb[2] * m)))})`;
+    const grad = ctx.createLinearGradient(0, 0, 0, cv.height);
+    if (Array.isArray(planet?.c?.[0])) {
+      const stops = planet.c.map(toRgb);
+      const denom = Math.max(1, stops.length - 1);
+      stops.forEach((rgb, idx) => {
+        grad.addColorStop(idx / denom, fmt(rgb, 1));
+      });
+    } else {
+      const baseRgb = toRgb(planet?.c);
+      grad.addColorStop(0, fmt(baseRgb, 0.78));
+      grad.addColorStop(0.35, fmt(baseRgb, 1.04));
+      grad.addColorStop(0.55, fmt(baseRgb, 0.92));
+      grad.addColorStop(1, fmt(baseRgb, 0.75));
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.encoding = THREE.sRGBEncoding;
+    return tex;
+  };
   const makeDwarfTexture = (planet) => {
-    const width = 1024;
-    const height = 512;
-    const sampleWidth = 512;
-    const sampleHeight = 256;
+    const width = IS_NODE_SCENE_HARNESS ? 128 : 256;
+    const height = IS_NODE_SCENE_HARNESS ? 64 : 128;
+    const sampleWidth = IS_NODE_SCENE_HARNESS ? 64 : 128;
+    const sampleHeight = IS_NODE_SCENE_HARNESS ? 32 : 64;
+    const sx = width / 1024;
+    const sy = height / 512;
     const canvas = document.createElement('canvas');
     const reliefCanvas = document.createElement('canvas');
     const baseCanvas = document.createElement('canvas');
@@ -1039,28 +1148,26 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return seed / 4294967296;
     };
     const seedOffset = planet.seed * 0.013;
-    const interpolate = (a, b, amount) => a + (b - a) * amount;
     for (let y = 0; y < sampleHeight; y++) {
       const v = y / sampleHeight;
       for (let x = 0; x < sampleWidth; x++) {
         const u = x / sampleWidth;
-        const broad = fbm(u + seedOffset, v + seedOffset * 0.31, 4.5);
-        const detail = fbm(u + seedOffset * 0.7, v + seedOffset * 0.9, 27);
+        const broad = fbm(u + seedOffset, v + seedOffset * 0.31, 4.5, 3);
+        const detail = fbm(u + seedOffset * 0.7, v + seedOffset * 0.9, 27, 3);
         const latitude = planet.n === 'Eris' ? Math.abs(v - 0.5) * 0.2 : 0;
-        let tone = THREE.MathUtils.clamp(
+        const tone = THREE.MathUtils.clamp(
           0.5 + (broad - 0.5) * 2.1 + (detail - 0.5) * 1.1 + latitude,
           0,
           0.999,
         );
         const band = Math.min(2, Math.floor(tone * 3));
         const blend = tone * 3 - band;
-        const color = palette[3].map((channel, index) =>
-          interpolate(palette[band][index], palette[band + 1][index], blend),
-        );
+        const c0 = palette[band];
+        const c1 = palette[band + 1];
         const pixel = (y * sampleWidth + x) * 4;
-        image.data[pixel] = color[0];
-        image.data[pixel + 1] = color[1];
-        image.data[pixel + 2] = color[2];
+        image.data[pixel] = c0[0] + (c1[0] - c0[0]) * blend;
+        image.data[pixel + 1] = c0[1] + (c1[1] - c0[1]) * blend;
+        image.data[pixel + 2] = c0[2] + (c1[2] - c0[2]) * blend;
         image.data[pixel + 3] = 255;
         const heightValue = THREE.MathUtils.clamp(
           110 + (broad - 0.5) * 110 + (detail - 0.5) * 54,
@@ -1076,12 +1183,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     context.drawImage(baseCanvas, 0, 0, width, height);
     reliefContext.drawImage(baseReliefCanvas, 0, 0, width, height);
 
-    const craterCount =
-      { Ceres: 205, Plutón: 170, Haumea: 110, Makemake: 150, Eris: 185 }[planet.n] || 140;
+    const craterCount = IS_NODE_SCENE_HARNESS
+      ? 24
+      : { Ceres: 54, Plutón: 48, Haumea: 32, Makemake: 42, Eris: 50 }[planet.n] || 40;
     for (let index = 0; index < craterCount; index++) {
       const x = random() * width;
       const y = random() * height;
-      const radius = 2 + Math.pow(random(), 2.1) * 37;
+      const radius = (2 + Math.pow(random(), 2.1) * 37) * sx;
       const flatten = 0.65 + random() * 0.65;
       const rotation = random() * Math.PI;
       const shadow = context.createRadialGradient(
@@ -1113,6 +1221,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     if (planet.n === 'Plutón') {
       // Broad, irregular bright ice plains inspired by Tombaugh Regio.
+      context.save();
+      context.scale(sx, sy);
       context.beginPath();
       context.moveTo(570, 192);
       context.bezierCurveTo(618, 111, 700, 121, 735, 170);
@@ -1129,7 +1239,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       ice.addColorStop(1, 'rgba(255,241,211,0)');
       context.fillStyle = ice;
       context.fillRect(548, 94, 332, 230);
+      context.restore();
     } else if (planet.n === 'Ceres') {
+      context.save();
+      context.scale(sx, sy);
       [
         [488, 232, 22],
         [493, 229, 11],
@@ -1143,7 +1256,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         context.fillStyle = salt;
         context.fillRect(x - radius * 3, y - radius * 3, radius * 6, radius * 6);
       });
+      context.restore();
     } else if (planet.n === 'Haumea') {
+      context.save();
+      context.scale(sx, sy);
       context.save();
       context.translate(562, 246);
       context.rotate(-0.22);
@@ -1155,9 +1271,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       context.restore();
       context.strokeStyle = 'rgba(255,255,245,.25)';
       context.lineWidth = 2;
-      for (let groove = 0; groove < 24; groove++) {
-        const y = random() * height;
-        const x = random() * width;
+      for (let groove = 0; groove < 18; groove++) {
+        const y = random() * 512;
+        const x = random() * 1024;
         context.beginPath();
         context.moveTo(x, y);
         context.quadraticCurveTo(
@@ -1168,11 +1284,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         );
         context.stroke();
       }
+      context.restore();
     } else if (planet.n === 'Makemake') {
-      for (let patch = 0; patch < 34; patch++) {
+      for (let patch = 0; patch < 24; patch++) {
         const x = random() * width;
         const y = random() * height;
-        const radius = 18 + random() * 74;
+        const radius = (18 + random() * 74) * sx;
         const frost = context.createRadialGradient(x, y, radius * 0.1, x, y, radius);
         frost.addColorStop(0, random() > 0.5 ? 'rgba(242,213,171,.3)' : 'rgba(72,35,31,.24)');
         frost.addColorStop(1, 'rgba(100,50,40,0)');
@@ -1183,12 +1300,118 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const texture = new THREE.CanvasTexture(canvas);
     const bumpTexture = new THREE.CanvasTexture(reliefCanvas);
     texture.encoding = THREE.sRGBEncoding;
-    const anisotropy = Math.min(8, R.capabilities.getMaxAnisotropy());
+    const anisotropy = getCapAnisotropy();
     texture.anisotropy = bumpTexture.anisotropy = anisotropy;
+    managedPlanetTextures.add(texture);
+    managedPlanetTextures.add(bumpTexture);
     return { map: texture, bumpMap: bumpTexture };
   };
+  const sharedPlanetSphereGeo = new THREE.SphereGeometry(
+    1,
+    IS_NODE_SCENE_HARNESS ? 24 : 44,
+    IS_NODE_SCENE_HARNESS ? 16 : 32,
+  );
+  const sharedPlanetAtmoGeo = new THREE.SphereGeometry(
+    1.009,
+    IS_NODE_SCENE_HARNESS ? 20 : 40,
+    IS_NODE_SCENE_HARNESS ? 14 : 28,
+  );
+  const sharedIceAtmoGeo = new THREE.SphereGeometry(
+    1.035,
+    IS_NODE_SCENE_HARNESS ? 20 : 40,
+    IS_NODE_SCENE_HARNESS ? 14 : 28,
+  );
+  const sharedMoonSphereGeo = new THREE.SphereGeometry(1, 20, 14);
+  const progressiveQueue = [];
+  const planetPromoters = new Map();
+  const progressiveAssetState = {
+    total: 0,
+    loaded: 0,
+    active: false,
+    currentLabel: '',
+  };
+  let progressiveTimer = null;
+  let deferredWarmupTimer = null;
+  const publishProgressiveAssetState = () => {
+    const remaining = progressiveQueue.length + (typeof getPendingGalaxyTextureCount === 'function' ? getPendingGalaxyTextureCount() : 0);
+    const total = Math.max(progressiveAssetState.total, progressiveAssetState.loaded + remaining);
+    progressiveAssetState.total = total;
+    progressiveAssetState.active = remaining > 0;
+    S.onAssetLoadingState?.({
+      ...progressiveAssetState,
+      remaining,
+    });
+  };
+  const enqueueProgressiveTask = ({ id, planetName = null, label = '', priority = 50, run }) => {
+    progressiveAssetState.total += 1;
+    const task = { id, planetName, label, priority, run, done: false };
+    progressiveQueue.push(task);
+    progressiveQueue.sort((a, b) => a.priority - b.priority);
+    if (planetName) {
+      planetPromoters.set(planetName, () => {
+        if (task.done || disposed) return false;
+        task.done = true;
+        const idx = progressiveQueue.indexOf(task);
+        if (idx !== -1) progressiveQueue.splice(idx, 1);
+        progressiveAssetState.currentLabel = task.label || planetName;
+        task.run();
+        progressiveAssetState.loaded += 1;
+        publishProgressiveAssetState();
+        return true;
+      });
+    }
+    return task;
+  };
+  const runNextProgressiveTask = (maxTasks = 1) => {
+    if (disposed) return 0;
+    let executed = 0;
+    while (executed < maxTasks && progressiveQueue.length > 0) {
+      const task = progressiveQueue.shift();
+      if (!task || task.done) continue;
+      task.done = true;
+      progressiveAssetState.currentLabel = task.label || task.id;
+      try {
+        task.run();
+      } catch {
+        // Progressive hydration failures never abort active simulation
+      }
+      progressiveAssetState.loaded += 1;
+      executed += 1;
+    }
+    if (executed === 0 && typeof getPendingGalaxyTextureCount === 'function' && getPendingGalaxyTextureCount() > 0) {
+      const flushed = flushPendingGalaxyTextures(1);
+      if (flushed > 0) {
+        progressiveAssetState.currentLabel = 'Morfología galáctica';
+        progressiveAssetState.loaded += flushed;
+        executed += flushed;
+      }
+    }
+    publishProgressiveAssetState();
+    return executed;
+  };
+  const promotePlanetTexture = (planetName) => {
+    const fn = planetName ? planetPromoters.get(planetName) : null;
+    if (fn) fn();
+  };
+  const EAGER_PLANETS = new Set(['Sol', 'Tierra', 'Luna']);
+  const PLANET_LOAD_PRIORITY = {
+    Saturno: 5,
+    Marte: 8,
+    Júpiter: 10,
+    Venus: 12,
+    Mercurio: 15,
+    Urano: 18,
+    Neptuno: 20,
+    Plutón: 28,
+    Ceres: 30,
+    Haumea: 32,
+    Makemake: 34,
+    Eris: 36,
+  };
   P.forEach((p) => {
-    const dwarfSurface = p.dwarf ? makeDwarfTexture(p) : null;
+    const isEager = EAGER_PLANETS.has(p.n);
+    const dwarfSurface = p.dwarf && isEager ? makeDwarfTexture(p) : null;
+    const placeholderMap = !p.sun && !isEager ? createPlaceholderPlanetTexture(p) : null;
     const pivot = new THREE.Group(),
       tilt = new THREE.Group(),
       mat = p.sun
@@ -1196,7 +1419,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         : new THREE.MeshStandardMaterial({
           map: dwarfSurface
             ? dwarfSurface.map
-            : loadTexture(PLANET_TEXTURE_FILES[p.n], true, p.n),
+            : isEager
+              ? loadTexture(PLANET_TEXTURE_FILES[p.n], true, p.n)
+              : placeholderMap,
           roughness: p.n === 'Venus' ? 0.88 : 0.96,
           metalness: 0,
           ...(dwarfSurface ? { bumpMap: dwarfSurface.bumpMap, bumpScale: 0.022 } : {}),
@@ -1207,37 +1432,74 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
             : {}),
         }),
-      spin = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 48), mat);
+      spin = new THREE.Mesh(sharedPlanetSphereGeo, mat);
     if (p.shape) spin.scale.y = p.shape;
     tilt.rotation.z = ((p.tilt || 0) * Math.PI) / 180;
     tilt.add(spin);
+    let venusAtmosphereMat = null;
     if (p.n === 'Tierra' || p.n === 'Venus') {
       const isEarth = p.n === 'Tierra';
-      const atmosphericMap = loadTexture(
-        isEarth ? '2k_earth_clouds.jpg' : '2k_venus_atmosphere.jpg',
-      );
-      const atmosphere = new THREE.Mesh(
-        new THREE.SphereGeometry(1.009, 64, 48),
-        new THREE.MeshStandardMaterial({
-          map: atmosphericMap,
-          alphaMap: isEarth ? atmosphericMap : null,
-          color: isEarth ? 0xffffff : 0xffe5c2,
-          transparent: true,
-          opacity: isEarth ? 0.76 : 0.52,
-          roughness: 1,
-          metalness: 0,
-          depthWrite: false,
-          side: THREE.FrontSide,
-        }),
-      );
+      const atmosphericMap = isEarth
+        ? loadTexture('2k_earth_clouds.jpg')
+        : placeholderMap;
+      const atmoMat = new THREE.MeshStandardMaterial({
+        map: atmosphericMap,
+        alphaMap: isEarth ? atmosphericMap : null,
+        color: isEarth ? 0xffffff : 0xffe5c2,
+        transparent: true,
+        opacity: isEarth ? 0.76 : 0.52,
+        roughness: 1,
+        metalness: 0,
+        depthWrite: false,
+        side: THREE.FrontSide,
+      });
+      if (!isEarth) venusAtmosphereMat = atmoMat;
+      const atmosphere = new THREE.Mesh(sharedPlanetAtmoGeo, atmoMat);
       spin.add(atmosphere);
+    }
+    if (!p.sun && !isEager) {
+      enqueueProgressiveTask({
+        id: `planet-${p.n}`,
+        planetName: p.n,
+        label: `Textura planetaria: ${p.n}`,
+        priority: PLANET_LOAD_PRIORITY[p.n] ?? 40,
+        run: () => {
+          if (p.dwarf) {
+            const generated = makeDwarfTexture(p);
+            const oldPlaceholder = mat.map;
+            mat.map = generated.map;
+            mat.bumpMap = generated.bumpMap;
+            mat.bumpScale = 0.022;
+            mat.needsUpdate = true;
+            if (oldPlaceholder && oldPlaceholder !== placeholderMap) oldPlaceholder.dispose?.();
+            placeholderMap?.dispose?.();
+            return;
+          }
+          const texFile = PLANET_TEXTURE_FILES[p.n];
+          if (texFile) {
+            loadTexture(texFile, true, p.n, (loadedTex) => {
+              if (disposed || !loadedTex) return;
+              mat.map = loadedTex;
+              mat.needsUpdate = true;
+              if (placeholderMap && placeholderMap !== loadedTex) placeholderMap.dispose?.();
+            });
+          }
+          if (p.n === 'Venus' && venusAtmosphereMat) {
+            loadTexture('2k_venus_atmosphere.jpg', true, 'VenusAtmo', (loadedAtmo) => {
+              if (disposed || !loadedAtmo) return;
+              venusAtmosphereMat.map = loadedAtmo;
+              venusAtmosphereMat.needsUpdate = true;
+            });
+          }
+        },
+      });
     }
     if (p.n === 'Urano' || p.n === 'Neptuno') {
       // Thin limb haze gives the ice giants depth without turning their
       // atmospheres into a bright, opaque blue shell.
       const atmosphereColor = p.n === 'Urano' ? 0x8fe8ed : 0x4e9dff;
       const atmosphere = new THREE.Mesh(
-        new THREE.SphereGeometry(1.035, 64, 48),
+        sharedIceAtmoGeo,
         new THREE.ShaderMaterial({
           uniforms: { glowColor: { value: new THREE.Color(atmosphereColor) } },
           vertexShader: `varying vec3 vNormal; varying vec3 vViewDirection;
@@ -1433,13 +1695,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         moonPivot.rotation.x = moon.inclination;
         system.add(moonPivot);
         const mesh = new THREE.Mesh(
-          new THREE.SphereGeometry(moon.size, 20, 14),
+          sharedMoonSphereGeo,
           new THREE.MeshStandardMaterial({
             map: makeMoonTexture(moon),
             roughness: 0.88,
             metalness: 0,
           }),
         );
+        mesh.scale.setScalar(moon.size);
         moonPivot.add(mesh);
         const label = lab(moon.name, 0.12, 16);
         label.position.set(0, moon.size * 2.4, 0);
@@ -2093,9 +2356,94 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     S.onFreeHelmChange?.(false);
   };
 
+  const pointerLockSupported = Boolean(
+    typeof dom?.requestPointerLock === 'function' && typeof document?.exitPointerLock === 'function',
+  );
+  let pointerLockActive = false;
+  let pointerLockFallbackActive = !pointerLockSupported;
+  let pointerLockIgnoreMoves = 0;
+  let suppressNextUnlockNotification = false;
+  let pointerLockBlockedActivation = false;
+  const isPointerLockEligible = () =>
+    Boolean(
+      free &&
+      pv === 1 &&
+      !exteriorCameraMode &&
+      !simulationPaused &&
+      !mainMenuOrbitActive &&
+      !realTimeIntro &&
+      !activeCabinStation &&
+      !freeHelmMode &&
+      !nearbyMapState &&
+      !contextOverview &&
+      !launchSequence &&
+      !launchCameraBlend &&
+      !nav,
+    );
+  const getPointerLockState = () => ({
+    supported: pointerLockSupported,
+    active: pointerLockActive,
+    eligible: isPointerLockEligible(),
+    fallbackDragActive: pointerLockFallbackActive,
+    fallbackMode: Boolean(pointerLockFallbackActive || !pointerLockSupported),
+  });
+  const emitPointerLockState = (reason = 'sync') => {
+    S.onPointerLockChange?.({
+      ...getPointerLockState(),
+      reason,
+    });
+  };
+  const exitPointerLockIfActive = (reason = 'ui') => {
+    if (!pointerLockSupported || typeof document === 'undefined') return false;
+    const lockedEl = document.pointerLockElement || document.mozPointerLockElement || null;
+    if (lockedEl === dom || pointerLockActive) {
+      suppressNextUnlockNotification = true;
+      pointerLockActive = false;
+      try {
+        document.exitPointerLock?.();
+      } catch {
+        // Ignore environments denying exitPointerLock
+      }
+      emitPointerLockState(reason);
+      return true;
+    }
+    return false;
+  };
+  const requestPointerLockForLook = (reason = 'click') => {
+    if (!isPointerLockEligible()) return false;
+    if (!pointerLockSupported) {
+      pointerLockFallbackActive = true;
+      emitPointerLockState('unsupported');
+      return false;
+    }
+    const lockedEl = typeof document !== 'undefined' ? document.pointerLockElement : null;
+    if (lockedEl === dom) {
+      pointerLockActive = true;
+      emitPointerLockState(reason);
+      return true;
+    }
+    try {
+      const res = dom.requestPointerLock?.();
+      if (res && typeof res.catch === 'function') {
+        res.catch(() => {
+          pointerLockFallbackActive = true;
+          pointerLockActive = false;
+          emitPointerLockState('fallback');
+        });
+      }
+      return true;
+    } catch {
+      pointerLockFallbackActive = true;
+      pointerLockActive = false;
+      emitPointerLockState('fallback');
+      return false;
+    }
+  };
+
   function userCameraAvailable() { return !(realTimeIntro || mainMenuOrbitActive || launchSequence || launchCameraBlend || cabinReentryBlend || nav); }
   function enterExteriorCamera() {
     if (!userCameraAvailable()) return false;
+    exitPointerLockIfActive('exterior');
     enterExteriorCameraClearHud();
     const alreadyExterior = exteriorCameraMode;
     if (!alreadyExterior) {
@@ -2115,11 +2463,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (!alreadyExterior) {
       resetExteriorCamera(true);
     }
+    emitPointerLockState('exterior');
     return true;
   }
   function nearbyMap() {
     if (!userCameraAvailable()) return false;
     if (nearbyMapState) return;
+    exitPointerLockIfActive('map');
     const previousScale = navigationContext.id, previousContext = contextOverview; contextOverview = false; publishScale('extragalactic'); S.onObjectSelect?.(null); S.onNearbyMapChange?.(true);
     nearbyMapState = {
       scale: previousScale, contextOverview: previousContext,
@@ -2244,11 +2594,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       ? localCam.position.clone().applyQuaternion(ship.quaternion.clone().invert())
       : (pv === 1 ? new V(astronautPos.x, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, astronautPos.z) : new V(0.28, 0.16, 1.0).multiplyScalar(shipCameraDistanceMeters()));
     nav = { ...createJumpSequence({ from: sp, target, startQuaternion: ship.quaternion, clearance, durations: jumpDurations, reducedMotion: !!S.reducedMotion?.(), long }), b, name, onArrive, respectSpeed, oldFs: fs, objectKey: activeMissionKey, arrivedTarget: arrivedTarget || (b ? { name, key: b.p?.n || name, type: b.p?.sun ? 'estrella' : 'planeta' } : null), cabinStart: astronautPos.clone(), cabinLookout: new V(0.0, 3.4, -12.6), cameraStartPosition: cam.position.clone(), cameraStartQuaternion: cam.quaternion.clone(), cameraStartLocalOffset: startLocalMeters, cameraStartLocalQuaternion: ship.quaternion.clone().invert().multiply(cam.quaternion) };
-    if (long) { disposeTravelEffect(); hyperspace = createHyperspaceEffect({ count: qualityMode === 'performance' ? 440 : 720 }); sc.add(hyperspace.group); }
+    if (long) {
+      disposeTravelEffect();
+      hyperspace = createHyperspaceEffect({
+        count: Math.max(180, Math.round(720 * effectiveGraphics.particleFactor)),
+      });
+      sc.add(hyperspace.group);
+    }
     S.f(name); S.onNavigation?.({ phase: nav.phase, progress: 0, label: name }); return true;
   }
   function focus(n, k) {
     if (!userCameraAvailable()) return false;
+    promotePlanetTexture(n);
     publishScale('solar');
     tw = null;
     const b = B.find((x) => x.p.n == n);
@@ -2611,7 +2968,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let activeRepairStage = 0;
 
   // Cabina y 4 cubiertas unificadas estrictamente dentro del casco de 120m (cero cajas superpuestas):
-  const cabinSystem = buildHabitableCabin3D(); // mantenido sin montar para compatibilidad de referencias heredadas
+  const cabinSystem = null;
   const fourDecksInterior = buildFourDecksInterior3D();
   localCabinWorld.add(fourDecksInterior.root);
 
@@ -2656,6 +3013,124 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const firstPersonHandsRig = createFirstPersonHandsRig();
   firstPersonHandsRig.root.visible = false;
   localShipScene.add(firstPersonHandsRig.root);
+
+  const warmLocalShipShaders = () => {
+    if (localShipShadersWarmed || disposed || IS_NODE_SCENE_HARNESS) return;
+    localShipShadersWarmed = true;
+    ensureLocalShipEnvironment();
+    if (typeof R.compile !== 'function') return;
+    const prevCabinVis = localCabinWorld.visible;
+    const prevAstroVis = articulatedAstronaut?.root?.visible ?? false;
+    const prevShipVis = ship.visible;
+    try {
+      localCabinWorld.visible = true;
+      if (articulatedAstronaut?.root) articulatedAstronaut.root.visible = true;
+      fourDecksInterior?.setActiveVisibleDeck?.('deck-01', { showAll: false });
+      localCabinWorld.updateMatrixWorld(true);
+      R.compile(localShipScene, localCam);
+    } catch {
+      // Non-fatal in headless or software fallback contexts
+    } finally {
+      localCabinWorld.visible = prevCabinVis;
+      if (articulatedAstronaut?.root) articulatedAstronaut.root.visible = prevAstroVis;
+      ship.visible = prevShipVis;
+      if (prevCabinVis) {
+        const curDeck = resolveCurrentDeck(astronautPos);
+        fourDecksInterior?.setActiveVisibleDeck?.(curDeck?.id || 'deck-01', { showAll: false });
+      }
+    }
+  };
+
+  const applyGraphicsSettings = (nextSettings = {}) => {
+    if (typeof nextSettings === 'string') {
+      graphicsUserSettings = {
+        ...graphicsUserSettings,
+        preset: normalizeGraphicsPreset(nextSettings, 'auto'),
+      };
+    } else if (nextSettings && typeof nextSettings === 'object') {
+      const normalizedPreset =
+        nextSettings.preset !== undefined
+          ? normalizeGraphicsPreset(nextSettings.preset, 'auto')
+          : graphicsUserSettings.preset;
+      const presetChanged = normalizedPreset !== graphicsUserSettings.preset;
+      graphicsUserSettings = {
+        ...graphicsUserSettings,
+        ...nextSettings,
+        preset: normalizedPreset,
+        // Reset per-slider overrides when user selects a preset directly without specifying overrides
+        ...(presetChanged && nextSettings.renderScale === undefined ? { renderScale: null } : {}),
+        ...(presetChanged && nextSettings.shadowQuality === undefined ? { shadowQuality: null } : {}),
+        ...(presetChanged && nextSettings.visualEffects === undefined ? { visualEffects: null } : {}),
+      };
+    }
+    effectiveGraphics = resolveEffectiveGraphicsSettings(graphicsUserSettings, {
+      autoDetectedPreset: hardwareCapabilities.recommendedPreset,
+      devicePixelRatio: globalThis.devicePixelRatio || 1,
+    });
+    qualityMode =
+      effectiveGraphics.preset === 'low'
+        ? 'performance'
+        : effectiveGraphics.preset === 'high'
+          ? 'quality'
+          : 'balanced';
+    R.setPixelRatio(pixelRatioFor());
+    R.setSize(innerWidth, innerHeight);
+    if (R.shadowMap) {
+      R.shadowMap.enabled = effectiveGraphics.shadowsEnabled;
+      R.shadowMap.autoUpdate = effectiveGraphics.shadowsEnabled;
+    }
+    modularShip?.setShadowsEnabled?.(effectiveGraphics.shadowsEnabled);
+    modularShip?.setVisualEffectsLevel?.(effectiveGraphics.visualEffects);
+    const maxAniso = getCapAnisotropy();
+    modularShip?.setAnisotropy?.(maxAniso);
+    fourDecksInterior?.setAnisotropy?.(maxAniso);
+    managedPlanetTextures.forEach((tex) => {
+      if (tex && !tex.isDisposed) {
+        tex.anisotropy = maxAniso;
+        if (tex.image) tex.needsUpdate = true;
+      }
+    });
+    applyStarBudgetFactor(effectiveGraphics.starBudgetFactor);
+    GU.uH.value = (innerHeight * R.getPixelRatio()) / (2 * Math.tan((cam.fov * Math.PI) / 360));
+    const snapshot = {
+      settings: { ...graphicsUserSettings },
+      effective: { ...effectiveGraphics },
+      hardware: hardwareCapabilities,
+    };
+    S.onGraphicsStateChange?.(snapshot);
+    return snapshot;
+  };
+  applyGraphicsSettings(graphicsUserSettings);
+
+  if (!IS_NODE_SCENE_HARNESS && typeof requestAnimationFrame === 'function') {
+    deferredWarmupTimer = setTimeout(() => {
+      if (disposed) return;
+      ensureLocalShipEnvironment();
+      warmLocalShipShaders();
+      publishProgressiveAssetState();
+      const scheduleNextIdleBatch = () => {
+        if (disposed) return;
+        const hasPending =
+          progressiveQueue.length > 0 ||
+          (typeof getPendingGalaxyTextureCount === 'function' && getPendingGalaxyTextureCount() > 0);
+        if (!hasPending) return;
+        const runBatch = () => {
+          if (disposed) return;
+          runNextProgressiveTask(1);
+          progressiveTimer = setTimeout(scheduleNextIdleBatch, 280);
+        };
+        if (typeof globalThis.requestIdleCallback === 'function') {
+          globalThis.requestIdleCallback(runBatch, { timeout: 650 });
+        } else {
+          progressiveTimer = setTimeout(runBatch, 180);
+        }
+      };
+      progressiveTimer = setTimeout(scheduleNextIdleBatch, 750);
+    }, 550);
+  } else {
+    ensureLocalShipEnvironment();
+    publishProgressiveAssetState();
+  }
 
   let currentLockedDeckId = resolveCurrentDeck(BRIDGE_SPAWN_POS).id;
   const microgravityController = createMicrogravityPhysicsController({
@@ -3119,7 +3594,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
   function getDualWorldArchitectureState() {
     const shipBounds = collectExteriorShipBounds();
-    const cabinBox = new THREE.Box3().setFromObject(fourDecksInterior?.root || cabinSystem.cabinRoot);
+    const cabinBox = new THREE.Box3().setFromObject(fourDecksInterior?.root || localCabinWorld);
     const cabinSize = cabinBox.getSize(new THREE.Vector3());
     return {
       worlds: WORLD_COORDINATE_SYSTEMS,
@@ -3250,6 +3725,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     astronautPitch = -0.04;
     targetPitch = -0.04;
     activeCabinStation = 'nav';
+    exitPointerLockIfActive('station');
   }
 
   // Real-time 3D Cinematic Intro Spline State (Section 2)
@@ -3474,7 +3950,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     mainMenuOrbitActive = false;
     realTimeIntroPaused = false;
     const isReduced = Boolean(S.reducedMotion?.());
-    const isTestHarness = Boolean(globalThis.__KRONOX_SCENE_HARNESS__);
+    const isTestHarness = IS_NODE_SCENE_HARNESS;
     realTimeIntro = {
       phase: 'opening',
       openingDuration: isReduced ? 0.6 : isTestHarness ? 3.2 : 6.0,
@@ -3567,6 +4043,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     suppressDirectorNarrative = false;
     if (cb) cb();
     startGuidedCabinTour();
+    emitPointerLockState('cabin-ready');
     S.onObservationModeChange?.(getObservationMode());
   }
 
@@ -3775,12 +4252,31 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
   let speedNoticeTimer;
   let pointerClickStart = null;
+  let wasPointerLockedOnDown = false;
   const onPointerDown = (e) => {
+    wasPointerLockedOnDown = pointerLockActive;
     pointerClickStart = { x: e.clientX, y: e.clientY };
     if (nearbyMapState) nearbyPointerStart = { x: e.clientX, y: e.clientY };
-    if (free && !exteriorCameraMode) {
-      drag = 1;
-      dom.setPointerCapture(e.pointerId);
+    if (free && !exteriorCameraMode && !simulationPaused) {
+      const canTryLock =
+        e.pointerType !== 'touch' &&
+        (e.button === undefined || e.button === 0) &&
+        pointerLockSupported &&
+        !pointerLockFallbackActive &&
+        isPointerLockEligible();
+      if (!pointerLockActive && canTryLock) {
+        drag = 0;
+        requestPointerLockForLook('pointerdown');
+        return;
+      }
+      if (!pointerLockActive) {
+        drag = 1;
+        try {
+          dom.setPointerCapture?.(e.pointerId);
+        } catch {
+          // Synthetic pointer events in tests may not map to an active pointer id
+        }
+      }
     }
   };
   const emitDirectMechanismFeedback = (stId, state) => {
@@ -3872,6 +4368,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         }
       }
       activeCabinStation = 'elevator-panel';
+      exitPointerLockIfActive('station');
       S.onSfxCue?.('tap');
       S.onElevatorStateChange?.({ ...elState, doorOpenByDeck: { ...elState.doorOpenByDeck } });
       S.onStationInteract?.('elevator-panel');
@@ -3898,6 +4395,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     // 5. Consolas complejas (navegación, comunicaciones IA, ciencia SPHEREx, misiones, reactor, banco óptico)
     if (stId === 'nav') occupyNavigationSeat();
     else activeCabinStation = stId;
+    exitPointerLockIfActive('station');
 
     const stObj = candidateObj || getStationDef(stId);
     if (stObj) {
@@ -3977,16 +4475,32 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     if (contextOverview && clickMoved < 6) { const rect = dom.getBoundingClientRect(); nearbyPointer.set((e.clientX - rect.left) / rect.width * 2 - 1, 1 - (e.clientY - rect.top) / rect.height * 2); nearbyRaycaster.setFromCamera(nearbyPointer, cam); const atlas = navigationContext.id === 'stellar' ? stellarAtlas : regionalAtlas; const hit = nearbyRaycaster.intersectObjects([...atlas.markers.values()].map(e => e.marker), true).find(h => h.object.userData.catalogStarKey); if (hit) focusContextStar(hit.object.userData.catalogStarKey); return; }
     // Interacción con consolas físicas 3D dentro de la cabina habitable en el Mundo Local (`localCam`, 1 u = 1 m)
-    if (clickMoved < 6 && !nearbyMapState && free && pv == 1 && !realTimeIntro) {
-      const rect = dom.getBoundingClientRect();
-      nearbyPointer.set(
-        ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1,
-      );
-      localCabinWorld.updateMatrixWorld(true);
-      localCam.updateMatrixWorld(true);
+    if (
+      clickMoved < 6 &&
+      !nearbyMapState &&
+      free &&
+      pv == 1 &&
+      !realTimeIntro &&
+      !simulationPaused &&
+      (wasPointerLockedOnDown || pointerLockFallbackActive || !pointerLockSupported || e.pointerType === 'touch')
+    ) {
+      if (wasPointerLockedOnDown) {
+        nearbyPointer.set(0, 0);
+      } else {
+        const rect = dom.getBoundingClientRect();
+        nearbyPointer.set(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1,
+        );
+      }
+      localCabinWorld.updateMatrixWorld();
+      localCam.updateMatrixWorld();
       nearbyRaycaster.setFromCamera(nearbyPointer, localCam);
-      const interactiveMeshes = fourDecksInterior.interactRaycasterMeshes || [];
+      const activeDeckForClick = resolveCurrentDeck(astronautPos);
+      const interactiveMeshes =
+        fourDecksInterior.getInteractMeshesForDeck?.(activeDeckForClick?.id) ||
+        fourDecksInterior.interactRaycasterMeshes ||
+        [];
       if (interactiveMeshes.length) {
         nearbyRaycaster.far = 3.6;
         const directHits = nearbyRaycaster.intersectObjects(interactiveMeshes, false);
@@ -3997,7 +4511,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           return;
         }
       }
-      const stationNodes = fourDecksInterior.stationMeshes.map((s) => s.group);
+      const stationNodes = fourDecksInterior.stationMeshes
+        .filter((s) => !activeDeckForClick || s.deckId === activeDeckForClick.id || s.deckId === 'elevator')
+        .map((s) => s.group);
       const stHits = nearbyRaycaster.intersectObjects(stationNodes, true);
       if (stHits.length > 0 && stHits[0].distance <= 3.8) {
         let node = stHits[0].object;
@@ -4010,11 +4526,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     // Bloque 3: Selección interactiva de objetos astronómicos en el universo 3D
     if (clickMoved < 6 && !nearbyMapState) {
-      const rect = dom.getBoundingClientRect();
-      nearbyPointer.set(
-        ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1,
-      );
+      if (wasPointerLockedOnDown) {
+        nearbyPointer.set(0, 0);
+      } else {
+        const rect = dom.getBoundingClientRect();
+        nearbyPointer.set(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1,
+        );
+      }
       nearbyRaycaster.setFromCamera(nearbyPointer, cam);
       const starNodes = [...missionMarkers.values()].map((m) => m.marker);
       const planetNodes = B.map((b) => b.pivot);
@@ -4031,6 +4551,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           }
           if (node.userData?.planetName) {
             const name = node.userData.planetName;
+            promotePlanetTexture(name);
             S.onObjectSelect?.({ kind: 'planet', key: name });
             return;
           }
@@ -4040,7 +4561,32 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
   };
   const onPointerMove = (e) => {
-    if (free && !nav && !exteriorCameraMode && drag && !launchSequence && !launchCameraBlend && !realTimeIntro) {
+    const canLookWithLock =
+      pointerLockActive &&
+      free &&
+      !nav &&
+      !exteriorCameraMode &&
+      !simulationPaused &&
+      !activeCabinStation &&
+      !freeHelmMode &&
+      !launchSequence &&
+      !launchCameraBlend &&
+      !realTimeIntro;
+    const canLookWithDrag =
+      drag &&
+      !pointerLockActive &&
+      free &&
+      !nav &&
+      !exteriorCameraMode &&
+      !simulationPaused &&
+      !launchSequence &&
+      !launchCameraBlend &&
+      !realTimeIntro;
+    if (canLookWithLock || canLookWithDrag) {
+      if (canLookWithLock && pointerLockIgnoreMoves > 0) {
+        pointerLockIgnoreMoves -= 1;
+        if (Math.abs(e.movementX || 0) > 40 || Math.abs(e.movementY || 0) > 40) return;
+      }
       const sensMult = SENSITIVITY_MULT_MAP[cameraSensitivitySetting] ?? 1.0;
       const dx = Math.max(-65, Math.min(65, e.movementX || 0));
       const dy = Math.max(-65, Math.min(65, e.movementY || 0));
@@ -4055,6 +4601,32 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         yp = Math.max(-80, Math.min(80, yp + dy));
       }
     }
+  };
+  const onPointerLockChange = () => {
+    const lockedEl = typeof document !== 'undefined' ? (document.pointerLockElement || document.mozPointerLockElement) : null;
+    const locked = Boolean(lockedEl && lockedEl === dom);
+    const wasLocked = pointerLockActive;
+    pointerLockActive = locked;
+    drag = 0;
+    if (locked) {
+      pointerLockFallbackActive = false;
+      pointerLockBlockedActivation = false;
+      pointerLockIgnoreMoves = 2;
+      emitPointerLockState('locked');
+    } else {
+      const expectedExit = suppressNextUnlockNotification;
+      suppressNextUnlockNotification = false;
+      if (wasLocked && !expectedExit && !simulationPaused && free && pv === 1 && !exteriorCameraMode && !activeCabinStation) {
+        S.onPointerLockEscape?.();
+      }
+      emitPointerLockState(expectedExit ? 'ui-exit' : 'unlocked');
+    }
+  };
+  const onPointerLockError = () => {
+    pointerLockActive = false;
+    pointerLockBlockedActivation = true;
+    pointerLockFallbackActive = true;
+    emitPointerLockState('error');
   };
   const onWheel = (e) => {
     if (free && !exteriorCameraMode) {
@@ -4224,7 +4796,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     delete keys[e.key.toLowerCase()];
   };
   const onResize = () => {
-    R.setPixelRatio(pixelRatioFor(qualityMode));
+    R.setPixelRatio(pixelRatioFor());
     R.setSize(innerWidth, innerHeight);
     cam.aspect = innerWidth / innerHeight;
     cam.updateProjectionMatrix();
@@ -4237,18 +4809,50 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   dom.addEventListener('pointerup', onPointerUp);
   dom.addEventListener('pointermove', onPointerMove);
   dom.addEventListener('wheel', onWheel, { passive: false });
+  document.addEventListener('pointerlockchange', onPointerLockChange);
+  document.addEventListener('pointerlockerror', onPointerLockError);
   addEventListener('keydown', onKeyDown);
   addEventListener('keyup', onKeyUp);
   addEventListener('blur',releaseInputs); document.addEventListener('visibilitychange', onVisibilityChange); document.addEventListener('focusin', onInputFocus); dom.addEventListener('pointercancel', releaseInputs);
   addEventListener('resize', onResize);
   const frameTiming = { active: false, last: null, values: [], metadata: null };
-  function tick() {
-    const introOwnedThisFrame = !!realTimeIntro;
-    const frameNow = performance.now();
-    if (frameTiming.active && frameTiming.last !== null) { frameTiming.values.push(frameNow - frameTiming.last); if (frameTiming.values.length >= 600) frameTiming.active = false; }
-    frameTiming.last = frameNow;
+  let lastRenderedFrameAt = 0;
+  let lastAstroMetricsAt = -1e9;
+  let lastAstroMetricsMag = 1;
+  let lastHudProjectionAt = -1e9;
+  let lastAiProjKey = '';
+  let lastConsoleProjKey = '';
+  let consoleProjWasActive = false;
+  let trailFadeRemaining = 0;
+  let warpCanvasEl = null;
+  let warpCanvasCtx = null;
+  let warpCanvasWasActive = false;
+  const cachedGaugeDom = new Map();
+  const getGaugeDom = (id) => {
+    if (typeof document === 'undefined') return null;
+    const prev = cachedGaugeDom.get(id);
+    if (prev && prev.isConnected) return prev;
+    const next = document.getElementById(id) || null;
+    if (next) cachedGaugeDom.set(id, next);
+    return next;
+  };
+  const _aiWorldPosScratch = new V();
+  const _aiProjScratch = new V();
+  const _consoleWorldPosScratch = new V();
+  const _consoleProjScratch = new V();
+  const _forwardEyeScratch = new V();
+  function tick(rafTimestamp) {
     if (disposed) return;
     rafId = requestAnimationFrame(tick);
+    const introOwnedThisFrame = !!realTimeIntro;
+    const minIntervalMs = IS_NODE_SCENE_HARNESS ? 0 : (effectiveGraphics.minFrameIntervalMs || 0);
+    const frameNow = typeof rafTimestamp === 'number' && rafTimestamp > 0 ? rafTimestamp : performance.now();
+    if (minIntervalMs > 0 && lastRenderedFrameAt > 0 && frameNow - lastRenderedFrameAt < minIntervalMs - 0.75) {
+      return;
+    }
+    lastRenderedFrameAt = frameNow;
+    if (frameTiming.active && frameTiming.last !== null) { frameTiming.values.push(frameNow - frameTiming.last); if (frameTiming.values.length >= 600) frameTiming.active = false; }
+    frameTiming.last = frameNow;
     const rawDelta = clk.getDelta();
     if (simulationPaused) {
       releaseInputs();
@@ -4381,17 +4985,32 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
     }
     const activeOpticalMag = opticalTelescopeState.enabled ? opticalTelescopeState.magnification : 1;
+    const astroNowMs = frameNow;
+    const needAstroMetricsTick =
+      isPhysicalObservationActive() ||
+      Boolean(nav) ||
+      activeOpticalMag !== lastAstroMetricsMag ||
+      astroNowMs - lastAstroMetricsAt >= (effectiveGraphics.astroMetricsIntervalMs || 120);
+    if (needAstroMetricsTick) {
+      lastAstroMetricsAt = astroNowMs;
+      lastAstroMetricsMag = activeOpticalMag;
+    }
     B.forEach((b) => {
       const p = b.p;
-      b.observationalMetrics = computeBodyObservationalMetrics({
-        bodyName: p.n,
-        radiusKm: p.km,
-        bodyHeliocentricAu: b.heliocentricAu,
-        observerHeliocentricAu,
-        opticalMagnification: activeOpticalMag,
-      });
+      if (needAstroMetricsTick || !b.observationalMetrics) {
+        b.observationalMetrics = computeBodyObservationalMetrics({
+          bodyName: p.n,
+          radiusKm: p.km,
+          bodyHeliocentricAu: b.heliocentricAu,
+          observerHeliocentricAu,
+          opticalMagnification: activeOpticalMag,
+        });
+      }
       if (b.pivot) {
         const distToShip = b.pivot.position.distanceTo(sp);
+        if (distToShip < Math.max(80, b.r * 25)) {
+          promotePlanetTexture(p.n);
+        }
         const minSafeDist = isPhysicalObservationActive()
           ? computeSafeOrbitalClearance(b, { isCabinActive: pv === 1, physicalScale: true })
           : 2.2;
@@ -5189,6 +5808,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
           ship.visible = false;
           localCabinWorld.visible = true;
+          fourDecksInterior?.setActiveVisibleDeck?.(resolveCurrentDeck(astronautPos)?.id || currentLockedDeckId, { showAll: false });
+          emitPointerLockState();
           const cabinFov = Math.min(fovBase, 42);
           localCam.near = 0.05;
           localCam.far = 4000;
@@ -5498,6 +6119,21 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           fpHandPulse = Math.max(0, fpHandPulse - dt * 2.4);
 
           // 3. Cámara interior 1P/3P unificada con mezcla suave y anti-clipping multi-rayo
+          const activeDeckInfo = resolveCurrentDeck(astronautPos);
+          const activeDeckId = activeDeckInfo?.id || currentLockedDeckId;
+          const elevatorTransitActive = Boolean(
+            elSys && (elSys.state.moving || elSys.state.phase !== 'idle'),
+          );
+          fourDecksInterior?.setActiveVisibleDeck?.(activeDeckId, {
+            elevatorActive: elevatorTransitActive,
+            showAll: false,
+          });
+          localCabinWorld.updateMatrixWorld();
+
+          const activeCollisionMeshes =
+            fourDecksInterior?.getCollisionMeshesForDeck?.(activeDeckId) ||
+            fourDecksInterior?.cameraCollisionMeshes;
+
           const blendTarget = cabinFirstPerson ? 0 : 1;
           camViewBlend += (blendTarget - camViewBlend) * Math.min(1, dt * 10);
 
@@ -5526,9 +6162,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
           // Brazo anti-colisión con 5 rayos paralelos contra mamparos, consolas y puertas sólidas
           let minSafeDist = desiredBoom;
-          if (_armRaycaster && fourDecksInterior?.cameraCollisionMeshes?.length && !cabinFirstPerson && !inNarrowShaft) {
-            localCabinWorld.updateMatrixWorld(true);
-            const colliders = fourDecksInterior.cameraCollisionMeshes;
+          if (_armRaycaster && activeCollisionMeshes?.length && !cabinFirstPerson && !inNarrowShaft) {
             for (let wi = 0; wi < _camWhiskerOffsets.length; wi++) {
               const [ox, oy] = _camWhiskerOffsets[wi];
               _camRayOrigin.copy(_camPivot)
@@ -5540,7 +6174,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               _camRayDir.divideScalar(segLen);
               _armRaycaster.set(_camRayOrigin, _camRayDir);
               _armRaycaster.far = segLen;
-              const hits = _armRaycaster.intersectObjects(colliders, false);
+              const hits = _armRaycaster.intersectObjects(activeCollisionMeshes, false);
               for (let hi = 0; hi < hits.length; hi++) {
                 const hd = hits[hi].distance;
                 if (hd > 0.18 && hd - 0.36 < minSafeDist) {
@@ -5571,16 +6205,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               lockedDeckId: currentLockedDeckId,
             });
             // Escudo anti-clipping en 1ª persona contra consolas y mamparos cercanos
-            if (_armRaycaster && fourDecksInterior?.cameraCollisionMeshes?.length) {
-              localCabinWorld.updateMatrixWorld(true);
-              const forwardEye = new V(0, 0, -1).applyQuaternion(localLookQuat).normalize();
+            if (_armRaycaster && activeCollisionMeshes?.length) {
+              _forwardEyeScratch.set(0, 0, -1).applyQuaternion(localLookQuat).normalize();
               _camClipOrigin.copy(localCamPos).applyQuaternion(q);
-              _camClipDir.copy(forwardEye).applyQuaternion(q).normalize();
+              _camClipDir.copy(_forwardEyeScratch).applyQuaternion(q).normalize();
               _armRaycaster.set(_camClipOrigin, _camClipDir);
               _armRaycaster.far = 0.22;
-              const frontHits = _armRaycaster.intersectObjects(fourDecksInterior.cameraCollisionMeshes, false);
+              const frontHits = _armRaycaster.intersectObjects(activeCollisionMeshes, false);
               if (frontHits.length > 0 && frontHits[0].distance < 0.18) {
-                localCamPos.addScaledVector(forwardEye, -(0.18 - frontHits[0].distance));
+                localCamPos.addScaledVector(_forwardEyeScratch, -(0.18 - frontHits[0].distance));
                 fourDecksInterior.clampAstronautPosition(localCamPos, 0.28, 0.26, elSys?.state || null, {
                   lockedDeckId: currentLockedDeckId,
                 });
@@ -5597,6 +6230,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           localCam.far = 4000;
           localCam.fov = baseCabinFov;
           localCam.updateProjectionMatrix();
+          localCam.updateMatrixWorld();
 
           // Brazos/guanteletes espaciales EVA en 1ª persona con herramienta activa y gesto de alcance [E]
           const showFpHands =
@@ -5662,12 +6296,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             nearestCabinStation = null;
           } else {
             let rayMatched = null;
-            if (_interactRaycaster && fourDecksInterior?.interactRaycasterMeshes?.length) {
-              localCabinWorld.updateMatrixWorld(true);
-              localCam.updateMatrixWorld(true);
+            const activeInteractMeshes =
+              fourDecksInterior?.getInteractMeshesForDeck?.(activeDeckId) ||
+              fourDecksInterior?.interactRaycasterMeshes;
+            if (_interactRaycaster && activeInteractMeshes?.length) {
               _interactRaycaster.setFromCamera(_centerNdc, localCam);
               _interactRaycaster.far = 3.25;
-              const hits = _interactRaycaster.intersectObjects(fourDecksInterior.interactRaycasterMeshes, false);
+              const hits = _interactRaycaster.intersectObjects(activeInteractMeshes, false);
               for (let hi = 0; hi < hits.length; hi++) {
                 const hit = hits[hi];
                 if (!hit.object.visible) continue;
@@ -5832,61 +6467,85 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
           luminousAI.update(dt, clk.elapsedTime, aiSpeakingState, aiAudioLevelState);
 
-          if (clk.elapsedTime - lastScreenProjectionTime > 0.04) {
+          const hudThrottleSec = Math.max(0.04, (effectiveGraphics.hudThrottleMs || 65) * 0.001);
+          if (clk.elapsedTime - lastScreenProjectionTime > hudThrottleSec) {
             lastScreenProjectionTime = clk.elapsedTime;
-            localCabinWorld.updateMatrixWorld(true);
-            localCam.updateMatrixWorld(true);
-            const aiWorldPos = luminousAI.group.getWorldPosition(new V());
-            const projected = aiWorldPos.clone().project(localCam);
-            const inFront = projected.z >= -1 && projected.z <= 1;
-            const sx = (projected.x * 0.5 + 0.5) * innerWidth;
-            const sy = (-projected.y * 0.5 + 0.5) * innerHeight;
-            const currentDeck = resolveCurrentDeck(astronautPos);
             if (S.onAiScreenProjection) {
-              S.onAiScreenProjection({
-                visible: inFront && sx >= -100 && sx <= innerWidth + 100 && sy >= -100 && sy <= innerHeight + 100,
-                x: Math.round(sx),
-                y: Math.round(sy),
-                state: luminousAI.getState(),
-                astronautX: Number(astronautPos.x.toFixed(2)),
-                astronautY: Number(astronautPos.y.toFixed(2)),
-                astronautZ: Number(astronautPos.z.toFixed(2)),
-                deckId: currentDeck.id,
-                deckName: currentDeck.name,
-                microgravityMode: mgResult.mode,
-                microgravitySpeed: mgResult.speed,
-                anchoredRailId: mgResult.anchoredRailId,
-                cabinFirstPerson,
-              });
+              luminousAI.group.getWorldPosition(_aiWorldPosScratch);
+              _aiProjScratch.copy(_aiWorldPosScratch).project(localCam);
+              const inFront = _aiProjScratch.z >= -1 && _aiProjScratch.z <= 1;
+              const sx = Math.round((_aiProjScratch.x * 0.5 + 0.5) * innerWidth);
+              const sy = Math.round((-_aiProjScratch.y * 0.5 + 0.5) * innerHeight);
+              const aiVis = inFront && sx >= -100 && sx <= innerWidth + 100 && sy >= -100 && sy <= innerHeight + 100;
+              const aiState = luminousAI.getState();
+              const ax = Number(astronautPos.x.toFixed(2));
+              const ay = Number(astronautPos.y.toFixed(2));
+              const az = Number(astronautPos.z.toFixed(2));
+              const deckId = activeDeckInfo.id;
+              const mgMode = mgResult.mode;
+              const mgSpd = mgResult.speed;
+              const mgRail = mgResult.anchoredRailId || '';
+              const nextAiKey = `${aiVis ? 1 : 0}|${sx}|${sy}|${aiState}|${ax}|${ay}|${az}|${deckId}|${mgMode}|${mgSpd}|${mgRail}|${cabinFirstPerson ? 1 : 0}`;
+              if (nextAiKey !== lastAiProjKey) {
+                lastAiProjKey = nextAiKey;
+                S.onAiScreenProjection({
+                  visible: aiVis,
+                  x: sx,
+                  y: sy,
+                  state: aiState,
+                  astronautX: ax,
+                  astronautY: ay,
+                  astronautZ: az,
+                  deckId,
+                  deckName: activeDeckInfo.name,
+                  microgravityMode: mgMode,
+                  microgravitySpeed: mgSpd,
+                  anchoredRailId: mgResult.anchoredRailId,
+                  cabinFirstPerson,
+                });
+              }
             }
 
             if (activeCabinStation && S.onConsoleScreenProjection) {
               const stObj = getStationDef(activeCabinStation);
               const stEntry = fourDecksInterior.stationMeshes.find((m) => m.id === activeCabinStation);
               if (stObj && stEntry && stEntry.screenMesh) {
-                const screenWorldPos = stEntry.screenMesh.getWorldPosition(new V());
-                const pScreen = screenWorldPos.clone().project(localCam);
-                const screenInFront = pScreen.z >= -1 && pScreen.z <= 1;
-                const scX = (pScreen.x * 0.5 + 0.5) * innerWidth;
-                const scY = (-pScreen.y * 0.5 + 0.5) * innerHeight;
-                const distToCam = localCam.position.distanceTo(screenWorldPos);
-
-                const scaleFactor = Math.max(0.65, Math.min(1.25, 2.6 / Math.max(1.2, distToCam)));
-                S.onConsoleScreenProjection({
-                  activeStationId: activeCabinStation,
-                  visible: screenInFront && distToCam < 4.8,
-                  x: Math.round(scX),
-                  y: Math.round(scY),
-                  scale: Number(scaleFactor.toFixed(3)),
-                  distMeters: Number(distToCam.toFixed(2)),
-                  speed: Number(vel.length().toFixed(2)),
-                  inertia: Number(ac.toFixed(3)),
-                  heading: Math.round((((vel.lengthSq() > 1e-8 ? Math.atan2(vel.x, -vel.z) * 57.2958 : -fy * 57.2958) % 360) + 360) % 360),
-                  pitch: Math.round(vel.lengthSq() > 1e-8 ? Math.atan2(vel.y, Math.hypot(vel.x, vel.z)) * 57.2958 : -fp * 57.2958),
-                  flightMode: nav ? 'AUTOPILOTO' : activeCabinStation === 'nav' ? 'MANUAL' : 'ESPERA',
-                });
+                stEntry.screenMesh.getWorldPosition(_consoleWorldPosScratch);
+                _consoleProjScratch.copy(_consoleWorldPosScratch).project(localCam);
+                const screenInFront = _consoleProjScratch.z >= -1 && _consoleProjScratch.z <= 1;
+                const scX = Math.round((_consoleProjScratch.x * 0.5 + 0.5) * innerWidth);
+                const scY = Math.round((-_consoleProjScratch.y * 0.5 + 0.5) * innerHeight);
+                const distToCam = localCam.position.distanceTo(_consoleWorldPosScratch);
+                const scaleFactor = Number(Math.max(0.65, Math.min(1.25, 2.6 / Math.max(1.2, distToCam))).toFixed(3));
+                const distMeters = Number(distToCam.toFixed(2));
+                const shipSpeed = Number(vel.length().toFixed(2));
+                const shipInertia = Number(ac.toFixed(3));
+                const heading = Math.round((((vel.lengthSq() > 1e-8 ? Math.atan2(vel.x, -vel.z) * 57.2958 : -fy * 57.2958) % 360) + 360) % 360);
+                const pitch = Math.round(vel.lengthSq() > 1e-8 ? Math.atan2(vel.y, Math.hypot(vel.x, vel.z)) * 57.2958 : -fp * 57.2958);
+                const flightMode = nav ? 'AUTOPILOTO' : activeCabinStation === 'nav' ? 'MANUAL' : 'ESPERA';
+                const conVis = screenInFront && distToCam < 4.8;
+                const nextConsoleKey = `${activeCabinStation}|${conVis ? 1 : 0}|${scX}|${scY}|${scaleFactor}|${distMeters}|${shipSpeed}|${shipInertia}|${heading}|${pitch}|${flightMode}`;
+                if (nextConsoleKey !== lastConsoleProjKey) {
+                  lastConsoleProjKey = nextConsoleKey;
+                  consoleProjWasActive = true;
+                  S.onConsoleScreenProjection({
+                    activeStationId: activeCabinStation,
+                    visible: conVis,
+                    x: scX,
+                    y: scY,
+                    scale: scaleFactor,
+                    distMeters,
+                    speed: shipSpeed,
+                    inertia: shipInertia,
+                    heading,
+                    pitch,
+                    flightMode,
+                  });
+                }
               }
-            } else if (S.onConsoleScreenProjection) {
+            } else if (S.onConsoleScreenProjection && consoleProjWasActive) {
+              consoleProjWasActive = false;
+              lastConsoleProjKey = '';
               S.onConsoleScreenProjection(null);
             }
           }
@@ -6054,22 +6713,30 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       ship.scale.setScalar(SHIP_METRIC_SCALE);
       ship.quaternion.copy(q).multiply(new THREE.Quaternion().setFromAxisAngle(new V(0, 0, 1), bk));
       const hideOversizedLegacyPlumes = Boolean(mainMenuOrbitActive || realTimeIntro);
-      fl2.visible = !hideOversizedLegacyPlumes;
-      fl2.scale.setScalar(0.6 + 1.2 * th);
-      if (modularShip) modularShip.update(dt, th, inDeepCruiseShowcase ? 0.88 : lastWarpAmount);
-      FL.forEach((o, i) => {
-        o.c.visible = !hideOversizedLegacyPlumes;
-        o.k.visible = !hideOversizedLegacyPlumes;
-        o.g.visible = !hideOversizedLegacyPlumes;
-        const L = (0.3 + 1.7 * th) * (1 + 0.1 * Math.sin(ti * 45 + i * 2));
-        o.c.scale.set(1 + 0.3 * th, L, 1 + 0.3 * th);
-        o.c.position.z = o.z + 0.5 * L;
-        o.k.scale.set(1, L * 0.55, 1);
-        o.k.position.z = o.z + 0.27 * L;
-        o.g.scale.setScalar(0.35 + 0.5 * th);
-      });
-      NL.forEach((n, i) => (n.visible = Math.sin(ti * 4 + i * 3) > -0.2));
-      if (O.tr && pv == 3 && kk > 0.9 && th > 0.3) {
+      fl2.visible = !hideOversizedLegacyPlumes && ship.visible;
+      if (ship.visible) {
+        if (fl2.visible) fl2.scale.setScalar(0.6 + 1.2 * th);
+        if (modularShip) modularShip.update(dt, th, inDeepCruiseShowcase ? 0.88 : lastWarpAmount);
+        for (let i = 0; i < FL.length; i++) {
+          const o = FL[i];
+          o.c.visible = !hideOversizedLegacyPlumes;
+          o.k.visible = !hideOversizedLegacyPlumes;
+          o.g.visible = !hideOversizedLegacyPlumes;
+          if (!hideOversizedLegacyPlumes) {
+            const L = (0.3 + 1.7 * th) * (1 + 0.1 * Math.sin(ti * 45 + i * 2));
+            o.c.scale.set(1 + 0.3 * th, L, 1 + 0.3 * th);
+            o.c.position.z = o.z + 0.5 * L;
+            o.k.scale.set(1, L * 0.55, 1);
+            o.k.position.z = o.z + 0.27 * L;
+            o.g.scale.setScalar(0.35 + 0.5 * th);
+          }
+        }
+        for (let i = 0; i < NL.length; i++) {
+          NL[i].visible = Math.sin(ti * 4 + i * 3) > -0.2;
+        }
+      }
+      const emitTrailNow = Boolean(O.tr && pv == 3 && kk > 0.9 && th > 0.3);
+      if (emitTrailNow) {
         const tp = new V(0, 0, 1.3 * sz).applyQuaternion(q).add(sp);
         for (let j = 0; j < 4; j++) {
           TS.i = (TS.i + 1) % TRN;
@@ -6079,14 +6746,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           TP[o + 2] = tp.z + gs() * sz * 0.08;
           TB[TS.i] = ti;
         }
+        trailFadeRemaining = 2.8;
       }
-      for (let j = 0; j < TRN; j++) {
-        const b = Math.max(0, Math.min(1, 1 - (ti - TB[j]) / 2.6)) * Math.min(1, th);
-        TC[j * 3] = 0.4 * b;
-        TC[j * 3 + 1] = 0.7 * b;
-        TC[j * 3 + 2] = b;
+      if (trailFadeRemaining > 0) {
+        trailFadeRemaining = Math.max(0, trailFadeRemaining - dt);
+        const fadeOut = trailFadeRemaining <= 0;
+        for (let j = 0; j < TRN; j++) {
+          const b = fadeOut ? 0 : Math.max(0, Math.min(1, 1 - (ti - TB[j]) / 2.6)) * Math.min(1, th);
+          TC[j * 3] = 0.4 * b;
+          TC[j * 3 + 1] = 0.7 * b;
+          TC[j * 3 + 2] = b;
+        }
+        tr.geometry.attributes.position.needsUpdate = tr.geometry.attributes.color.needsUpdate = true;
       }
-      tr.geometry.attributes.position.needsUpdate = tr.geometry.attributes.color.needsUpdate = true;
       yw *= Math.exp(-dt * 5);
       yp *= Math.exp(-dt * 5);
       const navActive = Boolean(nav && nav.long && (
@@ -6101,9 +6773,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               0
       ) : 0;
       lastWarpAmount = navWarpAmount;
-      const wc = document.getElementById('warp'),
-        wg = wc && wc.getContext('2d');
-      if (wg) {
+      if (!warpCanvasEl && typeof document !== 'undefined') {
+        warpCanvasEl = document.getElementById('warp');
+        warpCanvasCtx = warpCanvasEl ? warpCanvasEl.getContext('2d') : null;
+      }
+      const wc = warpCanvasEl;
+      const wg = warpCanvasCtx;
+      if (wg && (navWarpAmount > 0.01 || warpCanvasWasActive)) {
         const targetWidth = Math.round(innerWidth * R.getPixelRatio()), targetHeight = Math.round(innerHeight * R.getPixelRatio());
         if (wc.width !== targetWidth) wc.width = targetWidth; if (wc.height !== targetHeight) wc.height = targetHeight;
         const w = wc.width,
@@ -6113,6 +6789,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         const amount = navWarpAmount;
         wg.clearRect(0, 0, w, h);
         wc.style.opacity = amount.toFixed(2);
+        warpCanvasWasActive = amount > 0.01;
         if (amount > 0.01) {
           for (let si = 0; si < warpStars.length; si++) {
             const s = warpStars[si];
@@ -6149,9 +6826,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           wg.fillRect(0, 0, w, h);
         }
       }
-      if (pv == 1) {
-        const y = document.getElementById('yk'),
-          t = document.getElementById('tb');
+      if (pv == 1 && frameNow - lastHudProjectionAt >= (effectiveGraphics.hudThrottleMs || 65)) {
+        lastHudProjectionAt = frameNow;
+        const y = getGaugeDom('yk'),
+          t = getGaugeDom('tb');
         if (y)
           y.style.transform =
             'translateY(' +
@@ -6160,43 +6838,45 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             Math.max(-60, Math.min(60, -bk * 80 + yw * 0.6)) +
             'deg)';
         if (t) t.style.transform = 'scaleX(' + Math.min(1, th / 1.2) + ')';
-        const g = (i) => document.getElementById(i),
-          sp2 = vel.length(),
-          lvn =
-            fs < 5
-              ? [1, 'PLANETA']
-              : fs < 300
-                ? [2, 'SISTEMA']
-                : fs < 8000
-                  ? [3, 'GALAXIA']
-                  : [4, 'HIPER'],
-          tx = (i, v) => {
-            const o = g(i);
-            if (o) o.textContent = v;
-          },
-          nf = (v) => (v >= 100 ? v.toFixed(0) : v >= 1 ? v.toFixed(1) : v.toFixed(2));
-        tx('lv', 'NIVEL ' + lvn[0] + '/4 · ' + lvn[1]);
-        for (let stage = 1; stage <= 4; stage++) {
-          const point = g('speedStage' + stage);
-          if (point) point.classList.toggle('active', stage === lvn[0]);
+        if (y || t || getGaugeDom('lv') || getGaugeDom('needleSpeed')) {
+          const g = getGaugeDom,
+            sp2 = vel.length(),
+            lvn =
+              fs < 5
+                ? [1, 'PLANETA']
+                : fs < 300
+                  ? [2, 'SISTEMA']
+                  : fs < 8000
+                    ? [3, 'GALAXIA']
+                    : [4, 'HIPER'],
+            tx = (i, v) => {
+              const o = g(i);
+              if (o) o.textContent = v;
+            },
+            nf = (v) => (v >= 100 ? v.toFixed(0) : v >= 1 ? v.toFixed(1) : v.toFixed(2));
+          tx('lv', 'NIVEL ' + lvn[0] + '/4 · ' + lvn[1]);
+          for (let stage = 1; stage <= 4; stage++) {
+            const point = g('speedStage' + stage);
+            if (point) point.classList.toggle('active', stage === lvn[0]);
+          }
+          tx(
+            'ls',
+            'AJUSTE ' + nf(fs) + ' u/s' + (keys.shift ? ' · BOOST ×5' : '') + (O.au ? ' · AUTO' : ''),
+          );
+          const speedRatio = Math.max(0, Math.min(1, sp2 / (fs * (keys.shift ? 5 : 1))));
+          const inertiaRatio = Math.max(0, Math.min(1, ac / (fs * (O.in ? 1.5 : 15))));
+          const heading = (((-fy * 57.2958) % 360) + 360) % 360;
+          const needle = (id, degrees) => {
+            const dialNeedle = g(id);
+            if (dialNeedle) dialNeedle.style.transform = `rotate(${degrees}deg)`;
+          };
+          needle('needleSpeed', -135 + speedRatio * 270);
+          needle('needleInertia', -135 + inertiaRatio * 270);
+          needle('needleHeading', heading);
+          tx('gaugeSpeedValue', nf(sp2));
+          tx('gaugeInertiaValue', nf(ac));
+          tx('gaugeHeadingValue', Math.round(heading) + '°');
         }
-        tx(
-          'ls',
-          'AJUSTE ' + nf(fs) + ' u/s' + (keys.shift ? ' · BOOST ×5' : '') + (O.au ? ' · AUTO' : ''),
-        );
-        const speedRatio = Math.max(0, Math.min(1, sp2 / (fs * (keys.shift ? 5 : 1))));
-        const inertiaRatio = Math.max(0, Math.min(1, ac / (fs * (O.in ? 1.5 : 15))));
-        const heading = (((-fy * 57.2958) % 360) + 360) % 360;
-        const needle = (id, degrees) => {
-          const dialNeedle = g(id);
-          if (dialNeedle) dialNeedle.style.transform = `rotate(${degrees}deg)`;
-        };
-        needle('needleSpeed', -135 + speedRatio * 270);
-        needle('needleInertia', -135 + inertiaRatio * 270);
-        needle('needleHeading', heading);
-        tx('gaugeSpeedValue', nf(sp2));
-        tx('gaugeInertiaValue', nf(ac));
-        tx('gaugeHeadingValue', Math.round(heading) + '°');
       }
     } else {
       lastWarpAmount = 0;
@@ -6401,6 +7081,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       astronaut3D.root.visible = false;
       astronaut3D.firstPersonHands.visible = false;
       if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
+      fourDecksInterior?.setActiveVisibleDeck?.(resolveCurrentDeck(astronautPos)?.id || currentLockedDeckId, { showAll: false });
       if (!nav && !arrivalTarget) {
         astronautYaw = 0;
         astronautBodyYaw = 0;
@@ -6409,9 +7090,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         targetPitch = 0;
       }
     } else {
+      exitPointerLockIfActive('exterior');
       enterExteriorCameraClearHud();
       if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
     }
+    emitPointerLockState();
     const baseFov = v == 1 ? getCabinBaseFov() : fovBase;
     const activeMag = opticalTelescopeState.enabled ? opticalTelescopeState.magnification : 1;
     cam.near = isPhysicalObservationActive() ? 1e-5 : 0.05;
@@ -6512,12 +7195,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
       cabinReentryBlend = { position, quaternion, elapsed: 0 };
       S.fr(true);
+      emitPointerLockState('cabin-ready');
       S.onObservationModeChange?.(getObservationMode());
     },
     releaseInputs,
     setSimulationPaused: (paused) => {
       simulationPaused = Boolean(paused);
       if (simulationPaused) {
+        exitPointerLockIfActive('pause');
         releaseInputs();
         vel.set(0, 0, 0);
         astronautVel.set(0, 0, 0);
@@ -6525,6 +7210,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         clk.getDelta();
         releaseInputs();
       }
+      emitPointerLockState();
       return simulationPaused;
     },
     isSimulationPaused: () => simulationPaused,
@@ -6742,6 +7428,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     setFreeHelmMode: (enabled) => {
       freeHelmMode = Boolean(enabled);
       if (freeHelmMode) {
+        exitPointerLockIfActive('helm');
         cabinFirstPerson = true;
         astronaut3D.root.visible = false;
         astronaut3D.firstPersonHands.visible = false;
@@ -6749,9 +7436,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         pv = 1;
         ship.visible = false;
         localCabinWorld.visible = true;
+        fourDecksInterior?.setActiveVisibleDeck?.(resolveCurrentDeck(astronautPos)?.id || currentLockedDeckId, { showAll: false });
         astronautPitch = -0.015;
         targetPitch = -0.015;
       }
+      emitPointerLockState();
       S.onFreeHelmChange?.(freeHelmMode);
     },
     getCabinFirstPerson: () => cabinFirstPerson,
@@ -6818,7 +7507,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             fourDecksInterior.elevatorSystem?.state || null,
             { lockedDeckId: currentLockedDeckId },
           );
-        } else {
+        } else if (cabinSystem?.clampAstronautPosition) {
           cabinSystem.clampAstronautPosition(astronautPos);
         }
         microgravityController.setPosition(astronautPos);
@@ -6924,16 +7613,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     setActiveCabinStation: (stationId) => {
       if (stationId === 'nav') occupyNavigationSeat();
       else activeCabinStation = stationId || null;
-      if (!stationId) {
+      if (stationId) {
+        exitPointerLockIfActive('station');
+      } else {
         freeHelmMode = false;
         freeHelmBlend = 0;
         S.onFreeHelmChange?.(false);
-      }
-      if (!stationId) {
         aiFollowAstronaut = true;
         luminousAI.pointAtWorldPosition(null, false);
         sceneDirector.returnToAstronautControl();
       }
+      emitPointerLockState();
     },
     dispatchSceneEvent: (eventName, payload = {}) => {
       if (eventName === KRONOX_SCENE_EVENTS.EXTERIOR_CAMERA_REQUESTED) {
@@ -6967,19 +7657,35 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       localCabinWorld.visible = true;
       return sceneDirector.getState();
     },
-    quality: (mode) => {
-      qualityMode = mode;
-      R.setPixelRatio(pixelRatioFor(qualityMode));
-      R.setSize(innerWidth, innerHeight);
-    },
+    setGraphicsSettings: (nextSettings = {}) => applyGraphicsSettings(nextSettings),
+    getGraphicsSettings: () => ({
+      settings: { ...graphicsUserSettings },
+      effective: { ...effectiveGraphics },
+      hardware: hardwareCapabilities,
+    }),
+    getHardwareCapabilities: () => hardwareCapabilities,
+    getPointerLockState,
+    requestPointerLock: () => requestPointerLockForLook('api'),
+    exitPointerLock: () => exitPointerLockIfActive('api'),
+    getProgressiveLoadingState: () => ({
+      ...progressiveAssetState,
+      remaining: progressiveQueue.length + getPendingGalaxyTextureCount(),
+    }),
+    flushProgressiveAssets: (maxTasks = 24) => runNextProgressiveTask(maxTasks),
+    quality: (mode) => applyGraphicsSettings({ preset: normalizeGraphicsPreset(mode, 'auto') }),
     dispose: () => {
       disposed = true;
       cancelAnimationFrame(rafId);
       clearTimeout(speedNoticeTimer);
+      clearTimeout(progressiveTimer);
+      clearTimeout(deferredWarmupTimer);
+      exitPointerLockIfActive('dispose');
       dom.removeEventListener('pointerdown', onPointerDown);
       dom.removeEventListener('pointerup', onPointerUp);
       dom.removeEventListener('pointermove', onPointerMove);
       dom.removeEventListener('wheel', onWheel);
+      document.removeEventListener('pointerlockchange', onPointerLockChange);
+      document.removeEventListener('pointerlockerror', onPointerLockError);
       removeEventListener('keydown', onKeyDown);
       removeEventListener('keyup', onKeyUp);
       removeEventListener('blur', releaseInputs); document.removeEventListener('visibilitychange', onVisibilityChange); document.removeEventListener('focusin', onInputFocus); dom.removeEventListener('pointercancel', releaseInputs);
