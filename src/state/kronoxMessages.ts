@@ -92,13 +92,19 @@ export class NarrativeQueue {
 
   replaceActive(message: NarrativeMessage): boolean {
     if (message.channel !== 'narration') throw new Error('Only NarrativeMessage can enter the dialogue queue.');
-    if (message.once && this.consumedOnce.has(message.id)) return false;
     if (message.once) this.consumedOnce.add(message.id);
     this.activeMessage = message;
     this.lastMessage = message;
     this.pending.length = 0;
     this.emit();
     return true;
+  }
+
+  clear(): void {
+    this.activeMessage = null;
+    this.pending.length = 0;
+    this.consumedOnce.clear();
+    this.emit();
   }
 
   complete(id: string): void {

@@ -243,6 +243,39 @@ function createSharedPbrTextures(seed = 29) {
 
   const floorNormalTex = buildNormalTexture(256, floorHeight, 2.6, [11, 11], textures);
 
+  const floorAoTex = buildCanvasTexture(128, (g, s) => {
+    g.fillStyle = '#e8e8e8';
+    g.fillRect(0, 0, s, s);
+    const cell = s / 4;
+    for (let j = 0; j < 4; j++) {
+      for (let i = 0; i < 4; i++) {
+        const px = i * cell;
+        const py = j * cell;
+        g.strokeStyle = '#686868';
+        g.lineWidth = 3;
+        g.strokeRect(px + 1, py + 1, cell - 2, cell - 2);
+        g.strokeStyle = '#a8a8a8';
+        g.lineWidth = 1.5;
+        g.strokeRect(px + 5, py + 5, cell - 10, cell - 10);
+      }
+    }
+  }, [11, 11], false, textures);
+
+  const floorMetalTex = buildCanvasTexture(128, (g, s) => {
+    g.fillStyle = '#969696';
+    g.fillRect(0, 0, s, s);
+    const cell = s / 4;
+    for (let j = 0; j < 4; j++) {
+      for (let i = 0; i < 4; i++) {
+        g.strokeStyle = '#d8d8d8';
+        g.lineWidth = 3;
+        g.strokeRect(i * cell + 3, j * cell + 3, cell - 6, cell - 6);
+        g.fillStyle = '#6e6e6e';
+        g.fillRect(i * cell + 8, j * cell + 8, cell - 16, cell - 16);
+      }
+    }
+  }, [11, 11], false, textures);
+
   // 3. Modular Aerospace Bulkhead Wall Cladding PBR
   const wallHeight = (x, y, s) => {
     const colW = s / 4;
@@ -299,6 +332,40 @@ function createSharedPbrTextures(seed = 29) {
     for (let row = 0; row < 2; row++) {
       for (let col = 0; col < 4; col++) {
         g.fillStyle = '#bebebe';
+        g.fillRect(col * colW + 10, row * rowH + 12, colW - 20, rowH - 24);
+      }
+    }
+  }, [3, 1], false, textures);
+
+  const wallAoTex = buildCanvasTexture(128, (g, s) => {
+    g.fillStyle = '#eaeaea';
+    g.fillRect(0, 0, s, s);
+    const colW = s / 4;
+    const rowH = s / 2;
+    for (let row = 0; row < 2; row++) {
+      for (let col = 0; col < 4; col++) {
+        const px = col * colW;
+        const py = row * rowH;
+        g.strokeStyle = '#5c5c5c';
+        g.lineWidth = 3;
+        g.strokeRect(px + 1, py + 1, colW - 2, rowH - 2);
+        g.fillStyle = '#787878';
+        g.fillRect(px + 4, py + rowH * 0.5 - 2, colW - 8, 4);
+      }
+    }
+  }, [3, 1], false, textures);
+
+  const wallMetalTex = buildCanvasTexture(128, (g, s) => {
+    g.fillStyle = '#888888';
+    g.fillRect(0, 0, s, s);
+    const colW = s / 4;
+    const rowH = s / 2;
+    for (let row = 0; row < 2; row++) {
+      for (let col = 0; col < 4; col++) {
+        g.strokeStyle = '#cccccc';
+        g.lineWidth = 2;
+        g.strokeRect(col * colW + 3, row * rowH + 3, colW - 6, rowH - 6);
+        g.fillStyle = '#666666';
         g.fillRect(col * colW + 10, row * rowH + 12, colW - 20, rowH - 24);
       }
     }
@@ -399,6 +466,16 @@ function createSharedPbrTextures(seed = 29) {
     }
   }, [6, 3], true, textures);
   const quiltedNormalTex = buildNormalTexture(128, quiltedHeight, 1.4, [6, 3], textures);
+  const quiltedAoTex = buildCanvasTexture(128, (g, s) => {
+    g.fillStyle = '#efefef';
+    g.fillRect(0, 0, s, s);
+    g.strokeStyle = '#7a7a7a';
+    g.lineWidth = 2;
+    for (let i = -s; i < s * 2; i += 32) {
+      g.beginPath(); g.moveTo(i, 0); g.lineTo(i + s, s); g.stroke();
+      g.beginPath(); g.moveTo(i + s, 0); g.lineTo(i, s); g.stroke();
+    }
+  }, [6, 3], false, textures);
 
   const hazardStripeTex = buildCanvasTexture(256, (g, s) => {
     g.fillStyle = '#18202c';
@@ -430,9 +507,13 @@ function createSharedPbrTextures(seed = 29) {
       floorColorTex,
       floorRoughTex,
       floorNormalTex,
+      floorAoTex,
+      floorMetalTex,
       wallColorTex,
       wallNormalTex,
       wallRoughTex,
+      wallAoTex,
+      wallMetalTex,
       mliNormalTex,
       doorColorTex,
       cargoNormalTex,
@@ -441,6 +522,7 @@ function createSharedPbrTextures(seed = 29) {
       ceilingNormalTex,
       quiltedColorTex,
       quiltedNormalTex,
+      quiltedAoTex,
       hazardStripeTex,
       ventGrilleNormalTex,
     },
@@ -467,9 +549,13 @@ export function createShipPbrSuite(seed = 29) {
     floorColorTex,
     floorRoughTex,
     floorNormalTex,
+    floorAoTex,
+    floorMetalTex,
     wallColorTex,
     wallNormalTex,
     wallRoughTex,
+    wallAoTex,
+    wallMetalTex,
     mliNormalTex,
     doorColorTex,
     cargoNormalTex,
@@ -478,6 +564,7 @@ export function createShipPbrSuite(seed = 29) {
     ceilingNormalTex,
     quiltedColorTex,
     quiltedNormalTex,
+    quiltedAoTex,
     hazardStripeTex,
     ventGrilleNormalTex,
   } = texEntry.map;
@@ -517,6 +604,9 @@ export function createShipPbrSuite(seed = 29) {
     normalMap: floorNormalTex,
     normalScale: new THREE.Vector2(0.9, 0.9),
     roughnessMap: floorRoughTex,
+    metalnessMap: floorMetalTex,
+    aoMap: floorAoTex,
+    aoMapIntensity: 0.65,
     roughness: 0.88,
     metalness: 0.56,
   }));
@@ -527,6 +617,9 @@ export function createShipPbrSuite(seed = 29) {
     normalMap: wallNormalTex,
     normalScale: new THREE.Vector2(0.8, 0.8),
     roughnessMap: wallRoughTex,
+    metalnessMap: wallMetalTex,
+    aoMap: wallAoTex,
+    aoMapIntensity: 0.6,
     roughness: 0.82,
     metalness: 0.48,
   }));
@@ -535,6 +628,8 @@ export function createShipPbrSuite(seed = 29) {
     color: 0x1b2431,
     normalMap: brushedMetalNormalTex,
     normalScale: new THREE.Vector2(0.32, 0.32),
+    aoMap: wallAoTex,
+    aoMapIntensity: 0.42,
     roughness: 0.42,
     metalness: 0.74,
   }));
@@ -560,6 +655,8 @@ export function createShipPbrSuite(seed = 29) {
     map: ceilingColorTex,
     normalMap: ceilingNormalTex,
     normalScale: new THREE.Vector2(0.7, 0.7),
+    aoMap: floorAoTex,
+    aoMapIntensity: 0.55,
     roughness: 0.72,
     metalness: 0.44,
   }));
@@ -569,6 +666,8 @@ export function createShipPbrSuite(seed = 29) {
     map: quiltedColorTex,
     normalMap: quiltedNormalTex,
     normalScale: new THREE.Vector2(0.55, 0.55),
+    aoMap: quiltedAoTex,
+    aoMapIntensity: 0.62,
     roughness: 0.84,
     metalness: 0.08,
   }));
@@ -592,6 +691,8 @@ export function createShipPbrSuite(seed = 29) {
     map: wallColorTex,
     normalMap: wallNormalTex,
     normalScale: new THREE.Vector2(0.65, 0.65),
+    aoMap: wallAoTex,
+    aoMapIntensity: 0.55,
     roughness: 0.68,
     metalness: 0.54,
     side: THREE.BackSide,
@@ -646,6 +747,8 @@ export function createShipPbrSuite(seed = 29) {
     color: 0x26384d,
     normalMap: quiltedNormalTex,
     normalScale: new THREE.Vector2(0.38, 0.38),
+    aoMap: quiltedAoTex,
+    aoMapIntensity: 0.55,
     roughness: 0.78,
     metalness: 0.08,
   }));
@@ -654,6 +757,8 @@ export function createShipPbrSuite(seed = 29) {
     color: 0xd6e0ec,
     normalMap: brushedMetalNormalTex,
     normalScale: new THREE.Vector2(0.24, 0.24),
+    aoMap: wallAoTex,
+    aoMapIntensity: 0.35,
     roughness: 0.44,
     metalness: 0.22,
   }));
@@ -662,6 +767,8 @@ export function createShipPbrSuite(seed = 29) {
     color: 0x233144,
     normalMap: wallNormalTex,
     normalScale: new THREE.Vector2(0.55, 0.55),
+    aoMap: wallAoTex,
+    aoMapIntensity: 0.5,
     roughness: 0.46,
     metalness: 0.68,
   }));
@@ -723,15 +830,20 @@ export function createShipPbrSuite(seed = 29) {
       floorColorTex,
       floorRoughTex,
       floorNormalTex,
+      floorAoTex,
+      floorMetalTex,
       wallColorTex,
       wallNormalTex,
       wallRoughTex,
+      wallAoTex,
+      wallMetalTex,
       mliNormalTex,
       doorColorTex,
       cargoNormalTex,
       cargoRoughTex,
       ceilingColorTex,
       quiltedColorTex,
+      quiltedAoTex,
       hazardStripeTex,
     },
     materials: {

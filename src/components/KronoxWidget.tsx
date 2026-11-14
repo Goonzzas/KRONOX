@@ -146,8 +146,10 @@ export default function KronoxWidget({
   const [dismissedMessageId, setDismissedMessageId] = useState<string | null>(null);
   const [partIndex, setPartIndex] = useState(0);
   const [listeningMic, setListeningMic] = useState(false);
+  const [processingMic, setProcessingMic] = useState(false);
   const [micStatus, setMicStatus] = useState('');
   const recognitionRef = useRef<any>(null);
+  const micTimerRef = useRef<any>(null);
 
   const interventions = useMemo(
     () => splitIntervention(narrative?.text || ''),
@@ -257,7 +259,8 @@ export default function KronoxWidget({
     onCommand(query);
   };
 
-  const handleTogglePushToTalk = () => {
+  const handleTogglePushToTalk = async () => {
+    clearTimeout(micTimerRef.current);
     if (listeningMic && recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -265,6 +268,7 @@ export default function KronoxWidget({
         // ignore
       }
       setListeningMic(false);
+      setMicStatus('');
       return;
     }
 
@@ -274,34 +278,62 @@ export default function KronoxWidget({
         : null;
 
     if (!SpeechRecognitionCtor) {
-      setMicStatus('Reconocimiento de voz no disponible en este navegador.');
+      setMicStatus('Reconocimiento de voz no disponible en este navegador. Usa el chat escrito [K].');
+      micTimerRef.current = setTimeout(() => setMicStatus(''), 4200);
       return;
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((tr) => tr.stop());
+      } catch {
+        setListeningMic(false);
+        setMicStatus('Permiso de micrófono denegado. Habilita el micrófono en el navegador.');
+        micTimerRef.current = setTimeout(() => setMicStatus(''), 4200);
+        return;
+      }
     }
 
     try {
       const recognition = new SpeechRecognitionCtor();
       recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.interimResults = true;
       recognition.lang = language === 'en' ? 'en-US' : 'es-ES';
 
       recognition.onstart = () => {
         setListeningMic(true);
-        setMicStatus('Escuchando consulta por micrófono...');
+        setProcessingMic(false);
+        setMicStatus('🎙️ Escuchando a través del micrófono... Habla ahora con KRONOX IA.');
       };
 
       recognition.onresult = (event: any) => {
-        const transcript = event?.results?.[0]?.[0]?.transcript?.trim() || '';
-        setListeningMic(false);
-        setMicStatus('');
+        const results = event?.results;
+        const lastResult = results?.[results.length - 1];
+        const transcript = lastResult?.[0]?.transcript?.trim() || '';
+        const isFinal = Boolean(lastResult?.isFinal);
         if (transcript) {
           setInputQuery(transcript);
+          if (!isFinal) {
+            setMicStatus(`🎙️ Escuchando: «${transcript}»...`);
+            return;
+          }
+          setListeningMic(false);
+          setProcessingMic(true);
+          setMicStatus(`⏳ Procesando consulta: «${transcript}»...`);
           onCommand?.(transcript);
+          micTimerRef.current = setTimeout(() => {
+            setProcessingMic(false);
+            setMicStatus('');
+          }, 2600);
         }
       };
 
       recognition.onerror = () => {
         setListeningMic(false);
+        setProcessingMic(false);
         setMicStatus('No se detectó voz o permiso de micrófono denegado.');
+        micTimerRef.current = setTimeout(() => setMicStatus(''), 3800);
       };
 
       recognition.onend = () => {
@@ -312,22 +344,85 @@ export default function KronoxWidget({
       recognition.start();
     } catch {
       setListeningMic(false);
+      setProcessingMic(false);
       setMicStatus('No fue posible iniciar el micrófono bajo demanda.');
+      micTimerRef.current = setTimeout(() => setMicStatus(''), 3800);
     }
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onExternalMic = () => {
+      handleTogglePushToTalk();
+    };
+    const onEscClose = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && panelOpen) {
+        onClose?.();
+      }
+    };
+    window.addEventListener('kronox:toggle-mic', onExternalMic);
+    window.addEventListener('keydown', onEscClose);
+    return () => {
+      window.removeEventListener('kronox:toggle-mic', onExternalMic);
+      window.removeEventListener('keydown', onEscClose);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listeningMic, panelOpen, language]);
 
   const categoryMeta = resolveDialogueCategory(narrative, resolvedState);
   const showSubtitleBar =
     !dialogueHidden &&
     subtitlesEnabled &&
     Boolean(narrative && narrative.id !== dismissedMessageId && (typed || intervention));
+  const showFloatingMicPill = Boolean((listeningMic || processingMic || micStatus) && !panelOpen);
 
-  if (!showCornerOrb && !showSubtitleBar && !panelOpen) {
+  if (!showCornerOrb && !showSubtitleBar && !panelOpen && !showFloatingMicPill) {
     return null;
   }
 
   return (
     <>
+      {showFloatingMicPill && (
+        <div
+          className={`kronoxFloatingMicBanner ${listeningMic ? 'is-listening' : ''} ${processingMic ? 'is-processing' : ''}`}
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            bottom: showSubtitleBar ? '152px' : '32px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 48,
+            background: listeningMic
+              ? 'rgba(15, 23, 42, 0.94)'
+              : 'rgba(9, 18, 34, 0.92)',
+            border: listeningMic
+              ? '1px solid rgba(52, 211, 153, 0.65)'
+              : '1px solid rgba(56, 189, 248, 0.5)',
+            borderRadius: '999px',
+            padding: '8px 18px',
+            color: '#f8fafc',
+            fontSize: '0.82rem',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            boxShadow: '0 8px 28px rgba(0, 0, 0, 0.65)',
+          }}
+        >
+          <span>{micStatus || (listeningMic ? '🎙️ Escuchando...' : '⏳ Procesando...')}</span>
+          {listeningMic && (
+            <button
+              type="button"
+              className="kronoxSubtitleGhostBtn"
+              onClick={handleTogglePushToTalk}
+              style={{ padding: '2px 8px', fontSize: '0.74rem' }}
+            >
+              Detener
+            </button>
+          )}
+        </div>
+      )}
       {showCornerOrb && (
         <button
           type="button"
@@ -443,6 +538,14 @@ export default function KronoxWidget({
                   ↺ Repetir
                 </button>
               )}
+              <button
+                type="button"
+                className={`kronoxSubtitleGhostBtn ${listeningMic ? 'is-warning' : ''}`}
+                onClick={handleTogglePushToTalk}
+                title="Hablar por micrófono con KRONOX IA (Push-to-Talk)"
+              >
+                {listeningMic ? '⏹ Escuchando...' : '🎙️ Hablar'}
+              </button>
               {onOrbClick && (
                 <button
                   type="button"

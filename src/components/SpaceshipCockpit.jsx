@@ -49,7 +49,11 @@ export default function SpaceshipCockpit({
   onOpenPlanetInfo,
   onOpenMissionSelector,
   onOpenAiConsole,
+  onStartMicConsult,
+  guideState = null,
   onStartGuidedTour,
+  onSkipTutorialStep,
+  onEndTutorial,
   onReplayCinematic,
   onOpenSettingsModal,
   onDispatchSceneEvent,
@@ -249,6 +253,32 @@ export default function SpaceshipCockpit({
               <span className="kronoxObjMarker">◎</span>
               <span className="kronoxObjLabel">OBJETIVO:</span>
               <span className="kronoxObjText">{activeObjectiveText.replace(/^OBJETIVO:\s*/i, '')}</span>
+              {guideState?.active && guideState?.step !== 'free' && (
+                <span className="kronoxObjActions" style={{ display: 'inline-flex', gap: '4px', marginLeft: '6px' }}>
+                  {onSkipTutorialStep && (
+                    <button
+                      type="button"
+                      className="kronoxHudQuickBtn"
+                      style={{ padding: '2px 7px', fontSize: '0.68rem', minHeight: '22px' }}
+                      onClick={onSkipTutorialStep}
+                      title="Saltar este paso del tutorial"
+                    >
+                      Saltar paso ⏭
+                    </button>
+                  )}
+                  {onEndTutorial && (
+                    <button
+                      type="button"
+                      className="kronoxHudQuickBtn"
+                      style={{ padding: '2px 7px', fontSize: '0.68rem', minHeight: '22px', opacity: 0.85 }}
+                      onClick={onEndTutorial}
+                      title="Omitir el tutorial completo"
+                    >
+                      Omitir ✕
+                    </button>
+                  )}
+                </span>
+              )}
             </div>
           )}
 
@@ -327,6 +357,18 @@ export default function SpaceshipCockpit({
                   <span>Inventario</span>
                 </button>
               </div>
+            )}
+
+            {onStartMicConsult && (
+              <button
+                type="button"
+                className="kronoxHudQuickBtn"
+                onClick={() => onStartMicConsult()}
+                title="Hablar por micrófono con KRONOX IA (Push-to-Talk)"
+              >
+                <span>🎙️</span>
+                <span>Voz IA</span>
+              </button>
             )}
 
             {onOpenAiConsole && (

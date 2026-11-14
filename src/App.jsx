@@ -540,6 +540,11 @@ export default function App() {
   activeCockpitStationRef.current = activeCockpitStation;
   missionOpenRef.current = missionOpen;
   gameSettingsRef.current = gameSettings;
+  useEffect(() => {
+    if (personalHubOpen) {
+      api.current?.onGuidedJournalOpen?.();
+    }
+  }, [personalHubOpen]);
   const openKronox = () => {
     clearTimeout(kronoxCloseTimer.current);
     if (!kronoxDialogHiddenRef.current && !realTimeIntroActiveRef.current) {
@@ -556,50 +561,10 @@ export default function App() {
     audioSourceRef.current = null;
     setAudioLevels(Array(48).fill(0));
   };
-  const startAudioAnalysis = (audio) => {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    const context = audioContextRef.current;
-    // CRÍTICO: Nunca conectar createMediaElementSource si AudioContext no está 'running',
-    // porque Web Audio API desconecta el elemento <audio> de los altavoces y lo silencia por completo.
-    if (AudioContextClass && context && context.state === 'running') {
-      try {
-        const analyser = analyserRef.current || context.createAnalyser();
-        analyser.fftSize = 512;
-        analyser.smoothingTimeConstant = 0.78;
-        if (!analyserRef.current) {
-          analyserRef.current = analyser;
-          analyser.connect(context.destination);
-        }
-        audioSourceRef.current?.disconnect();
-        const source = context.createMediaElementSource(audio);
-        source.connect(analyser);
-        audioSourceRef.current = source;
-        const spectrum = new Uint8Array(analyser.frequencyBinCount);
-        let lastUpdate = 0;
-        const sample = (time) => {
-          if (audioSourceRef.current !== source) return;
-          analyser.getByteFrequencyData(spectrum);
-          if (time - lastUpdate > 30) {
-            const levels = Array.from({ length: 48 }, (_, index) => {
-              const start = Math.floor((index / 48) ** 2 * spectrum.length);
-              const end = Math.max(start + 1, Math.floor(((index + 1) / 48) ** 2 * spectrum.length));
-              let total = 0;
-              for (let bin = start; bin < Math.min(end, spectrum.length); bin++)
-                total += spectrum[bin];
-              return Math.max(0.08, Math.min(4.5, (total / Math.max(1, end - start) / 255) * 5.5));
-            });
-            setAudioLevels(levels);
-            lastUpdate = time;
-          }
-          audioFrameRef.current = requestAnimationFrame(sample);
-        };
-        audioFrameRef.current = requestAnimationFrame(sample);
-        return;
-      } catch {
-        // Si el navegador ya enrutó el elemento o no permite capturar el stream, usar envolvente reactiva.
-      }
-    }
-    // Envolvente reactiva segura que mantiene el elemento <audio> conectado directamente a la salida nativa:
+  const startAudioAnalysis = (_audio) => {
+    // Envolvente reactiva segura que mantiene el elemento <audio> conectado directamente a la salida nativa del navegador
+    // (evita createMediaElementSource que puede silenciar el audio si AudioContext cambia de estado):
+    if (audioFrameRef.current !== null) cancelAnimationFrame(audioFrameRef.current);
     let lastSyntheticUpdate = 0;
     const animateSyntheticLevels = (time) => {
       if (!speakingRef.current) return;
@@ -656,6 +621,19 @@ export default function App() {
     if (!translated || !String(translated).trim()) return;
     const cleanMsg = String(translated).trim();
     lastSpokenTextRef.current = cleanMsg;
+    if (!realTimeIntroActiveRef.current && !options.skipGuide) {
+      kronoxDialogHiddenRef.current = false;
+      setKronoxDialogHidden(false);
+      if (narrativeQueue.getSnapshot()?.text !== cleanMsg) {
+        setGuide(cleanMsg, {
+          intent: options.intent || 'explanation',
+          once: false,
+          id: options.id || `speech-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          priority: options.priority ?? 5,
+          replace: true,
+        });
+      }
+    }
     if (!voiceRef.current) return;
     const master = Number(gameSettingsRef.current?.masterVolume ?? 0.85);
     const vox = Number(gameSettingsRef.current?.voiceVolume ?? 0.95);
@@ -756,13 +734,13 @@ export default function App() {
       const selectedVoice = 'Charon';
       const cacheKey = `${selectedVoice}|${voiceAccentRef.current || 'es-US'}|${textSegment}`;
       const cachedBlobUrl = voiceAudioBlobCacheRef.current.get(cacheKey);
-      const audioUrl =
-        cachedBlobUrl ||
-        voiceProvider.audioUrl({
-          text: textSegment,
-          language: voiceAccentRef.current,
-          voiceId: selectedVoice,
-        });
+      const staticUrl = voiceProvider.staticAudioUrl?.({ text: textSegment }) || null;
+      const primaryEndpointUrl = voiceProvider.audioUrl({
+        text: textSegment,
+        language: voiceAccentRef.current,
+        voiceId: selectedVoice,
+      });
+      const audioUrl = cachedBlobUrl || staticUrl || primaryEndpointUrl;
       const fallbackUrl = voiceProvider.fallbackAudioUrl({
         text: textSegment,
         language: voiceAccentRef.current,
@@ -785,6 +763,7 @@ export default function App() {
       return {
         audio: a,
         audioUrl,
+        primaryEndpointUrl,
         fallbackUrl,
         cacheKey,
         text: textSegment,
@@ -813,9 +792,11 @@ export default function App() {
         // JAMÁS cambiar automáticamente a window.speechSynthesis ni a otra voz robótica.
         if (!entry.retriedFetch && typeof fetch === 'function') {
           entry.retriedFetch = true;
-          const candidateUrls = [entry.audioUrl, entry.fallbackUrl].filter(
-            (u) => typeof u === 'string' && u.startsWith('/'),
-          );
+          const candidateUrls = [
+            entry.audioUrl,
+            entry.primaryEndpointUrl,
+            entry.fallbackUrl,
+          ].filter((u, idx, arr) => typeof u === 'string' && u.startsWith('/') && arr.indexOf(u) === idx);
           for (const candidateUrl of candidateUrls) {
             try {
               const resp = await fetch(candidateUrl, { cache: 'force-cache' });
@@ -1055,8 +1036,10 @@ export default function App() {
       setMissionTargetKey('barnard');
       setAiAvatarState('Bienvenida');
     },
-    say = (msg) => {
-      setGuide(msg);
+    say = (msg, opts = {}) => {
+      kronoxDialogHiddenRef.current = false;
+      setKronoxDialogHidden(false);
+      setGuide(msg, { replace: true, once: false, ...opts });
     },
     showNextNotice = () => {
       const item = noticeQueue.current.shift();
@@ -3428,8 +3411,23 @@ export default function App() {
         setKronoxDialogHidden(false);
         setKronoxOpen(true);
       },
+      onStartMicConsult: () => {
+        kronoxDialogHiddenRef.current = false;
+        setKronoxDialogHidden(false);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('kronox:toggle-mic'));
+        }
+      },
+      guideState,
       onStartGuidedTour: () => {
         A().startGuidedTour?.();
+      },
+      onSkipTutorialStep: () => {
+        A().skipGuidedTourStep?.();
+      },
+      onEndTutorial: () => {
+        A().endGuidedCabinTour?.();
+        setGuideObjective('');
       },
       onReplayCinematic: () => {
         setWelcomeOpen(false);
@@ -3771,7 +3769,6 @@ export default function App() {
       (fo.au ? ' · piloto auto.' : ''),
     ),
     !initialLoadingComplete &&
-    !realTimeIntroActive &&
     h(LoadingScreen, {
       isReady: sceneReady,
       onComplete: () => setInitialLoadingComplete(true),

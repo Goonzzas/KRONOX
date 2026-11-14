@@ -73,6 +73,57 @@ function buildSlottedDeckSlab(outerRadius, thickness, holeRadius) {
   return geo;
 }
 
+function buildSculptedArchRibGeo(outerW, outerH, depth, innerW, innerH, chamfer = 0.24) {
+  const hw = outerW * 0.5;
+  const iw = innerW * 0.5;
+  const c = Math.min(chamfer, (outerW - innerW) * 0.35, innerH * 0.3);
+  const shape = new THREE.Shape();
+  shape.moveTo(-hw, 0);
+  shape.lineTo(-hw, outerH - c);
+  shape.lineTo(-hw + c, outerH);
+  shape.lineTo(hw - c, outerH);
+  shape.lineTo(hw, outerH - c);
+  shape.lineTo(hw, 0);
+  shape.lineTo(iw, 0);
+  shape.lineTo(iw, innerH - c);
+  shape.lineTo(iw - c, innerH);
+  shape.lineTo(-iw + c, innerH);
+  shape.lineTo(-iw, innerH - c);
+  shape.lineTo(-iw, 0);
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth,
+    bevelEnabled: true,
+    bevelThickness: 0.02,
+    bevelSize: 0.02,
+    bevelSegments: 2,
+  });
+  geo.translate(0, 0, -depth * 0.5);
+  return geo;
+}
+
+function buildBeveledConsoleShellGeo(width, height, depth) {
+  const shape = new THREE.Shape();
+  const hd = depth * 0.5;
+  shape.moveTo(-hd * 0.86, 0);
+  shape.lineTo(hd * 0.92, 0);
+  shape.lineTo(hd, height * 0.72);
+  shape.lineTo(hd * 0.58, height);
+  shape.lineTo(-hd * 0.95, height * 1.04);
+  shape.lineTo(-hd, height * 0.45);
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: width,
+    bevelEnabled: true,
+    bevelThickness: 0.025,
+    bevelSize: 0.025,
+    bevelSegments: 2,
+  });
+  geo.rotateY(Math.PI / 2);
+  geo.translate(-width * 0.5, 0, 0);
+  return geo;
+}
+
 /**
  * Construye el interior completo PBR de las 4 cubiertas apiladas dentro de la esfera
  * habitable (R = 20 m) de la nave Aurora-120 / KRONOX, con ascensor físico funcional 3D,
@@ -89,6 +140,9 @@ export function buildKronoxInterior120M() {
   const trackedGeos = new Set();
   const trackExtraGeo = (g) => {
     if (g && !trackedGeos.has(g)) {
+      if (g.attributes?.uv && !g.attributes.uv2) {
+        g.setAttribute('uv2', g.attributes.uv);
+      }
       trackedGeos.add(g);
       disposableExtras.push(g);
     }
@@ -769,11 +823,23 @@ export function buildKronoxInterior120M() {
     g.rotation.y = rot;
     parent.add(g);
     add(g, cyl(0.2, 0.3, 0.48, 12), darkM, 0, 0.24, 0);
-    add(g, cyl(0.32, 0.32, 0.06, 12), steelM, 0, 0.03, 0);
-    add(g, box(0.84, 0.16, 0.82), bedM, 0, 0.54, 0);
-    add(g, box(0.84, 0.88, 0.14), bedM, 0, 1.02, -0.38);
-    add(g, box(0.1, 0.18, 0.62), steelM, -0.44, 0.68, -0.05);
-    add(g, box(0.1, 0.18, 0.62), steelM, 0.44, 0.68, -0.05);
+    add(g, cyl(0.34, 0.36, 0.06, 14), steelM, 0, 0.03, 0);
+    add(g, box(0.84, 0.14, 0.82), slateM, 0, 0.49, 0);
+    add(g, box(0.78, 0.12, 0.76), bedM, 0, 0.56, 0.02);
+    // Respaldo anatómico esculpido con refuerzos lumbares laterales y cabecero articulado
+    add(g, box(0.82, 0.92, 0.12), slateM, 0, 1.02, -0.41);
+    add(g, box(0.74, 0.84, 0.12), bedM, 0, 1.01, -0.35);
+    [-0.34, 0.34].forEach((bx) => {
+      add(g, box(0.12, 0.72, 0.16), warmHabM, bx, 0.96, -0.31);
+    });
+    add(g, box(0.46, 0.24, 0.14), bedM, 0, 1.54, -0.34);
+    add(g, box(0.50, 0.04, 0.16), steelM, 0, 1.41, -0.35);
+    // Reposabrazos con minipaneles táctiles integrados
+    [-0.44, 0.44].forEach((ax) => {
+      add(g, box(0.11, 0.18, 0.64), slateM, ax, 0.68, -0.04);
+      add(g, box(0.12, 0.04, 0.56), steelM, ax, 0.78, -0.02);
+      add(g, box(0.08, 0.02, 0.18), cyanGlow, ax, 0.805, 0.14);
+    });
   }
 
   function mountDeckPlacard(parent, x, y, z, rotY, code, title, subtitle, hex = '#38d8ff') {
@@ -872,7 +938,19 @@ export function buildKronoxInterior120M() {
       }
     });
 
-    // Consolas en chevrón con mandos físicos, pantallas dobles, cuadrante de empuje e iluminarias de mando
+    // Consolas en chevrón con chasis biselado 3D, mandos físicos HOTAS, yugo de vuelo, pantallas dobles e iluminarias de mando
+    const chevronShellGeo = cachedGeo('chevronShell:2.14:1.04:1.30', () =>
+      buildBeveledConsoleShellGeo(2.14, 1.04, 1.30),
+    );
+    const bridgeArchRibGeo = cachedGeo('bridgeArchRib:8.8:2.94:0.22', () =>
+      buildSculptedArchRibGeo(8.8, 2.94, 0.22, 8.1, 2.66, 0.42),
+    );
+    [-6.5, 4.2, 8.8].forEach((ax) => {
+      const archM = add(d1, bridgeArchRibGeo, slateM, ax, f, 0);
+      archM.rotation.y = Math.PI / 2;
+      add(d1, box(0.06, 0.04, 7.6), cyanGlow, ax, f + 2.64, 0);
+    });
+
     [[5, 3], [6, 1], [0, 1], [1, 3]].forEach(([i, n]) => {
       const e = E[i];
       const h = new THREE.Group();
@@ -886,13 +964,16 @@ export function buildKronoxInterior120M() {
         g.position.set(x * 0.72, f, z * 0.72);
         g.rotation.y = e.rot;
         d1.add(g);
-        add(g, box(2.15, 1.05, 1.32), slateM, 0, 0.525, 0, 'console');
+        add(g, chevronShellGeo, slateM, 0, 0, 0, 'console');
         add(g, box(2.22, 0.12, 1.38), darkM, 0, 0.06, 0);
         add(g, box(1.98, 0.08, 1.08), steelM, 0, 1.05, 0);
         add(g, box(1.85, 0.04, 0.9), k % 2 ? amberGlow : cyanGlow, 0, 1.1, 0);
-        // Palanca de mando HOTAS + cuadrante de aceleración + teclado táctil iluminado
+        // Visera antirreflejos superior (glare shield), palanca HOTAS, yugo de vuelo y cuadrante de empuje
+        add(g, box(1.96, 0.06, 0.42), darkM, 0, 1.88, 0.44);
         add(g, cyl(0.03, 0.045, 0.18, 8), darkM, -0.58, 1.2, 0.15);
         add(g, sphereGeo(0.045, 10, 8), railAmberM, -0.58, 1.3, 0.15);
+        add(g, cyl(0.025, 0.035, 0.22, 8), steelM, 0, 1.16, -0.32).rotation.x = 0.55;
+        add(g, torus(0.14, 0.022, 8, 18), darkM, 0, 1.24, -0.40);
         add(g, box(0.18, 0.07, 0.24), railAmberM, 0.54, 1.15, 0.12);
         add(g, box(0.68, 0.025, 0.28), compositeM, 0, 1.12, -0.18);
         const scr = add(g, box(1.85, 0.8, 0.05), bridgeScrMat, 0, 1.48, 0.52);
@@ -936,7 +1017,7 @@ export function buildKronoxInterior120M() {
       add(d1, box(0.5, 0.03, 0.16), bridgeScrMat, 5.75, f + 1.29, k * 0.58);
     });
 
-    // Sillón de Mando de Timón Central (Proa, KRONOX x=0, y=3.4, z=-9.85 -> Aurora x=9.85, z=0) y pedestal de vuelo bajo
+    // Sillón de Mando de Timón Central (Proa, KRONOX x=0, y=3.4, z=-9.85 -> Aurora x=9.85, z=0) y pedestal de vuelo esculpido
     chair(d1, 9.85, 0, f, Math.PI / 2);
     const helmPedestal = new THREE.Group();
     helmPedestal.name = 'BridgeCentralHelmConsole';
@@ -946,8 +1027,14 @@ export function buildKronoxInterior120M() {
     const helmBase = add(helmPedestal, box(1.48, 0.76, 0.56), slateM, 0, 0.38, 0);
     add(helmPedestal, box(1.54, 0.06, 0.62), steelM, 0, 0.78, 0);
     add(helmPedestal, box(1.36, 0.03, 0.44), cyanGlow, 0, 0.82, 0);
+    // Yugo de mando bimanual y aceleradores gemelos en el timón central
+    add(helmPedestal, cyl(0.028, 0.036, 0.26, 10), steelM, 0, 0.88, -0.18).rotation.x = 0.48;
+    add(helmPedestal, torus(0.16, 0.024, 8, 20), darkM, 0, 0.96, -0.28);
+    add(helmPedestal, box(0.16, 0.08, 0.18), railAmberM, 0.48, 0.85, -0.06);
+    add(helmPedestal, box(0.16, 0.08, 0.18), cyanGlow, -0.48, 0.85, -0.06);
     const helmScr = add(helmPedestal, box(1.18, 0.34, 0.04), bridgeScrMat, 0, 0.96, 0.12);
     helmScr.rotation.x = -0.52;
+    add(helmPedestal, box(1.24, 0.05, 0.22), darkM, 0, 1.11, 0.16);
     registerInteractMesh(helmBase, 'nav', 'panel', 'deck-01');
     registerInteractMesh(helmScr, 'nav', 'panel', 'deck-01');
     // Franja guía de piso desde la mesa táctica hacia el ascensor central
@@ -1078,14 +1165,23 @@ export function buildKronoxInterior120M() {
       { code: 'HAB-06', role: 'OPERACIONES EVA Y MÉDICO', accent: greenGlow },
     ];
 
-    // 6 camarotes científicos de alta calidad (pórtico arquitectónico, alcoba de descanso, armarios, pantallas y mobiliario integrado)
+    // 6 camarotes científicos de alta calidad (pórtico esculpido, cápsula-alcoba de descanso, armarios, escritorio con doble monitor y objetos personales de astronauta)
+    const cabinPortalArchGeo = cachedGeo('cabinPortalArch:4.22:2.90:0.26', () =>
+      buildSculptedArchRibGeo(4.22, 2.90, 0.26, 2.38, 2.38, 0.32),
+    );
+    const sleepingPodArchGeo = cachedGeo('sleepingPodArch:1.42:1.92:0.22', () =>
+      buildSculptedArchRibGeo(1.42, 1.92, 0.22, 1.18, 1.68, 0.22),
+    );
+
     C02_CABIN_BAYS.forEach((bay, bIdx) => {
       const c = new THREE.Group();
       c.rotation.y = -bay.angleRad;
       d2.add(c);
       const roleMeta = cabinRoles[bIdx % cabinRoles.length];
 
-      // 1) Pórtico de entrada en r = 7.05 m (deja vano central amplio de 2.25 m totalmente despejado)
+      // 1) Pórtico de entrada esculpido con arco biselado en r = 7.05 m (deja vano central amplio de 2.25 m totalmente despejado)
+      const portalArch = add(c, cabinPortalArchGeo, slateM, 7.05, f, 0);
+      portalArch.rotation.y = Math.PI / 2;
       [-1.66, 1.66].forEach((sideZ) => {
         const signZ = sideZ > 0 ? 1 : -1;
         add(c, box(0.22, 2.92, 0.96), compositeM, 7.05, f + 1.46, sideZ);
@@ -1112,7 +1208,7 @@ export function buildKronoxInterior120M() {
       add(c, box(4.8, 0.03, 0.14), warmGlow, 12.2, f + 2.75, 1.12);
 
       // 3) Módulos laterales integrados (r = 9.4..11.8 m, pegados a los mamparos para dejar el centro amplio)
-      // Pared izquierda (z < 0): Armarios modulares de polímero aeroespacial y taquillas superiores
+      // Pared izquierda (z < 0): Armarios modulares de polímero aeroespacial, taquillas superiores y botiquín médico
       const lockerGroup = new THREE.Group();
       lockerGroup.position.set(10.5, f, -2.18);
       lockerGroup.rotation.y = 0.28;
@@ -1120,69 +1216,121 @@ export function buildKronoxInterior120M() {
       add(lockerGroup, box(2.55, 2.24, 0.56), slateM, 0, 1.12, 0);
       [-0.82, 0, 0.82].forEach((lx) => {
         add(lockerGroup, box(0.76, 1.56, 0.05), compositeM, lx, 1.02, 0.28);
+        add(lockerGroup, box(0.62, 0.22, 0.06), ventM, lx, 0.42, 0.285);
         add(lockerGroup, box(0.05, 0.36, 0.07), steelM, lx + 0.28, 1.02, 0.30);
         add(lockerGroup, box(0.76, 0.42, 0.05), warmHabM, lx, 2.02, 0.28);
+        add(lockerGroup, box(0.24, 0.04, 0.07), steelM, lx, 1.94, 0.30);
       });
+      // Botiquín médico y soporte de casco personal EVA integrado en el módulo de armario
+      add(lockerGroup, box(0.28, 0.28, 0.08), compositeM, 1.06, 1.48, 0.28);
+      add(lockerGroup, box(0.14, 0.04, 0.09), greenGlow, 1.06, 1.48, 0.29);
+      add(lockerGroup, box(0.04, 0.14, 0.09), greenGlow, 1.06, 1.48, 0.29);
       add(lockerGroup, box(2.42, 0.035, 0.06), warmGlow, 0, 2.26, 0.28);
 
-      // Pared derecha (z > 0): Panel mural con pantalla integrada, consola ambiental y módulo científico específico
+      // Pared derecha (z > 0): Panel mural con pantalla integrada, consola ambiental, libros técnicos, cilindros de muestra e insignia de misión
       const wallConsole = new THREE.Group();
       wallConsole.position.set(10.5, f, 2.18);
       wallConsole.rotation.y = -0.28;
       c.add(wallConsole);
       add(wallConsole, box(2.45, 0.84, 0.54), slateM, 0, 0.42, 0);
       add(wallConsole, box(2.38, 0.06, 0.58), warmHabM, 0, 0.86, 0);
-      // Pantalla mural panorámica integrada en la pared del camarote
+      // Cajones personales inferiores con tiradores metálicos
+      [-0.78, 0, 0.78].forEach((wx) => {
+        add(wallConsole, box(0.72, 0.32, 0.04), compositeM, wx, 0.58, -0.27);
+        add(wallConsole, box(0.26, 0.035, 0.06), steelM, wx, 0.62, -0.29);
+      });
+      // Pantalla mural panorámica integrada en la pared del camarote + placa de parche de misión enmarcada
       add(wallConsole, box(1.56, 0.88, 0.08), slateM, -0.2, 1.58, -0.16);
       add(wallConsole, box(1.44, 0.76, 0.03), habWallScrMat, -0.2, 1.58, -0.20);
       add(wallConsole, box(1.52, 0.03, 0.05), roleMeta.accent, -0.2, 2.04, -0.18);
-      // Estante superior con contenedores de muestras / libros técnicos y detalle diferencial por especialidad
+      // Cuadro/insignia conmemorativa de la expedición Horizonte junto al monitor mural
+      add(wallConsole, box(0.46, 0.54, 0.05), darkM, 0.86, 1.62, -0.16);
+      add(wallConsole, cyl(0.16, 0.16, 0.04, 16), goldM, 0.86, 1.62, -0.18).rotation.x = Math.PI / 2;
+      // Estante superior con contenedores de muestras, libros técnicos encuadernados y detalle diferencial por especialidad
       add(wallConsole, box(2.35, 0.28, 0.38), compositeM, 0, 2.28, -0.06);
+      [-0.85, -0.76, -0.67, -0.58].forEach((bx, bi) => {
+        add(wallConsole, box(0.06, 0.24, 0.22), bi % 2 === 0 ? warmHabM : slateM, bx, 2.52, -0.06);
+      });
       add(wallConsole, box(0.38, 0.32, 0.28), bIdx % 2 === 0 ? goldM : copperM, 0.72, 1.05, 0);
       add(wallConsole, cyl(0.11, 0.11, 0.36, 12), roleMeta.accent, 0.28, 1.06, 0);
+      add(wallConsole, cyl(0.09, 0.09, 0.30, 12), glassM, 0.02, 1.03, 0.04);
 
-      // 4) Escritorio de investigación ergonómico en r = 13.0, z = 0 (alineado con colisionador 1:1)
+      // 4) Escritorio de investigación ergonómico en r = 13.0, z = 0 con doble monitor curvo y objetos personales de astronauta
       add(c, box(0.56, 0.74, 0.96), slateM, 13.0, f + 0.37, 0);
       add(c, box(0.62, 0.07, 1.08), warmHabM, 13.0, f + 0.75, 0);
       add(c, box(0.54, 0.025, 0.88), steelM, 13.0, f + 0.79, 0);
-      add(c, box(0.42, 0.28, 0.05), darkM, 12.95, f + 0.98, 0.22);
-      add(c, box(0.38, 0.24, 0.03), habWallScrMat, 12.93, f + 0.98, 0.22);
-      add(c, box(0.36, 0.22, 0.04), roleMeta.accent, 12.95, f + 0.98, -0.22);
+      // Doble monitor articulado en ángulo + teclado retroiluminado
+      const deskMonL = add(c, box(0.05, 0.30, 0.46), darkM, 13.14, f + 0.99, 0.24);
+      deskMonL.rotation.y = -0.22;
+      const deskScrL = add(c, box(0.03, 0.26, 0.42), habWallScrMat, 13.12, f + 0.99, 0.24);
+      deskScrL.rotation.y = -0.22;
+      const deskMonR = add(c, box(0.05, 0.28, 0.40), darkM, 13.14, f + 0.98, -0.24);
+      deskMonR.rotation.y = 0.22;
+      const deskScrR = add(c, box(0.03, 0.24, 0.36), roleMeta.accent, 13.12, f + 0.98, -0.24);
+      deskScrR.rotation.y = 0.22;
+      add(c, box(0.18, 0.018, 0.36), compositeM, 12.84, f + 0.805, 0.04);
+      // Objetos personales sobre el escritorio: taza térmica magnética sobre base calefactora y tableta de datos personal
+      add(c, cyl(0.055, 0.055, 0.012, 12), railAmberM, 12.86, f + 0.802, -0.34);
+      add(c, cyl(0.042, 0.038, 0.11, 12), steelM, 12.86, f + 0.86, -0.34);
+      const personalPad = add(c, box(0.16, 0.016, 0.22), slateM, 12.85, f + 0.81, 0.34);
+      personalPad.rotation.y = 0.32;
+      add(c, box(0.13, 0.018, 0.19), cyanGlow, 12.85, f + 0.814, 0.34).rotation.y = 0.32;
       // Taburete ergonómico recogido frente al escritorio (r = 12.38, z = 0)
       add(c, cyl(0.18, 0.22, 0.06, 12), steelM, 12.38, f + 0.03, 0);
       add(c, cyl(0.06, 0.08, 0.42, 10), darkM, 12.38, f + 0.24, 0);
       add(c, cyl(0.22, 0.22, 0.09, 14), bedM, 12.38, f + 0.47, 0);
 
-      // 5) Alcoba arquitectónica de descanso integrada en r = 14.1, z = 0 (evita que la cama parezca una caja suelta)
-      // Base estructural con cajones de almacenamiento inferiores
+      // 5) Cápsula-alcoba arquitectónica de descanso esculpida en r = 14.1, z = 0
+      // Costillas en arco biseladas que integran la cama en la arquitectura de la cabina
+      [13.18, 15.18].forEach((podX) => {
+        const podArch = add(c, sleepingPodArchGeo, slateM, podX, f, 0);
+        podArch.rotation.y = Math.PI / 2;
+      });
+      // Base estructural con cajones extraíbles inferiores e indicadores LED
       add(c, box(2.42, 0.32, 1.18), slateM, 14.1, f + 0.16, 0);
       [-0.72, 0, 0.72].forEach((dx) => {
         add(c, box(0.66, 0.20, 0.04), compositeM, 14.1 + dx, f + 0.16, -0.59);
         add(c, box(0.66, 0.20, 0.04), compositeM, 14.1 + dx, f + 0.16, 0.59);
         add(c, box(0.24, 0.03, 0.06), steelM, 14.1 + dx, f + 0.18, -0.61);
         add(c, box(0.24, 0.03, 0.06), steelM, 14.1 + dx, f + 0.18, 0.61);
+        add(c, box(0.10, 0.015, 0.05), roleMeta.accent, 14.1 + dx, f + 0.24, -0.60);
+        add(c, box(0.10, 0.015, 0.05), roleMeta.accent, 14.1 + dx, f + 0.24, 0.60);
       });
-      // Marco metálico perimetral, colchón anatómico acolchado, manta térmica y almohada ergonómica
+      // Marco metálico perimetral, colchón anatómico acolchado, edredón térmico, doble almohada y correas de sujeción de microgravedad
       add(c, box(2.52, 0.10, 1.24), steelM, 14.1, f + 0.35, 0);
       add(c, box(2.45, 0.26, 1.15), bedM, 14.1, f + 0.51, 0, 'console');
-      add(c, box(1.35, 0.28, 1.17), compositeM, 13.52, f + 0.52, 0);
+      add(c, box(1.38, 0.28, 1.17), compositeM, 13.52, f + 0.52, 0);
+      // Correas de sujeción en microgravedad con hebillas metálicas sobre el colchón
+      [13.65, 14.25].forEach((sx) => {
+        add(c, box(0.11, 0.295, 1.19), warmHabM, sx, f + 0.525, 0);
+        add(c, box(0.14, 0.03, 0.18), steelM, sx, f + 0.67, 0);
+      });
       add(c, box(0.46, 0.14, 0.84), compositeM, 15.0, f + 0.70, 0);
-      add(c, box(0.22, 0.12, 0.80), warmHabM, 14.68, f + 0.68, 0);
-      // Cabecero acolchado y mamparas laterales de privacidad con dosel e iluminación de lectura
+      add(c, box(0.26, 0.13, 0.78), warmHabM, 14.68, f + 0.68, 0);
+      // Cabecero acolchado, lámpara de lectura articulada, mampara translúcida corredera de privacidad y dosel superior
       add(c, box(0.18, 1.48, 1.28), quiltedM, 15.32, f + 1.06, 0);
       add(c, box(0.22, 1.54, 1.34), slateM, 15.42, f + 1.08, 0);
+      // Lámpara de lectura articulada en la alcoba
+      add(c, cyl(0.025, 0.025, 0.28, 8), steelM, 15.18, f + 1.32, -0.44).rotation.z = 0.65;
+      add(c, sphereGeo(0.055, 10, 8), warmGlow, 15.06, f + 1.24, -0.44);
+      // Mamparas laterales y pantalla corredera translúcida de privacidad
       add(c, box(1.08, 1.42, 0.08), compositeM, 14.88, f + 1.05, -0.64);
       add(c, box(1.08, 1.42, 0.08), compositeM, 14.88, f + 1.05, 0.64);
-      add(c, box(1.85, 0.12, 1.34), slateM, 14.52, f + 1.82, 0);
-      add(c, box(1.65, 0.03, 0.96), warmGlow, 14.52, f + 1.75, 0);
+      add(c, box(0.86, 1.28, 0.035), glassM, 13.86, f + 1.05, -0.63);
+      add(c, box(0.86, 1.28, 0.035), glassM, 13.86, f + 1.05, 0.63);
+      add(c, box(2.12, 0.14, 1.38), slateM, 14.32, f + 1.84, 0);
+      add(c, box(1.85, 0.035, 0.96), warmGlow, 14.32, f + 1.76, 0);
 
-      // 6) Módulo de armario ropero y equipo personal de altura completa en r = 16.6, z = 0
+      // 6) Módulo de armario ropero, taquilla EVA y soporte de casco personal en r = 16.6, z = 0
       add(c, box(0.68, 2.38, 1.56), slateM, 16.6, f + 1.19, 0, 'wall');
       add(c, box(0.06, 2.12, 0.68), compositeM, 16.25, f + 1.14, -0.38);
       add(c, box(0.06, 2.12, 0.68), compositeM, 16.25, f + 1.14, 0.38);
       add(c, box(0.08, 0.52, 0.04), steelM, 16.23, f + 1.14, -0.08);
       add(c, box(0.08, 0.52, 0.04), steelM, 16.23, f + 1.14, 0.08);
       add(c, box(0.05, 1.45, 0.36), glassM, 16.24, f + 1.28, -0.38);
+      // Casco espacial personal dorado sobre cuna acolchada visible tras la vitrina del ropero
+      add(c, sphereGeo(0.17, 14, 10), goldM, 16.42, f + 1.52, -0.38);
+      add(c, box(0.26, 0.06, 0.28), warmHabM, 16.42, f + 1.33, -0.38);
       add(c, box(0.04, 1.55, 0.06), roleMeta.accent, 16.25, f + 1.24, 0.0);
     });
 
@@ -1387,6 +1535,13 @@ export function buildKronoxInterior120M() {
     trackExtraTex(opticsLabTex.tex);
     const opticsLabMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: opticsLabTex.tex }));
 
+    const labShellGeo = cachedGeo('labShell:2.32:1.02:1.26', () =>
+      buildBeveledConsoleShellGeo(2.32, 1.02, 1.26),
+    );
+    const labArchRibGeo = cachedGeo('labArchRib:2.48:2.64:0.18', () =>
+      buildSculptedArchRibGeo(2.48, 2.64, 0.18, 2.16, 2.42, 0.24),
+    );
+
     const buildLabArc = (sideName, accentMat, scrMat, placardTitle, placardSub, zPlacard, rotPlacard, placardHex) => {
       const isPortSpherex = sideName === 'port';
       C03_LAB_ARCS.filter((item) => item.side === sideName).forEach((item, idx) => {
@@ -1394,8 +1549,9 @@ export function buildKronoxInterior120M() {
         g.position.set(15.2 * Math.sin(item.t), f, 15.2 * Math.cos(item.t));
         g.rotation.y = item.t;
         d3.add(g);
-        // Mesa curva científica con zócalo técnico, encimera de acero y doble monitor
-        add(g, box(2.35, 1.02, 1.28), slateM, 0, 0.51, 0, 'console');
+        // Costilla estructural de laboratorio esculpida y banco científico biselado
+        add(g, labArchRibGeo, slateM, 0, 0, -0.42);
+        add(g, labShellGeo, slateM, 0, 0, 0, 'console');
         add(g, box(2.26, 0.06, 1.18), compositeM, 0, 1.03, 0);
         add(g, box(2.05, 0.04, 0.88), accentMat, 0, 1.07, 0);
         add(g, box(1.88, 0.28, 0.12), ventM, 0, 0.22, -0.62);
@@ -1406,10 +1562,16 @@ export function buildKronoxInterior120M() {
         add(g, box(1.95, 0.035, 0.28), isPortSpherex ? warmGlow : cyanGlow, 0, 2.49, -0.1);
 
         if (isPortSpherex) {
-          // Equipamiento específico SPHEREx: criostato cilíndrico dorado MLI, carrusel de filtros IR y cápsulas de muestra
+          // Equipamiento específico SPHEREx: criostato cilíndrico dorado MLI, cámara de guantes (glovebox) aislada y cápsulas de muestra
           add(g, cyl(0.22, 0.26, 0.68, 14), goldM, -0.78, 1.40, 0.18);
           add(g, cyl(0.18, 0.18, 0.12, 14), steelM, -0.78, 1.78, 0.18);
           add(g, cyl(0.06, 0.06, 0.85, 8), steelM, -0.78, 2.18, 0.18);
+          // Cámara estanca de análisis espectroscópico con puertos de guantes frontales
+          add(g, box(0.74, 0.42, 0.44), glassM, 0.04, 1.29, 0.22);
+          add(g, box(0.78, 0.04, 0.48), steelM, 0.04, 1.51, 0.22);
+          [-0.14, 0.22].forEach((gx) => {
+            add(g, torus(0.068, 0.014, 8, 16), steelM, gx, 1.26, 0.45);
+          });
           add(g, cyl(0.09, 0.09, 0.34, 10), glassM, 0.76, 1.24, 0.22);
           add(g, cyl(0.06, 0.06, 0.28, 10), idx % 2 === 0 ? amberGlow : greenGlow, 0.76, 1.24, 0.22);
         } else {

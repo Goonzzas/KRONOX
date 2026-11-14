@@ -5,6 +5,65 @@ export const GEMINI_TTS_VOICES = Object.freeze([
   { id: 'Charon', label: 'Charon · Voz Oficial KRONOX IA' },
 ]);
 
+export const PREDEFINED_VOICE_CLIPS = Object.freeze({
+  'Durante siglos, contemplamos el universo desde un pequeño mundo azul, buscando respuestas sobre nuestro origen entre millones de estrellas.':
+    '/audio/voice/intro_01_opening.wav',
+  'Misiones reales como el telescopio espacial NASA SPHEREx abrieron una nueva ventana infrarroja al cosmos, revelando luces ocultas al ojo humano.':
+    '/audio/voice/intro_02_spherex.wav',
+  'En cada longitud de onda infrarroja detectamos hielos primordiales, viveros de estrellas y enigmas gravitacionales más allá de los gigantes gaseosos.':
+    '/audio/voice/intro_03_conocimiento.wav',
+  'Para descifrar esa historia escrita entre anillos planetarios y brazos galácticos, la humanidad puso en marcha el Proyecto Horizonte.':
+    '/audio/voice/intro_04_galaxia.wav',
+  'El Proyecto Horizonte construyó KRONOX Aurora-120: un crucero científico modular de ciento veinte metros diseñado para explorar desde la órbita hasta el espacio profundo.':
+    '/audio/voice/intro_05_nave.wav',
+  'En el puente de mando coordinamos la astrometría J2000, el rumbo interestelar y los sistemas de observación de toda la expedición.':
+    '/audio/voice/intro_06_puente.wav',
+  'La cubierta científica combina espectroscopía inspirada en NASA SPHEREx y bancos ópticos de calibración para investigar cada archivo real sin conjeturas.':
+    '/audio/voice/intro_07_spherex.wav',
+  'El módulo de habitabilidad mantiene a la tripulación en microgravedad durante largas travesías con soporte vital de ciclo cerrado y gravedad anular asistida.':
+    '/audio/voice/intro_08_habitabilidad.wav',
+  'En ingeniería, el reactor toroidal de fusión y sus propulsores magnetoplasmadinámicos suministran la energía limpia que impulsa a KRONOX entre mundos.':
+    '/audio/voice/intro_09_ingenieria.wav',
+  'Soy KRONOX IA, tu inteligencia de a bordo. El puente es tuyo, comandante: calibra tus instrumentos y comienza tu primera investigación espacial.':
+    '/audio/voice/intro_10_inicio.wav',
+  'Bienvenido al puente de mando de KRONOX-1, Comandante. Todos los sistemas orbitales están en línea. Pulsa WASD o la tecla E para levantarte del sillón de mando.':
+    '/audio/voice/tut_stand_up.wav',
+  'Mueve el ratón para orientar tu mirada y desplázate con WASD. Pulsa la tecla V o los botones superiores para alternar entre primera y tercera persona, o ESC para liberar el cursor.':
+    '/audio/voice/tut_look_camera.wav',
+  'Dirígete a la consola de control y navegación iluminada en el Puente de Mando y pulsa E para inspeccionar los sistemas de vuelo.':
+    '/audio/voice/tut_nav.wav',
+  'Desde el puente puedes activar el Telescopio Óptico con la tecla T, inspeccionar el casco en vista Exterior o elegir un planeta o estrella para viajar hacia él.':
+    '/audio/voice/tut_astro_obs.wav',
+  'Excelente. Ahora entra al Ascensor Central en el eje del puente, pulsa E o la tecla 2 y desciende a la Cubierta Habitacional para inspeccionar los camarotes y el comedor.':
+    '/audio/voice/tut_elevator_c02.wav',
+  'Módulo habitacional verificado. Usa el Ascensor Central y pulsa la tecla 3 para bajar a la Cubierta Científica e Ingeniería, donde operan el reactor Tokamak y el Laboratorio SPHEREx.':
+    '/audio/voice/tut_elevator_c03.wav',
+  'Has llegado a la Cubierta Científica. Sigue la baliza luminosa hacia babor hasta el Laboratorio Espectral SPHEREx y pulsa E para iniciar el análisis.':
+    '/audio/voice/tut_science.wav',
+  'Análisis científico registrado. En el nivel inferior cuentas además con la Bodega y el Hangar. Pulsa la tecla J para abrir tu Bitácora y Manual Operativo y completar el entrenamiento.':
+    '/audio/voice/tut_manual_journal.wav',
+  'Entrenamiento operativo completado. Tienes acceso libre a las cuatro cubiertas, a la Bitácora Personal y a la navegación interestelar.':
+    '/audio/voice/tut_completed.wav',
+  'Cubierta 01 — Puente de Mando. Desde este recinto en punta de flecha gobiernas los ventanales panorámicos, el chevrón de navegación y la mesa holográfica.':
+    '/audio/voice/deck_ctx_01.wav',
+  'Cubierta 02 — Habitacional y Esclusa EVA. Ocho camarotes radiales, comedor circular alrededor del núcleo central y esclusa de proa.':
+    '/audio/voice/deck_ctx_02.wav',
+  'Cubierta 03 — Ingeniería y Laboratorio SPHEREx. Aquí operan el reactor principal, tanques criogénicos, estación SPHEREx y el banco óptico de calibración.':
+    '/audio/voice/deck_ctx_03.wav',
+  'Cubierta 04 — Bodega y Hangar. Contenedores modulares presurizados y el transbordador auxiliar de servicio en proa.':
+    '/audio/voice/deck_ctx_04.wav',
+  'Soy KRONOX IA. Todos los sistemas científicos y de navegación están en línea bajo tu mando.':
+    '/audio/voice/voice_test_menu.wav',
+  'Hola Comandante, sistemas en línea.': '/audio/voice/voice_test.wav',
+});
+
+export function resolvePredefinedVoiceUrl(text) {
+  const clean = String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return PREDEFINED_VOICE_CLIPS[clean] || null;
+}
+
 export function createHttpVoiceProvider({
   id = 'legacy-irsa-game-voice',
   endpoint = '/api/voice',
@@ -34,6 +93,9 @@ export function createFishAudioVoiceProvider({
   return {
     id: 'fish-audio-cronos',
     referenceId,
+    staticAudioUrl({ text }) {
+      return resolvePredefinedVoiceUrl(text);
+    },
     audioUrl({ text, language = 'es-US', voiceId }) {
       const q = new URLSearchParams({
         text: String(text || '').trim(),
