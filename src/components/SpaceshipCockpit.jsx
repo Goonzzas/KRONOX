@@ -645,11 +645,13 @@ export default function SpaceshipCockpit({
               aria-hidden="true"
             />
           )}
-          {!activeStation && !freeHelmMode && pointerLockState?.eligible && !pointerLockState?.active && (
+          {!activeStation && !freeHelmMode && pointerLockState?.eligible && (
             <div className="kronoxPointerLockHint" role="status" aria-live="polite">
-              {pointerLockState.fallbackMode || !pointerLockState.supported
-                ? 'Arrastra con el mouse para girar la cámara · [ESC] Pausa'
-                : 'Haz clic para activar el control de cámara · [ESC] Pausa'}
+              {pointerLockState.active
+                ? 'Vista con ratón activa · Pulsa [L] para liberar el cursor · [ESC] Pausa'
+                : pointerLockState.fallbackMode || !pointerLockState.supported
+                  ? 'Arrastra con el mouse para girar la cámara · Clic para seleccionar · [ESC] Pausa'
+                  : 'Pulsa [L] para activar/liberar vista con ratón (o arrastra) · Clic para elegir planeta'}
             </div>
           )}
           {assetLoadingState?.active && (

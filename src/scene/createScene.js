@@ -4709,19 +4709,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     wasPointerLockedOnDown = pointerLockActive;
     pointerClickStart = { x: e.clientX, y: e.clientY };
     if (nearbyMapState) nearbyPointerStart = { x: e.clientX, y: e.clientY };
-    if (free && !exteriorCameraMode && !simulationPaused) {
-      const canTryLock =
-        e.pointerType !== 'touch' &&
-        (e.button === undefined || e.button === 0) &&
-        pointerLockSupported &&
-        !pointerLockFallbackActive &&
-        isPointerLockEligible();
-      if (!pointerLockActive && canTryLock) {
-        drag = 0;
-        requestPointerLockForLook('pointerdown');
-        return;
-      }
-      if (!pointerLockActive) {
+    if (free && !exteriorCameraMode && !simulationPaused && !pointerLockActive) {
+      if (e.button === undefined || e.button === 0 || e.pointerType === 'touch') {
+        // Arrastrar gira la cámara libremente sin secuestrar el puntero; la tecla [L] alterna Pointer Lock.
         drag = 1;
         try {
           dom.setPointerCapture?.(e.pointerId);
@@ -4940,6 +4930,65 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return;
     }
     if (contextOverview && clickMoved < 6) { const rect = dom.getBoundingClientRect(); nearbyPointer.set((e.clientX - rect.left) / rect.width * 2 - 1, 1 - (e.clientY - rect.top) / rect.height * 2); nearbyRaycaster.setFromCamera(nearbyPointer, cam); const atlas = navigationContext.id === 'stellar' ? stellarAtlas : regionalAtlas; const hit = nearbyRaycaster.intersectObjects([...atlas.markers.values()].map(e => e.marker), true).find(h => h.object.userData.catalogStarKey); if (hit) focusContextStar(hit.object.userData.catalogStarKey); return; }
+    // Coordenadas de puntero compartidas (centro en Pointer Lock [L] o cursor real en modo libre)
+    const rectForClick = clickMoved < 6 ? dom.getBoundingClientRect() : null;
+    const clickPxX = rectForClick
+      ? (wasPointerLockedOnDown ? rectForClick.width * 0.5 : e.clientX - rectForClick.left)
+      : 0;
+    const clickPxY = rectForClick
+      ? (wasPointerLockedOnDown ? rectForClick.height * 0.5 : e.clientY - rectForClick.top)
+      : 0;
+    if (rectForClick) {
+      if (wasPointerLockedOnDown) {
+        nearbyPointer.set(0, 0);
+      } else {
+        nearbyPointer.set(
+          ((e.clientX - rectForClick.left) / rectForClick.width) * 2 - 1,
+          -((e.clientY - rectForClick.top) / rectForClick.height) * 2 + 1,
+        );
+      }
+    }
+    const curDeckForClick = free && pv === 1 ? resolveCurrentDeck(astronautPos) : null;
+    const allowSkyObjectClick =
+      !free ||
+      pv === 3 ||
+      exteriorCameraMode ||
+      opticalTelescopeState.enabled ||
+      freeHelmMode ||
+      activeCabinStation === 'windows' ||
+      activeCabinStation === 'nav' ||
+      curDeckForClick?.id === 'deck-01';
+    // Etiquetas de planetas visibles: prioridad directa antes de que paredes del casco o cercanía a Tierra intercepten
+    let matchedPlanetLabel = null;
+    if (clickMoved < 6 && !nearbyMapState && allowSkyObjectClick && spacePlanetLabelHits.length && rectForClick) {
+      let bestLabelScore = Infinity;
+      for (const hit of spacePlanetLabelHits) {
+        const box = hit.labelBox;
+        if (!box) continue;
+        const pad = 6;
+        if (
+          clickPxX >= box.left - pad &&
+          clickPxX <= box.right + pad &&
+          clickPxY >= box.top - pad &&
+          clickPxY <= box.bottom + pad
+        ) {
+          const strictInside =
+            clickPxX >= box.left && clickPxX <= box.right && clickPxY >= box.top && clickPxY <= box.bottom;
+          const labelCx = (box.left + box.right) * 0.5;
+          const labelCy = (box.top + box.bottom) * 0.5;
+          const score = (strictInside ? 0 : 1000) + Math.hypot(clickPxX - labelCx, clickPxY - labelCy);
+          if (score < bestLabelScore) {
+            bestLabelScore = score;
+            matchedPlanetLabel = hit;
+          }
+        }
+      }
+    }
+    if (matchedPlanetLabel?.name) {
+      promotePlanetTexture(matchedPlanetLabel.name);
+      S.onObjectSelect?.({ kind: 'planet', key: matchedPlanetLabel.name });
+      return;
+    }
     // Interacción con consolas físicas 3D dentro de la cabina habitable en el Mundo Local (`localCam`, 1 u = 1 m)
     if (
       clickMoved < 6 &&
@@ -4947,18 +4996,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       free &&
       pv == 1 &&
       !realTimeIntro &&
-      !simulationPaused &&
-      (wasPointerLockedOnDown || pointerLockFallbackActive || !pointerLockSupported || e.pointerType === 'touch')
+      !simulationPaused
     ) {
-      if (wasPointerLockedOnDown) {
-        nearbyPointer.set(0, 0);
-      } else {
-        const rect = dom.getBoundingClientRect();
-        nearbyPointer.set(
-          ((e.clientX - rect.left) / rect.width) * 2 - 1,
-          -((e.clientY - rect.top) / rect.height) * 2 + 1,
-        );
-      }
       localCabinWorld.updateMatrixWorld();
       localCam.updateMatrixWorld();
       nearbyRaycaster.setFromCamera(nearbyPointer, localCam);
@@ -4990,27 +5029,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         }
       }
     }
-    // Bloque 3: Selección interactiva de objetos astronómicos y etiquetas de planetas en el universo 3D
-    const curDeckForClick = free && pv === 1 ? resolveCurrentDeck(astronautPos) : null;
-    const allowSkyObjectClick =
-      !free ||
-      pv === 3 ||
-      exteriorCameraMode ||
-      opticalTelescopeState.enabled ||
-      freeHelmMode ||
-      activeCabinStation === 'windows' ||
-      activeCabinStation === 'nav' ||
-      curDeckForClick?.id === 'deck-01';
-    if (clickMoved < 6 && !nearbyMapState && allowSkyObjectClick) {
-      if (wasPointerLockedOnDown) {
-        nearbyPointer.set(0, 0);
-      } else {
-        const rect = dom.getBoundingClientRect();
-        nearbyPointer.set(
-          ((e.clientX - rect.left) / rect.width) * 2 - 1,
-          -((e.clientY - rect.top) / rect.height) * 2 + 1,
-        );
-      }
+    // Bloque 3: Selección interactiva de objetos astronómicos en el universo 3D
+    if (clickMoved < 6 && !nearbyMapState && allowSkyObjectClick && rectForClick) {
       // Si el jugador está dentro del puente (pv === 1), verificar que el rayo no atraviese paredes/consolas interiores
       let blockedByInterior = false;
       if (free && pv === 1 && !exteriorCameraMode && !opticalTelescopeState.enabled) {
@@ -5039,31 +5059,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           }
           return true;
         };
-        if (!wasPointerLockedOnDown && spacePlanetLabelHits.length) {
-          const rect = dom.getBoundingClientRect();
-          const px = e.clientX - rect.left;
-          const py = e.clientY - rect.top;
-          let matchedLabel = null;
-          for (const hit of spacePlanetLabelHits) {
-            const box = hit.labelBox;
-            const insideLabel =
-              box && px >= box.left - 5 && px <= box.right + 5 && py >= box.top - 5 && py <= box.bottom + 5;
-            if (insideLabel && (!matchedLabel || hit.depth < matchedLabel.depth)) {
-              matchedLabel = hit;
-            }
-          }
-          if (matchedLabel?.name) {
-            promotePlanetTexture(matchedLabel.name);
-            S.onObjectSelect?.({ kind: 'planet', key: matchedLabel.name });
-            return;
-          }
-        }
         nearbyRaycaster.setFromCamera(nearbyPointer, cam);
         const starNodes = [...missionMarkers.values()].map((m) => m.marker);
         const planetNodes = B.map((b) => b.pivot);
-        const planetLabelNodes = planetLabelsGroup.children.filter((l) => l.visible);
         const hits = nearbyRaycaster.intersectObjects(
-          [...starNodes, ...planetNodes, ...planetLabelNodes],
+          [...starNodes, ...planetNodes],
           true,
         );
         const camForwardForPick = new V();
@@ -5112,19 +5112,22 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             return;
           }
         }
-        // Respaldo de clic sobre esfera o baliza planetaria lejana
-        if (!wasPointerLockedOnDown && spacePlanetLabelHits.length) {
-          const rect = dom.getBoundingClientRect();
-          const px = e.clientX - rect.left;
-          const py = e.clientY - rect.top;
+        // Respaldo de clic sobre esfera o baliza planetaria lejana (priorizando precisión angular/píxel al centro del disco)
+        if (spacePlanetLabelHits.length) {
           let matched = null;
+          let bestNormDist = Infinity;
           for (const hit of spacePlanetLabelHits) {
-            const box = hit.labelBox;
-            const insideLabel =
-              box && px >= box.left - 5 && px <= box.right + 5 && py >= box.top - 5 && py <= box.bottom + 5;
-            const insidePlanet = Math.hypot(px - hit.anchorPxX, py - hit.anchorPxY) <= hit.planetRadiusPx;
-            if (insideLabel || insidePlanet) {
-              if (!matched || hit.depth < matched.depth) matched = hit;
+            const distPx = Math.hypot(clickPxX - hit.anchorPxX, clickPxY - hit.anchorPxY);
+            if (distPx <= hit.planetRadiusPx) {
+              const normDist = distPx / Math.max(1, hit.planetRadiusPx);
+              if (
+                !matched ||
+                normDist < bestNormDist - 0.02 ||
+                (Math.abs(normDist - bestNormDist) <= 0.02 && hit.depth < matched.depth)
+              ) {
+                matched = hit;
+                bestNormDist = normDist;
+              }
             }
           }
           if (matched?.name) {
@@ -5310,6 +5313,27 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       e.preventDefault();
       e.stopImmediatePropagation?.();
       e.stopPropagation?.();
+      return;
+    }
+    // Tecla dedicada sin uso previo [L]: alternar captura de ratón (Pointer Lock) para mirar sin abrir Pausa
+    if (
+      k === 'l' &&
+      free &&
+      pv === 1 &&
+      !exteriorCameraMode &&
+      !realTimeIntro &&
+      !simulationPaused &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.altKey
+    ) {
+      e.preventDefault();
+      if (e.repeat) return;
+      if (pointerLockActive) {
+        exitPointerLockIfActive('toggle-key');
+      } else if (isPointerLockEligible()) {
+        requestPointerLockForLook('toggle-key');
+      }
       return;
     }
     keys[k] = 1;

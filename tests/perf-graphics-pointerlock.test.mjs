@@ -130,8 +130,15 @@ test('createScene supports Pointer Lock camera look, ESC pause unlock, drag fall
 
   try {
     const docListeners = new Map();
+    const winListeners = new Map();
     const canvasListeners = new Map();
     const origDocAdd = globalThis.document.addEventListener;
+    const origWinAdd = globalThis.addEventListener;
+    globalThis.addEventListener = (type, fn) => {
+      if (!winListeners.has(type)) winListeners.set(type, new Set());
+      winListeners.get(type).add(fn);
+      return origWinAdd?.call(globalThis, type, fn);
+    };
     globalThis.document.addEventListener = (type, fn) => {
       if (!docListeners.has(type)) docListeners.set(type, new Set());
       docListeners.get(type).add(fn);
@@ -169,9 +176,25 @@ test('createScene supports Pointer Lock camera look, ESC pause unlock, drag fall
     assert.equal(api.getPointerLockState().eligible, true);
     assert.equal(api.getPointerLockState().active, false);
 
-    // Click acquires Pointer Lock without competing pointer capture
+    // Normal click must leave pointer unlocked so player can freely click planet names/UI, while drag still turns camera
     canvasListeners.get('pointerdown')?.forEach((fn) =>
       fn({ button: 0, pointerId: 1, pointerType: 'mouse', clientX: 640, clientY: 400 }),
+    );
+    assert.equal(globalThis.document.pointerLockElement, null);
+    assert.equal(api.getPointerLockState().active, false);
+    const yawDragBefore = api.getAstronautPosition().yaw;
+    canvasListeners.get('pointermove')?.forEach((fn) =>
+      fn({ movementX: -24, movementY: 0 }),
+    );
+    harness.stepFrames(4);
+    assert.ok(api.getAstronautPosition().yaw > yawDragBefore + 0.02, 'Drag rotates camera while unlocked');
+    canvasListeners.get('pointerup')?.forEach((fn) =>
+      fn({ button: 0, pointerId: 1, pointerType: 'mouse', clientX: 616, clientY: 400 }),
+    );
+
+    // Dedicated unused key [L] activates Pointer Lock cleanly
+    winListeners.get('keydown')?.forEach((fn) =>
+      fn({ key: 'l', preventDefault() {}, target: null }),
     );
     assert.equal(globalThis.document.pointerLockElement, dom);
     assert.equal(api.getPointerLockState().active, true);
@@ -186,7 +209,19 @@ test('createScene supports Pointer Lock camera look, ESC pause unlock, drag fall
     const yawAfter = api.getAstronautPosition().yaw;
     assert.ok(yawAfter > yawBefore + 0.02, `Expected yaw to rotate on free mouse move (${yawBefore} -> ${yawAfter})`);
 
-    // External ESC release (browser exits Pointer Lock) triggers Pause callback
+    // Pressing [L] again releases Pointer Lock cleanly WITHOUT opening PauseMenu
+    winListeners.get('keydown')?.forEach((fn) =>
+      fn({ key: 'l', preventDefault() {}, target: null }),
+    );
+    assert.equal(globalThis.document.pointerLockElement, null);
+    assert.equal(api.getPointerLockState().active, false);
+    assert.equal(escapeCalls, 0);
+
+    // Re-lock with [L], then external ESC release (browser exits Pointer Lock) triggers Pause callback
+    winListeners.get('keydown')?.forEach((fn) =>
+      fn({ key: 'l', preventDefault() {}, target: null }),
+    );
+    assert.equal(api.getPointerLockState().active, true);
     globalThis.document.pointerLockElement = null;
     docListeners.get('pointerlockchange')?.forEach((fn) => fn());
     assert.equal(escapeCalls, 1);

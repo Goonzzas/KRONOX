@@ -1099,8 +1099,8 @@ export default function PauseMenu({
                       <strong>W / A / S / D o Flechas</strong>
                     </li>
                     <li>
-                      <span>Mirar alrededor:</span>
-                      <strong>Arrastrar con ratón</strong>
+                      <span>Mirar alrededor / alternar vista libre:</span>
+                      <strong>Arrastrar con ratón o tecla [L]</strong>
                     </li>
                     <li>
                       <span>Alternar 1ª Persona / 3ª Persona EVA:</span>

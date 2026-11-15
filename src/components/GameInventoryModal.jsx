@@ -84,7 +84,7 @@ const INSTRUMENTS_MANUAL_DATA = [
 
 const CONTROLS_MANUAL_DATA = [
   { keys: 'W A S D', action: 'Desplazarse por las cubiertas / Levantarse del sillón de mando' },
-  { keys: 'Mouse', action: 'Orientar la mirada de cámara (1ª y 3ª persona)' },
+  { keys: 'Mouse / L', action: 'Arrastrar para mirar o pulsar [L] para alternar vista libre con el ratón' },
   { keys: 'E', action: 'Interactuar con consolas, puertas de ascensor, objetos y sillón' },
   { keys: '1 · 2 · 3 · 4', action: 'Seleccionar cubierta C01–C04 dentro del ascensor central' },
   { keys: 'V / C', action: 'Alternar vista Cabina 1P / 3P y vista Exterior de la nave (120 m)' },
