@@ -4845,6 +4845,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const closeActiveCabinStation = () => {
     activeCabinStation = null;
     activeCabinStationAnchorPos = null;
+    if (!exteriorCameraMode && freeHelmMode) {
+      freeHelmMode = false;
+      freeHelmBlend = 0;
+      S.onFreeHelmChange?.(false);
+    }
     aiFollowAstronaut = true;
     luminousAI.pointAtWorldPosition(null, false);
     S.onStationInteract?.(null);

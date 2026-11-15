@@ -90,6 +90,12 @@ export function createVrConsoleOverlay3D() {
 
   const canDrawCanvas = typeof document !== 'undefined' && typeof document.createElement === 'function';
 
+  const applyCanvasTextureColorSpace = (tex) => {
+    if (tex && 'encoding' in tex && THREE.sRGBEncoding !== undefined) {
+      tex.encoding = THREE.sRGBEncoding;
+    }
+  };
+
   const panelCanvas = canDrawCanvas ? document.createElement('canvas') : null;
   if (panelCanvas) {
     panelCanvas.width = CANVAS_W;
@@ -97,9 +103,7 @@ export function createVrConsoleOverlay3D() {
   }
   const panelCtx = panelCanvas?.getContext?.('2d') || null;
   const panelTex = panelCanvas ? new THREE.CanvasTexture(panelCanvas) : null;
-  if (panelTex && 'colorSpace' in panelTex && THREE.SRGBColorSpace) {
-    panelTex.colorSpace = THREE.SRGBColorSpace;
-  }
+  applyCanvasTextureColorSpace(panelTex);
 
   const panelGeo = new THREE.PlaneGeometry(PANEL_WORLD_W, PANEL_WORLD_H);
   const panelMat = new THREE.MeshBasicMaterial({
@@ -153,9 +157,7 @@ export function createVrConsoleOverlay3D() {
   }
   const tipCtx = tipCanvas?.getContext?.('2d') || null;
   const tipTex = tipCanvas ? new THREE.CanvasTexture(tipCanvas) : null;
-  if (tipTex && 'colorSpace' in tipTex && THREE.SRGBColorSpace) {
-    tipTex.colorSpace = THREE.SRGBColorSpace;
-  }
+  applyCanvasTextureColorSpace(tipTex);
   const tipGeo = new THREE.PlaneGeometry(0.78, 0.16);
   const tipMat = new THREE.MeshBasicMaterial({
     map: tipTex || null,

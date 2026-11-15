@@ -595,8 +595,18 @@ test('vrControls controller raycasting skips hidden deck trees, prioritizes VR p
     assert.equal(leftClickPass.rayHit?.controllerHand, 'left');
     assert.equal(hitsTriggered.length, 2);
     assert.equal(hitsTriggered[1].stationId, 'nav');
-    // Recenter was NOT fired when clicking a targeted console
-    assert.ok(Math.abs(xrManager.getState().recenterOffset[1] - 1.65) < 1e-4);
+    // Recenter was NOT fired when clicking a targeted console (offset remains 1.65, so rig y = 5.05 - 1.65 = 3.40)
+    const cabinEyePos = new THREE.Vector3(0, 5.05, -10.4);
+    const cabinYawQuat = new THREE.Quaternion();
+    xrManager.syncRigsBeforeRender({
+      astroCamPos: new THREE.Vector3(),
+      astroCamQuat: new THREE.Quaternion(),
+      localEyePos: cabinEyePos,
+      localYawQuat: cabinYawQuat,
+      inCabin: true,
+      xrFrame: standingLaterFrame,
+    });
+    assert.ok(Math.abs((xrManager.vrLocalRig.position.y + 1.92) - 5.32) < 1e-4);
 
     // 4. Release & aim into open space: left trigger performs normal HMD recenter
     leftGamepad.buttons[0].pressed = false;
@@ -610,7 +620,15 @@ test('vrControls controller raycasting skips hidden deck trees, prioritizes VR p
       interactableMeshes: [visibleNavMesh],
     });
     assert.equal(openSpacePass.rayHit, null);
-    assert.ok(Math.abs(xrManager.getState().recenterOffset[1] - 1.92) < 1e-4);
+    xrManager.syncRigsBeforeRender({
+      astroCamPos: new THREE.Vector3(),
+      astroCamQuat: new THREE.Quaternion(),
+      localEyePos: cabinEyePos,
+      localYawQuat: cabinYawQuat,
+      inCabin: true,
+      xrFrame: standingLaterFrame,
+    });
+    assert.ok(Math.abs((xrManager.vrLocalRig.position.y + 1.92) - 5.05) < 1e-4);
   } finally {
     if (prevDesc) Object.defineProperty(globalThis, 'navigator', prevDesc);
     else delete globalThis.navigator;
@@ -635,25 +653,26 @@ test('VR diegetic console screens and contextual 3D panels operate every C01-C04
     api.view(1);
     harness.stepFrames(4);
 
-    const { createKronoxInterior120M } = await harness.server.ssrLoadModule('/src/scene/kronoxInterior120M.js');
+    const { buildKronoxInterior120M } = await harness.server.ssrLoadModule('/src/scene/kronoxInterior120M.js');
     const { createVrConsoleOverlay3D } = await harness.server.ssrLoadModule('/src/scene/vrConsoleOverlay3D.js');
 
     // 1. Verify interactive consoles across Decks C01-C03 are registered as raycastable meshes
-    const interior = createKronoxInterior120M();
+    const interior = buildKronoxInterior120M();
     const deck01Ids = interior.getInteractMeshesForDeck('deck-01').map((m) => m.userData?.interactId);
     const deck02Ids = interior.getInteractMeshesForDeck('deck-02').map((m) => m.userData?.interactId);
     const deck03Ids = interior.getInteractMeshesForDeck('deck-03').map((m) => m.userData?.interactId);
 
-    for (const id of ['nav', 'missions', 'comms', 'windows', 'elevator-panel']) {
+    for (const id of ['nav', 'missions', 'comms', 'windows', 'elevator-call-deck-01-bow', 'elevator-floor-deck-01']) {
       assert.ok(deck01Ids.includes(id), `Expected C01 deck-01 interactable meshes to include ${id}`);
     }
     assert.ok(deck01Ids.filter((id) => id === 'windows').length >= 2, 'Expected C01 wing/wall displays registered');
-    for (const id of ['comms', 'science', 'archive', 'engineering', 'nav', 'missions', 'elevator-panel']) {
+    for (const id of ['comms', 'science', 'archive', 'engineering', 'nav', 'missions', 'elevator-call-deck-02-bow']) {
       assert.ok(deck02Ids.includes(id), `Expected C02 deck-02 interactable meshes to include ${id}`);
     }
-    for (const id of ['engineering', 'science', 'sensor-calibration', 'elevator-panel']) {
+    for (const id of ['engineering', 'science', 'sensor-calibration', 'elevator-call-deck-03-bow']) {
       assert.ok(deck03Ids.includes(id), `Expected C03 deck-03 interactable meshes to include ${id}`);
     }
+    interior.dispose?.();
 
     // 2. Verify contextual vrConsoleOverlay3D stays hidden when exploring freely, shows tooltip on aim, and opens buttons per station
     const overlay = createVrConsoleOverlay3D();
@@ -765,13 +784,19 @@ test('VR diegetic console screens and contextual 3D panels operate every C01-C04
     assert.ok(getActions().includes('toggle-free-helm'));
     overlay.dispose();
 
-    // 3. Verify createScene handles console actions, syncVrContext, and Button B close cleanly
+    // 3. Verify createScene handles real console proximity interaction, console actions, syncVrContext, and Button B close/stand-up
     assert.equal(api.getVrConsoleButtonMeshes().length, 0);
+    if (api.isAstronautSeated()) api.standUpFromBridgeSeat();
+    assert.equal(api.isAstronautSeated(), false);
 
-    api.setActiveCabinStation('sensor-calibration');
+    api.teleportAstronautToDeck('deck-03');
+    api.setAstronautPosition({ x: 12.8, y: -3.4, z: 0.0 }, -Math.PI / 2, -0.06);
+    harness.stepFrames(4);
+    assert.equal(api.activateNearestStation(), true);
     assert.ok(stationEvents.includes('sensor-calibration'));
-    api.handleVrConsoleAction('repair-next-stage');
     assert.equal(api.getRepairMissionStage(), 1);
+    api.handleVrConsoleAction('repair-next-stage');
+    assert.equal(api.getRepairMissionStage(), 2);
     api.handleVrConsoleAction('repair-set-stage', { stage: 4 });
     assert.equal(api.getRepairMissionStage(), 4);
     api.handleVrConsoleAction('repair-reset');
@@ -783,19 +808,38 @@ test('VR diegetic console screens and contextual 3D panels operate every C01-C04
     api.handleVrConsoleAction('elevator-floor', { deckId: 'deck-03' });
     assert.equal(api.getElevatorState()?.targetDeckId, 'deck-03');
 
-    api.setActiveCabinStation('nav');
+    api.teleportAstronautToDeck('deck-01');
+    api.setAstronautPosition({ x: 0.0, y: 3.4, z: -9.3 }, 0, -0.06);
+    harness.stepFrames(4);
+    assert.equal(api.activateNearestStation(), true);
+    assert.equal(stationEvents[stationEvents.length - 1], 'nav');
+    api.handleVrConsoleAction('sit-command-seat');
+    assert.equal(api.isAstronautSeated(), true);
+
+    // Button B in Cabina 1P closes active console first, then second press stands up from command seat
+    api.applyVrControllerInput({ toggleFreeHelm: true });
+    harness.stepFrames(2);
+    assert.equal(stationEvents[stationEvents.length - 1], null);
+    api.applyVrControllerInput(null);
+    harness.stepFrames(2);
+
+    api.applyVrControllerInput({ toggleFreeHelm: true });
+    harness.stepFrames(2);
+    assert.equal(api.isAstronautSeated(), false);
+    api.applyVrControllerInput(null);
+    harness.stepFrames(2);
+
+    // From nav panel, Timón libre enters Exterior Free Helm and Button B toggles it back off
     api.handleVrConsoleAction('toggle-free-helm');
     assert.equal(api.isFreeHelmActive(), true);
     assert.equal(freeHelmEvents[freeHelmEvents.length - 1], true);
-
-    // Button B disables Free Helm first, then second press closes the console
-    api.applyVrControllerInput({ buttons: { toggleFreeHelm: true } });
+    api.applyVrControllerInput({ toggleFreeHelm: true });
     harness.stepFrames(2);
     assert.equal(api.isFreeHelmActive(), false);
-
-    api.applyVrControllerInput({ buttons: { toggleFreeHelm: true } });
+    api.applyVrControllerInput(null);
     harness.stepFrames(2);
-    assert.equal(stationEvents[stationEvents.length - 1], null);
+    api.view(1);
+    harness.stepFrames(2);
 
     api.handleVrConsoleAction('travel-planet', { planetName: 'Saturno' });
     api.handleVrConsoleAction('travel-spherex', { targetKey: 'barnard' });
