@@ -3358,17 +3358,6 @@ export default function App() {
               },
               'Abrir Explorador · DR1 102 canales',
             ),
-            h(
-              'button',
-              {
-                className: 'missionLaunchButton',
-                disabled: countdown !== null || missionArrival || missionTraveling,
-                onClick: () => setMissionSelectorOpen(true),
-              },
-              countdown !== null || missionArrival || missionTraveling
-                ? 'Preparando viaje…'
-                : 'Elegir misión ↗',
-            ),
           ),
         ),
       ),

@@ -20,13 +20,17 @@ import json
 import math
 import mimetypes
 import os
+import ssl
 import struct
+import tempfile
 import traceback
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional, Tuple
+
+import certifi
 
 from descargar_spherex_dr1_qr3 import REAL_LEVEL2_SETS, REAL_SPHEREX_FIELDS
 from fits_engine import (
@@ -43,6 +47,7 @@ from irsa_client import (
 import spherex_api_real
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+HTTPS_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 DATA_DIR = os.path.join(BASE_DIR, "data")
 REAL_DOWNLOAD_ROOT = os.path.join(BASE_DIR, "SPHEREx_DR1_QR3")
 REAL_API_ROOT = os.path.join(BASE_DIR, "SPHEREx_REAL")
@@ -445,7 +450,10 @@ class DatasetStore:
 
 DEFAULT_HIPS_BASE = "https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube"
 DEFAULT_CUBE_BASE = "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/hips5_cube/hips_20261026"
-HIPS_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".hips_cache")
+HIPS_CACHE_DIR = os.environ.get(
+    "SPHEREX_CACHE_DIR",
+    os.path.join(tempfile.gettempdir(), "kronox-spherex-hips-cache"),
+)
 _CUBE_INDEX_CACHE: Dict[str, Dict[str, Any]] = {}
 
 
@@ -467,16 +475,33 @@ def _cached_http_get(url: str, force: bool = False, timeout: int = 18) -> bytes:
     os.makedirs(HIPS_CACHE_DIR, exist_ok=True)
     key = hashlib.sha256(url.encode("utf-8")).hexdigest()
     cpath = os.path.join(HIPS_CACHE_DIR, f"{key}.bin")
-    if not force and os.path.exists(cpath):
-        with open(cpath, "rb") as f:
-            return f.read()
+    if not force:
+        try:
+            with open(cpath, "rb") as f:
+                return f.read()
+        except OSError:
+            pass
     req = urllib.request.Request(url, headers={"User-Agent": "SPHEREx-Explorer/1.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout, context=HTTPS_CONTEXT) as resp:
         data = resp.read()
-    tmp = f"{cpath}.tmp"
-    with open(tmp, "wb") as f:
-        f.write(data)
-    os.replace(tmp, cpath)
+    tmp = None
+    try:
+        fd, tmp = tempfile.mkstemp(prefix=f"{key}.", suffix=".tmp", dir=HIPS_CACHE_DIR)
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+        os.replace(tmp, cpath)
+    except OSError:
+        try:
+            with open(cpath, "rb") as f:
+                return f.read()
+        except OSError:
+            return data
+    finally:
+        if tmp:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
     return data
 
 
@@ -599,7 +624,7 @@ def _fetch_range_bytes(url: str, start: int, length: int, timeout: int = 15) -> 
         url,
         headers={"Range": f"bytes={start}-{start + length - 1}", "User-Agent": "SPHEREx-Explorer/1.0"},
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout, context=HTTPS_CONTEXT) as resp:
         return resp.read()
 
 
@@ -1015,7 +1040,9 @@ class VisualizerRequestHandler(BaseHTTPRequestHandler):
         qs = urllib.parse.parse_qs(parsed.query)
 
         try:
-            if path == "/api/datasets":
+            if path == "/api/health":
+                self._send_json({"ok": True, "service": "spherex-visualizer", "version": 2})
+            elif path == "/api/datasets":
                 self._handle_list_datasets()
             elif path == "/api/bundle":
                 self._handle_get_dataset_bundle(qs)

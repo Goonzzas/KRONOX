@@ -11,7 +11,7 @@ python3 server.py --port 8765
 
 Then open **http://127.0.0.1:8765** in your browser.
 
-In KRONOX, the 102-channel DR1 explorer is opened from the SPHEREx mission's **Imágenes** stage. Its embedded viewer queries this local service for the real FITS catalog, HiPS tiles, and IRSA products. The repository does not include downloaded observation caches or the generated demonstration FITS files; the server queries public IRSA products on demand.
+In KRONOX, the original interactive visualizer is embedded directly inside **New Observatory**. Its maps, 102-channel cube, FITS inspection, and IRSA queries use this local service. Start KRONOX with `INICIAR-DEMO.ps1`; the launcher reuses a compatible service or starts this server on an available port (8766 or 8765) and waits for its dataset API before opening the game. The repository does not include downloaded observation caches or generated demonstration FITS files; the server queries public IRSA products on demand.
 
 ---
 

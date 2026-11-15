@@ -1600,6 +1600,7 @@
 
     async function loadRealDataset(datasetId) {
       if (!datasetId) return;
+      cube102.atlasRegion = false;
       const dsInfo = state.catalog.find(d => d.id === datasetId);
       const isOnDemand = dsInfo && dsInfo.type === 'real_spherex_ondemand';
 
@@ -5231,7 +5232,8 @@
       coldMsList: [],
       cacheMsList: [],
       blankChannels: new Set([50, 51]),
-      wavelengthsUm: []
+      wavelengthsUm: [],
+      atlasRegion: false
     };
 
     const DET_NAMES_ES = [
@@ -5910,7 +5912,7 @@
       }
 
       cube102.fovDeg = Math.min(45, cube102.fovDeg > 45 ? 3.5 : cube102.fovDeg);
-      if (state.wcs && Number.isFinite(state.wcs.crval_ra) && (state.wcs.crval_ra !== 0 || state.wcs.crval_dec !== 0)) {
+      if (!cube102.atlasRegion && state.wcs && Number.isFinite(state.wcs.crval_ra) && (state.wcs.crval_ra !== 0 || state.wcs.crval_dec !== 0)) {
         cube102.ra = state.wcs.crval_ra;
         cube102.dec = state.wcs.crval_dec;
       }
@@ -7053,15 +7055,15 @@
         const dDec = Math.abs(Number(ds.dec) - dec);
         return Math.hypot(dRa * Math.cos(dec * Math.PI / 180), dDec) <= 0.35;
       });
-      if (match) {
+      if (match && match.type !== 'real_spherex_ondemand') {
         loadRealDataset(match.id);
-      } else if (typeof activateCube102Explorer === 'function') {
-        cube102.ra = ((ra % 360) + 360) % 360;
-        cube102.dec = Math.max(-90, Math.min(90, dec));
-        if (Number.isFinite(fov)) cube102.fovDeg = Math.max(0.35, Math.min(45, fov));
-        if (Number.isFinite(channel)) cube102.channel = Math.max(0, Math.min(101, channel - 1));
-        activateCube102Explorer(false);
       }
+      cube102.atlasRegion = true;
+      cube102.ra = ((ra % 360) + 360) % 360;
+      cube102.dec = Math.max(-90, Math.min(90, dec));
+      if (Number.isFinite(fov)) cube102.fovDeg = Math.max(0.35, Math.min(45, fov));
+      if (Number.isFinite(channel)) cube102.channel = Math.max(0, Math.min(101, channel - 1));
+      setExplorerMode('cube102');
       const metaEl = document.getElementById('headerObjectMeta');
       if (metaEl && target) metaEl.textContent = `Región Atlas: ${target} (RA ${ra.toFixed(4)}°, Dec ${dec.toFixed(4)}°)`;
     }
