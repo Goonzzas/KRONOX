@@ -114,6 +114,15 @@ export function unlockAchievement(achievementId) {
         // Ignore storage error
       }
     }
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      try {
+        window.dispatchEvent(
+          new CustomEvent('kronox:achievement-unlocked', { detail: { achievementId } }),
+        );
+      } catch {
+        // Ignore dispatch failure in restricted environments
+      }
+    }
     return true; // Newly unlocked
   }
   return false;

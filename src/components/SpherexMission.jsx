@@ -447,6 +447,7 @@ export default function SpherexMission({
   language = 'es',
   onStateSync,
   onAskKronox,
+  onSfxCue,
   aiHighlightActive = false,
   cinematicMode = false,
   onCinematicComplete,
@@ -1166,9 +1167,11 @@ export default function SpherexMission({
       setFindingText('');
       setActiveMarker(null);
       setFindingError('');
+      onSfxCue?.('capture');
       setToastMessage('Hallazgo anotado en tu cuaderno de expedición');
       setTimeout(() => setToastMessage(''), 3500);
     } catch (err) {
+      onSfxCue?.('error');
       setFindingError(err.message || 'Error al guardar el hallazgo.');
     }
   };
@@ -2280,6 +2283,7 @@ export default function SpherexMission({
                       'No se pudo persistir el cuaderno. Exporta la evidencia antes de cerrar.',
                     );
                   setFindings(next);
+                  onSfxCue?.('evidence-ok');
                   setToastMessage('Investigación registrada: conclusión y evidencia guardadas.');
                 }}
               />

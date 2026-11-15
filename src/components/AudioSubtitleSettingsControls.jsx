@@ -55,14 +55,14 @@ export function AudioSettingsGroup({
       <VolumeSliderRow
         id="kronox-vol-music"
         label="Volumen de música"
-        description="Ajusta la banda sonora cinematográfica de la secuencia de inicio."
+        description="Ajusta la banda sonora cinematográfica inicial y la música espacial adaptativa."
         value={gameSettings.musicVolume ?? 0.38}
         onChange={(v) => onUpdateSetting('musicVolume', v)}
       />
       <VolumeSliderRow
         id="kronox-vol-sfx"
         label="Volumen de efectos y ambiente"
-        description="Controla el zumbido del reactor, ambiente orbital y respuesta táctil de consolas."
+        description="Controla el zumbido del reactor, ambiente por cubiertas, ascensor, propulsores y respuesta táctil."
         value={gameSettings.sfxVolume ?? 0.65}
         onChange={(v) => onUpdateSetting('sfxVolume', v)}
       />

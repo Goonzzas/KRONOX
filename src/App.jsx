@@ -489,29 +489,51 @@ export default function App() {
       /* Preference stays in memory. */
     }
   }, [quality]);
-  const playCue = (kind) => gameAudioRef.current?.cue(kind);
-  const ensureGameplayAudioStarted = () => {
+  const playCue = (kind) => {
+    if (!gameAudioRef.current && (kind === 'confirm' || kind === 'tap' || kind === 'interface-open')) {
+      ensureGameplayAudioStarted();
+    }
+    gameAudioRef.current?.cue(kind);
+  };
+  const syncAudioEngineState = (audio = gameAudioRef.current) => {
+    if (!audio) return;
     const master = Number(gameSettingsRef.current?.masterVolume ?? 0.85);
+    const music = Number(gameSettingsRef.current?.musicVolume ?? 0.38);
     const sfx = Number(gameSettingsRef.current?.sfxVolume ?? 0.65);
-    const mix = Math.max(0, Math.min(1, master * sfx));
+    const hasAudibleBus = master * sfx > 0.005 || master * music > 0.005;
+    audio.setMix?.({ master, music, sfx });
+    audio.setMusicSuppressed?.(realTimeIntroActiveRef.current);
+    audio.setSpeaking?.(speakingRef.current);
+    audio.setPaused?.(pauseMenuOpenRef.current);
+    audio.setEnvironmentState?.({
+      zone: mainMenuVisibleRef.current ? 'menu' : undefined,
+      missionOpen: Boolean(missionOpenRef.current),
+      paused: Boolean(pauseMenuOpenRef.current),
+    });
+    return hasAudibleBus;
+  };
+  const ensureGameplayAudioStarted = () => {
     if (!gameAudioRef.current) {
       gameAudioRef.current = createGameAudio();
     }
     if (gameAudioRef.current) {
-      gameAudioRef.current.setVolume(mix);
-      gameAudioRef.current.setEnabled(mix > 0.005);
-      setAmbientEnabled(mix > 0.005);
+      gameAudioRef.current.unlock?.();
+      const hasAudibleBus = Boolean(syncAudioEngineState(gameAudioRef.current));
+      gameAudioRef.current.setEnabled(hasAudibleBus);
+      setAmbientEnabled(hasAudibleBus);
     }
     introSoundtrackRef.current?.unlock?.();
   };
   const toggleAmbient = () => {
     const master = Number(gameSettingsRef.current?.masterVolume ?? 0.85);
+    const music = Number(gameSettingsRef.current?.musicVolume ?? 0.38);
     const sfx = Number(gameSettingsRef.current?.sfxVolume ?? 0.65);
-    const mix = Math.max(0, Math.min(1, master * sfx));
     if (!gameAudioRef.current) {
       gameAudioRef.current = createGameAudio();
       if (!gameAudioRef.current) return;
-      gameAudioRef.current?.setVolume(mix);
+      syncAudioEngineState(gameAudioRef.current);
+    } else {
+      gameAudioRef.current.setMix?.({ master, music, sfx });
     }
     const next = !ambientEnabled;
     gameAudioRef.current?.setEnabled(next);
@@ -533,11 +555,30 @@ export default function App() {
   useEffect(() => {
     const previous = previousUiOpenRef.current;
     previousUiOpenRef.current = interfaceStates;
-    if (previous && interfaceStates.some((isOpen, index) => isOpen && !previous[index])) {
+    if (!previous) return;
+    if (interfaceStates.some((isOpen, index) => isOpen && !previous[index])) {
       playCue('interface-open');
+    } else if (interfaceStates.some((isOpen, index) => !isOpen && previous[index])) {
+      playCue('interface-close');
     }
   }, [missionOpen, missionSelectorOpen, kronoxOpen, activeCockpitStation, open, quickOpen,
     pauseMenuOpen, personalHubOpen, spherexDocOpen, nearbyMapActive]);
+  useEffect(() => {
+    const handleFirstGestureUnlock = () => {
+      ensureGameplayAudioStarted();
+    };
+    const handleAchievementUnlocked = () => {
+      playCue('achievement');
+    };
+    window.addEventListener('pointerdown', handleFirstGestureUnlock, { once: true, passive: true });
+    window.addEventListener('keydown', handleFirstGestureUnlock, { once: true, passive: true });
+    window.addEventListener('kronox:achievement-unlocked', handleAchievementUnlocked);
+    return () => {
+      window.removeEventListener('pointerdown', handleFirstGestureUnlock);
+      window.removeEventListener('keydown', handleFirstGestureUnlock);
+      window.removeEventListener('kronox:achievement-unlocked', handleAchievementUnlocked);
+    };
+  }, []);
   const chooseLanguage = (nextLanguage) => {
     languageManuallyChosen.current = true;
     setLanguageState(nextLanguage);
@@ -1291,6 +1332,7 @@ export default function App() {
       },
       onVrAction: (action, payload) => vrHandlersRef.current?.[action]?.(payload),
       onSfxCue: playCue,
+      onAudioEnvironment: (env) => gameAudioRef.current?.setEnvironmentState?.(env),
       onVrPauseRequest: (opts) => {
         if (opts?.resumeOnly || pauseMenuOpenRef.current || api.current?.isSimulationPaused?.()) {
           setPauseMenuOpen(false);
@@ -1739,9 +1781,29 @@ export default function App() {
     const vox = Number(gameSettings.voiceVolume ?? 0.95);
     introSoundtrackRef.current?.setSpeaking(speaking);
     introSoundtrackRef.current?.setVolume(Math.max(0, Math.min(1, master * music)));
-    gameAudioRef.current?.setVolume(Math.max(0, Math.min(1, master * sfx)));
+    gameAudioRef.current?.setMix?.({ master, music, sfx });
+    gameAudioRef.current?.setMusicSuppressed?.(realTimeIntroActive);
+    gameAudioRef.current?.setSpeaking?.(speaking);
+    gameAudioRef.current?.setPaused?.(pauseMenuOpen);
+    gameAudioRef.current?.setEnvironmentState?.({
+      zone:
+        welcomeOpen || showFullMainMenu
+          ? 'menu'
+          : !fr
+            ? 'map'
+            : pv == 3
+              ? 'exterior'
+              : 'cabin',
+      deckId: astronautSectorState?.deckId || 'deck-01',
+      missionOpen: Boolean(missionOpen),
+      paused: Boolean(pauseMenuOpen),
+      sleeping: Boolean(restingState?.sleeping),
+      resting: Boolean(restingState?.active),
+      elevatorMoving: Boolean(elevatorState?.moving),
+      hyperspacePhase: navigation?.phase || null,
+    });
     if (gameAudioRef.current && ambientEnabled) {
-      gameAudioRef.current.setEnabled(master * sfx > 0.005);
+      gameAudioRef.current.setEnabled(master * sfx > 0.005 || master * music > 0.005);
     }
     if (voiceAudio.current) {
       voiceAudio.current.volume = voice ? Math.max(0, Math.min(1, master * vox)) : 0;
@@ -1755,7 +1817,24 @@ export default function App() {
       prevSettingMgRef.current = gameSettings.microgravityMode;
       api.current?.setMicrogravityMode?.(gameSettings.microgravityMode);
     }
-  }, [speaking, voice, gameSettings, ambientEnabled]);
+  }, [
+    speaking,
+    voice,
+    gameSettings,
+    ambientEnabled,
+    realTimeIntroActive,
+    welcomeOpen,
+    showFullMainMenu,
+    pauseMenuOpen,
+    missionOpen,
+    astronautSectorState?.deckId,
+    restingState?.sleeping,
+    restingState?.active,
+    elevatorState?.moving,
+    navigation?.phase,
+    fr,
+    pv,
+  ]);
   useEffect(() => {
     const levelSum = audioLevels.reduce((acc, v) => acc + v, 0);
     const normLevel = speaking
@@ -3617,6 +3696,11 @@ export default function App() {
             (previousGuideSync.stage !== nextGuideSync.stage ||
               previousGuideSync.findingCount < nextGuideSync.findingCount)
           ) {
+            if (previousGuideSync.findingCount < nextGuideSync.findingCount) {
+              playCue('evidence-ok');
+            } else if (previousGuideSync.stage !== nextGuideSync.stage) {
+              playCue('scan');
+            }
             A().onGuidedScienceAction?.(nextGuideSync);
           }
           try {
@@ -3635,6 +3719,7 @@ export default function App() {
           }
         },
         onAskKronox: (q) => handleKronoxCommand(q),
+        onSfxCue: playCue,
       }),
     ),
     spherexDocOpen &&
@@ -3968,6 +4053,7 @@ export default function App() {
       },
       observationModeInfo,
       onSetOpticalTelescope: (enabled, magnification = 150, targetBody = null) => {
+        playCue(enabled ? 'scan' : 'switch');
         const targetName = targetBody || observationModeInfo?.opticalTargetBody || f || near || 'Júpiter';
         const obsRes = A()?.setOpticalTelescope?.(enabled, magnification, targetName);
         if (obsRes) setObservationModeInfo(obsRes);
@@ -4072,6 +4158,7 @@ export default function App() {
     }),
     h(RepairMissionModal, {
       isOpen: activeCockpitStation === 'sensor-calibration',
+      onSfxCue: playCue,
       onStageChange: (stage) => {
         A()?.setRepairMissionStage?.(stage);
       },
@@ -4080,6 +4167,7 @@ export default function App() {
         A()?.setActiveCabinStation?.(null);
       },
       onMissionComplete: () => {
+        playCue('mission-complete');
         A()?.setRepairMissionStage?.(4);
         setActiveCockpitStation(null);
         A()?.setActiveCabinStation?.(null);
@@ -4368,6 +4456,7 @@ export default function App() {
           astronautDeckId: astronautSectorState.deckId,
         });
         setSavedGameSnapshot(snap);
+        playCue('confirm');
         notify('Estado de expedición guardado.', 'Guardado');
       },
     }),

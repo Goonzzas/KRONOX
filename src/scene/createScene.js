@@ -3421,6 +3421,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let lastElevatorChimeCount = 0;
   let lastElevatorPhaseForSfx = 'idle';
   let wasThrusterSfxActive = false;
+  let lastVrHoverButtonKey = null;
+  let lastAudioEnvEmitMs = 0;
+  let lastAudioEnvSignature = '';
   const _interactRaycaster = typeof THREE.Raycaster === 'function' ? new THREE.Raycaster() : null;
   const _centerNdc = new THREE.Vector2(0, 0);
   const _camClipOrigin = new V();
@@ -4440,7 +4443,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.onStationInteract?.(null);
     }
 
-    S.onSfxCue?.('tap');
+    S.onSfxCue?.('rest-start');
     S.onInteractionFeedback?.({
       id: suite.bedId,
       text: `Descansando en ${suite.code} (${suite.name}). Pulsa [R] para siesta orbital o [E / WASD] para levantarte.`,
@@ -4460,7 +4463,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     });
     if (res?.state) S.onMechanismsChange?.({ ...res.state });
     S.onRestStateChange?.(getRestStateSnapshot());
-    S.onSfxCue?.('tap');
+    S.onSfxCue?.('rest-nap');
     S.onInteractionFeedback?.({
       id: 'bed-rest-nap',
       text: `Iniciando ciclo de descanso circadiano en ${astronautRestingInBed.suite.code}...`,
@@ -5534,7 +5537,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
   function handleVrConsoleAction(action, payload = {}) {
     if (!action) return false;
-    S.onSfxCue?.('tap');
+    S.onSfxCue?.('vr-select');
     if (action === 'ui-nav-tab') {
       vrConsoleOverlay.setNavTab(payload?.tab);
       return true;
@@ -6813,7 +6816,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         const previous = sp.clone(), oldPhase = nav.phase; advanceJump(nav, dt); sp.copy(nav.position); q.copy(nav.currentQuaternion);
         vel.copy(sp).sub(previous).divideScalar(Math.max(dt, 1e-4));
         const heading = new THREE.Euler().setFromQuaternion(q, 'YXZ'); fy = heading.y; fp = heading.x; bk = 0;
-        if (oldPhase !== nav.phase && nav.phase === 'HYPERSPACE_ENTRY') sceneDirector.dispatchEvent('JUMP_INITIATED', { targetName: nav.name });
+        if (oldPhase !== nav.phase) {
+          if (nav.phase === 'HYPERSPACE_ENTRY') {
+            sceneDirector.dispatchEvent('JUMP_INITIATED', { targetName: nav.name });
+            S.onSfxCue?.('hyperspace-entry');
+          } else if (nav.phase === 'HYPERSPACE_EXIT') {
+            S.onSfxCue?.('hyperspace-exit');
+          }
+        }
         if (nav.done) {
           const completed = nav; arrivalTarget = completed.target.clone(); lastJump = { name: completed.name, objectKey: completed.objectKey, target: completed.target.toArray(), position: completed.to.toArray(), quaternion: completed.q.toArray(), phases: [...completed.history] };
           nav = null; disposeTravelEffect(); vel.set(0, 0, 0); releaseInputs();
@@ -7606,7 +7616,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             elSys.update(dt);
             if ((elSys.state.chimeCount || 0) > lastElevatorChimeCount) {
               lastElevatorChimeCount = elSys.state.chimeCount;
-              S.onSfxCue?.('chime');
+              S.onSfxCue?.('elevator-arrive');
               S.onInteractionFeedback?.({
                 id: 'elevator-arrival',
                 text: `Ascensor en cubierta ${resolveCurrentDeck({ y: elSys.state.cabY })?.code || ''}.`,
@@ -7616,6 +7626,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             if (elSys.state.phase !== lastElevatorPhaseForSfx) {
               if (elSys.state.phase === 'door-closing' || elSys.state.phase === 'door-opening') {
                 S.onSfxCue?.('door');
+              } else if (elSys.state.phase === 'moving') {
+                S.onSfxCue?.('elevator-start');
               }
               lastElevatorPhaseForSfx = elSys.state.phase;
             }
@@ -7705,7 +7717,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               });
               if (finSetRes?.state) S.onMechanismsChange?.({ ...finSetRes.state });
               S.onRestStateChange?.(getRestStateSnapshot());
-              S.onSfxCue?.('pickup');
+              S.onSfxCue?.('rest-complete');
               S.onInteractionFeedback?.({
                 id: 'bed-rest-nap',
                 text: `Siesta orbital completada en ${astronautRestingInBed.suite.code} (+4h). Energía restaurada al 100%.`,
@@ -8556,6 +8568,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               S.onConsoleScreenProjection(null);
             }
             if (vrConsoleOverlay) {
+              const nextVrHoverKey =
+                activeCabinStation && vrFrame?.rayHit?.vrAction
+                  ? vrFrame?.rayHit?.vrPayload?.buttonKey || null
+                  : null;
+              if (nextVrHoverKey && nextVrHoverKey !== lastVrHoverButtonKey) {
+                S.onSfxCue?.('vr-hover');
+              }
+              lastVrHoverButtonKey = nextVrHoverKey;
               const elSysVr = fourDecksInterior?.elevatorSystem;
               const doorHereVr = Number(elSysVr?.state?.doorOpenByDeck?.[activeDeckInfo?.id] ?? 0);
               const cabHereVr = Boolean(
@@ -8595,6 +8615,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
           }
         } else {
+          lastVrHoverButtonKey = null;
           vrConsoleOverlay?.update?.({ presenting: false, inCabin: false });
           localCabinWorld.visible = false;
           if (nearestCabinStation || lastNearestStationId || activeCabinStation) {
@@ -9158,6 +9179,51 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     if (hyperspace) hyperspace.update(nav, cam, dt);
     astronomicalHologram.update(dt, clk.elapsedTime, isCabinActive && localCabinWorld.visible);
+
+    if (S.onAudioEnvironment) {
+      const nowEnvMs = performance.now();
+      if (nowEnvMs - lastAudioEnvEmitMs >= 160) {
+        lastAudioEnvEmitMs = nowEnvMs;
+        const zoneNow = mainMenuOrbitActive
+          ? 'menu'
+          : nearbyMapState || !free
+            ? 'map'
+            : pv === 1 && !exteriorCameraMode && isCabinActive
+              ? 'cabin'
+              : 'exterior';
+        const deckIdNow = zoneNow === 'cabin' ? resolveCurrentDeck(astronautPos)?.id || 'deck-01' : 'deck-01';
+        const elStateNow = fourDecksInterior?.elevatorSystem?.state;
+        const elevatorMovingNow = Boolean(elStateNow && elStateNow.moving);
+        const rawSpeed = vel.length();
+        const speedBucket = rawSpeed < 0.25 ? 0 : Math.round(Math.log10(1 + rawSpeed) * 10);
+        const thrustNow = Boolean(
+          wasThrusterSfxActive ||
+            (zoneNow === 'exterior' &&
+              !simulationPaused &&
+              (keys.w || keys.s || keys.arrowup || keys.arrowdown || keys.shift || keys.vrMoveFwd)),
+        );
+        const hPhaseNow = nav?.phase || null;
+        const sleepNow = Boolean(astronautRestingInBed?.sleeping);
+        const restNow = Boolean(astronautRestingInBed);
+        const vrNow = Boolean(xrActiveNow);
+        const sig = `${zoneNow}|${deckIdNow}|${hPhaseNow}|${speedBucket}|${thrustNow ? 1 : 0}|${elevatorMovingNow ? 1 : 0}|${sleepNow ? 1 : 0}|${restNow ? 1 : 0}|${vrNow ? 1 : 0}|${simulationPaused ? 1 : 0}`;
+        if (sig !== lastAudioEnvSignature) {
+          lastAudioEnvSignature = sig;
+          S.onAudioEnvironment({
+            zone: zoneNow,
+            deckId: deckIdNow,
+            hyperspacePhase: hPhaseNow,
+            speed: rawSpeed,
+            thrustActive: thrustNow,
+            elevatorMoving: elevatorMovingNow,
+            sleeping: sleepNow,
+            resting: restNow,
+            inVr: vrNow,
+            paused: Boolean(simulationPaused),
+          });
+        }
+      }
+    }
 
     // Sincronizar la dirección de la luz solar en el Mundo Local Métrico (`localShipScene`)
     const toSunDir =

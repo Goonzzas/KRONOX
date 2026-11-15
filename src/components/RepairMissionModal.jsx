@@ -17,6 +17,7 @@ export default function RepairMissionModal({
   onRepairCompleted,
   onMissionComplete,
   onStageChange,
+  onSfxCue,
   language = 'es',
 }) {
   const [stage, setStage] = useState(1); // 1: Scan, 2: Extract, 3: Install, 4: Calibrate, 5: Finished
@@ -82,6 +83,7 @@ export default function RepairMissionModal({
 
   const handleRunDiagnostic = () => {
     clearPendingTimers();
+    onSfxCue?.('scan');
     setFeedbackMsg('Iniciando barrido espectral del bus óptico...');
     let p = 0;
     const interval = setInterval(() => {
@@ -96,6 +98,7 @@ export default function RepairMissionModal({
         clearInterval(interval);
         timersRef.current.intervals.delete(interval);
         if (cancelledRef.current) return;
+        onSfxCue?.('confirm');
         setFeedbackMsg('Fallo detectado: Acoplador óptico desalineado. Resonancia caída a 164.2 THz (-14.8%).');
         setStage(2);
       }
@@ -105,9 +108,11 @@ export default function RepairMissionModal({
 
   const handleUseMultiTool = () => {
     if (cancelledRef.current) return;
+    onSfxCue?.('switch');
     setToolTorque((prev) => {
       const next = prev + 35;
       if (next >= 100) {
+        onSfxCue?.('grab');
         setFeedbackMsg('Pernos magnéticos liberados. Acoplador óptico desgastado extraído con éxito.');
         setStage(3);
         return 100;
@@ -119,10 +124,12 @@ export default function RepairMissionModal({
 
   const handleInstallReplacement = () => {
     clearPendingTimers();
+    onSfxCue?.('pickup');
     setFeedbackMsg('Instalando Acoplador Óptico Cuántico de niobato de litio de repuesto...');
     const timeoutId = setTimeout(() => {
       timersRef.current.timeouts.delete(timeoutId);
       if (cancelledRef.current) return;
+      onSfxCue?.('confirm');
       setFeedbackMsg('Acoplador acoplado a la guía de ondas. Listo para calibración de frecuencia.');
       setStage(4);
     }, 600);
@@ -131,6 +138,7 @@ export default function RepairMissionModal({
 
   const handleCalibrateTelemetry = () => {
     clearPendingTimers();
+    onSfxCue?.('scan');
     setFeedbackMsg('Alineando fase óptica con la referencia estelar J2000.0...');
     let f = 164.2;
     const interval = setInterval(() => {
@@ -145,6 +153,7 @@ export default function RepairMissionModal({
         clearInterval(interval);
         timersRef.current.intervals.delete(interval);
         if (cancelledRef.current) return;
+        onSfxCue?.('evidence-ok');
         setFeedbackMsg('¡Telemetría verificada! Resonancia estabilizada en 193.4 THz (99.8% de eficiencia).');
         setStage(5);
 
