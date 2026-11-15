@@ -5613,24 +5613,47 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       startPhysicalElevatorRide(`deck-0${k}`);
       return;
     }
-    // Tecla contextual [E] para levantarse del sillón de mando, operar objeto apuntado, consola física o pasamanos
-    if (k === 'e' && free && pv == 1 && !realTimeIntro && astronautSeatedInBridge) {
-      standUpFromBridgeSeat();
-      return;
-    }
-    if (k === 'e' && free && pv == 1 && !realTimeIntro && nearestCabinStation && activeCabinStation !== 'nav') {
-      if (nearestCabinStation.station?.id === 'stand-up-seat') {
+    // Tecla contextual [E] para levantarse del sillón de mando, salir de consola activa, operar objeto apuntado o pasamanos
+    if (k === 'e' && free && pv == 1 && !realTimeIntro) {
+      if (astronautSeatedInBridge) {
         standUpFromBridgeSeat();
         return;
       }
-      triggerCabinStationInteraction(nearestCabinStation.station.id, nearestCabinStation.station);
-    } else if (k === 'e' && free && pv == 1 && !realTimeIntro && !nearestCabinStation) {
       if (activeCabinStation) {
+        // Cerrar consola activa y levantarse/salir inmediatamente
         activeCabinStation = null;
         S.onStationInteract?.(null);
+        requestPointerLockForLook('exit-station');
+        return;
+      }
+      if (nearestCabinStation && activeCabinStation !== 'nav') {
+        if (nearestCabinStation.station?.id === 'stand-up-seat') {
+          standUpFromBridgeSeat();
+          return;
+        }
+        triggerCabinStationInteraction(nearestCabinStation.station.id, nearestCabinStation.station);
         return;
       }
       toggleNearestGrabRail(2.4, true);
+      return;
+    }
+    // Tecla contextual [Escape] para salir de cualquier estación/consola activa
+    if (k === 'escape' && free && pv == 1) {
+      if (activeCabinStation) {
+        activeCabinStation = null;
+        S.onStationInteract?.(null);
+        requestPointerLockForLook('escape-station');
+        return;
+      }
+      if (astronautSeatedInBridge) {
+        standUpFromBridgeSeat();
+        return;
+      }
+    }
+    // Movimiento [WASD] mientras se opera una consola secundaria: cerrar la consola automáticamente para permitir el desplazamiento libre
+    if (['w', 'a', 's', 'd'].includes(k) && free && pv == 1 && activeCabinStation && activeCabinStation !== 'nav' && activeCabinStation !== 'elevator-panel') {
+      activeCabinStation = null;
+      S.onStationInteract?.(null);
     }
   };
   const onKeyUp = (e) => {

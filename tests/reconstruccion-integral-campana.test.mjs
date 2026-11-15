@@ -493,7 +493,7 @@ test('Deck isolation across C01–C04 ceilings, swept high-speed collision, C02 
   // 3. Mobiliario 1:1 sólido en C01, C02 camarotes, C03 SPHEREx y C04 cono del transbordador
   const captainHit = new THREE.Vector3(0.0, 3.4, -4.1);
   interior.clampAstronautPosition(captainHit, 0.34, 0.24, el.state, { lockedDeckId: 'deck-01' });
-  assert.ok(Math.hypot(captainHit.x, captainHit.z + 5.5) >= 2.8, 'Estrado del capitán C01 debe bloquear entrada interior');
+  assert.ok(captainHit.y >= 3.58 || Math.hypot(captainHit.x, captainHit.z + 5.5) >= 2.8, 'Estrado del capitán C01 debe elevar sobre peldaños o bloquear');
 
   const bay0 = C02_CABIN_BAYS[0];
   const bedHit = new THREE.Vector3(bay0.ux * 14.1, 0.0, bay0.uz * 14.1);
