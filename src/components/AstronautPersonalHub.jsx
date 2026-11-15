@@ -74,7 +74,7 @@ const INSTRUMENTS_MANUAL_DATA = [
   {
     title: 'Ascensor Central y Locomoción en Microgravedad',
     tag: 'Núcleo Vertical C01–C04 · 6-DOF',
-    body: 'El ascensor central conecta físicamente las 4 cubiertas. Acércate a la puerta o consola de llamada, pulsa [E] y elige la planta ([1] a [4]). Dentro de la nave puedes alternar entre locomoción asistida y microgravedad libre [M], o sujetarte a los pasamanos amarillos con [H].',
+    body: 'El ascensor central conecta físicamente las 4 cubiertas. Acércate a la botonera exterior y pulsa [E] para llamar la cabina. Al entrar, pulsa el botón físico C01–C04 que quieras, o usa las teclas [1] a [4]. También puedes alternar la microgravedad con [M] y sujetarte a los pasamanos con [H].',
   },
 ];
 

@@ -34,7 +34,7 @@ export const PREDEFINED_VOICE_CLIPS = Object.freeze({
     '/audio/voice/tut_nav.wav',
   'Desde el puente puedes activar el Telescopio Óptico con la tecla T, inspeccionar el casco en vista Exterior o elegir un planeta o estrella para viajar hacia él.':
     '/audio/voice/tut_astro_obs.wav',
-  'Excelente. Ahora entra al Ascensor Central en el eje del puente, pulsa E o la tecla 2 y desciende a la Cubierta Habitacional para inspeccionar los camarotes y el comedor.':
+  'Excelente. Ahora entra al Ascensor Central en el eje del puente y pulsa el botón C02 o la tecla 2 para descender a la Cubierta Habitacional e inspeccionar los camarotes y el comedor.':
     '/audio/voice/tut_elevator_c02.wav',
   'Módulo habitacional verificado. Usa el Ascensor Central y pulsa la tecla 3 para bajar a la Cubierta Científica e Ingeniería, donde operan el reactor Tokamak y el Laboratorio SPHEREx.':
     '/audio/voice/tut_elevator_c03.wav',
