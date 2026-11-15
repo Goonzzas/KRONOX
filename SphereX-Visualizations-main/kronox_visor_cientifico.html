@@ -5226,6 +5226,48 @@
       }
     });
 
+    document.getElementById('fitsUploadInput')?.addEventListener('change', async e => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const statusPill = document.getElementById('modelStatus');
+      if (statusPill) statusPill.textContent = 'Subiendo FITS...';
+      try {
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let binary = '';
+        const chunk = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunk) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+        }
+        const content_b64 = btoa(binary);
+        const resp = await fetch(`${SERVER_BASE}/api/upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, content_b64 })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data || !data.ok) {
+          throw new Error((data && data.error) || `HTTP ${resp.status}`);
+        }
+        const dsId = data.dataset_id || (data.dataset && data.dataset.id) || `upload_${Date.now()}`;
+        const dsMeta = data.dataset || { id: dsId, name: `Upload: ${file.name}`, type: 'user_upload', category: 'FITS Local' };
+        if (data.planes && typeof data.planes === 'object') {
+          datasetBundleCache.set(dsId, { ok: true, dataset: dsMeta, planes: data.planes });
+        }
+        if (!state.catalog.some(d => d.id === dsId)) {
+          state.catalog.unshift(dsMeta);
+        }
+        populatePresetSelect();
+        renderCatalogMosaic();
+        await loadRealDataset(dsId);
+      } catch (err) {
+        setEpochNotice(`Error al cargar FITS local (${file.name}): ${err.message}`, 'warn');
+        if (statusPill) statusPill.textContent = 'Error FITS';
+      } finally {
+        e.target.value = '';
+      }
+    });
+
     // =========================================================================
     // EXPLORADOR 102 CANALES SPHEREx DR1 (HiPS + FITS IRSA vía server.py)
     // =========================================================================
@@ -5888,33 +5930,19 @@
     }
 
     function openImmersiveObservatory() {
-      const ra = cube102.active ? cube102.ra : (Number(state.wcs?.crval_ra) || 266.4168);
-      const dec = cube102.active ? cube102.dec : (Number(state.wcs?.crval_dec) || -29.0078);
-      const fov = cube102.active
-        ? Math.min(45, Math.max(0.35, cube102.fovDeg))
-        : Math.max(0.5, Math.min(45, (state.width * (state.wcs?.cdelt_deg || (6.2 / 3600))) * 4));
-      const target = state.fieldName || state.activeDatasetId || '';
-      const obsId = document.getElementById('provObsId')?.textContent || '';
-      const url = new URL(`${SERVER_BASE}/kronox_cielo_inmersivo.html`);
-      url.searchParams.set('ra', ra.toFixed(5));
-      url.searchParams.set('dec', dec.toFixed(5));
-      url.searchParams.set('fov', fov.toFixed(3));
-      if (target) url.searchParams.set('target', target);
-      if (cube102.active) url.searchParams.set('channel', String(cube102.channel + 1));
-      if (obsId && obsId !== '—') url.searchParams.set('obs_id', obsId);
-      if (window.parent !== window) window.location.assign(url.toString());
-      else window.open(url.toString(), 'kronox_atlas');
+      // Alternar directamente la vista panorámica All-Sky 360° dentro del visor integrado (sin ventanas externas)
+      if (cube102.active && cube102.allSky) {
+        setExplorerMode('cube102');
+      } else {
+        setExplorerMode('allsky');
+      }
     }
 
     function setExplorerMode(mode) {
-      if (mode === 'allsky') {
-        // No dibujar esfera compacta en el visor científico: abrir el observatorio inmersivo real
-        openImmersiveObservatory();
-        return;
-      }
-      const isCube102 = mode === 'cube102';
+      const isAllSky = mode === 'allsky';
+      const isCube102 = mode === 'cube102' || isAllSky;
       cube102.active = isCube102;
-      cube102.allSky = false;
+      cube102.allSky = isAllSky;
       document.querySelectorAll('#explorerSourcePills .seg-pill').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.src === mode);
       });
@@ -5928,7 +5956,11 @@
         return;
       }
 
-      cube102.fovDeg = Math.min(45, cube102.fovDeg > 45 ? 3.5 : cube102.fovDeg);
+      if (isAllSky) {
+        cube102.fovDeg = 180;
+      } else {
+        cube102.fovDeg = Math.min(45, cube102.fovDeg > 45 ? 3.5 : cube102.fovDeg);
+      }
       if (!cube102.atlasRegion && state.wcs && Number.isFinite(state.wcs.crval_ra) && (state.wcs.crval_ra !== 0 || state.wcs.crval_dec !== 0)) {
         cube102.ra = state.wcs.crval_ra;
         cube102.dec = state.wcs.crval_dec;
@@ -5936,6 +5968,7 @@
 
       state.panel1Mode = 'ir_cal';
       document.querySelectorAll('#panel1ModePills .seg-pill').forEach(b => b.classList.toggle('active', b.dataset.p1 === 'ir_cal'));
+      syncCube102CoordInputs();
       renderCube102Frame();
       inspectCube102Pixel(state.queryX, state.queryY);
     }
@@ -7085,6 +7118,8 @@
       if (metaEl && target) metaEl.textContent = `Región Atlas: ${target} (RA ${ra.toFixed(4)}°, Dec ${dec.toFixed(4)}°)`;
     }
 
+    window.__kronoxVisorFocusRegion = handleAtlasRegionFocus;
+
     window.addEventListener('message', ev => {
       if (ev.origin !== window.location.origin && !(window.parent !== window && ev.source === window.parent)) return;
       const msg = ev.data || {};
@@ -7094,7 +7129,7 @@
       }
     });
 
-    // Conectar directamente con server.py y cargar automáticamente ambos embeddings reales (V2 Visual + Temporal v1)
+    // Conectar con los endpoints serverless (/api) y cargar automáticamente catálogo y embeddings
     loadRealCatalogFromServer().finally(() => {
       const urlP = new URLSearchParams(window.location.search);
       if (urlP.get('from') === 'atlas' && urlP.has('ra') && urlP.has('dec')) {
@@ -7104,21 +7139,20 @@
         const msg = pendingAtlasRegion;
         handleAtlasRegionFocus(Number(msg.ra), Number(msg.dec), Number(msg.fov), msg.target, Number(msg.channel));
       }
-      const basePrefix = (typeof window !== 'undefined' && (window.location.protocol === 'http:' || window.location.protocol === 'https:'))
-        ? ''
-        : `${SERVER_BASE}/`;
-      fetch(`${basePrefix}spherex_v2_interactive_bundle.json`)
-        .then(r => (r.ok ? r.json() : null))
-        .then(bundle => {
-          if (bundle) loadColabBundleObject(bundle);
-        })
-        .catch(() => {});
-      fetch(`${basePrefix}spherex_temporal_bundle.json`)
+      fetch(`${SERVER_BASE}/api/embeddings_bundle?type=temporal`)
         .then(r => (r.ok ? r.json() : null))
         .then(tb => {
           if (tb) loadTemporalEmbeddingBundle(tb);
         })
         .catch(() => {});
+      if (!state.activeDatasetId && !cube102.active) {
+        fetch(`${SERVER_BASE}/api/embeddings_bundle?type=v2`)
+          .then(r => (r.ok ? r.json() : null))
+          .then(bundle => {
+            if (bundle && !state.activeDatasetId && !cube102.active) loadColabBundleObject(bundle);
+          })
+          .catch(() => {});
+      }
     });
   </script>
 </body>
