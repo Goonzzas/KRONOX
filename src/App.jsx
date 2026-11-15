@@ -2029,6 +2029,68 @@ export default function App() {
         true,
       );
     },
+    travelToPlanet = (planetName) => {
+      if (!planetName || travelRef.current || api.current?.navigationActive?.()) return false;
+      setSelectedObject(null);
+      setMissionSelectorOpen(false);
+      if (missionArrival) setMissionArrival(false);
+      setMissionTraveling(false);
+      startTravel(
+        (onArrive) => {
+          if (spec) {
+            A().board?.();
+            setSpec(false);
+          }
+          return A().focus?.(planetName, null, onArrive);
+        },
+        planetName,
+        () => {
+          const presentingVr = Boolean(api.current?.getVrState?.()?.presenting);
+          const planetLabel = t(planetName, language);
+          const arrivalMsg = presentingVr
+            ? `Has llegado a ${planetLabel}. Pulsa [A] en tu mando cuando quieras regresar a la cabina.`
+            : `Has llegado a la órbita de ${planetLabel}.`;
+          notify(arrivalMsg, 'Destino alcanzado');
+          say(arrivalMsg);
+          if (voiceRef.current) speak(arrivalMsg, { interrupt: false });
+          if (presentingVr) {
+            api.current?.syncVrContext?.({ lastKronoxReply: arrivalMsg });
+          }
+        },
+        true,
+      );
+      return true;
+    },
+    travelToQuickTarget = (key, label) => {
+      if (!key || travelRef.current || api.current?.navigationActive?.()) return false;
+      setSelectedObject(null);
+      if (missionArrival) setMissionArrival(false);
+      setMissionTraveling(false);
+      startTravel(
+        (onArrive) => {
+          if (spec) {
+            A().board?.();
+            setSpec(false);
+          }
+          return A().quick?.(key, onArrive);
+        },
+        label || key,
+        () => {
+          const presentingVr = Boolean(api.current?.getVrState?.()?.presenting);
+          const destLabel = t(label || key, language);
+          const arrivalMsg = presentingVr
+            ? `Has llegado a ${destLabel}. Pulsa [A] en tu mando cuando quieras regresar a la cabina.`
+            : `Has llegado a ${destLabel}.`;
+          notify(arrivalMsg, 'Destino alcanzado');
+          say(arrivalMsg);
+          if (presentingVr) {
+            api.current?.syncVrContext?.({ lastKronoxReply: arrivalMsg });
+          }
+        },
+        true,
+      );
+      return true;
+    },
     startSelectedMission = () => {
       const target = missionLaunchTarget;
       if (!target) return;
@@ -2169,17 +2231,7 @@ export default function App() {
             objectKind: 'planet',
             objectLabel: act.planetName,
           });
-          startTravel(() => {
-            if (spec) {
-              A().board();
-              setSpec(false);
-              setFr(true);
-            } else if (!fr) {
-              setFr(true);
-              A().free(true);
-            }
-            A().focus(act.planetName);
-          }, act.planetName);
+          travelToPlanet(act.planetName);
         } else if (act.type === 'TRAVEL_GALAXY' && act.galaxyKey) {
           actionLabel = `Mapa intergaláctico: ${act.galaxyKey}`;
           setMissionOpen(false);
@@ -2265,20 +2317,7 @@ export default function App() {
     pi = f && P.find((x) => x.n == f);
   vrHandlersRef.current = {
     'travel-planet': (payload) => {
-      const planetName = payload?.planetName;
-      if (!planetName) return;
-      setSelectedObject(null);
-      startTravel(() => {
-        if (spec) {
-          A()?.board?.();
-          setSpec(false);
-          setFr(true);
-        } else if (!fr) {
-          setFr(true);
-          A()?.free?.(true);
-        }
-        return A()?.focus?.(planetName);
-      }, planetName);
+      travelToPlanet(payload?.planetName);
     },
     'travel-spherex': (payload) => {
       const key = payload?.targetKey;
@@ -2288,8 +2327,7 @@ export default function App() {
       chooseSpherexTarget(target);
     },
     'quick-travel': (payload) => {
-      if (!payload?.key) return;
-      startTravel(() => A()?.quick?.(payload.key), payload.label || payload.key);
+      travelToQuickTarget(payload?.key, payload?.label || payload?.key);
     },
     'kronox-query': (payload) => {
       const query = String(payload?.query || '').trim();
@@ -3112,28 +3150,11 @@ export default function App() {
               setQuickOpen(false);
             },
             onQuickTravel: (key, label) => {
-              startTravel(() => {
-                if (spec) {
-                  A().board();
-                  setSpec(false);
-                  setFr(true);
-                }
-                return A().quick(key);
-              }, label);
+              travelToQuickTarget(key, label);
               setQuickOpen(false);
             },
             onPlanetTravel: (name) => {
-              startTravel(() => {
-                if (spec) {
-                  A().board();
-                  setSpec(false);
-                  setFr(true);
-                } else if (!fr) {
-                  setFr(true);
-                  A().free(true);
-                }
-                return A().focus(name);
-              }, name);
+              travelToPlanet(name);
               setQuickOpen(false);
             },
           }),
@@ -3780,7 +3801,7 @@ export default function App() {
       selectedObject,
       onCloseObjectInspector: () => setSelectedObject(null),
       onQuickTravel: (key, label) => {
-        startTravel(() => A().quick(key), label);
+        travelToQuickTarget(key, label);
       },
       onTravelToSpherex: (target) => {
         setSelectedObject(null);
@@ -3794,18 +3815,7 @@ export default function App() {
         setMissionOpen(true);
       },
       onTravelToPlanet: (planetName) => {
-        setSelectedObject(null);
-        startTravel(() => {
-          if (spec) {
-            A().board();
-            setSpec(false);
-            setFr(true);
-          } else if (!fr) {
-            setFr(true);
-            A().free(true);
-          }
-          A().focus(planetName);
-        }, planetName);
+        travelToPlanet(planetName);
       },
       onFocusPlanet: (planetName) => {
         if (!planetName) return;
@@ -4179,18 +4189,7 @@ export default function App() {
         A()?.focus?.(planetName);
       },
       onTravelToPlanet: (planetName) => {
-        setSelectedObject(null);
-        startTravel(() => {
-          if (spec) {
-            A()?.board?.();
-            setSpec(false);
-            setFr(true);
-          } else if (!fr) {
-            setFr(true);
-            A()?.free?.(true);
-          }
-          A()?.focus?.(planetName);
-        }, planetName);
+        travelToPlanet(planetName);
       },
       onTravelToSpherex: (target) => {
         setSelectedObject(null);
@@ -4207,7 +4206,7 @@ export default function App() {
         A()?.focusNearbyGalaxy?.(galKey);
       },
       onQuickTravel: (key, label) => {
-        startTravel(() => A()?.quick?.(key), label);
+        travelToQuickTarget(key, label);
       },
       onOpenSpherexObservatory: (target) => {
         setMissionTargetKey(target?.key || missionTargetKey || 'barnard');

@@ -1,5 +1,10 @@
 import { createJumpSequence, advanceJump, JUMP_DURATIONS } from './jumpSequence.js';
-import { createWebXrManager, DEFAULT_VR_SETTINGS } from './vrControls.js';
+import {
+  createWebXrManager,
+  DEFAULT_VR_SETTINGS,
+  VR_UNIFIED_NEAR,
+  VR_UNIFIED_FAR,
+} from './vrControls.js';
 import { createVrConsoleOverlay3D } from './vrConsoleOverlay3D.js';
 import { createHyperspaceEffect } from './hyperspaceEffect.js';
 import { buildStellarAtlas } from './navigationAtlas.js';
@@ -2748,17 +2753,28 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     S.f(name); S.onNavigation?.({ phase: nav.phase, progress: 0, label: name }); return true;
   }
-  function focus(n, k) {
+  function focus(n, k, onArrive) {
     if (!userCameraAvailable()) return false;
     promotePlanetTexture(n);
+    const b = B.find((x) => x.p.n == n);
+    if (b && (onArrive || free || vrManager?.isPresenting?.())) {
+      if (nearbyMapState) returnFromNearbyMap();
+      contextOverview = false;
+      selectedContextStar = null;
+      if (!free) {
+        setFree(true, false);
+        S.fr(true);
+        ti = 9;
+        S.intro(false);
+      }
+    }
     publishScale('solar');
     tw = null;
-    const b = B.find((x) => x.p.n == n);
     if (free) {
       if (!b) {
         nav = null;
         S.f(null);
-        return;
+        return false;
       }
       foc = null;
       layout();
@@ -2771,6 +2787,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         }),
         n,
         b,
+        onArrive,
       );
     }
     foc = b;
@@ -2816,10 +2833,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       k: 0,
     };
   }
-  function quick(k) {
+  function quick(k, onArrive) {
     if (!userCameraAvailable()) return false;
+    if (nearbyMapState) returnFromNearbyMap();
+    contextOverview = false;
+    selectedContextStar = null;
     if (!free) {
-      setFree(true);
+      setFree(true, false);
       S.fr(true);
       ti = 9;
       S.intro(false);
@@ -2827,20 +2847,28 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (k === 'orion') {
       publishScale('milkyway');
       gal.updateMatrixWorld(true);
-      return tripTo(gal.localToWorld(new V(24500, 0, -3500)), 4000, 'Brazo de Orión');
+      return tripTo(gal.localToWorld(new V(24500, 0, -3500)), 4000, 'Brazo de Orión', null, onArrive);
     } else if (k === 'core') {
       publishScale('milkyway');
-      return tripTo(gal.position.clone(), 6000, 'Centro galáctico');
+      return tripTo(gal.position.clone(), 6000, 'Centro galáctico', null, onArrive);
     } else if (k === 'sunOrbit') {
       return tripTo(
         B[0].pivot.position.clone(),
         Math.max(B[0].r * 2.15, isPhysicalObservationActive() ? 1.5 : 9),
         'Órbita próxima al Sol',
+        B[0],
+        onArrive,
       );
     } else if (k === 'asteroids') {
-      return tripTo(new V(0, 0, Dd(2.7)), Math.max(0.3, isPhysicalObservationActive() ? 2 : 1.2), 'Cinturón de asteroides');
+      return tripTo(
+        new V(0, 0, Dd(2.7)),
+        Math.max(0.3, isPhysicalObservationActive() ? 2 : 1.2),
+        'Cinturón de asteroides',
+        null,
+        onArrive,
+      );
     } else if (k === 'sun') {
-      return focus('Sol');
+      return focus('Sol', null, onArrive);
     }
     return false;
   }
@@ -5616,7 +5644,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (S.onVrAction) {
         S.onVrAction(action, payload);
       } else if (payload?.planetName) {
-        focus(payload.planetName);
+        focus(payload.planetName, null, payload.onArrive);
       }
       return true;
     }
@@ -5626,7 +5654,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (S.onVrAction) {
         S.onVrAction(action, payload);
       } else if (payload?.targetKey) {
-        missionTarget(payload.targetKey);
+        missionTarget(payload.targetKey, payload.onArrive);
       }
       return true;
     }
@@ -5635,7 +5663,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (S.onVrAction) {
         S.onVrAction(action, payload);
       } else if (payload?.key) {
-        quick(payload.key);
+        quick(payload.key, payload.onArrive);
       }
       return true;
     }
@@ -9144,67 +9172,76 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       savedExteriorCamPos = cam.position.clone();
       cam.position.copy(sp).addScaledVector(metricOffset, metersToAstroSceneUnits());
     }
-    if (xrActiveNow && vrManager) {
-      if (Math.abs(cam.near - 0.04) > 1e-4 || Math.abs(cam.far - 4e5) > 1) {
-        cam.near = 0.04;
-        cam.far = 4e5;
-        cam.updateProjectionMatrix();
-      }
-      if (Math.abs(localCam.near - 0.04) > 1e-4 || Math.abs(localCam.far - 4e5) > 1) {
-        localCam.near = 0.04;
-        localCam.far = 4e5;
-        localCam.updateProjectionMatrix();
-      }
-      const inCabinXr = Boolean(
-        vrLocalEyeReady && free && pv === 1 && !exteriorCameraMode && !spectator && !mainMenuOrbitActive,
-      );
-      vrManager.syncRigsBeforeRender({
-        astroCamPos: cam.position,
-        astroCamQuat: cam.quaternion,
-        localEyePos: inCabinXr ? vrLocalEyeScratch : localCam.position,
-        localYawQuat: inCabinXr ? vrLocalYawQuatScratch : localCam.quaternion,
-        inCabin: inCabinXr,
-        xrFrame,
-      });
-      originRebaseState = vrManager.renderAstroInVr({
-        threshold: isPhysicalObservationActive() ? 0.001 : 10000,
-        cellSize: isPhysicalObservationActive() ? 0 : 1024,
-      });
-    } else {
-      originRebaseState = renderWithOriginRebase(R, sc, cam, {
-        threshold: isPhysicalObservationActive() ? 0.001 : 10000,
-        cellSize: isPhysicalObservationActive() ? 0 : 1024,
-        highPrecisionBodies: isPhysicalObservationActive() ? B : null,
-      });
-    }
-    if (savedExteriorCamPos) {
-      cam.position.copy(savedExteriorCamPos);
-    }
-
-    // PASO 2 DE RENDERIZADO: Mundo Local Métrico (`localShipScene`, `1 u = 1 m`) con limpieza de profundidad
-    if (localCabinWorld.visible || ship.visible) {
-      if (localCabinWorld.visible && ship.visible) {
-        const preferExterior = Boolean(
-          mainMenuOrbitActive || exteriorCameraMode || spectator || pv == 3 || launchSequence,
+    let xrRigsSyncedThisFrame = false;
+    try {
+      if (xrActiveNow && vrManager) {
+        if (Math.abs(cam.near - VR_UNIFIED_NEAR) > 1e-6 || Math.abs(cam.far - VR_UNIFIED_FAR) > 1) {
+          cam.near = VR_UNIFIED_NEAR;
+          cam.far = VR_UNIFIED_FAR;
+          cam.updateProjectionMatrix();
+        }
+        if (Math.abs(localCam.near - VR_UNIFIED_NEAR) > 1e-6 || Math.abs(localCam.far - VR_UNIFIED_FAR) > 1) {
+          localCam.near = VR_UNIFIED_NEAR;
+          localCam.far = VR_UNIFIED_FAR;
+          localCam.updateProjectionMatrix();
+        }
+        const inCabinXr = Boolean(
+          vrLocalEyeReady && free && pv === 1 && !exteriorCameraMode && !spectator && !mainMenuOrbitActive,
         );
-        ship.visible = preferExterior;
-        localCabinWorld.visible = !preferExterior;
+        vrManager.syncRigsBeforeRender({
+          astroCamPos: cam.position,
+          astroCamQuat: cam.quaternion,
+          localEyePos: inCabinXr ? vrLocalEyeScratch : localCam.position,
+          localYawQuat: inCabinXr ? vrLocalYawQuatScratch : localCam.quaternion,
+          inCabin: inCabinXr,
+          xrFrame,
+        });
+        xrRigsSyncedThisFrame = true;
+        originRebaseState = vrManager.renderAstroInVr({
+          threshold: isPhysicalObservationActive() ? 0.001 : 10000,
+          cellSize: isPhysicalObservationActive() ? 0 : 1024,
+          highPrecisionBodies: isPhysicalObservationActive() ? B : null,
+        });
+      } else {
+        originRebaseState = renderWithOriginRebase(R, sc, cam, {
+          threshold: isPhysicalObservationActive() ? 0.001 : 10000,
+          cellSize: isPhysicalObservationActive() ? 0 : 1024,
+          highPrecisionBodies: isPhysicalObservationActive() ? B : null,
+        });
       }
-      const inInteriorLighting = Boolean(localCabinWorld.visible && !exteriorCameraMode && !spectator);
-      const inBridgeLighting = inInteriorLighting && resolveCurrentDeck(astronautPos)?.id === 'deck-01';
-      localShipAmbient.intensity = inBridgeLighting ? 0.11 : inInteriorLighting ? 0.24 : 0.52;
-      localShipHemi.intensity = inBridgeLighting ? 0.15 : inInteriorLighting ? 0.31 : 0.45;
-      localShipSunLight.intensity = inBridgeLighting ? 0.20 : inInteriorLighting ? 0.72 : 2.35;
-      localShipRimLight.intensity = inBridgeLighting ? 0.15 : inInteriorLighting ? 0.32 : 0.55;
-      const prevAutoClear = R.autoClear;
-      R.autoClear = false;
-      R.clearDepth?.();
-      R.render(localShipScene, localCam);
-      R.autoClear = prevAutoClear;
-      R.scene = sc;
-      R.camera = cam;
-      R.localScene = localShipScene;
-      R.localCamera = localCam;
+
+      // PASO 2 DE RENDERIZADO: Mundo Local Métrico (`localShipScene`, `1 u = 1 m`) con limpieza de profundidad
+      if (localCabinWorld.visible || ship.visible) {
+        if (localCabinWorld.visible && ship.visible) {
+          const preferExterior = Boolean(
+            mainMenuOrbitActive || exteriorCameraMode || spectator || pv == 3 || launchSequence,
+          );
+          ship.visible = preferExterior;
+          localCabinWorld.visible = !preferExterior;
+        }
+        const inInteriorLighting = Boolean(localCabinWorld.visible && !exteriorCameraMode && !spectator);
+        const inBridgeLighting = inInteriorLighting && resolveCurrentDeck(astronautPos)?.id === 'deck-01';
+        localShipAmbient.intensity = inBridgeLighting ? 0.11 : inInteriorLighting ? 0.24 : 0.52;
+        localShipHemi.intensity = inBridgeLighting ? 0.15 : inInteriorLighting ? 0.31 : 0.45;
+        localShipSunLight.intensity = inBridgeLighting ? 0.20 : inInteriorLighting ? 0.72 : 2.35;
+        localShipRimLight.intensity = inBridgeLighting ? 0.15 : inInteriorLighting ? 0.32 : 0.55;
+        const prevAutoClear = R.autoClear;
+        R.autoClear = false;
+        R.clearDepth?.();
+        R.render(localShipScene, localCam);
+        R.autoClear = prevAutoClear;
+        R.scene = sc;
+        R.camera = cam;
+        R.localScene = localShipScene;
+        R.localCamera = localCam;
+      }
+    } finally {
+      if (xrRigsSyncedThisFrame) {
+        vrManager.restoreCamerasAfterRender();
+      }
+      if (savedExteriorCamPos) {
+        cam.position.copy(savedExteriorCamPos);
+      }
     }
     if (!initialSceneReadyFired) {
       warmLocalShipShaders();

@@ -14,6 +14,8 @@ import {
   getVrAvailabilitySync,
   probeVrAvailability,
   createWebXrManager,
+  VR_UNIFIED_NEAR,
+  VR_UNIFIED_FAR,
 } from '../src/scene/vrControls.js';
 
 test('vrControls pure helpers normalize settings, deadzones, and decode xr-standard gamepads', () => {
@@ -435,6 +437,115 @@ test('createWebXrManager auto-calibrates seated/standing HMD eye height and filt
       xrFrame: standingFrame,
     });
     assert.ok(Math.abs((xrManager.vrLocalRig.position.y + 1.72) - 5.05) < 1e-4);
+  } finally {
+    if (prevDesc) Object.defineProperty(globalThis, 'navigator', prevDesc);
+    else delete globalThis.navigator;
+  }
+});
+
+test('vrControls unifies near plane below rocky planet clearances and rebases renderAstroInVr in Float64', async () => {
+  const prevDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const dummyRefSpace = { id: 'local-floor-ref' };
+  const fakeSession = {
+    inputSources: [],
+    addEventListener() {},
+    async end() {},
+  };
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      xr: {
+        isSessionSupported: async () => true,
+        requestSession: async () => fakeSession,
+      },
+    },
+  });
+
+  try {
+    let observedMarsWorldPos = null;
+    let observedRigWorldPos = null;
+    const tmpVec = new THREE.Vector3();
+    const sceneAstro = new THREE.Scene();
+    const sceneLocal = new THREE.Scene();
+    const camAstro = new THREE.PerspectiveCamera(65, 16 / 9, 0.05, 1e4);
+    const camLocal = new THREE.PerspectiveCamera(65, 16 / 9, 0.05, 4000);
+    const marsPivot = new THREE.Group();
+    const plutoPivot = new THREE.Group();
+    const mars64 = new Float64Array([228.000123456, 0, 0.000456789]);
+    const pluto64 = new Float64Array([5900.5, 0, 0.25]);
+    marsPivot.position.set(mars64[0], mars64[1], mars64[2]);
+    plutoPivot.position.set(pluto64[0], pluto64[1], pluto64[2]);
+    sceneAstro.add(marsPivot, plutoPivot);
+    const bodies = [
+      { p: { n: 'Marte' }, pivot: marsPivot, heliocentricScene64: mars64 },
+      { p: { n: 'Plutón' }, pivot: plutoPivot, heliocentricScene64: pluto64 },
+    ];
+
+    const fakeRenderer = {
+      xr: {
+        enabled: false,
+        setReferenceSpaceType() {},
+        getReferenceSpace: () => dummyRefSpace,
+        async setSession() {},
+        getController: () => new THREE.Group(),
+        getControllerGrip: () => new THREE.Group(),
+      },
+      render(scene) {
+        if (scene === sceneAstro) {
+          observedMarsWorldPos = marsPivot.getWorldPosition(tmpVec).clone();
+          observedRigWorldPos = xrManager.vrAstroRig.getWorldPosition(new THREE.Vector3()).clone();
+        }
+      },
+    };
+
+    const xrManager = createWebXrManager({
+      renderer: fakeRenderer,
+      sceneAstro,
+      sceneLocal,
+      camAstro,
+      camLocal,
+    });
+    const enterRes = await xrManager.enterVr();
+    assert.equal(enterRes.ok, true);
+    assert.ok(VR_UNIFIED_NEAR <= 0.0005, `VR_UNIFIED_NEAR must stay below dwarf/rocky planet distances, got ${VR_UNIFIED_NEAR}`);
+    assert.equal(camAstro.near, VR_UNIFIED_NEAR);
+    assert.equal(camLocal.near, VR_UNIFIED_NEAR);
+    assert.equal(camAstro.far, VR_UNIFIED_FAR);
+    assert.equal(camLocal.far, VR_UNIFIED_FAR);
+
+    const astroCamPos = new THREE.Vector3(228.000123456, 0, 0.008426789);
+    camAstro.position64 = new Float64Array([228.000123456, 0, 0.008426789]);
+    xrManager.syncRigsBeforeRender({
+      astroCamPos,
+      astroCamQuat: new THREE.Quaternion(),
+      localEyePos: new THREE.Vector3(0, 5.05, -10.4),
+      localYawQuat: new THREE.Quaternion(),
+      inCabin: false,
+      xrFrame: null,
+    });
+
+    const rebaseRes = xrManager.renderAstroInVr({
+      threshold: 0.001,
+      cellSize: 0,
+      highPrecisionBodies: bodies,
+    });
+    assert.equal(rebaseRes.rebased, true);
+    assert.equal(rebaseRes.precisionBits, 64);
+    assert.ok(
+      Math.abs(rebaseRes.origin[0] - 228.000123456) < 1e-6,
+      `cellSize=0 must center Float64 origin on camera, not 1024 grid (${rebaseRes.origin[0]})`,
+    );
+    assert.ok(observedRigWorldPos.length() < 1e-6, 'Rebased XR astro rig must render at local origin');
+    assert.ok(
+      Math.abs(observedMarsWorldPos.z - (0.000456789 - 0.008426789)) < 1e-6,
+      `Mars relative Z must preserve Float64 offset (~ -0.00797), got ${observedMarsWorldPos.z}`,
+    );
+    assert.ok(
+      Math.abs(marsPivot.position.x - mars64[0]) < 1e-5 &&
+        sceneAstro.position.length() < 1e-9 &&
+        Math.abs(xrManager.vrAstroRig.position.x - astroCamPos.x) < 1e-5,
+      'renderAstroInVr must restore body, scene, and XR rig positions after rendering',
+    );
   } finally {
     if (prevDesc) Object.defineProperty(globalThis, 'navigator', prevDesc);
     else delete globalThis.navigator;
@@ -1155,6 +1266,76 @@ test('VR prevents nav/rail/pause lockups, syncs IRL roomscale walking, and switc
     stepXrFrames(1);
     rightGamepad.buttons[4].pressed = false;
     assert.equal(viewChanges.at(-1), 1, 'Pressing [A] after VR travel arrival returns cleanly to Cabina 1P');
+
+    // Selecting rocky planets via VR console ('travel-planet' -> Marte & Tierra) must arrive completely and keep them inside cam.near
+    let marsArrived = 0;
+    const marsDispatched = api.handleVrConsoleAction('travel-planet', {
+      planetName: 'Marte',
+      onArrive: () => {
+        marsArrived += 1;
+      },
+    });
+    assert.equal(marsDispatched, true);
+    assert.equal(api.navigationActive(), true, 'VR console travel-planet to Marte must initiate navigation');
+    assert.equal(viewChanges.at(-1), 3, 'VR planet travel must switch cleanly to Exterior view 3');
+    for (let i = 0; i < 650 && api.navigationActive(); i++) {
+      stepXrFrames(1, 50);
+    }
+    assert.equal(api.navigationActive(), false, 'VR planet travel to Marte must finish completely');
+    assert.equal(marsArrived, 1, 'VR planet travel to Marte must invoke onArrive callback upon completion');
+    stepXrFrames(2);
+    const marsSnap = api.navigationSnapshot();
+    const marsTelem = api.getPlanetaryObservationalTelemetry('Marte');
+    const marsShipDist = new THREE.Vector3(...marsSnap.shipPosition).distanceTo(
+      new THREE.Vector3(...marsTelem.heliocentricScenePosition),
+    );
+    const marsCamDist = new THREE.Vector3(...marsSnap.cameraPosition).distanceTo(
+      new THREE.Vector3(...marsTelem.heliocentricScenePosition),
+    );
+    const marsSurfaceDist = marsCamDist - marsTelem.sceneRadiusUnits;
+    assert.ok(
+      marsShipDist > marsTelem.sceneRadiusUnits && marsShipDist < 0.02,
+      `Expected KRONOX parked at Marte safe orbital clearance (< 0.02 u), got ${marsShipDist}`,
+    );
+    assert.equal(marsSnap.cameraNear, VR_UNIFIED_NEAR);
+    assert.equal(marsSnap.localCameraNear, VR_UNIFIED_NEAR);
+    assert.ok(
+      marsSnap.cameraNear < marsSurfaceDist,
+      `VR cam.near (${marsSnap.cameraNear}) must stay below Marte front surface distance (${marsSurfaceDist})`,
+    );
+    assert.ok(
+      marsSnap.forwardDot > 0.99 && Math.abs(marsSnap.targetNdc[0]) < 0.25 && Math.abs(marsSnap.targetNdc[1]) < 0.25,
+      `Marte must be centered in front of the ship/VR view on arrival, got forwardDot=${marsSnap.forwardDot}, ndc=${marsSnap.targetNdc}`,
+    );
+
+    rightGamepad.buttons[4].pressed = true;
+    stepXrFrames(1);
+    rightGamepad.buttons[4].pressed = false;
+    assert.equal(viewChanges.at(-1), 1, 'Pressing [A] after Marte arrival returns to Cabina 1P');
+
+    let earthArrived = 0;
+    api.handleVrConsoleAction('travel-planet', {
+      planetName: 'Tierra',
+      onArrive: () => {
+        earthArrived += 1;
+      },
+    });
+    for (let i = 0; i < 650 && api.navigationActive(); i++) {
+      stepXrFrames(1, 50);
+    }
+    assert.equal(api.navigationActive(), false, 'VR planet travel back to Tierra must finish completely');
+    assert.equal(earthArrived, 1, 'VR planet travel to Tierra must invoke onArrive callback upon completion');
+    stepXrFrames(2);
+    const tierraSnap = api.navigationSnapshot();
+    const tierraTelem = api.getPlanetaryObservationalTelemetry('Tierra');
+    const tierraCamDist = new THREE.Vector3(...tierraSnap.cameraPosition).distanceTo(
+      new THREE.Vector3(...tierraTelem.heliocentricScenePosition),
+    );
+    assert.ok(tierraSnap.cameraNear < tierraCamDist - tierraTelem.sceneRadiusUnits);
+    rightGamepad.buttons[4].pressed = true;
+    stepXrFrames(1);
+    rightGamepad.buttons[4].pressed = false;
+    assert.equal(viewChanges.at(-1), 1, 'Pressing [A] after Tierra arrival returns to Cabina 1P');
 
     // Deck 02 suite bed rest, orbital nap, lamp toggle, and clean VR stand-up
     const { C02_CABIN_BAYS, radialBayPoint } = await harness.server.ssrLoadModule(

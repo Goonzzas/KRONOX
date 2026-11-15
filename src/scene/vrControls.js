@@ -1,4 +1,14 @@
 import * as THREE from 'three';
+import {
+  resolveOriginRebase64,
+  rebaseHighPrecisionBodies,
+  restoreHighPrecisionBodies,
+} from './originRebase.js';
+
+// Unified WebXR near/far planes prevent WebXRManager from calling updateRenderState twice per frame
+// while keeping rocky/dwarf planets (down to Ceres at ~0.00063 u surface distance) visible on arrival.
+export const VR_UNIFIED_NEAR = 0.0002;
+export const VR_UNIFIED_FAR = 4e5;
 
 export const DEFAULT_VR_SETTINGS = Object.freeze({
   turnMode: 'smooth', // 'smooth' | 'snap'
@@ -493,6 +503,11 @@ export function createWebXrManager({
   const savedCamPosScratch = new THREE.Vector3();
   const savedCamQuatScratch = new THREE.Quaternion();
   const savedCamScaleScratch = new THREE.Vector3();
+  const preRenderAstroPos = new THREE.Vector3();
+  const preRenderAstroQuat = new THREE.Quaternion();
+  const preRenderLocalPos = new THREE.Vector3();
+  const preRenderLocalQuat = new THREE.Quaternion();
+  let hasSavedPreRenderCameras = false;
   const rebaseOrigin = new THREE.Vector3();
 
   let activeHoveredStation = null;
@@ -591,11 +606,11 @@ export function createWebXrManager({
     }
     // Unifica near/far mientras dura WebXR para evitar reconfiguración de renderState 2 veces por frame
     if (camAstro && camLocal) {
-      camAstro.near = 0.04;
-      camAstro.far = 4e5;
+      camAstro.near = VR_UNIFIED_NEAR;
+      camAstro.far = VR_UNIFIED_FAR;
       camAstro.updateProjectionMatrix();
-      camLocal.near = 0.04;
-      camLocal.far = 4e5;
+      camLocal.near = VR_UNIFIED_NEAR;
+      camLocal.far = VR_UNIFIED_FAR;
       camLocal.updateProjectionMatrix();
     }
     if (controller0) controller0.visible = true;
@@ -620,6 +635,7 @@ export function createWebXrManager({
     if (vrLocalRig.parent) {
       vrLocalRig.parent.remove(vrLocalRig);
     }
+    hasSavedPreRenderCameras = false;
     activeHoveredStation = null;
   }
 
@@ -1044,7 +1060,6 @@ export function createWebXrManager({
       vrLocalRig.quaternion.copy(localYawQuat).multiply(tmpQuat);
       tmpVec.copy(recenterOffset).applyQuaternion(vrLocalRig.quaternion);
       vrLocalRig.position.copy(localEyePos).sub(tmpVec);
-      vrLocalRig.updateMatrixWorld(true);
     }
     if (astroCamPos) {
       vrAstroRig.position.copy(astroCamPos);
@@ -1056,7 +1071,41 @@ export function createWebXrManager({
       tmpQuat.setFromEuler(tmpEuler);
       vrAstroRig.quaternion.copy(astroCamQuat).multiply(tmpQuat);
     }
+    // Keep child cameras at identity inside their XR rigs during render so world pose is never double-transformed
+    if (camAstro) {
+      preRenderAstroPos.copy(camAstro.position);
+      preRenderAstroQuat.copy(camAstro.quaternion);
+      if (camAstro.parent !== vrAstroRig) vrAstroRig.add(camAstro);
+      camAstro.position.set(0, 0, 0);
+      camAstro.quaternion.identity();
+    }
+    if (camLocal) {
+      preRenderLocalPos.copy(camLocal.position);
+      preRenderLocalQuat.copy(camLocal.quaternion);
+      if (camLocal.parent !== vrLocalRig) vrLocalRig.add(camLocal);
+      camLocal.position.set(0, 0, 0);
+      camLocal.quaternion.identity();
+    }
+    hasSavedPreRenderCameras = true;
+    vrLocalRig.updateMatrixWorld(true);
     vrAstroRig.updateMatrixWorld(true);
+  }
+
+  function restoreCamerasAfterRender() {
+    if (!hasSavedPreRenderCameras) return;
+    if (camAstro) {
+      if (camAstro.parent === vrAstroRig) vrAstroRig.remove(camAstro);
+      camAstro.position.copy(preRenderAstroPos);
+      camAstro.quaternion.copy(preRenderAstroQuat);
+      camAstro.updateMatrixWorld(true);
+    }
+    if (camLocal) {
+      if (camLocal.parent === vrLocalRig) vrLocalRig.remove(camLocal);
+      camLocal.position.copy(preRenderLocalPos);
+      camLocal.quaternion.copy(preRenderLocalQuat);
+      camLocal.updateMatrixWorld(true);
+    }
+    hasSavedPreRenderCameras = false;
   }
 
   /**
@@ -1103,7 +1152,7 @@ export function createWebXrManager({
   /**
    * Ejecuta el render de `sceneAstro` con rebasing Float64 sobre `vrAstroRig` en WebXR.
    */
-  function renderAstroInVr({ threshold = 10000, cellSize = 1024 } = {}) {
+  function renderAstroInVr({ threshold = 10000, cellSize = 1024, highPrecisionBodies = null } = {}) {
     if (!renderer || !sceneAstro || !camAstro) return { rebased: false };
     const dist = vrAstroRig.position.length();
     if (dist < threshold) {
@@ -1113,24 +1162,23 @@ export function createWebXrManager({
     }
     const savedScenePos = sceneAstro.position.clone();
     const savedRigPos = vrAstroRig.position.clone();
-    const step = cellSize > 0 ? cellSize : 1024;
-    rebaseOrigin.set(
-      Math.round(savedRigPos.x / step) * step,
-      Math.round(savedRigPos.y / step) * step,
-      Math.round(savedRigPos.z / step) * step,
-    );
+    const origin64 = resolveOriginRebase64(savedRigPos, camAstro.position64, cellSize);
+    rebaseOrigin.set(origin64[0], origin64[1], origin64[2]);
+    let savedBodyPositions = [];
     try {
       sceneAstro.position.sub(rebaseOrigin);
       vrAstroRig.position.sub(rebaseOrigin);
+      savedBodyPositions = rebaseHighPrecisionBodies(sceneAstro, highPrecisionBodies, origin64);
       sceneAstro.updateMatrixWorld(true);
       vrAstroRig.updateMatrixWorld(true);
       renderer.render(sceneAstro, camAstro);
       return {
         rebased: true,
-        origin: [rebaseOrigin.x, rebaseOrigin.y, rebaseOrigin.z],
+        origin: [origin64[0], origin64[1], origin64[2]],
         precisionBits: 64,
       };
     } finally {
+      restoreHighPrecisionBodies(savedBodyPositions);
       sceneAstro.position.copy(savedScenePos);
       vrAstroRig.position.copy(savedRigPos);
       sceneAstro.updateMatrixWorld(true);
@@ -1186,6 +1234,7 @@ export function createWebXrManager({
     pollInput,
     syncRoomscaleAvatarStep,
     syncRigsBeforeRender,
+    restoreCamerasAfterRender,
     renderAstroInVr,
     vrAstroRig,
     vrLocalRig,
