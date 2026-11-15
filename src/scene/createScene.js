@@ -9201,6 +9201,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           threshold: isPhysicalObservationActive() ? 0.001 : 10000,
           cellSize: isPhysicalObservationActive() ? 0 : 1024,
           highPrecisionBodies: isPhysicalObservationActive() ? B : null,
+          scaleHeightUniforms: [GU.uH],
         });
       } else {
         originRebaseState = renderWithOriginRebase(R, sc, cam, {

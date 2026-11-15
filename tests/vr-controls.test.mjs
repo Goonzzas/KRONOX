@@ -14,6 +14,7 @@ import {
   getVrAvailabilitySync,
   probeVrAvailability,
   createWebXrManager,
+  computeVrAstroSceneScale,
   VR_UNIFIED_NEAR,
   VR_UNIFIED_FAR,
 } from '../src/scene/vrControls.js';
@@ -536,15 +537,21 @@ test('vrControls unifies near plane below rocky planet clearances and rebases re
       `cellSize=0 must center Float64 origin on camera, not 1024 grid (${rebaseRes.origin[0]})`,
     );
     assert.ok(observedRigWorldPos.length() < 1e-6, 'Rebased XR astro rig must render at local origin');
+    assert.ok(rebaseRes.astroScale > 50, `Mars at ~0.008 u must scale for OpenXR depthNear comfort, got ${rebaseRes.astroScale}`);
     assert.ok(
-      Math.abs(observedMarsWorldPos.z - (0.000456789 - 0.008426789)) < 1e-6,
-      `Mars relative Z must preserve Float64 offset (~ -0.00797), got ${observedMarsWorldPos.z}`,
+      Math.abs(observedMarsWorldPos.z / rebaseRes.astroScale - (0.000456789 - 0.008426789)) < 1e-6,
+      `Mars relative Z normalized by astroScale must preserve Float64 offset (~ -0.00797), got ${observedMarsWorldPos.z / rebaseRes.astroScale}`,
+    );
+    assert.ok(
+      Math.abs(observedMarsWorldPos.z) >= 0.45,
+      `Scaled Mars Z (${observedMarsWorldPos.z}) must sit safely outside hardware-clamped depthNear >= 0.05 m`,
     );
     assert.ok(
       Math.abs(marsPivot.position.x - mars64[0]) < 1e-5 &&
         sceneAstro.position.length() < 1e-9 &&
+        Math.abs(sceneAstro.scale.x - 1) < 1e-9 &&
         Math.abs(xrManager.vrAstroRig.position.x - astroCamPos.x) < 1e-5,
-      'renderAstroInVr must restore body, scene, and XR rig positions after rendering',
+      'renderAstroInVr must restore body, scene transform/scale, and XR rig positions after rendering',
     );
   } finally {
     if (prevDesc) Object.defineProperty(globalThis, 'navigator', prevDesc);
@@ -1375,5 +1382,247 @@ test('VR prevents nav/rail/pause lockups, syncs IRL roomscale walking, and switc
     else delete globalThis.navigator;
     if (prevDocDesc) Object.defineProperty(globalThis, 'document', prevDocDesc);
     await harness.close();
+  }
+});
+
+test('renderAstroInVr compensates HMD local-floor height, preserves stereo projection beyond OpenXR depthNear=0.05m, and restores transforms even on throw', async () => {
+  const prevDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const dummyRefSpace = { type: 'local-floor' };
+  const fakeSession = {
+    addEventListener() {},
+    removeEventListener() {},
+    async requestReferenceSpace(kind) {
+      if (kind !== 'local-floor') throw new Error(`unexpected ref space ${kind}`);
+      return dummyRefSpace;
+    },
+    async end() {},
+  };
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      xr: {
+        isSessionSupported: async () => true,
+        requestSession: async () => fakeSession,
+      },
+    },
+  });
+
+  try {
+    const sceneAstro = new THREE.Scene();
+    const sceneLocal = new THREE.Scene();
+    const camAstro = new THREE.PerspectiveCamera(75, 1, 0.0002, VR_UNIFIED_FAR);
+    const camLocal = new THREE.PerspectiveCamera(75, 1, 0.0002, VR_UNIFIED_FAR);
+
+    const openXrClampedProj = new THREE.PerspectiveCamera(90, 1, 0.05, VR_UNIFIED_FAR).projectionMatrix.clone();
+    let currentHmdPos = { x: 0.14, y: 1.65, z: -0.09 };
+    const planetInspectBodies = [
+      { name: 'Ceres', r: 0.00047, clearance: 0.001105, heliocentric: [414.0002, 0.0, 0.0] },
+      { name: 'Marte', r: 0.0033895, clearance: 0.00797, heliocentric: [228.000123456, 0.0002, 0.000456789] },
+      { name: 'Tierra', r: 0.006371, clearance: 0.015, heliocentric: [149.6, -0.0003, 0.0] },
+      { name: 'Júpiter', r: 0.071492, clearance: 0.20, heliocentric: [778.5, 0.0, 0.0] },
+    ];
+    const bodies = planetInspectBodies.map((spec) => {
+      const pivot = new THREE.Group();
+      pivot.position.set(spec.heliocentric[0], spec.heliocentric[1], spec.heliocentric[2]);
+      sceneAstro.add(pivot);
+      return {
+        p: { n: spec.name },
+        r: spec.r,
+        pivot,
+        heliocentricScene64: new Float64Array(spec.heliocentric),
+      };
+    });
+
+    const scaleHeightUniform = { value: 1200 };
+    let shouldThrowNextRender = false;
+    let lastStereoSample = null;
+    const tmpCenter = new THREE.Vector3();
+    const tmpEdge = new THREE.Vector3();
+    const eyeMatrix = new THREE.Matrix4();
+    const viewMatrix = new THREE.Matrix4();
+    const camWorldMatrix = new THREE.Matrix4();
+
+    let xrManager = null;
+    const fakeRenderer = {
+      xr: {
+        enabled: false,
+        setReferenceSpaceType() {},
+        getReferenceSpace: () => dummyRefSpace,
+        async setSession() {},
+        getController: () => new THREE.Group(),
+        getControllerGrip: () => new THREE.Group(),
+      },
+      render(scene) {
+        if (shouldThrowNextRender) {
+          throw new Error('simulated WebXR driver context loss');
+        }
+        if (scene !== sceneAstro) return;
+        const activeBody = bodies[lastStereoSample.bodyIndex];
+        activeBody.pivot.getWorldPosition(tmpCenter);
+        const worldRadius = activeBody.r * sceneAstro.scale.x;
+        const eyes = [-0.032, 0.032].map((ipdHalf) => {
+          eyeMatrix.makeTranslation(
+            currentHmdPos.x + ipdHalf,
+            currentHmdPos.y,
+            currentHmdPos.z,
+          );
+          camWorldMatrix.multiplyMatrices(xrManager.vrAstroRig.matrixWorld, eyeMatrix);
+          viewMatrix.copy(camWorldMatrix).invert();
+          const viewCenter = tmpCenter.clone().applyMatrix4(viewMatrix);
+          const ndcCenter = viewCenter.clone().applyMatrix4(openXrClampedProj);
+          tmpEdge.set(0, worldRadius, 0).applyQuaternion(lastStereoSample.camQuat).add(tmpCenter);
+          const viewEdge = tmpEdge.applyMatrix4(viewMatrix);
+          const ndcEdge = viewEdge.clone().applyMatrix4(openXrClampedProj);
+          return {
+            camWorldPos: new THREE.Vector3().setFromMatrixPosition(camWorldMatrix),
+            depthMeters: -viewCenter.z,
+            ndcCenter,
+            ndcEdge,
+          };
+        });
+        lastStereoSample.eyes = eyes;
+      },
+    };
+
+    xrManager = createWebXrManager({
+      renderer: fakeRenderer,
+      sceneAstro,
+      sceneLocal,
+      camAstro,
+      camLocal,
+    });
+    assert.equal((await xrManager.enterVr()).ok, true);
+
+    const forwardOffsetDir = new THREE.Vector3(-0.35, 0.15, 0.92).normalize();
+    for (let idx = 0; idx < bodies.length; idx++) {
+      const spec = planetInspectBodies[idx];
+      const bodyPos = new THREE.Vector3(...spec.heliocentric);
+      const camPos = bodyPos.clone().addScaledVector(forwardOffsetDir, spec.clearance);
+      const lookMat = new THREE.Matrix4().lookAt(camPos, bodyPos, new THREE.Vector3(0, 1, 0));
+      const camQuat = new THREE.Quaternion().setFromRotationMatrix(lookMat);
+      camAstro.position64 = new Float64Array([camPos.x, camPos.y, camPos.z]);
+
+      const xrFrame = {
+        getViewerPose: () => ({
+          transform: {
+            position: currentHmdPos,
+            orientation: { x: 0, y: 0, z: 0, w: 1 },
+          },
+        }),
+      };
+
+      lastStereoSample = { bodyIndex: idx, camQuat, eyes: null };
+      xrManager.syncRigsBeforeRender({
+        astroCamPos: camPos,
+        astroCamQuat: camQuat,
+        localEyePos: new THREE.Vector3(0, 5.05, -10.4),
+        localYawQuat: camQuat,
+        inCabin: false,
+        xrFrame,
+      });
+
+      const res = xrManager.renderAstroInVr({
+        threshold: 0.001,
+        cellSize: 0,
+        highPrecisionBodies: bodies,
+        scaleHeightUniforms: [scaleHeightUniform],
+      });
+      assert.equal(res.poseCompensated, true, `${spec.name}: must compensate local-floor HMD pose`);
+      assert.ok(lastStereoSample.eyes && lastStereoSample.eyes.length === 2);
+
+      const expectedAngularRadiusRatio = spec.r / spec.clearance;
+      const [leftEye, rightEye] = lastStereoSample.eyes;
+      assert.ok(
+        Math.abs(leftEye.ndcCenter.x + rightEye.ndcCenter.x) < 1e-4,
+        `${spec.name} left/right IPD convergence must be symmetric, got (${leftEye.ndcCenter.x}, ${rightEye.ndcCenter.x})`,
+      );
+      for (const eye of lastStereoSample.eyes) {
+        const expectedSurfaceMeters = eye.depthMeters - spec.r * res.astroScale;
+        assert.ok(
+          expectedSurfaceMeters > 0.12,
+          `${spec.name} scaled surface (${expectedSurfaceMeters.toFixed(4)}m) must clear OpenXR clamped depthNear=0.05m`,
+        );
+        assert.ok(
+          eye.depthMeters < VR_UNIFIED_FAR,
+          `${spec.name} depth must stay within VR_UNIFIED_FAR`,
+        );
+        assert.ok(
+          Math.abs(eye.ndcCenter.x) < 0.08 && Math.abs(eye.ndcCenter.y) < 1e-3,
+          `${spec.name} must stay centered in stereo FOV, got ndc=(${eye.ndcCenter.x.toFixed(4)}, ${eye.ndcCenter.y.toFixed(4)})`,
+        );
+        assert.ok(
+          eye.ndcCenter.z >= -1 && eye.ndcCenter.z <= 1,
+          `${spec.name} NDC Z (${eye.ndcCenter.z}) must lie inside clip volume`,
+        );
+        const projectedEdgeDelta = Math.hypot(
+          eye.ndcEdge.x - eye.ndcCenter.x,
+          eye.ndcEdge.y - eye.ndcCenter.y,
+        );
+        assert.ok(
+          Math.abs(projectedEdgeDelta - expectedAngularRadiusRatio) < 1e-3,
+          `${spec.name} apparent angular size must remain invariant under astroScale=${res.astroScale}`,
+        );
+      }
+
+      // Seated pose on subsequent iteration checks continuous height adaptation
+      currentHmdPos = { x: -0.04, y: 1.05, z: 0.06 };
+    }
+
+    // Also verify non-rebased macro scene (e.g. SPHEREx at threshold=10000) still cancels 1.65 m HMD height without unwanted scaling
+    const spherexCamPos = new THREE.Vector3(12, 0, 20);
+    camAstro.position64 = new Float64Array([12, 0, 20]);
+    currentHmdPos = { x: 0.25, y: 1.65, z: 0.3 };
+    let observedNonRebasedRig = null;
+    fakeRenderer.render = (scene) => {
+      if (scene === sceneAstro) {
+        observedNonRebasedRig = xrManager.vrAstroRig.position.clone();
+      }
+    };
+    xrManager.syncRigsBeforeRender({
+      astroCamPos: spherexCamPos,
+      astroCamQuat: new THREE.Quaternion(),
+      inCabin: false,
+      xrFrame: {
+        getViewerPose: () => ({
+          transform: { position: currentHmdPos, orientation: { x: 0, y: 0, z: 0, w: 1 } },
+        }),
+      },
+    });
+    const macroRes = xrManager.renderAstroInVr({
+      threshold: 10000,
+      cellSize: 1024,
+      highPrecisionBodies: null,
+      scaleHeightUniforms: [scaleHeightUniform],
+    });
+    assert.equal(macroRes.rebased, false);
+    assert.equal(macroRes.astroScale, 1);
+    assert.equal(macroRes.poseCompensated, true);
+    assert.ok(
+      observedNonRebasedRig.distanceTo(new THREE.Vector3(12 - 0.25, -1.65, 20 - 0.3)) < 1e-6,
+      'Non-rebased astro scene must subtract sampled local-floor HMD pose so eyes stay at astroCamPos',
+    );
+    assert.equal(computeVrAstroSceneScale(null, camAstro.position64), 1);
+
+    // Verify full state restoration when renderer.render throws
+    shouldThrowNextRender = true;
+    const beforeMarsX = bodies[1].pivot.position.x;
+    fakeRenderer.render = () => {
+      throw new Error('simulated WebXR driver context loss');
+    };
+    assert.throws(() => {
+      xrManager.renderAstroInVr({
+        threshold: 0.001,
+        cellSize: 0,
+        highPrecisionBodies: bodies,
+        scaleHeightUniforms: [scaleHeightUniform],
+      });
+    }, /simulated WebXR driver context loss/);
+    assert.equal(scaleHeightUniform.value, 1200);
+    assert.equal(sceneAstro.scale.x, 1);
+    assert.equal(sceneAstro.position.length(), 0);
+    assert.equal(bodies[1].pivot.position.x, beforeMarsX);
+  } finally {
+    if (prevDesc) Object.defineProperty(globalThis, 'navigator', prevDesc);
+    else delete globalThis.navigator;
   }
 });

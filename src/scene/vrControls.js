@@ -6,9 +6,50 @@ import {
 } from './originRebase.js';
 
 // Unified WebXR near/far planes prevent WebXRManager from calling updateRenderState twice per frame
-// while keeping rocky/dwarf planets (down to Ceres at ~0.00063 u surface distance) visible on arrival.
+// while keeping far-scaled background stars (~8.4e7 at 400x dwarf-planet scale) inside the frustum.
 export const VR_UNIFIED_NEAR = 0.0002;
-export const VR_UNIFIED_FAR = 4e5;
+export const VR_UNIFIED_FAR = 1e8;
+
+/**
+ * Compute uniform camera-relative scene scale for WebXR so planets/moons stay outside hardware-clamped
+ * `depthNear` (~0.01-0.05 m) and comfortable human stereo IPD (~0.064 m) while preserving angular size.
+ */
+export function computeVrAstroSceneScale(
+  highPrecisionBodies,
+  camPos64,
+  { targetSurfaceMeters = 0.5, maxScale = 400 } = {},
+) {
+  if (!Array.isArray(highPrecisionBodies) || highPrecisionBodies.length === 0 || !camPos64) {
+    return 1;
+  }
+  const cx = Number(camPos64[0] ?? camPos64.x ?? 0);
+  const cy = Number(camPos64[1] ?? camPos64.y ?? 0);
+  const cz = Number(camPos64[2] ?? camPos64.z ?? 0);
+  let minSurfaceDist = Infinity;
+  for (let i = 0; i < highPrecisionBodies.length; i++) {
+    const b = highPrecisionBodies[i];
+    if (!b?.pivot || b.pivot.visible === false || !b.heliocentricScene64) continue;
+    const dx = b.heliocentricScene64[0] - cx;
+    const dy = b.heliocentricScene64[1] - cy;
+    const dz = b.heliocentricScene64[2] - cz;
+    const centerDist = Math.hypot(dx, dy, dz);
+    if (!Number.isFinite(centerDist) || centerDist <= 0) continue;
+    let surfaceDist;
+    if (Number.isFinite(b.r) && b.r > 0) {
+      const radialExtent = b.r * (b.rings ? 2.45 : 1.05);
+      surfaceDist = Math.max(radialExtent * 0.15, centerDist - radialExtent);
+    } else {
+      surfaceDist = centerDist * 0.55;
+    }
+    if (surfaceDist < minSurfaceDist) {
+      minSurfaceDist = surfaceDist;
+    }
+  }
+  if (!Number.isFinite(minSurfaceDist) || minSurfaceDist >= targetSurfaceMeters) {
+    return 1;
+  }
+  return Math.max(1, Math.min(maxScale, targetSurfaceMeters / Math.max(minSurfaceDist, 1e-6)));
+}
 
 export const DEFAULT_VR_SETTINGS = Object.freeze({
   turnMode: 'smooth', // 'smooth' | 'snap'
@@ -509,6 +550,10 @@ export function createWebXrManager({
   const preRenderLocalQuat = new THREE.Quaternion();
   let hasSavedPreRenderCameras = false;
   const rebaseOrigin = new THREE.Vector3();
+  const savedScenePosScratch = new THREE.Vector3();
+  const savedSceneScaleScratch = new THREE.Vector3(1, 1, 1);
+  const savedRigPosScratch = new THREE.Vector3();
+  const camPos64Scratch = new Float64Array(3);
 
   let activeHoveredStation = null;
   let lastHandCount = 0;
@@ -1053,6 +1098,8 @@ export function createWebXrManager({
     if (!xrPresenting) return;
     if (pendingInitialCalibration) {
       tryAutoCalibrate(xrFrame);
+    } else if (xrFrame || !hasSampledPose) {
+      sampleXrViewerPose(xrFrame);
     }
     if (localYawQuat && localEyePos) {
       tmpEuler.set(0, -recenterYawRad, 0, 'YXZ');
@@ -1150,37 +1197,91 @@ export function createWebXrManager({
   }
 
   /**
-   * Ejecuta el render de `sceneAstro` con rebasing Float64 sobre `vrAstroRig` en WebXR.
+   * Ejecuta el render de `sceneAstro` en WebXR con rebasing Float64, escalado de confort estéreo/near-plane
+   * y compensación del desplazamiento métrico del visor HMD (`local-floor`) respecto al origen astronómico.
    */
-  function renderAstroInVr({ threshold = 10000, cellSize = 1024, highPrecisionBodies = null } = {}) {
-    if (!renderer || !sceneAstro || !camAstro) return { rebased: false };
+  function renderAstroInVr({
+    threshold = 10000,
+    cellSize = 1024,
+    highPrecisionBodies = null,
+    scaleHeightUniforms = null,
+  } = {}) {
+    if (!renderer || !sceneAstro || !camAstro) {
+      return { rebased: false, astroScale: 1, poseCompensated: false };
+    }
     const dist = vrAstroRig.position.length();
-    if (dist < threshold) {
+    const needsRebase = dist >= threshold;
+    camPos64Scratch[0] = Number(camAstro.position64?.[0] ?? vrAstroRig.position.x);
+    camPos64Scratch[1] = Number(camAstro.position64?.[1] ?? vrAstroRig.position.y);
+    camPos64Scratch[2] = Number(camAstro.position64?.[2] ?? vrAstroRig.position.z);
+    const astroScale = computeVrAstroSceneScale(highPrecisionBodies, camPos64Scratch);
+    const compensatePose = hasSampledPose;
+
+    if (!needsRebase && astroScale === 1 && !compensatePose) {
       vrAstroRig.updateMatrixWorld(true);
       renderer.render(sceneAstro, camAstro);
-      return { rebased: false, origin: [0, 0, 0], precisionBits: 32 };
+      return {
+        rebased: false,
+        origin: [0, 0, 0],
+        precisionBits: 32,
+        astroScale: 1,
+        poseCompensated: false,
+      };
     }
-    const savedScenePos = sceneAstro.position.clone();
-    const savedRigPos = vrAstroRig.position.clone();
-    const origin64 = resolveOriginRebase64(savedRigPos, camAstro.position64, cellSize);
-    rebaseOrigin.set(origin64[0], origin64[1], origin64[2]);
+
+    savedScenePosScratch.copy(sceneAstro.position);
+    savedSceneScaleScratch.copy(sceneAstro.scale);
+    savedRigPosScratch.copy(vrAstroRig.position);
+    const origin64 = needsRebase
+      ? resolveOriginRebase64(savedRigPosScratch, camAstro.position64, cellSize)
+      : null;
     let savedBodyPositions = [];
+    const savedUniforms = [];
     try {
-      sceneAstro.position.sub(rebaseOrigin);
-      vrAstroRig.position.sub(rebaseOrigin);
-      savedBodyPositions = rebaseHighPrecisionBodies(sceneAstro, highPrecisionBodies, origin64);
+      if (needsRebase && origin64) {
+        rebaseOrigin.set(origin64[0], origin64[1], origin64[2]);
+        sceneAstro.position.sub(rebaseOrigin);
+        vrAstroRig.position.sub(rebaseOrigin);
+        savedBodyPositions = rebaseHighPrecisionBodies(sceneAstro, highPrecisionBodies, origin64);
+      }
+      if (astroScale > 1) {
+        sceneAstro.scale.multiplyScalar(astroScale);
+        sceneAstro.position.multiplyScalar(astroScale);
+        vrAstroRig.position.multiplyScalar(astroScale);
+        if (Array.isArray(scaleHeightUniforms)) {
+          for (let i = 0; i < scaleHeightUniforms.length; i++) {
+            const uniform = scaleHeightUniforms[i];
+            if (uniform && Number.isFinite(uniform.value)) {
+              savedUniforms.push([uniform, uniform.value]);
+              uniform.value *= astroScale;
+            }
+          }
+        }
+      }
+      if (compensatePose) {
+        // Cancel XRView.transform HMD translation (~1.65 m standing/seated + roomscale) in astro space
+        // while keeping head orientation & stereo eye IPD (±0.032 m) intact inside scaled sceneAstro.
+        tmpVec.copy(lastSampledPosePos).applyQuaternion(vrAstroRig.quaternion);
+        vrAstroRig.position.sub(tmpVec);
+      }
       sceneAstro.updateMatrixWorld(true);
       vrAstroRig.updateMatrixWorld(true);
       renderer.render(sceneAstro, camAstro);
       return {
-        rebased: true,
-        origin: [origin64[0], origin64[1], origin64[2]],
-        precisionBits: 64,
+        rebased: needsRebase,
+        origin: origin64 ? [origin64[0], origin64[1], origin64[2]] : [0, 0, 0],
+        precisionBits: needsRebase ? 64 : 32,
+        astroScale,
+        poseCompensated: compensatePose,
       };
     } finally {
+      for (let i = 0; i < savedUniforms.length; i++) {
+        savedUniforms[i][0].value = savedUniforms[i][1];
+      }
       restoreHighPrecisionBodies(savedBodyPositions);
-      sceneAstro.position.copy(savedScenePos);
-      vrAstroRig.position.copy(savedRigPos);
+      sceneAstro.position.copy(savedScenePosScratch);
+      sceneAstro.scale.copy(savedSceneScaleScratch);
+      vrAstroRig.position.copy(savedRigPosScratch);
       sceneAstro.updateMatrixWorld(true);
       vrAstroRig.updateMatrixWorld(true);
     }
