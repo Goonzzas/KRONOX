@@ -61,7 +61,7 @@ export function createGameAudio() {
         filter.Q.setValueAtTime(0.8, now);
         const impact = context.createGain();
         impact.gain.setValueAtTime(0.0001, now);
-        impact.gain.exponentialRampToValueAtTime(0.12, now + 0.009);
+        impact.gain.exponentialRampToValueAtTime(0.2, now + 0.009);
         impact.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
         noise.connect(filter).connect(impact).connect(master);
         noise.start(now);
@@ -72,11 +72,23 @@ export function createGameAudio() {
         resonance.frequency.setValueAtTime(185, now);
         resonance.frequency.exponentialRampToValueAtTime(118, now + 0.11);
         metal.gain.setValueAtTime(0.0001, now);
-        metal.gain.exponentialRampToValueAtTime(0.075, now + 0.008);
+        metal.gain.exponentialRampToValueAtTime(0.12, now + 0.008);
         metal.gain.exponentialRampToValueAtTime(0.0001, now + 0.13);
         resonance.connect(metal).connect(master);
         resonance.start(now);
         resonance.stop(now + 0.14);
+
+        const ring = context.createOscillator();
+        const ringGain = context.createGain();
+        ring.type = 'sine';
+        ring.frequency.setValueAtTime(620, now + 0.008);
+        ring.frequency.exponentialRampToValueAtTime(390, now + 0.18);
+        ringGain.gain.setValueAtTime(0.0001, now + 0.008);
+        ringGain.gain.exponentialRampToValueAtTime(0.045, now + 0.02);
+        ringGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.19);
+        ring.connect(ringGain).connect(master);
+        ring.start(now + 0.008);
+        ring.stop(now + 0.2);
         return;
       }
 

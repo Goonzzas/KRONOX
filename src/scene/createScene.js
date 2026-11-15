@@ -3470,7 +3470,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     'deck-04': { pos: new V(2.8, -6.8, -5.0), yaw: 0.35 },
   };
   let deckTransitState = null;
-  let nextNoviceFootstepAt = 0;
+  let noviceFootstepDistance = 0;
 
   function buildDeckTransitWaypoints(fromPos, targetDeckId, yawOverride = null) {
     const dest = DECK_SPAWNS[targetDeckId] || DECK_SPAWNS['deck-01'];
@@ -7761,14 +7761,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           } else if (deckTransitState?.active) {
             const noviceWalkStep = guidedTourState?.mode === 'novice-cinematic' &&
               ['cinematic-walk', 'cinematic-walk-elevator', 'cinematic-walk-science'].includes(guidedTourState.step);
-            if (noviceWalkStep && clk.elapsedTime >= nextNoviceFootstepAt) {
-              S.onPlayAudioCue?.('footstep');
-              nextNoviceFootstepAt = clk.elapsedTime + 0.46;
-            }
             const wp = deckTransitState.waypoints[deckTransitState.index];
             const toWp = new V().subVectors(wp, astronautPos);
             const distToWp = toWp.length();
             const stepDist = deckTransitState.speed * Math.max(0.008, Math.min(0.05, dt));
+            if (noviceWalkStep) {
+              noviceFootstepDistance += Math.min(stepDist, distToWp);
+              if (noviceFootstepDistance >= 0.72) {
+                S.onPlayAudioCue?.('footstep');
+                noviceFootstepDistance %= 0.72;
+              }
+            } else {
+              noviceFootstepDistance = 0;
+            }
             if (distToWp <= stepDist + 0.04) {
               astronautPos.copy(wp);
               deckTransitState.index += 1;
