@@ -319,11 +319,13 @@ export function buildKronoxInterior120M() {
       const ceilGeo = buildSlottedDeckSlab(ceilingR, 0.028, ceilingHoleR);
       add(ceilingParent, ceilGeo, ceilingM, 0, y - 0.308, 0);
 
-      // Conductos de aireación y vigas radiales en techo
-      for (let b = 0; b < 4; b++) {
-        const ang = (b * Math.PI) / 2 + Math.PI / 4;
-        const duct = add(ceilingParent, box(ceilingR * 1.45, 0.09, 0.26), ventM, 0, y - 0.36, 0);
-        duct.rotation.y = ang;
+      // Conductos de aireación y vigas radiales en techo (Cubierta 02 usa artesonado radial por camarotes propio)
+      if (idx !== 1) {
+        for (let b = 0; b < 4; b++) {
+          const ang = (b * Math.PI) / 2 + Math.PI / 4;
+          const duct = add(ceilingParent, box(ceilingR * 1.45, 0.09, 0.26), ventM, 0, y - 0.36, 0);
+          duct.rotation.y = ang;
+        }
       }
     }
 
@@ -345,7 +347,7 @@ export function buildKronoxInterior120M() {
     const ceilTrussMats = [];
     const dummy = new THREE.Object3D();
     [3.4, 0.0, -3.4, -6.8].forEach((floorY, dIdx) => {
-      if (dIdx === 0) return;
+      if (dIdx === 0 || dIdx === 1) return;
       const ceilY = floorY + 3.04;
       const rings = [4.8, 9.8, 14.2];
       rings.forEach((rr) => {
@@ -915,7 +917,7 @@ export function buildKronoxInterior120M() {
     add(dParent, cachedGeo(`shellCyl:${rTop.toFixed(2)}:${rBot.toFixed(2)}`, () => new THREE.CylinderGeometry(rTop, rBot, 3.25, 48, 1, true)), outerShellInnerWallM, 0, midY, 0);
 
     for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
+      const a = (i / 16) * Math.PI * 2 + (dIdx === 0 ? Math.PI / 8 : 0);
       const rMid = (rTop + rBot) * 0.5 - 0.15;
       const rib = new THREE.Group();
       rib.position.set(rMid * Math.cos(a), midY, rMid * Math.sin(a));
@@ -923,7 +925,7 @@ export function buildKronoxInterior120M() {
       dParent.add(rib);
       add(rib, box(0.28, 3.12, 0.28), darkM, 0, 0, 0);
       add(rib, box(0.12, 3.1, 0.08), steelM, 0.14, 0, 0);
-      if (i % 2 === 0) {
+      if (dIdx !== 0 && i % 2 === 0) {
         // Ventanilla enmarcada en acero con brillo interior sutil y cristal reflectante
         add(rib, box(1.56, 0.88, 0.14), darkM, 1.35, 0.2, 0.04);
         add(rib, box(1.38, 0.72, 0.06), warmGlow, 1.35, 0.2, -0.02);
@@ -1455,42 +1457,43 @@ export function buildKronoxInterior120M() {
     mountDeckPlacard(d3, -11.5, f + 2.68, 3.0, Math.PI * 0.75, 'C03', 'CRIOGENIA', 'HELIO LÍQUIDO 4.2 K', '#2dd4bf');
     mountDeckPlacard(d3, -11.5, f + 2.68, -3.0, Math.PI * 0.25, 'C03', 'PROPULSIÓN', 'MOTOR IÓNICO 1.8 GW', '#ff8c42');
 
-    // --- TANQUES CRIOGÉNICOS DORADOS (mejorados con instrumentación) ---
+    // --- TANQUES CRIOGÉNICOS DORADOS (altura contenida estrictamente bajo techo de Cubierta 03) ---
     [-6, 6].forEach((cz, tIdx) => {
       const tg = new THREE.Group();
       tg.position.set(9, f, cz);
       d3.add(tg);
       // Tanque cilíndrico principal con MLI dorado
-      add(tg, cyl(1.42, 1.42, 2.55, 28), goldM, 0, 1.38, 0, 'console');
-      // Domo esférico superior
-      add(tg, sphereGeo(1.4, 22, 14, 0, Math.PI * 2, 0, Math.PI * 0.5), steelM, 0, 2.62, 0);
+      add(tg, cyl(1.42, 1.42, 1.88, 28), goldM, 0, 1.12, 0, 'console');
+      // Domo esférico superior achatado (tope y=2.85 m < 3.05 m bajo losa de Cubierta 02)
+      const dome = add(tg, sphereGeo(1.4, 22, 14, 0, Math.PI * 2, 0, Math.PI * 0.5), steelM, 0, 2.04, 0);
+      dome.scale.y = 0.58;
       // Base con anclaje y brida
       add(tg, cyl(1.52, 1.52, 0.3, 28), slateM, 0, 0.16, 0);
       add(tg, cyl(1.48, 1.48, 0.08, 28), darkM, 0, 0.32, 0);
       // Anillo de refuerzo a media altura
-      add(tg, cyl(1.48, 1.48, 0.16, 28), copperM, 0, 1.8, 0);
-      add(tg, cyl(1.48, 1.48, 0.16, 28), copperM, 0, 1.0, 0);
+      add(tg, cyl(1.48, 1.48, 0.16, 28), copperM, 0, 1.52, 0);
+      add(tg, cyl(1.48, 1.48, 0.16, 28), copperM, 0, 0.85, 0);
       // Indicador de nivel de líquido (tubo visor)
-      add(tg, cyl(0.04, 0.04, 1.8, 8), glassM, 1.32, 1.3, 0);
+      add(tg, cyl(0.04, 0.04, 1.42, 8), glassM, 1.32, 1.15, 0);
       const levelColor = tIdx === 0 ? 0.873 : 0.916;
-      const levelH = 1.8 * levelColor;
-      add(tg, cyl(0.03, 0.03, levelH, 8), neutronBlueGlow, 1.32, 0.4 + levelH * 0.5, 0);
+      const levelH = 1.42 * levelColor;
+      add(tg, cyl(0.03, 0.03, levelH, 8), neutronBlueGlow, 1.32, 0.44 + levelH * 0.5, 0);
       // Manómetro y válvula de alivio
-      add(tg, cyl(0.15, 0.15, 0.04, 12), darkM, 0, 2.68, 0);
-      add(tg, cyl(0.12, 0.12, 0.03, 12), cyanGlow, 0, 2.7, 0);
+      add(tg, cyl(0.15, 0.15, 0.04, 12), darkM, 0, 2.86, 0);
+      add(tg, cyl(0.12, 0.12, 0.03, 12), cyanGlow, 0, 2.88, 0);
       // Válvula de seguridad
-      add(tg, cyl(0.06, 0.06, 0.22, 8), steelM, 0.8, 2.55, 0).rotation.z = Math.PI / 4;
-      add(tg, torus(0.08, 0.02, 6, 12), railAmberM, 0.8 + 0.11, 2.55 + 0.11, 0);
+      add(tg, cyl(0.06, 0.06, 0.22, 8), steelM, 0.8, 2.38, 0).rotation.z = Math.PI / 4;
+      add(tg, torus(0.08, 0.02, 6, 12), railAmberM, 0.8 + 0.11, 2.38 + 0.11, 0);
       // Placas de identificación
       const tankLabel = tIdx === 0 ? 'A' : 'B';
-      add(tg, box(0.5, 0.3, 0.03), darkM, -1.38, 1.5, 0);
-      add(tg, box(0.42, 0.22, 0.02), cyanGlow, -1.38, 1.5, 0.02);
+      add(tg, box(0.5, 0.3, 0.03), darkM, -1.38, 1.25, 0);
+      add(tg, box(0.42, 0.22, 0.02), cyanGlow, -1.38, 1.25, 0.02);
       // Tuberías de conexión al reactor
-      add(tg, cyl(0.09, 0.09, 4.5, 10), steelM, -4.5, 2.35, -cz * 0.3).rotation.z = Math.PI / 2;
-      add(tg, cyl(0.12, 0.12, 0.3, 10), copperM, -2.5, 2.35, -cz * 0.3);
+      add(tg, cyl(0.09, 0.09, 4.5, 10), steelM, -4.5, 1.85, -cz * 0.3).rotation.z = Math.PI / 2;
+      add(tg, cyl(0.12, 0.12, 0.3, 10), copperM, -2.5, 1.85, -cz * 0.3);
     });
     // Colector criogénico transversal mejorado entre ambos tanques
-    add(d3, box(0.48, 0.28, 12.8), slateM, 9, f + 2.78, 0);
+    add(d3, box(0.48, 0.24, 12.8), slateM, 9, f + 2.82, 0);
     add(d3, cyl(0.14, 0.14, 12.4, 14), copperM, 9, f + 2.62, 0).rotation.x = Math.PI / 2;
     // Tubo de ecualización de presión
     add(d3, cyl(0.06, 0.06, 12.0, 8), steelM, 9, f + 2.48, 0).rotation.x = Math.PI / 2;

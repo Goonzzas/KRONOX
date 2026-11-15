@@ -171,6 +171,44 @@ export function radialBayPoint(bay, radialDist, tangentDist = 0, floorY = 0.0) {
   };
 }
 
+/**
+ * Calcula pose 3D exacta y ejes OBB en mundo para mobiliario adosado a los mamparos radiales ±22.5°
+ * de las suites C02, garantizando alineación 1:1 entre geometría visual, estaciones y colisión.
+ */
+export function radialBayWallFurniturePose(bay, sideSign, rWall, inwardOffset = 0.42, floorY = 0.0) {
+  const WALL_TAN = Math.tan(Math.PI / 8);
+  const WALL_COS = Math.cos(Math.PI / 8);
+  const WALL_SIN = Math.sin(Math.PI / 8);
+  const pWall = sideSign * (rWall * WALL_TAN - 0.145);
+  const nx = -sideSign * WALL_COS;
+  const nz = -WALL_SIN;
+  const localP = pWall + nx * inwardOffset;
+  const localZ = -rWall + nz * inwardOffset;
+  const localRotY = -sideSign * (Math.PI * 0.625);
+  const worldPos = radialBayPoint(bay, -localZ, localP, floorY);
+  const widthUx = bay.px * (sideSign * WALL_SIN) + bay.ux * WALL_COS;
+  const widthUz = bay.pz * (sideSign * WALL_SIN) + bay.uz * WALL_COS;
+  const depthUx = bay.px * nx + bay.ux * -nz;
+  const depthUz = bay.pz * nx + bay.uz * -nz;
+  return {
+    localP,
+    localZ,
+    localRotY,
+    worldPos,
+    widthUx,
+    widthUz,
+    depthUx,
+    depthUz,
+    pointInFront(frontDist = 1.0) {
+      return {
+        x: Number((worldPos.x + depthUx * frontDist).toFixed(3)),
+        y: floorY,
+        z: Number((worldPos.z + depthUz * frontDist).toFixed(3)),
+      };
+    },
+  };
+}
+
 // Descriptor canónico de las 6 suites/módulos habitables de Cubierta 02 (1:1 con C02_CABIN_BAYS)
 export const C02_HAB_SUITES = Object.freeze([
   Object.freeze({
@@ -409,10 +447,10 @@ export const SHIP_INTERIOR_STATIONS = [
     tag: 'ALMACENAMIENTO',
     deckId: 'deck-02',
     deckLevel: 2,
-    position: { x: -5.35, y: 0.0, z: -2.85 },
-    consolePos: { x: -6.13, y: 1.25, z: -3.23 },
+    position: { x: -5.18, y: 0.0, z: -2.82 },
+    consolePos: { x: -5.63, y: 1.25, z: -3.11 },
     aiHoverPos: { x: -4.45, y: 1.65, z: -2.45 },
-    lookTarget: { x: -6.5, y: 1.2, z: -3.45 },
+    lookTarget: { x: -5.63, y: 1.2, z: -3.11 },
     maxInteractDistance: 2.9,
     colorHex: 0x67e8f9,
   },
@@ -434,9 +472,11 @@ export const SHIP_INTERIOR_STATIONS = [
     const bedStand = radialBayPoint(bay, 13.6, -1.05, 0.0);
     const bedCenter = radialBayPoint(bay, 14.1, 0.0, 0.56);
     const bedAi = radialBayPoint(bay, 12.6, 1.0, 1.65);
-    const specStand = radialBayPoint(bay, 11.4, -1.45, 0.0);
-    const specConsole = radialBayPoint(bay, 12.2, -2.35, 1.15);
-    const specAi = radialBayPoint(bay, 10.6, -0.85, 1.65);
+    const specPose = radialBayWallFurniturePose(bay, -1, 10.6, 0.42, 0.0);
+    const specStand = specPose.pointInFront(1.1);
+    const specConsole = { ...specPose.worldPos, y: 1.15 };
+    const specAi = specPose.pointInFront(1.45);
+    specAi.y = 1.65;
     return [
       {
         id: suite.bedId,
@@ -738,7 +778,7 @@ export const INTERIOR_GRAB_RAILS = [
   // Pasamanos de cubierta
   { id: 'rail-bridge-bow', pos: [0.0, 4.45, -10.5], span: 4.5, axis: 'x', side: 'bow', deckId: 'deck-01' },
   { id: 'rail-bridge-port', pos: [-6.8, 4.45, -2.5], span: 6.0, axis: 'z', side: 'port', deckId: 'deck-01' },
-  { id: 'rail-hab-ring', pos: [3.6, 1.1, -2.0], span: 5.0, axis: 'z', side: 'starboard', deckId: 'deck-02' },
+  { id: 'rail-hab-ring', pos: [5.05, 1.1, -2.2], span: 2.2, axis: 'z', side: 'starboard', deckId: 'deck-02' },
   { id: 'rail-lab-spherex', pos: [-12.2, -2.3, 0.0], span: 6.0, axis: 'z', side: 'port', deckId: 'deck-03' },
   { id: 'rail-lab-bench', pos: [14.0, -2.3, 3.0], span: 6.0, axis: 'z', side: 'starboard', deckId: 'deck-03' },
   { id: 'rail-eng-reactor', pos: [2.4, -2.3, 5.4], span: 4.4, axis: 'x', side: 'aft', deckId: 'deck-03' },
@@ -1106,46 +1146,109 @@ export function clampAstronautPosition(
 
       // 8 mamparos radiales sólidos (desfasados 22.5°), cámara EVA de proa (0, -16.0) y vitrinas de traje
       for (let i = 0; i < C02_BULKHEAD_ANGLES.length; i++) {
-        pushOutRadialWall2D(pos, C02_BULKHEAD_ANGLES[i], 6.85 - rCol * 0.35, 17.8, 0.14 + rCol);
+        pushOutRadialWall2D(pos, C02_BULKHEAD_ANGLES[i], 6.85 - rCol * 0.35, 18.2, 0.14 + rCol);
       }
       pushOutAABB2D(pos, 0.0, -16.0, 1.45 + rCol, 0.32 + rCol);
       pushOutAABB2D(pos, -2.35, -15.35, 0.46 + rCol, 0.44 + rCol);
       pushOutAABB2D(pos, 2.35, -15.35, 0.46 + rCol, 0.44 + rCol);
 
-      // Taquilla EVA en pasillo proa-babor (junto a HAB-06, sin obstruir ningún portal de entrada)
+      // Taquilla EVA en pasillo proa-babor (junto al anillo sin invadir el muro frontal de HAB-06)
       pushOutRadialOffsetOBB2D(
         pos,
         C02_CABIN_BAYS[5],
-        6.62,
-        -2.05,
+        6.18,
+        -1.78,
         0.30 + rCol,
-        0.58 + rCol
+        0.56 + rCol
       );
 
-      // 6 Suites / Módulos Habitables (HAB-01..HAB-06): muros frontales con portal amplio (2.32 m), puerta corrediza y mobiliario 1:1
+      // 6 Suites / Módulos Habitables (HAB-01..HAB-06): muros frontales acotados dentro del sector, puerta corrediza y mobiliario 1:1
       for (let b = 0; b < C02_CABIN_BAYS.length; b++) {
         const bay = C02_CABIN_BAYS[b];
-        // Muro de acceso frontal a ambos lados del portal central (r = 7.0 m, p ∈ [-2.96,-1.16] y [+1.16,+2.96])
-        pushOutRadialOffsetOBB2D(pos, bay, 7.0, -2.06, 0.14 + rCol, 0.90 + rCol);
-        pushOutRadialOffsetOBB2D(pos, bay, 7.0, 2.06, 0.14 + rCol, 0.90 + rCol);
+        // Muro de acceso frontal a ambos lados del portal central (r = 7.0 m, p ∈ [-2.71,-1.14] y [+1.14,+2.71])
+        pushOutRadialOffsetOBB2D(pos, bay, 7.0, -1.925, 0.13 + rCol, 0.78 + rCol);
+        pushOutRadialOffsetOBB2D(pos, bay, 7.0, 1.925, 0.13 + rCol, 0.78 + rCol);
         // Hoja corrediza sólida cuando la puerta privada de esa habitación está cerrada
         if (c02Mech?.cabinDoorsOpen?.[b] === false) {
-          pushOutRadialOffsetOBB2D(pos, bay, 7.0, 0.0, 0.10 + rCol, 1.18 + rCol);
+          pushOutRadialOffsetOBB2D(pos, bay, 7.0, 0.0, 0.10 + rCol, 1.16 + rCol);
         }
-        // Armario / Taquilla personal alta en pared lateral izquierda interior (r = 15.2, p = -2.45)
-        pushOutRadialOffsetOBB2D(pos, bay, 15.2, -2.45, 0.44 + rCol, 0.62 + rCol);
+
+        // Armario / Vestidor personal adosado al muro izquierdo -22.5° (rWall = 14.3)
+        const wardrobePose = radialBayWallFurniturePose(bay, -1, 14.3, 0.42);
+        pushOutOBB2D(
+          pos,
+          wardrobePose.worldPos.x,
+          wardrobePose.worldPos.z,
+          wardrobePose.widthUx,
+          wardrobePose.widthUz,
+          wardrobePose.depthUx,
+          wardrobePose.depthUz,
+          0.62 + rCol,
+          0.38 + rCol
+        );
 
         if (!isEyeOrProbe || pos.y < zone.floorY + 1.18) {
-          // Litera / Cama ergonómica centrada en la bahía (r = 14.1, p = 0)
+          // Litera / Cama ergonómica centrada en la bahía (r = 14.1, p = 0) + mesillas laterales
           if (ignoreBedBay !== b) {
-            pushOutRadialOBB2D(pos, bay, 14.1, 1.24 + rCol, 0.59 + rCol);
+            pushOutRadialOBB2D(pos, bay, 14.1, 1.28 + rCol, 0.88 + rCol);
+            pushOutRadialOffsetOBB2D(pos, bay, 14.95, -1.24, 0.28 + rCol, 0.28 + rCol);
+            pushOutRadialOffsetOBB2D(pos, bay, 14.95, 1.24, 0.28 + rCol, 0.28 + rCol);
           }
-          // Escritorio con tableta personal en zona derecha (r = 12.2, p = +2.35)
-          pushOutRadialOffsetOBB2D(pos, bay, 12.2, 2.35, 0.78 + rCol, 0.48 + rCol);
-          // Módulo habitable especializado en nicho izquierdo (r = 12.2, p = -2.35)
-          pushOutRadialOffsetOBB2D(pos, bay, 12.2, -2.35, 0.72 + rCol, 0.48 + rCol);
-          // Credenza baja bajo el ventanal estelar exterior (r = 16.75, p = 0)
-          pushOutRadialOffsetOBB2D(pos, bay, 16.75, 0.0, 0.28 + rCol, 1.05 + rCol);
+
+          // Silla y escritorio con tableta adosado al muro derecho +22.5° (rWall = 10.6)
+          // Se resuelve la silla antes que el escritorio para que el mobiliario fijo hacia el mamparo siempre empuje hacia el centro.
+          const deskPose = radialBayWallFurniturePose(bay, 1, 10.6, 0.43);
+          const chairBase = deskPose.pointInFront(0.84);
+          pushOutCylinder2D(
+            pos,
+            chairBase.x + deskPose.widthUx * 0.08,
+            chairBase.z + deskPose.widthUz * 0.08,
+            0.28 + rCol * 0.72
+          );
+          pushOutOBB2D(
+            pos,
+            deskPose.worldPos.x,
+            deskPose.worldPos.z,
+            deskPose.widthUx,
+            deskPose.widthUz,
+            deskPose.depthUx,
+            deskPose.depthUz,
+            0.84 + rCol,
+            0.40 + rCol
+          );
+
+          // Módulo habitable especializado adosado al muro izquierdo -22.5° (rWall = 10.6)
+          const specPose = radialBayWallFurniturePose(bay, -1, 10.6, 0.42);
+          pushOutOBB2D(
+            pos,
+            specPose.worldPos.x,
+            specPose.worldPos.z,
+            specPose.widthUx,
+            specPose.widthUz,
+            specPose.depthUx,
+            specPose.depthUz,
+            0.76 + rCol,
+            0.40 + rCol
+          );
+
+          // Mesita auxiliar y sofá rincón de lectura adosado al muro derecho +22.5° (rWall = 14.3)
+          const sofaPose = radialBayWallFurniturePose(bay, 1, 14.3, 0.46);
+          const sideTablePos = sofaPose.pointInFront(0.95);
+          pushOutCylinder2D(pos, sideTablePos.x, sideTablePos.z, 0.34 + rCol * 0.72);
+          pushOutOBB2D(
+            pos,
+            sofaPose.worldPos.x,
+            sofaPose.worldPos.z,
+            sofaPose.widthUx,
+            sofaPose.widthUz,
+            sofaPose.depthUx,
+            sofaPose.depthUz,
+            0.78 + rCol,
+            0.42 + rCol
+          );
+
+          // Banqueta panorámica bajo el ventanal exterior + estanterías laterales (r = 16.72)
+          pushOutRadialOffsetOBB2D(pos, bay, 16.72, 0.0, 0.34 + rCol, 2.95 + rCol);
         }
       }
 

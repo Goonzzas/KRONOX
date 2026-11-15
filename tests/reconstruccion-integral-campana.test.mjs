@@ -22,6 +22,7 @@ import {
   DIRECT_INTERACTION_IDS,
   describeInteractablePrompt,
   radialBayPoint,
+  radialBayWallFurniturePose,
 } from '../src/scene/kronoxInteriorSpatialModel.js';
 import { createMicrogravityPhysicsController, MICROGRAVITY_MODES } from '../src/scene/microgravityPhysicsController.js';
 import {
@@ -599,17 +600,37 @@ test('KRONOX CUBIERTA 02 — 6 Suites Habitacionales 1:1, Puertas Privadas, Alco
       `${suite.code} ignoreBedRestCollider=${idx} debe permitir postura acostada`,
     );
 
-    // Escritorio (+2.35), módulo de especialidad (-2.35) y armario (-2.45) sólidos
-    for (const [label, r, p] of [
-      ['escritorio', 12.2, 2.35],
-      ['alcoba', 12.2, -2.35],
-      ['armario', 15.2, -2.45],
+    // Pasillo central de la suite libre y mobiliario adosado a mamparos ±22.5° sólido (1:1)
+    const centerAislePt = radialBayPoint(bay, 11.0, 0.0, 0.0);
+    const centerWalk = new THREE.Vector3(centerAislePt.x, centerAislePt.y, centerAislePt.z);
+    interior.clampAstronautPosition(centerWalk, 0.34, 0.24, el.state, { lockedDeckId: 'deck-02' });
+    assert.ok(Math.hypot(centerWalk.x - centerAislePt.x, centerWalk.z - centerAislePt.z) < 0.05, `${suite.code} eje central debe estar libre`);
+
+    for (const [label, sideSign, rWall, inwardOffset] of [
+      ['escritorio', 1, 10.6, 0.43],
+      ['alcoba', -1, 10.6, 0.42],
+      ['armario', -1, 14.3, 0.42],
+      ['lounge', 1, 14.3, 0.46],
     ]) {
-      const mPt = radialBayPoint(bay, r, p, 0.0);
-      const mHit = new THREE.Vector3(mPt.x, mPt.y, mPt.z);
+      const wPt = radialBayWallFurniturePose(bay, sideSign, rWall, inwardOffset, 0.0).worldPos;
+      const mHit = new THREE.Vector3(wPt.x, wPt.y, wPt.z);
       interior.clampAstronautPosition(mHit, 0.34, 0.24, el.state, { lockedDeckId: 'deck-02' });
-      assert.ok(Math.hypot(mHit.x - mPt.x, mHit.z - mPt.z) >= 0.45, `${suite.code} ${label} debe bloquear colisión`);
+      assert.ok(Math.hypot(mHit.x - wPt.x, mHit.z - wPt.z) >= 0.45, `${suite.code} ${label} debe bloquear colisión`);
     }
+  });
+
+  // 1b. Ninguna estación C02 debe generar quiosco genérico duplicado (`Station_*` con mallas)
+  interior.root.updateMatrixWorld(true);
+  interior.root.traverse((obj) => {
+    if (!obj.name || !obj.name.startsWith('Station_')) return;
+    const wp = new THREE.Vector3();
+    obj.getWorldPosition(wp);
+    if (wp.y < -0.3 || wp.y > 3.3) return;
+    let fallbackMeshes = 0;
+    obj.traverse((c) => {
+      if (c.isMesh) fallbackMeshes += 1;
+    });
+    assert.equal(fallbackMeshes, 0, `${obj.name} no debe generar quiosco caja genérico duplicado en C02`);
   });
 
   // 2. Puerta corredera privada (door-hab-01): bloqueo físico e impedimento de interacción a través de puerta cerrada

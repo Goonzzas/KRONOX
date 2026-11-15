@@ -979,16 +979,16 @@ export function makeDeckSignTexture(code, title, subtitle = '', accentHex = '#38
   g.fillStyle = '#04101a';
   g.font = 'bold 42px monospace';
   g.textAlign = 'center';
-  g.fillText(code, 63, 79);
+  g.fillText(String(code || '').slice(0, 6), 63, 79);
 
   g.textAlign = 'left';
   g.fillStyle = '#f0f8ff';
   g.font = 'bold 28px sans-serif';
-  g.fillText(title.slice(0, 26), 130, 58);
+  g.fillText(String(title || '').slice(0, 26), 130, 58);
 
   g.fillStyle = '#8dc7e8';
   g.font = '19px monospace';
-  g.fillText(subtitle.slice(0, 34), 130, 94);
+  g.fillText(String(subtitle || '').slice(0, 34), 130, 94);
 
   const tex = new THREE.CanvasTexture(c);
   tex.anisotropy = 4;
