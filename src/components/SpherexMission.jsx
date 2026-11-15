@@ -43,6 +43,8 @@ import { t } from '../i18n.js';
 import '../styles/expedition.css';
 import '../styles/observatory.css';
 
+const SphereXAdvancedExplorer = React.lazy(() => import('./SphereXAdvancedExplorer.jsx'));
+
 // Icons tailored to expedition/fieldwork aesthetics
 const Icons = {
   Compass: (props) => (
@@ -489,6 +491,7 @@ export default function SpherexMission({
 
   // Progressive mission stage
   const [stage, setStage] = useState(initialStage || 'arrival');
+  const [advancedExplorerOpen, setAdvancedExplorerOpen] = useState(false);
 
   // Sync external target/stage changes triggered by AI or cockpit consoles
   useEffect(() => {
@@ -1270,6 +1273,27 @@ export default function SpherexMission({
     setPan({ x: 0, y: 0 });
   };
 
+  if (advancedExplorerOpen) {
+    return (
+      <React.Suspense
+        fallback={
+          <div className="kronoxExpeditionShade" role="status">
+            <div className="kronoxExpeditionSheet kronoxSphereXExplorerSheet">
+              Preparando el analizador espectral…
+            </div>
+          </div>
+        }
+      >
+        <SphereXAdvancedExplorer
+          targetName={t(target.name, language)}
+          ra={target.ra}
+          dec={target.dec}
+          onClose={() => setAdvancedExplorerOpen(false)}
+        />
+      </React.Suspense>
+    );
+  }
+
   return (
     <div
       className="kronoxExpeditionShade"
@@ -1487,15 +1511,29 @@ export default function SpherexMission({
                 {/* Stage-Specific Quick Action */}
                 <div className="kronoxRibbonControls">
                   {stage === 'explore' && (
-                    <button
-                      type="button"
-                      className="kronoxRibbonBtn highlight"
-                      onClick={() => setStage('compare')}
-                      disabled={records.length < 2}
-                    >
-                      <span>Comparar con otra fecha</span>
-                      <Icons.ChevronRight />
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="kronoxRibbonBtn"
+                        onClick={() => {
+                          setSequencePlaying(false);
+                          setPlayingBlink(false);
+                          setAdvancedExplorerOpen(true);
+                        }}
+                      >
+                        <span>Explorador DR1 · 102 canales</span>
+                        <Icons.ChevronRight />
+                      </button>
+                      <button
+                        type="button"
+                        className="kronoxRibbonBtn highlight"
+                        onClick={() => setStage('compare')}
+                        disabled={records.length < 2}
+                      >
+                        <span>Comparar con otra fecha</span>
+                        <Icons.ChevronRight />
+                      </button>
+                    </>
                   )}
 
                   {stage === 'compare' && (

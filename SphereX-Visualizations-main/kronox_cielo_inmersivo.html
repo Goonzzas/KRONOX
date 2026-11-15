@@ -1,0 +1,2602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KRONOX · Atlas Inmersivo de Todo el Cielo (Aladin Lite v3 · WISE · 2MASS · DSS2 · Gaia DR3 · SPHEREx DR1)</title>
+  <style>
+    :root {
+      --bg: #05070d;
+      --panel: rgba(11, 15, 25, 0.92);
+      --border: #1e293b;
+      --accent: #38bdf8;
+      --amber: #fbbf24;
+      --green: #34d399;
+      --rose: #fb7185;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+    }
+    #aladin-lite-div {
+      position: fixed;
+      inset: 54px 0 34px 0;
+      width: 100%;
+      height: calc(100vh - 88px);
+      background: #020308;
+      z-index: 1;
+      touch-action: none;
+    }
+    #skyWcsOverlayCanvas {
+      position: fixed;
+      inset: 54px 0 34px 0;
+      width: 100%;
+      height: calc(100vh - 88px);
+      pointer-events: none;
+      z-index: 4;
+    }
+    .sci-drawer {
+      position: fixed;
+      bottom: 42px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(760px, calc(100vw - 24px));
+      max-height: 46vh;
+      overflow-y: auto;
+      background: rgba(9, 13, 23, 0.95);
+      border: 1px solid #26354d;
+      border-radius: 10px;
+      padding: 10px 12px;
+      z-index: 18;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      backdrop-filter: blur(10px);
+      font-size: 0.7rem;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+    }
+    .sci-drawer.open { display: flex; }
+    .sci-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    @media (max-width: 780px) { .sci-grid { grid-template-columns: 1fr; } }
+    .mini-canvas-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .mini-canvas-box { background: #04060d; border: 1px solid #1e293b; border-radius: 6px; padding: 4px; text-align: center; }
+    .mini-canvas-box canvas { display: block; width: 96px; height: 96px; image-rendering: pixelated; }
+    header {
+      position: fixed; top: 0; left: 0; right: 0; height: 54px;
+      background: rgba(7, 10, 18, 0.96);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 12px; gap: 10px; z-index: 20;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; overflow: hidden; }
+    .brand > div { min-width: 0; overflow: hidden; }
+    .badge {
+      background: rgba(56, 189, 248, 0.16);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      padding: 3px 8px; border-radius: 999px;
+      font-size: 0.68rem; font-weight: 700; white-space: nowrap; flex-shrink: 0;
+    }
+    .brand h1 { font-size: 0.9rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .brand p { font-size: 0.68rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .top-actions { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; flex-shrink: 0; }
+    @media (max-width: 1320px) {
+      .brand p { display: none; }
+      #searchObjInput { width: 165px !important; }
+    }
+    .btn, .input-box, select {
+      background: #0f172a;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-size: 0.72rem;
+    }
+    .btn { cursor: pointer; font-weight: 600; transition: border-color 0.15s, background 0.15s; white-space: nowrap; }
+    .btn:hover { border-color: var(--accent); background: #162038; }
+    .btn-primary { background: rgba(56, 189, 248, 0.18); border-color: rgba(56, 189, 248, 0.55); color: #e0f2fe; }
+    .btn-analyze { background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(56, 189, 248, 0.25)); border-color: #34d399; color: #ecfdf5; font-weight: 700; }
+    .btn.active { border-color: var(--accent); background: #1d273f; color: #fff; }
+    .side-panel {
+      position: fixed; top: 64px; left: 12px; width: 325px; max-height: calc(100vh - 110px);
+      background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 11px; overflow-y: auto; z-index: 15;
+      display: flex; flex-direction: column; gap: 9px;
+      backdrop-filter: blur(8px);
+      font-size: 0.72rem;
+    }
+    .side-panel.collapsed { max-height: 38px; overflow: hidden; width: auto; }
+    .sec {
+      border-top: 1px solid #172033;
+      padding-top: 7px;
+      display: flex; flex-direction: column; gap: 5px;
+    }
+    .sec:first-child { border-top: none; padding-top: 0; }
+    .sec-title {
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+      color: var(--accent); display: flex; justify-content: space-between; align-items: center;
+    }
+    .row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+    .telemetry-box {
+      background: #050811; border: 1px solid #1b2436; border-radius: 6px; padding: 6px 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.67rem; line-height: 1.45;
+    }
+    .warn-note {
+      background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.35);
+      color: #fde68a; border-radius: 6px; padding: 5px 7px; font-size: 0.66rem; line-height: 1.35;
+    }
+    .err-note {
+      background: rgba(244, 63, 94, 0.14); border: 1px solid rgba(244, 63, 94, 0.45);
+      color: #fecdd3; border-radius: 6px; padding: 5px 7px; font-size: 0.66rem; line-height: 1.35;
+    }
+    .right-hud {
+      position: fixed; top: 64px; right: 12px; width: 280px; max-height: calc(100vh - 110px);
+      background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+      padding: 9px 10px; z-index: 15; font-size: 0.7rem; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 7px; backdrop-filter: blur(8px);
+    }
+    .right-hud.collapsed { max-height: 36px; overflow: hidden; width: auto; }
+    footer {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 34px;
+      background: rgba(7, 10, 18, 0.96); border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 12px; font-size: 0.67rem; color: var(--muted); z-index: 20;
+    }
+    .chip-btn {
+      padding: 3px 6px; font-size: 0.65rem; border-radius: 5px;
+      background: #0b1220; border: 1px solid #1e293b; color: #cbd5e1; cursor: pointer;
+    }
+    .chip-btn:hover { border-color: var(--accent); color: #fff; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="badge">KRONOX · ATLAS 360°</span>
+      <div>
+        <h1>Cielo Completo Inmersivo · Astrometría Real (ICRS/J2000 &amp; Galáctico)</h1>
+        <p id="atlasSubtitle">Sondeos HiPS multirresolución reales (AllWISE, 2MASS, DSS2, Gaia DR3, SPHEREx DR1) · Sin generación sintética</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <input type="text" id="searchObjInput" class="input-box" placeholder="Objeto o RA, Dec (ej: Sgr A*, IC 1805)" style="width:190px;" />
+      <button class="btn btn-primary" id="btnSearchObj">🔍 Ir</button>
+      <button class="btn" id="btnSelectRegion" title="Seleccionar una región del cielo para consultar observaciones SPHEREx, embeddings, KNN y evolución temporal">🎯 SELECCIONAR REGIÓN</button>
+      <button class="btn" id="btnFullscreen" title="Alternar pantalla completa">⛶ Pantalla completa</button>
+      <button class="btn btn-analyze" id="btnAnalyzeInKronox">🔬 ABRIR ANÁLISIS COMPLETO EN KRONOX</button>
+    </div>
+  </header>
+
+  <div id="aladin-lite-div"></div>
+  <canvas id="skyWcsOverlayCanvas"></canvas>
+  <div id="skyCosProgressHud" style="display:none; pointer-events:none; position:fixed; top:64px; left:50%; transform:translateX(-50%); z-index:19; background:rgba(11,15,25,0.94); border:1px solid var(--accent); border-radius:8px; padding:6px 12px; min-width:250px; box-shadow:0 6px 20px rgba(0,0,0,0.6);">
+    <div style="display:flex; justify-content:space-between; font-size:0.68rem; margin-bottom:4px;">
+      <span style="color:var(--accent); font-weight:700;">Calculando similitud coseno 64D...</span>
+      <span id="skyCosHudPct" style="font-family:monospace; color:#fff;">0%</span>
+    </div>
+    <div style="height:6px; background:#0f172a; border-radius:4px; overflow:hidden; border:1px solid #1e293b;">
+      <div id="skyCosHudBar" style="height:100%; width:0%; background:linear-gradient(90deg, #3b82f6, #ef4444); transition:width 0.08s linear;"></div>
+    </div>
+  </div>
+
+  <aside class="side-panel" id="controlsPanel">
+    <div class="sec">
+      <div class="sec-title">
+        <span>1. Proyección y Sistema Celeste</span>
+        <button class="chip-btn" id="btnToggleControls">▾</button>
+      </div>
+      <div class="grid2">
+        <button class="btn active" id="btnModeInmersiva" data-proj="ZEA" title="Vista direccional tipo planetario desde el interior de la esfera celeste">🌐 VISTA INMERSIVA</button>
+        <button class="btn" id="btnModeEcuatorial" data-proj="AIT" title="Mapa completo de la esfera celeste en proyección Aitoff">🗺️ MAPA ECUATORIAL</button>
+      </div>
+      <div class="row">
+        <label style="color:var(--muted); font-size:0.68rem;">Proyección:</label>
+        <select id="projDetailSelect" style="flex:1;">
+          <option value="ZEA" selected>ZEA · Acimutal Inmersiva (Planetario)</option>
+          <option value="STG">STG · Estereográfica (Campo ultra amplio)</option>
+          <option value="SIN">SIN · Ortográfica / Esfera</option>
+          <option value="TAN">TAN · Gnomónica (Campo local)</option>
+          <option value="AIT">AIT · Aitoff (Mapa Ecuatorial completo)</option>
+          <option value="MOL">MOL · Mollweide (Mapa Ecuatorial)</option>
+        </select>
+      </div>
+      <div class="row">
+        <label style="color:var(--muted); font-size:0.68rem;">Coordenadas:</label>
+        <select id="cooFrameSelect" style="flex:1;">
+          <option value="ICRSd" selected>Ecuatorial ICRS / J2000 (grados)</option>
+          <option value="galactic">Galácticas (l, b)</option>
+        </select>
+      </div>
+      <div class="row">
+        <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+          <input type="checkbox" id="chkCooGrid" />
+          <span>Mostrar cuadrícula celeste (ICRS / Galáctica)</span>
+        </label>
+      </div>
+      <div class="row">
+        <label style="color:var(--muted); font-size:0.68rem;">Orientación PA:</label>
+        <input type="range" id="paSlider" min="-180" max="180" value="0" style="flex:1;" />
+        <span id="paValLbl" style="font-family:monospace; width:38px; text-align:right;">0°</span>
+      </div>
+      <div class="row">
+        <label style="color:var(--muted); font-size:0.68rem;">Zoom FOV:</label>
+        <button class="chip-btn" data-fov="180">180°</button>
+        <button class="chip-btn" data-fov="60">60°</button>
+        <button class="chip-btn" data-fov="12">12°</button>
+        <button class="chip-btn" data-fov="2.2">2.2°</button>
+        <button class="chip-btn" data-fov="0.5">0.5°</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title"><span>2. Capas Astronómicas Reales</span></div>
+      <div class="row">
+        <label style="color:var(--muted); font-size:0.68rem;">Sondeo base:</label>
+        <select id="baseSurveySelect" style="flex:1;">
+          <option value="ALLWISE" selected>WISE · AllWISE Color (IR 3.4–22 µm, falso color W4/W2/W1)</option>
+          <option value="2MASS">2MASS · Infrarrojo Cercano (falso color J, H, K)</option>
+          <option value="DSS2">DSS2 · Óptico Visible (Palomar / UKST)</option>
+          <option value="SPHEREx">SPHEREx DR1 · Cubo 102 Canales (IRSA HiPS)</option>
+        </select>
+      </div>
+      <div id="hipsNetworkErrorBanner" class="err-note" style="display:none;"></div>
+      <div class="row">
+        <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+          <input type="checkbox" id="chkSpherexOverlay" />
+          <span>Superponer SPHEREx DR1 sobre base (comparación visual)</span>
+        </label>
+      </div>
+      <div class="row">
+        <label style="color:var(--muted); font-size:0.68rem;">Opacidad overlay:</label>
+        <input type="range" id="overlayOpacitySlider" min="0" max="100" value="45" style="flex:1;" />
+        <span id="overlayOpacityVal" style="font-family:monospace; width:34px; text-align:right;">45%</span>
+      </div>
+      <div class="row">
+        <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+          <input type="checkbox" id="chkGaiaCatalog" />
+          <span>Catálogo astrométrico <b>Gaia DR3</b> (posiciones/Gmag/μ)</span>
+        </label>
+      </div>
+      <div class="row" style="border-top:1px solid #172033; padding-top:6px;">
+        <label style="display:flex; align-items:center; gap:5px; cursor:pointer; color:var(--accent); font-weight:700;">
+          <input type="checkbox" id="chkAllSkyCosine" />
+          <span>🌌 Similitud del coseno en TODO EL CIELO</span>
+        </label>
+      </div>
+      <div id="allSkyCosControls" style="display:none; flex-direction:column; gap:5px;">
+        <div class="row" id="allSkyModePills" style="gap:4px;">
+          <button class="chip-btn active" data-allsky-mode="cos" style="flex:1;">Similitud Coseno</button>
+          <button class="chip-btn" data-allsky-mode="knn" style="flex:1;">Clasificación K-NN</button>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:3px;">
+          <span style="color:var(--muted); font-size:0.62rem;">Subespacio de embeddings (64D):</span>
+          <div class="row" id="allSkySubspacePills" style="gap:3px; flex-wrap:wrap;">
+            <button class="chip-btn active" data-allsky-sub="all" title="Todas las 64 dimensiones (0–63)">Todo (64D)</button>
+            <button class="chip-btn" data-allsky-sub="sed" title="Primeras 32 componentes (0–31: Color/Histograma)">32D Color</button>
+            <button class="chip-btn" data-allsky-sub="morph" title="Siguientes 24 componentes (32–55: Morfología/Anillos)">24D Morf.</button>
+            <button class="chip-btn" data-allsky-sub="flux" title="Últimas 8 componentes (56–63: Flujo/Interacción)">8D Flujo</button>
+          </div>
+        </div>
+        <div class="row" id="allSkyKnnRow" style="display:none;">
+          <label style="color:var(--muted); font-size:0.67rem;">Clases K-NN:</label>
+          <input type="range" id="allSkyKnnSlider" min="2" max="10" step="1" value="5" style="flex:1;" />
+          <span id="allSkyKnnKVal" style="font-family:monospace; color:var(--accent); width:22px; text-align:right; font-weight:700;">5</span>
+        </div>
+        <div id="allSkyCosThreshRow" style="display:flex; flex-direction:column; gap:4px;">
+          <div class="row">
+            <label style="color:var(--muted); font-size:0.67rem;">Umbral centro:</label>
+            <input type="range" id="allSkyCosThreshSlider" min="50" max="99" value="78" style="flex:1;" />
+            <span id="allSkyCosThreshVal" style="font-family:monospace; width:34px; text-align:right;">0.78</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px; font-size:0.62rem; color:var(--muted);">
+            <span style="color:#60a5fa; font-weight:700;">Baja (Azul)</span>
+            <div style="flex:1; height:8px; border-radius:4px; background:linear-gradient(90deg, #2563eb 0%, rgba(248,250,252,0.25) 50%, #ef4444 100%); border:1px solid #334155;"></div>
+            <span style="color:#f87171; font-weight:700;">Alta (Rojo)</span>
+          </div>
+        </div>
+        <div id="allSkyKnnLegend" style="display:none; flex-wrap:wrap; gap:4px; font-size:0.60rem;"></div>
+        <div class="row">
+          <button class="chip-btn" id="btnPickAllSkyProto">🎯 Clic directo en el cielo</button>
+          <button class="chip-btn" id="btnResetAllSkyProto">Centro</button>
+          <button class="chip-btn" id="btnRecomputeAllSkyCos" title="Recalcular sobre el campo actual manteniendo el mismo prototipo">↻ Recalcular vista</button>
+        </div>
+        <div id="allSkyCosProgressWrap" style="display:none; flex-direction:column; gap:2px;">
+          <div style="display:flex; justify-content:space-between; font-size:0.61rem; color:var(--accent);">
+            <span id="allSkyCosProgressLbl">Calculando similitud 64D...</span>
+            <span id="allSkyCosProgressPct" style="font-family:monospace;">0%</span>
+          </div>
+          <div style="height:6px; background:#050811; border-radius:4px; overflow:hidden; border:1px solid #1e293b;">
+            <div id="allSkyCosProgressBar" style="height:100%; width:0%; background:linear-gradient(90deg, #2563eb, #ef4444); transition:width 0.08s linear;"></div>
+          </div>
+        </div>
+        <div id="allSkyCosStatus" class="telemetry-box" style="font-size:0.63rem;">Haz clic en cualquier punto del cielo para calcular similitud coseno o K-NN en el subespacio elegido.</div>
+      </div>
+      <div class="warn-note">
+        Gaia DR3 es un catálogo estelar discreto (I/355/gaiadr3), no una imagen RGB continua. La superposición WISE ↔ SPHEREx es puramente visual en coordenadas compartidas (sin equivalencia fotométrica ni identificación química automática).
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title"><span>3. Espectroscopía SPHEREx DR1 (102 Canales)</span></div>
+      <div class="row">
+        <button class="chip-btn" id="btnSpxPrev">◀</button>
+        <input type="range" id="spxChSlider" min="1" max="102" value="16" style="flex:1;" />
+        <button class="chip-btn" id="btnSpxNext">▶</button>
+        <span id="spxChReadout" style="font-family:monospace; color:var(--accent);">C16</span>
+      </div>
+      <div id="spxWaveInfo" class="telemetry-box">Canal 16/102 · D1 · λ ≈ 0.898 µm</div>
+      <div id="spxUnavailableBanner" class="err-note" style="display:none;">
+        Canales 51 y 52 no disponibles en SPHEREx DR1 (sin datos publicados; no se interpola).
+      </div>
+      <div class="warn-note">
+        Las teselas HiPS PNG son para navegación visual rápida sin reiniciar orientación; para fotometría cuantitativa usa FITS en Kronox.
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title"><span>4. Navegación Rápida y Pruebas</span></div>
+      <div class="row">
+        <button class="chip-btn" data-goto="38.2171,61.4767,2.2,IC 1805">IC 1805</button>
+        <button class="chip-btn" data-goto="6.0236,-72.0813,1.5,NGC 104">NGC 104</button>
+        <button class="chip-btn" data-goto="350.85,58.815,1.2,Cassiopeia A">Cas A</button>
+        <button class="chip-btn" data-goto="10.6847,41.2687,4.0,M31">M31</button>
+        <button class="chip-btn" data-goto="266.4168,-29.0078,12.0,Centro Galáctico">Centro Gal.</button>
+        <button class="chip-btn" data-goto="0.0,90.0,35.0,Polo Norte Celeste">Polo N (+90°)</button>
+        <button class="chip-btn" data-goto="0.0,-90.0,35.0,Polo Sur Celeste">Polo S (-90°)</button>
+        <button class="chip-btn" data-goto="0.0,15.0,25.0,Cruce RA 0°">Cruce RA=0°</button>
+      </div>
+    </div>
+  </aside>
+
+  <aside class="right-hud" id="rightHudPanel">
+    <div class="sec-title">
+      <span>Telemetría &amp; Procedencia</span>
+      <button class="chip-btn" id="btnToggleHud">▾</button>
+    </div>
+    <div class="telemetry-box" id="hudCenterCoords">Centro: esperando Aladin Lite v3...</div>
+    <div class="telemetry-box" id="hudCursorCoords">Cursor: mueve el puntero sobre el cielo</div>
+    <div class="telemetry-box" id="hudSelectedObj">Objeto / Estrella: clic en el cielo o en Gaia DR3</div>
+    <div class="telemetry-box" id="hudSurveyStatus">
+      Estado capas:<br/>
+      • Motor: Aladin Lite v3.8.2<br/>
+      • SPHEREx HiPS: ivo://IPAC/P/SPHEREx/DR1/cube<br/>
+      • Atribución: NASA/IPAC IRSA, CDS Strasbourg<br/>
+      • DOIs DR1/QR3: 10.26131/IRSA678 · IRSA679 · IRSA662
+    </div>
+    <div class="telemetry-box" id="hudTilePerf">
+      Rendimiento HiPS &amp; Caché:<br/>
+      • LRU Teselas: 0/64 · Solicitudes: 0<br/>
+      • HTTP 200: 0 · 404/5xx: 0
+    </div>
+  </aside>
+
+  <section class="sci-drawer" id="sciAnalysisDrawer" aria-label="Análisis de Representaciones Latentes y Evolución Temporal">
+    <div class="sec-title">
+      <span id="sciDrawerTitle">🎯 SELECCIÓN DE REGIÓN · ANÁLISIS DE REPRESENTACIONES LATENTES &amp; EVOLUCIÓN TEMPORAL</span>
+      <div class="row">
+        <button class="chip-btn" id="btnInspectCenterRegion">Analizar centro actual</button>
+        <button class="chip-btn" id="btnCloseSciDrawer">✕ Cerrar</button>
+      </div>
+    </div>
+    <div id="regionStatusBanner" class="telemetry-box">Haz clic en «SELECCIONAR REGIÓN» y luego en el cielo (o pulsa «Analizar centro actual») para consultar cobertura real en Kronox.</div>
+
+    <div class="sci-grid" id="sciAnalysisBody" style="display:none;">
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <div class="sec-title"><span>ANÁLISIS DE REPRESENTACIONES LATENTES (WCS + KNN)</span></div>
+        <div id="latentModelInfo" class="telemetry-box">—</div>
+        <div class="row">
+          <label style="color:var(--muted);">Vecinos K:</label>
+          <input type="range" id="skyKnnKSlider" min="2" max="10" value="4" style="width:70px;" />
+          <span id="skyKnnKVal">4</span>
+          <label style="color:var(--muted);">Umbral cos:</label>
+          <input type="range" id="skySimThreshSlider" min="0" max="95" value="45" style="width:70px;" />
+          <span id="skySimThreshVal">0.45</span>
+        </div>
+        <div class="row">
+          <label style="color:var(--muted);">Opacidad máscara WCS:</label>
+          <input type="range" id="skyMaskOpacitySlider" min="0" max="100" value="55" style="width:80px;" />
+          <span id="skyMaskOpacityVal">55%</span>
+          <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+            <input type="checkbox" id="chkSkyWcsMask" checked />
+            <span>Proyectar máscara WCS en el cielo</span>
+          </label>
+        </div>
+        <div class="row">
+          <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+            <input type="checkbox" id="chkSkyKnnMode" />
+            <span>Modo KNN (clases) vs Similitud coseno</span>
+          </label>
+          <button class="chip-btn" id="btnPickProtoCenter">Prototipo centro</button>
+        </div>
+        <div class="mini-canvas-row">
+          <div class="mini-canvas-box"><canvas id="miniCurrImgCanvas" width="96" height="96"></canvas><span style="font-size:0.6rem; color:var(--muted);">Época actual</span></div>
+          <div class="mini-canvas-box"><canvas id="miniCurrMaskCanvas" width="96" height="96"></canvas><span style="font-size:0.6rem; color:var(--muted);">Máscara actual</span></div>
+          <div class="mini-canvas-box"><canvas id="miniPrevImgCanvas" width="96" height="96"></canvas><span style="font-size:0.6rem; color:var(--muted);">Época anterior</span></div>
+          <div class="mini-canvas-box"><canvas id="miniDiffCanvas" width="96" height="96"></canvas><span style="font-size:0.6rem; color:var(--muted);">|I_t - I_{t-1}|</span></div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <div class="sec-title"><span>EVOLUCIÓN TEMPORAL INTERACTIVA (TIPO GIF)</span></div>
+        <div class="row">
+          <select id="skyTempModeSelect" style="flex:1;">
+            <option value="channel">Modo C · Longitud de onda fija (priorizado)</option>
+            <option value="detector">Modo B · Detector fijo (D1–D6)</option>
+            <option value="all">Modo A · Secuencia observacional completa</option>
+          </select>
+          <select id="skyTempSubSelect" style="width:120px;"></select>
+        </div>
+        <div class="row">
+          <button class="chip-btn" id="btnSkyTempReset" title="Reiniciar">⏮</button>
+          <button class="chip-btn" id="btnSkyTempPrev" title="Retroceder época">◀</button>
+          <button class="chip-btn" id="btnSkyTempPlay" title="Reproducir / Pausar">▶ Play</button>
+          <button class="chip-btn" id="btnSkyTempNext" title="Avanzar época">▶</button>
+          <button class="chip-btn" id="btnSkyTempRev" title="Reproducción inversa">⏩</button>
+          <button class="chip-btn active" id="btnSkyTempLoop" title="Bucle" style="border-color:var(--amber); color:var(--amber);">🔁</button>
+          <select id="skyTempSpeedSelect" style="padding:2px 4px; font-size:0.64rem;">
+            <option value="0.25">0.25×</option>
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+          </select>
+        </div>
+        <div class="row">
+          <input type="range" id="skyTempSlider" min="0" max="0" value="0" style="flex:1;" />
+          <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-weight:700; color:var(--green);">
+            <input type="checkbox" id="chkFollowEmbedding" checked />
+            <span>SEGUIR EMBEDDING</span>
+          </label>
+        </div>
+        <div id="skyTempMetaBox" class="telemetry-box">—</div>
+        <div id="skyTempDiffBox" class="warn-note">
+          La similitud matemática y las diferencias entre épocas pueden reflejar calibración, ruido o banda instrumental; no implican automáticamente variabilidad astrofísica.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>KRONOX (Astral Sentinels) · Atlas Inmersivo independiente sobre datos públicos NASA/IPAC IRSA &amp; CDS HiPS</span>
+    <span id="atlasStatusFooter">Cargando Aladin Lite v3...</span>
+  </footer>
+
+  <script>
+    (function () {
+      let A = window.A || null;
+      const SERVER_BASE = (window.location.protocol === 'http:' || window.location.protocol === 'https:')
+        ? window.location.origin
+        : 'http://127.0.0.1:8765';
+
+      const params = new URLSearchParams(window.location.search);
+      const initRa = parseFloat(params.get('ra'));
+      const initDec = parseFloat(params.get('dec'));
+      const initFov = parseFloat(params.get('fov'));
+      const initTarget = params.get('target') || '';
+      const initChannel = parseInt(params.get('channel') || '16', 10);
+      const initObsId = params.get('obs_id') || '';
+
+      const SURVEY_CATALOG = {
+        ALLWISE: {
+          id: 'irsa_allwise_color',
+          name: 'WISE · AllWISE Color (W4/W2/W1 falso color IR)',
+          url: 'https://irsa.ipac.caltech.edu/data/hips/CDS/AllWISE/RGB-W4-W2-W1',
+          imgFormat: 'jpg',
+          provenance: 'NASA/IPAC IRSA HiPS (AllWISE W4=R, W2=G, W1=B)'
+        },
+        '2MASS': {
+          id: 'irsa_2mass_color',
+          name: '2MASS Color (J/H/K falso color NIR)',
+          url: 'https://irsa.ipac.caltech.edu/data/hips/CDS/2MASS/Color',
+          imgFormat: 'jpg',
+          provenance: 'NASA/IPAC IRSA HiPS (2MASS K=R, H=G, J=B)'
+        },
+        DSS2: {
+          id: 'irsa_dss2_color',
+          name: 'DSS2 Color (Óptico visible)',
+          url: 'https://irsa.ipac.caltech.edu/data/hips/CDS/DSS2/color',
+          imgFormat: 'jpg',
+          provenance: 'NASA/IPAC IRSA HiPS (Digitized Sky Survey 2)'
+        },
+        SPHEREx: {
+          id: 'irsa_spherex_cube',
+          name: 'SPHEREx DR1 (Cubo 102 canales)',
+          url: 'https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube',
+          imgFormat: 'png',
+          provenance: 'NASA/IPAC IRSA HiPS (ivo://IPAC/P/SPHEREx/DR1/cube)'
+        }
+      };
+
+      const atlasState = {
+        aladin: null,
+        ra: Number.isFinite(initRa) ? initRa : 266.4168,
+        dec: Number.isFinite(initDec) ? initDec : -29.0078,
+        fov: Number.isFinite(initFov) ? Math.max(0.1, Math.min(180, initFov)) : 35.0,
+        targetName: initTarget || 'Centro Galáctico (Sgr A*)',
+        obsId: initObsId,
+        projection: 'ZEA',
+        cooFrame: 'ICRSd',
+        cooGridEnabled: false,
+        baseSurvey: 'ALLWISE',
+        overlayActive: false,
+        overlayOpacity: 0.45,
+        spxChannel: Number.isFinite(initChannel) ? Math.max(1, Math.min(102, initChannel)) : 16,
+        wavelengthsUm: [],
+        blankChannels: new Set([50, 51]),
+        gaiaCatalog: null,
+        gaiaEnabled: false,
+        gaiaLastKey: '',
+        spxSurveyObj: null,
+        surveyObjs: {}
+      };
+      window.kronoxObservatory = atlasState;
+
+      function approxSpherexWl(ch1) {
+        if (atlasState.wavelengthsUm.length >= ch1 && atlasState.wavelengthsUm[ch1 - 1]) {
+          return atlasState.wavelengthsUm[ch1 - 1];
+        }
+        const det = Math.floor((ch1 - 1) / 17) + 1;
+        const ranges = [[0.75, 1.11], [1.11, 1.64], [1.64, 2.42], [2.42, 3.82], [3.82, 4.42], [4.42, 5.00]];
+        const [a, b] = ranges[Math.min(5, det - 1)];
+        return a + ((ch1 - 1) % 17) * ((b - a) / 16);
+      }
+
+      function updateSpxChannelReadout() {
+        const ch1 = atlasState.spxChannel;
+        const det = Math.floor((ch1 - 1) / 17) + 1;
+        const wl = approxSpherexWl(ch1);
+        const isBlank = atlasState.blankChannels.has(ch1 - 1);
+        document.getElementById('spxChSlider').value = String(ch1);
+        document.getElementById('spxChReadout').textContent = `C${ch1}`;
+        document.getElementById('spxWaveInfo').textContent = isBlank
+          ? `Canal ${ch1}/102 · D${det} · NO DISPONIBLE en SPHEREx DR1 (sin datos)`
+          : `Canal ${ch1}/102 · D${det} · λ = ${wl.toFixed(4)} µm (HiPS visual DR1)`;
+        document.getElementById('spxUnavailableBanner').style.display = isBlank ? 'block' : 'none';
+      }
+
+      function setStatusFooter(msg) {
+        const el = document.getElementById('atlasStatusFooter');
+        if (el) el.textContent = msg;
+      }
+
+      function updateCenterTelemetry() {
+        if (!atlasState.aladin) return;
+        const [ra, dec] = atlasState.aladin.getRaDec();
+        const fovArr = atlasState.aladin.getFov();
+        const fov = Array.isArray(fovArr) ? fovArr[0] : fovArr;
+        atlasState.ra = ra;
+        atlasState.dec = dec;
+        atlasState.fov = fov;
+        const modeName = (atlasState.projection === 'AIT' || atlasState.projection === 'MOL') ? 'MAPA ECUATORIAL' : 'VISTA INMERSIVA';
+        document.getElementById('hudCenterCoords').innerHTML =
+          `<b>${modeName}</b> (${atlasState.projection} · ${atlasState.cooFrame})<br/>` +
+          `RA: ${ra.toFixed(5)}° · Dec: ${dec.toFixed(5)}°<br/>` +
+          `FOV: ${fov.toFixed(3)}° · Objetivo: ${atlasState.targetName || 'Región libre'}`;
+      }
+
+      function showHipsError(msg) {
+        const b = document.getElementById('hipsNetworkErrorBanner');
+        if (!b) return;
+        if (msg) {
+          b.style.display = 'block';
+          b.textContent = msg;
+        } else {
+          b.style.display = 'none';
+          b.textContent = '';
+        }
+      }
+
+      async function verifyHiPSService(url, label) {
+        try {
+          const r = await fetch(`${url}/properties`, { mode: 'cors' });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          showHipsError('');
+          return true;
+        } catch (err) {
+          showHipsError(`Error de red cargando HiPS "${label}" (${url}): ${err.message}. No se genera cielo sintético.`);
+          setStatusFooter(`Fallo de red HiPS (${label}): ${err.message}`);
+          return false;
+        }
+      }
+
+      function createHiPSSurvey(aladin, cfg, opacity) {
+        try {
+          const hips = aladin.newImageSurvey(cfg.url, {
+            id: cfg.id,
+            name: cfg.name,
+            imgFormat: cfg.imgFormat,
+            opacity: opacity
+          });
+          return hips;
+        } catch (err) {
+          console.warn('HiPS survey init error:', err);
+          return null;
+        }
+      }
+
+      function createSpherexHiPS(aladin, opacity) {
+        const ch0 = atlasState.spxChannel - 1;
+        const hipsUrl = SURVEY_CATALOG.SPHEREx.url;
+        try {
+          const hips = aladin.newImageSurvey(hipsUrl, {
+            id: `irsa_spherex_c${atlasState.spxChannel}`,
+            name: `SPHEREx DR1 (C${atlasState.spxChannel})`,
+            imgFormat: 'png',
+            opacity: opacity
+          });
+          if (hips && typeof hips.setCubeFrame === 'function') {
+            hips.setCubeFrame(ch0);
+          } else if (hips && typeof hips.setSlice === 'function') {
+            hips.setSlice(ch0);
+          }
+          return hips;
+        } catch (err) {
+          console.warn('SPHEREx HiPS fallback:', err);
+          return null;
+        }
+      }
+
+      async function applySurveyLayers() {
+        updateSpxChannelReadout();
+        const a = atlasState.aladin;
+        if (!a) return;
+        const cfg = SURVEY_CATALOG[atlasState.baseSurvey] || SURVEY_CATALOG.ALLWISE;
+        const hudStat = document.getElementById('hudSurveyStatus');
+        if (hudStat) {
+          hudStat.innerHTML =
+            `Estado capas:<br/>` +
+            `• Motor: Aladin Lite v3.8.2 (${atlasState.projection})<br/>` +
+            `• Base activa: ${cfg.name}<br/>` +
+            `• Fuente HiPS: ${cfg.provenance}<br/>` +
+            `• SPHEREx HiPS: ivo://IPAC/P/SPHEREx/DR1/cube<br/>` +
+            `• DOIs DR1/QR3: 10.26131/IRSA678 · IRSA679 · IRSA662`;
+        }
+        verifyHiPSService(cfg.url, cfg.name);
+        try {
+          if (atlasState.baseSurvey === 'SPHEREx') {
+            a.setBaseImageLayer(cfg.url);
+            try { if (typeof a.removeImageLayer === 'function') a.removeImageLayer('overlay'); } catch (_) {}
+          } else {
+            a.setBaseImageLayer(cfg.url);
+            if (atlasState.overlayActive && !atlasState.blankChannels.has(atlasState.spxChannel - 1)) {
+              const ov = createSpherexHiPS(a, atlasState.overlayOpacity);
+              if (ov) {
+                atlasState.spxSurveyObj = ov;
+                a.setOverlayImageLayer(ov);
+              }
+            } else {
+              if (atlasState.spxSurveyObj && typeof atlasState.spxSurveyObj.setOpacity === 'function') {
+                atlasState.spxSurveyObj.setOpacity(0);
+              }
+              try { if (typeof a.removeImageLayer === 'function') a.removeImageLayer('overlay'); } catch (_) {}
+            }
+          }
+        } catch (err) {
+          console.warn('Layer update:', err);
+        }
+      }
+
+      function setProjectionMode(proj) {
+        atlasState.projection = proj;
+        if (atlasState.aladin && typeof atlasState.aladin.setProjection === 'function') {
+          atlasState.aladin.setProjection(proj);
+        }
+        document.getElementById('projDetailSelect').value = proj;
+        const isEq = proj === 'AIT' || proj === 'MOL';
+        document.getElementById('btnModeInmersiva').classList.toggle('active', !isEq);
+        document.getElementById('btnModeEcuatorial').classList.toggle('active', isEq);
+        updateCenterTelemetry();
+      }
+
+      async function loadSpherexPropsFromServer() {
+        try {
+          const r = await fetch(`${SERVER_BASE}/api/hips/properties`);
+          if (r.ok) {
+            const d = await r.json();
+            if (d.ok && Array.isArray(d.wavelengthsUm)) {
+              atlasState.wavelengthsUm = d.wavelengthsUm;
+              atlasState.blankChannels = new Set(Array.isArray(d.blankChannels) ? d.blankChannels : [50, 51]);
+              updateSpxChannelReadout();
+            }
+          }
+        } catch (_) {}
+      }
+
+      async function initAladin() {
+        await loadSpherexPropsFromServer();
+        try {
+          if (!A) {
+            const mod = await import('https://cdn.jsdelivr.net/npm/aladin-lite@3.8.2/dist/aladin.js');
+            A = mod.default || window.A;
+            if (A) window.A = A;
+          }
+        } catch (err) {
+          setStatusFooter(`Error cargando módulo Aladin Lite v3: ${err.message}`);
+          return;
+        }
+        if (!A || !A.init) {
+          setStatusFooter('Error: Aladin Lite v3 no pudo cargarse (sin conexión CDN)');
+          return;
+        }
+        await A.init;
+        const initCfg = SURVEY_CATALOG[atlasState.baseSurvey] || SURVEY_CATALOG.ALLWISE;
+        const aladin = A.aladin('#aladin-lite-div', {
+          survey: initCfg.url,
+          projection: atlasState.projection,
+          cooFrame: atlasState.cooFrame,
+          fov: atlasState.fov,
+          target: `${atlasState.ra} ${atlasState.dec}`,
+          showReticle: true,
+          showZoomControl: false,
+          showFullscreenControl: false,
+          showLayersControl: false,
+          showGotoControl: false,
+          showFrame: true,
+          showCooGrid: false
+        });
+        atlasState.aladin = aladin;
+        applySurveyLayers();
+        updateCenterTelemetry();
+        setStatusFooter('Aladin Lite v3 activo (IRSA HiPS reales) · Arrastra para girar 360°, rueda o pellizco para zoom');
+
+        let gaiaDebounce = null;
+        aladin.on('positionChanged', () => {
+          updateCenterTelemetry();
+          renderWcsSkyOverlay();
+          prefetchBaseAllskyAndNeighbors();
+          if (allSkyCosState.enabled) {
+            scheduleCosineOverlaySync();
+          }
+          if (atlasState.gaiaEnabled) {
+            clearTimeout(gaiaDebounce);
+            gaiaDebounce = setTimeout(loadGaiaDR3ForCurrentView, 450);
+          }
+        });
+        aladin.on('zoomChanged', () => {
+          updateCenterTelemetry();
+          renderWcsSkyOverlay();
+          prefetchBaseAllskyAndNeighbors();
+          if (allSkyCosState.enabled) {
+            scheduleCosineOverlaySync();
+          }
+          if (atlasState.gaiaEnabled) {
+            clearTimeout(gaiaDebounce);
+            gaiaDebounce = setTimeout(loadGaiaDR3ForCurrentView, 450);
+          }
+        });
+        window.addEventListener('resize', () => {
+          renderWcsSkyOverlay();
+          if (allSkyCosState.enabled) computeAllSkyCosineOverlay();
+        });
+        const aladinDiv = document.getElementById('aladin-lite-div');
+        let downPos = null;
+        let dragRafId = null;
+        let lastPickTs = 0;
+        let lastPointerMoved = 0;
+        function handleAllSkyPointPick(ev) {
+          const now = performance.now();
+          if (now - lastPickTs < 120) return;
+          lastPickTs = now;
+          const rect = aladinDiv.getBoundingClientRect();
+          const px = ev.clientX - rect.left;
+          const py = ev.clientY - rect.top;
+          if (px < 0 || py < 0 || px > rect.width || py > rect.height) return;
+          if ((allSkyCosState.enabled || allSkyCosState.pickingProto) && atlasState.aladin && !sciState.selectMode) {
+            if (!allSkyCosState.enabled) {
+              allSkyCosState.enabled = true;
+              const chk = document.getElementById('chkAllSkyCosine');
+              if (chk) chk.checked = true;
+              const box = document.getElementById('allSkyCosControls');
+              if (box) box.style.display = 'flex';
+            }
+            allSkyCosState.pickingProto = false;
+            document.getElementById('btnPickAllSkyProto')?.classList.remove('active');
+            allSkyCosState.protoPx = px;
+            allSkyCosState.protoPy = py;
+            allSkyCosState.protoCamRa = atlasState.ra;
+            allSkyCosState.protoCamDec = atlasState.dec;
+            allSkyCosState.protoCamFov = atlasState.fov;
+            allSkyCosState.protoVec = null;
+            if (typeof atlasState.aladin.pix2world === 'function') {
+              const world = atlasState.aladin.pix2world(px, py);
+              if (Array.isArray(world) && Number.isFinite(world[0]) && Number.isFinite(world[1])) {
+                allSkyCosState.protoRa = world[0];
+                allSkyCosState.protoDec = world[1];
+              }
+            }
+            drawPrototypeMarker(px, py);
+            computeAllSkyCosineOverlay();
+            return true;
+          }
+          return false;
+        }
+        function runDragSyncLoop() {
+          if (!downPos || !allSkyCosState.enabled) { dragRafId = null; return; }
+          scheduleCosineOverlaySync(true);
+          dragRafId = requestAnimationFrame(runDragSyncLoop);
+        }
+        window.addEventListener('pointerdown', ev => {
+          if (!aladinDiv.contains(ev.target)) { downPos = null; return; }
+          downPos = { x: ev.clientX, y: ev.clientY };
+          lastPointerMoved = 0;
+          allSkyCosState.isDragging = true;
+          if (allSkyCosState.enabled && !dragRafId) {
+            dragRafId = requestAnimationFrame(runDragSyncLoop);
+          }
+        }, { capture: true });
+        aladinDiv.addEventListener('wheel', () => {
+          if (allSkyCosState.enabled) scheduleCosineOverlaySync();
+        }, { passive: true, capture: true });
+        window.addEventListener('pointercancel', () => {
+          allSkyCosState.isDragging = false;
+          if (dragRafId) { cancelAnimationFrame(dragRafId); dragRafId = null; }
+        }, { capture: true });
+        aladinDiv.addEventListener('click', ev => {
+          if (ev.button !== 0 || lastPointerMoved > 12) return;
+          handleAllSkyPointPick(ev);
+        }, { capture: true });
+        window.addEventListener('pointerup', ev => {
+          allSkyCosState.isDragging = false;
+          if (dragRafId) { cancelAnimationFrame(dragRafId); dragRafId = null; }
+          if (!downPos) return;
+          if (ev.button !== 0 && ev.pointerType === 'mouse') { downPos = null; return; }
+          const moved = Math.hypot(ev.clientX - downPos.x, ev.clientY - downPos.y);
+          lastPointerMoved = moved;
+          downPos = null;
+          if (moved > 12) {
+            if (allSkyCosState.enabled) scheduleCosineOverlaySync(false);
+            return; // Ignore pan drags
+          }
+          if (handleAllSkyPointPick(ev)) return;
+          if (allSkyCosState.enabled) scheduleCosineOverlaySync(false);
+          const rect = aladinDiv.getBoundingClientRect();
+          const px = ev.clientX - rect.left;
+          const py = ev.clientY - rect.top;
+          if (px < 0 || py < 0 || px > rect.width || py > rect.height) return;
+          if (!sciState.selectMode || !atlasState.aladin) return;
+          if (typeof atlasState.aladin.pix2world === 'function') {
+            const world = atlasState.aladin.pix2world(px, py);
+            if (Array.isArray(world) && Number.isFinite(world[0]) && Number.isFinite(world[1])) {
+              sciState.selectMode = false;
+              document.getElementById('btnSelectRegion')?.classList.remove('active');
+              inspectSkyRegion(world[0], world[1]);
+              return;
+            }
+          }
+          sciState.selectMode = false;
+          document.getElementById('btnSelectRegion')?.classList.remove('active');
+          inspectSkyRegion(atlasState.ra, atlasState.dec);
+        }, { capture: true });
+        aladin.on('mouseMove', coo => {
+          if (coo && Number.isFinite(coo.ra) && Number.isFinite(coo.dec)) {
+            document.getElementById('hudCursorCoords').textContent =
+              `Cursor → RA: ${coo.ra.toFixed(5)}° · Dec: ${coo.dec.toFixed(5)}°`;
+          }
+        });
+        aladin.on('objectClicked', obj => {
+          if (!obj) return;
+          const d = obj.data || {};
+          document.getElementById('hudSelectedObj').innerHTML =
+            `<b>Estrella / Fuente seleccionada</b><br/>` +
+            `RA: ${Number(obj.ra).toFixed(5)}° · Dec: ${Number(obj.dec).toFixed(5)}°<br/>` +
+            (d.source_id ? `Gaia DR3 ID: ${d.source_id}<br/>` : '') +
+            (d.Gmag ? `Gmag: ${d.Gmag} · pmRA/DE: ${d.pmRA || '—'}/${d.pmDE || '—'}` : JSON.stringify(d).slice(0, 120));
+        });
+      }
+
+      // Event bindings
+      document.getElementById('btnToggleControls').addEventListener('click', () => {
+        document.getElementById('controlsPanel').classList.toggle('collapsed');
+      });
+      document.getElementById('btnToggleHud')?.addEventListener('click', () => {
+        document.getElementById('rightHudPanel')?.classList.toggle('collapsed');
+      });
+      document.getElementById('btnFullscreen')?.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen?.().catch(() => {});
+        } else {
+          document.exitFullscreen?.().catch(() => {});
+        }
+      });
+      document.getElementById('btnModeInmersiva').addEventListener('click', () => setProjectionMode('ZEA'));
+      document.getElementById('btnModeEcuatorial').addEventListener('click', () => setProjectionMode('AIT'));
+      document.getElementById('projDetailSelect').addEventListener('change', e => setProjectionMode(e.target.value));
+      document.getElementById('chkCooGrid')?.addEventListener('change', e => {
+        atlasState.cooGridEnabled = e.target.checked;
+        if (atlasState.aladin && typeof atlasState.aladin.showCooGrid === 'function') {
+          atlasState.aladin.showCooGrid(atlasState.cooGridEnabled);
+        }
+      });
+      document.getElementById('cooFrameSelect').addEventListener('change', e => {
+        atlasState.cooFrame = e.target.value;
+        if (atlasState.aladin) atlasState.aladin.setFrame(atlasState.cooFrame);
+        updateCenterTelemetry();
+      });
+      document.getElementById('paSlider').addEventListener('input', e => {
+        const pa = parseFloat(e.target.value) || 0;
+        document.getElementById('paValLbl').textContent = `${pa}°`;
+        if (atlasState.aladin && typeof atlasState.aladin.setRotation === 'function') {
+          atlasState.aladin.setRotation(pa);
+        }
+      });
+      document.querySelectorAll('[data-fov]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const fov = parseFloat(btn.dataset.fov);
+          if (atlasState.aladin) atlasState.aladin.setFov(fov);
+          updateCenterTelemetry();
+        });
+      });
+      document.getElementById('baseSurveySelect').addEventListener('change', e => {
+        atlasState.baseSurvey = e.target.value;
+        applySurveyLayers();
+      });
+      document.getElementById('chkSpherexOverlay').addEventListener('change', e => {
+        atlasState.overlayActive = e.target.checked;
+        applySurveyLayers();
+      });
+      document.getElementById('overlayOpacitySlider').addEventListener('input', e => {
+        const val = parseInt(e.target.value, 10);
+        atlasState.overlayOpacity = val / 100;
+        document.getElementById('overlayOpacityVal').textContent = `${val}%`;
+        if (atlasState.spxSurveyObj && typeof atlasState.spxSurveyObj.setOpacity === 'function') {
+          atlasState.spxSurveyObj.setOpacity(atlasState.overlayOpacity);
+        } else {
+          applySurveyLayers();
+        }
+      });
+      async function loadGaiaDR3ForCurrentView() {
+        if (!atlasState.aladin || !atlasState.gaiaEnabled) return;
+        const [ra, dec] = atlasState.aladin.getRaDec();
+        const fovArr = atlasState.aladin.getFov();
+        const fov = Array.isArray(fovArr) ? fovArr[0] : fovArr;
+        const radius = Math.min(1.5, Math.max(0.12, fov * 0.45));
+        const key = `${ra.toFixed(2)}_${dec.toFixed(2)}_${radius.toFixed(2)}`;
+        if (atlasState.gaiaLastKey === key) return;
+        atlasState.gaiaLastKey = key;
+        setStatusFooter(`Consultando Gaia DR3 real (GAVO TAP) en (${ra.toFixed(3)}°, ${dec.toFixed(3)}°)...`);
+        try {
+          const adql = `SELECT TOP 200 source_id, ra, dec, phot_g_mean_mag, parallax FROM gaia.dr3lite WHERE 1=CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', ${ra.toFixed(5)}, ${dec.toFixed(5)}, ${radius.toFixed(4)})) AND phot_g_mean_mag IS NOT NULL ORDER BY phot_g_mean_mag ASC`;
+          const url = `https://dc.g-vo.org/tap/sync?REQUEST=doQuery&LANG=ADQL&FORMAT=json&QUERY=${encodeURIComponent(adql)}`;
+          const r = await fetch(url);
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const payload = await r.json();
+          const rows = Array.isArray(payload.data) ? payload.data : [];
+          if (atlasState.gaiaCatalog) {
+            try { atlasState.gaiaCatalog.clear(); } catch (_) {}
+          } else {
+            atlasState.gaiaCatalog = A.catalog({
+              name: 'Gaia DR3 (GAVO TAP)',
+              color: '#34d399',
+              sourceSize: 9,
+              onClick: 'showTable'
+            });
+            atlasState.aladin.addCatalog(atlasState.gaiaCatalog);
+          }
+          const sources = rows.map(row => {
+            const plx = Number(row[4]);
+            const distPc = (Number.isFinite(plx) && plx > 0) ? (1000 / plx).toFixed(1) : '—';
+            return A.source(Number(row[1]), Number(row[2]), {
+              source_id: String(row[0]),
+              Gmag: row[3] != null ? Number(row[3]).toFixed(2) : '—',
+              parallax_mas: Number.isFinite(plx) ? plx.toFixed(3) : '—',
+              distance_pc: distPc
+            });
+          });
+          atlasState.gaiaCatalog.addSources(sources);
+          atlasState.gaiaCatalog.show();
+          setStatusFooter(`Gaia DR3: ${sources.length} estrellas reales cargadas (radio ${radius.toFixed(2)}°)`);
+        } catch (err) {
+          setStatusFooter(`Error consultando Gaia DR3: ${err.message}`);
+        }
+      }
+
+      document.getElementById('chkGaiaCatalog').addEventListener('change', e => {
+        atlasState.gaiaEnabled = e.target.checked;
+        if (!atlasState.aladin) return;
+        if (atlasState.gaiaEnabled) {
+          atlasState.gaiaLastKey = '';
+          loadGaiaDR3ForCurrentView();
+        } else if (atlasState.gaiaCatalog) {
+          atlasState.gaiaCatalog.hide();
+        }
+      });
+
+      function setSpxChannel(nextCh) {
+        atlasState.spxChannel = Math.max(1, Math.min(102, nextCh));
+        applySurveyLayers();
+      }
+      document.getElementById('spxChSlider').addEventListener('input', e => setSpxChannel(parseInt(e.target.value, 10)));
+      document.getElementById('btnSpxPrev').addEventListener('click', () => setSpxChannel(atlasState.spxChannel - 1));
+      document.getElementById('btnSpxNext').addEventListener('click', () => setSpxChannel(atlasState.spxChannel + 1));
+
+      document.querySelectorAll('[data-goto]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const [raS, decS, fovS, name] = btn.dataset.goto.split(',');
+          atlasState.targetName = name;
+          if (atlasState.aladin) {
+            atlasState.aladin.gotoRaDec(parseFloat(raS), parseFloat(decS));
+            atlasState.aladin.setFov(parseFloat(fovS));
+          }
+          updateCenterTelemetry();
+        });
+      });
+
+      async function runSearch() {
+        const q = document.getElementById('searchObjInput').value.trim();
+        if (!q || !atlasState.aladin) return;
+        const m = /^(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)$/.exec(q);
+        if (m) {
+          atlasState.targetName = `RA ${m[1]}°, Dec ${m[2]}°`;
+          atlasState.aladin.gotoRaDec(parseFloat(m[1]), parseFloat(m[2]));
+          updateCenterTelemetry();
+          return;
+        }
+        setStatusFooter(`Resolviendo "${q}"...`);
+        try {
+          const r = await fetch(`${SERVER_BASE}/api/resolve?q=${encodeURIComponent(q)}`);
+          if (r.ok) {
+            const d = await r.json();
+            if (d.ok && Number.isFinite(d.ra) && Number.isFinite(d.dec)) {
+              atlasState.targetName = d.name || q;
+              atlasState.aladin.gotoRaDec(d.ra, d.dec);
+              atlasState.aladin.setFov(2.2);
+              setStatusFooter(`Centrado en ${atlasState.targetName} (${d.ra.toFixed(4)}°, ${d.dec.toFixed(4)}°)`);
+              updateCenterTelemetry();
+              return;
+            }
+          }
+        } catch (_) {}
+        atlasState.targetName = q;
+        atlasState.aladin.gotoObject(q, {
+          success: () => { setStatusFooter(`Centrado en ${q}`); updateCenterTelemetry(); },
+          error: () => setStatusFooter(`No se pudo resolver "${q}"`)
+        });
+      }
+      document.getElementById('btnSearchObj').addEventListener('click', runSearch);
+      document.getElementById('searchObjInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') runSearch();
+      });
+
+      document.getElementById('btnAnalyzeInKronox').addEventListener('click', () => {
+        const url = new URL(`${SERVER_BASE}/kronox_visor_cientifico.html`);
+        url.searchParams.set('ra', atlasState.ra.toFixed(5));
+        url.searchParams.set('dec', atlasState.dec.toFixed(5));
+        url.searchParams.set('fov', Math.min(45, Math.max(0.25, atlasState.fov)).toFixed(3));
+        if (atlasState.targetName) url.searchParams.set('target', atlasState.targetName);
+        url.searchParams.set('channel', String(atlasState.spxChannel));
+        if (sciState.activeDs?.id) url.searchParams.set('dataset', sciState.activeDs.id);
+        const curExp = sciState.filteredExps?.[sciState.epochIdx];
+        if (curExp) {
+          if (curExp.date_obs) url.searchParams.set('date', curExp.date_obs);
+          if (curExp.det) url.searchParams.set('det', String(curExp.det));
+          if (Number.isFinite(curExp.wave_um)) url.searchParams.set('wave_um', String(curExp.wave_um));
+        }
+        url.searchParams.set('from', 'atlas');
+        if (window.opener && !window.opener.closed) {
+          try {
+            window.opener.postMessage({
+              type: 'KRONOX_ATLAS_REGION',
+              ra: atlasState.ra,
+              dec: atlasState.dec,
+              fov: atlasState.fov,
+              target: atlasState.targetName,
+              channel: atlasState.spxChannel,
+              dataset: sciState.activeDs?.id || '',
+              date: curExp?.date_obs || '',
+              det: curExp?.det || null,
+              wave_um: curExp?.wave_um || null
+            }, window.location.origin);
+          } catch (_) {}
+        }
+        if (window.parent !== window) window.location.assign(url.toString());
+        else window.open(url.toString(), 'kronox_lab');
+      });
+
+      // =====================================================================
+      // CACHÉ LRU HiPS, TELEMETRÍA DE TESELAS, SELECCIÓN DE REGIÓN,
+      // REPRESENTACIONES LATENTES (WCS + KNN) Y EVOLUCIÓN TEMPORAL TIPO GIF
+      // =====================================================================
+      const tilePerf = {
+        lru: new Map(),
+        maxLru: 64,
+        requests: 0,
+        ok200: 0,
+        errOther: 0,
+        lastMs: 0,
+        abortCtrl: null,
+        esacProbed: false
+      };
+
+      function updateTilePerfHUD() {
+        const el = document.getElementById('hudTilePerf');
+        if (!el) return;
+        el.innerHTML =
+          `Rendimiento HiPS &amp; Caché:<br/>` +
+          `• LRU Teselas: ${tilePerf.lru.size}/${tilePerf.maxLru} · Solicitudes: ${tilePerf.requests}<br/>` +
+          `• HTTP 200: ${tilePerf.ok200} · Errores: ${tilePerf.errOther} · Última: ${tilePerf.lastMs.toFixed(0)} ms`;
+      }
+
+      function putTileLru(key, val) {
+        if (tilePerf.lru.has(key)) tilePerf.lru.delete(key);
+        tilePerf.lru.set(key, val);
+        if (tilePerf.lru.size > tilePerf.maxLru) {
+          const oldest = tilePerf.lru.keys().next().value;
+          tilePerf.lru.delete(oldest);
+        }
+      }
+
+      async function prefetchUrlCached(url, signal) {
+        if (tilePerf.lru.has(url)) {
+          const v = tilePerf.lru.get(url);
+          putTileLru(url, v);
+          return v;
+        }
+        const t0 = performance.now();
+        tilePerf.requests += 1;
+        try {
+          const r = await fetch(url, { mode: 'cors', signal });
+          tilePerf.lastMs = performance.now() - t0;
+          if (!r.ok) { tilePerf.errOther += 1; updateTilePerfHUD(); return null; }
+          const blob = await r.blob();
+          tilePerf.ok200 += 1;
+          putTileLru(url, blob.size);
+          updateTilePerfHUD();
+          return blob.size;
+        } catch (err) {
+          if (err.name !== 'AbortError') tilePerf.errOther += 1;
+          updateTilePerfHUD();
+          return null;
+        }
+      }
+
+      function prefetchBaseAllskyAndNeighbors() {
+        const cfg = SURVEY_CATALOG[atlasState.baseSurvey] || SURVEY_CATALOG.ALLWISE;
+        if (!cfg || !cfg.url) return;
+        if (tilePerf.abortCtrl) tilePerf.abortCtrl.abort();
+        tilePerf.abortCtrl = new AbortController();
+        const sig = tilePerf.abortCtrl.signal;
+        if (cfg.imgFormat === 'jpg') {
+          prefetchUrlCached(`${cfg.url}/Norder3/Allsky.jpg`, sig);
+        }
+      }
+
+      // Keep NASA/IPAC IRSA AllWISE as primary (verified CORS + fast Allsky/tiles); probe ESAC only as fallback check
+      (async function probeEsacAllwise() {
+        tilePerf.esacProbed = true;
+      })();
+
+      const sciState = {
+        selectMode: false,
+        catalog: null,
+        bundleCache: new Map(),
+        maxBundleCache: 8,
+        activeDs: null,
+        activeBundle: null,
+        allExps: [],
+        filteredExps: [],
+        epochIdx: 0,
+        prevEpochIdx: -1,
+        mode: 'channel', // 'channel' | 'detector' | 'all'
+        fixedDet: 1,
+        fixedWave: 1.05,
+        knnK: 4,
+        simThresh: 0.45,
+        maskOpacity: 0.55,
+        showWcsMask: true,
+        knnMode: false,
+        followEmbedding: true,
+        protoX: 64,
+        protoY: 64,
+        playTimer: null,
+        playDir: 1,
+        loop: true,
+        speed: 1,
+        currMask: null,
+        currValid: null,
+        currStats: null,
+        prevImgArr: null,
+        currImgArr: null,
+        prevGlobalVec: null,
+        currGlobalVec: null
+      };
+
+      function angDistDeg(ra1, dec1, ra2, dec2) {
+        const d2r = Math.PI / 180;
+        const a1 = ra1 * d2r, d1 = dec1 * d2r, a2 = ra2 * d2r, d2 = dec2 * d2r;
+        const cosD = Math.sin(d1) * Math.sin(d2) + Math.cos(d1) * Math.cos(d2) * Math.cos(a1 - a2);
+        return Math.acos(Math.max(-1, Math.min(1, cosD))) / d2r;
+      }
+
+      async function ensureCatalogLoaded() {
+        if (sciState.catalog) return sciState.catalog;
+        const r = await fetch(`${SERVER_BASE}/api/datasets`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const d = await r.json();
+        sciState.catalog = Array.isArray(d.datasets) ? d.datasets : (Array.isArray(d) ? d : []);
+        return sciState.catalog;
+      }
+
+      async function fetchBundleCached(dsId) {
+        if (sciState.bundleCache.has(dsId)) {
+          const b = sciState.bundleCache.get(dsId);
+          sciState.bundleCache.delete(dsId);
+          sciState.bundleCache.set(dsId, b);
+          return b;
+        }
+        const r = await fetch(`${SERVER_BASE}/api/bundle?dataset_id=${encodeURIComponent(dsId)}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const b = await r.json();
+        if (!b.ok) throw new Error(b.error || 'Error cargando bundle');
+        sciState.bundleCache.set(dsId, b);
+        if (sciState.bundleCache.size > sciState.maxBundleCache) {
+          const oldest = sciState.bundleCache.keys().next().value;
+          sciState.bundleCache.delete(oldest);
+        }
+        return b;
+      }
+
+      function getPlaneImageArray(bundle, exp) {
+        if (!bundle?.planes || !exp) return null;
+        const stem = (exp.file || '').replace(/\.fits$/i, '');
+        const p = bundle.planes[stem] || bundle.planes[`${exp.obs_id}_D${exp.det}`];
+        const arr = p?.IMAGE || p?.data || (Array.isArray(p) ? p : null);
+        return (Array.isArray(arr) && arr.length >= 64) ? arr : null;
+      }
+
+      function buildPixelFeatureVec(arr, W, H, idx) {
+        const y = Math.floor(idx / W), x = idx % W;
+        const v0 = Number(arr[idx]);
+        if (!Number.isFinite(v0)) return null;
+        let sum = 0, sumSq = 0, cnt = 0, minV = v0, maxV = v0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+              const nv = Number(arr[ny * W + nx]);
+              if (Number.isFinite(nv)) {
+                sum += nv; sumSq += nv * nv; cnt++;
+                if (nv < minV) minV = nv;
+                if (nv > maxV) maxV = nv;
+              }
+            }
+          }
+        }
+        const mean = cnt ? sum / cnt : v0;
+        const std = cnt ? Math.sqrt(Math.max(0, sumSq / cnt - mean * mean)) : 0;
+        const gx = (x + 1 < W && Number.isFinite(arr[idx + 1]) ? Number(arr[idx + 1]) : v0) - (x > 0 && Number.isFinite(arr[idx - 1]) ? Number(arr[idx - 1]) : v0);
+        const gy = (y + 1 < H && Number.isFinite(arr[idx + W]) ? Number(arr[idx + W]) : v0) - (y > 0 && Number.isFinite(arr[idx - W]) ? Number(arr[idx - W]) : v0);
+        return [v0, mean, std, Math.hypot(gx, gy), maxV - minV, v0 - mean];
+      }
+
+      function cosSim(a, b) {
+        if (!a || !b) return 0;
+        let dot = 0, na = 0, nb = 0;
+        for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+        const den = Math.sqrt(na) * Math.sqrt(nb);
+        return den > 1e-12 ? dot / den : 0;
+      }
+
+      function drawMiniGray(canvasId, arr, W, H, mode) {
+        const c = document.getElementById(canvasId);
+        if (!c) return;
+        const ctx = c.getContext('2d');
+        ctx.clearRect(0, 0, c.width, c.height);
+        if (!arr) return;
+        const off = document.createElement('canvas');
+        off.width = W; off.height = H;
+        const octx = off.getContext('2d');
+        const img = octx.createImageData(W, H);
+        const vals = [];
+        for (let i = 0; i < arr.length; i++) if (Number.isFinite(arr[i])) vals.push(arr[i]);
+        vals.sort((a, b) => a - b);
+        const lo = vals[Math.floor(vals.length * 0.02)] ?? 0;
+        const hi = vals[Math.floor(vals.length * 0.99)] ?? 1;
+        const span = Math.max(1e-9, hi - lo);
+        for (let i = 0; i < W * H; i++) {
+          const v = Number(arr[i]);
+          const p = i * 4;
+          if (!Number.isFinite(v)) {
+            img.data[p] = 10; img.data[p + 1] = 14; img.data[p + 2] = 24; img.data[p + 3] = 255;
+            continue;
+          }
+          const t = Math.max(0, Math.min(1, (v - lo) / span));
+          if (mode === 'mask') {
+            img.data[p] = Math.round(t * 56);
+            img.data[p + 1] = Math.round(t * 210);
+            img.data[p + 2] = Math.round(t * 255);
+            img.data[p + 3] = 255;
+          } else if (mode === 'diff') {
+            img.data[p] = Math.round(t * 251);
+            img.data[p + 1] = Math.round(t * 113);
+            img.data[p + 2] = Math.round(t * 133);
+            img.data[p + 3] = 255;
+          } else {
+            const g = Math.round(Math.pow(t, 0.7) * 255);
+            img.data[p] = g; img.data[p + 1] = g; img.data[p + 2] = Math.min(255, Math.round(g * 1.05)); img.data[p + 3] = 255;
+          }
+        }
+        octx.putImageData(img, 0, 0);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(off, 0, 0, c.width, c.height);
+      }
+
+      function computeEpochLatentMask() {
+        const exp = sciState.filteredExps[sciState.epochIdx];
+        const ds = sciState.activeDs;
+        const bundle = sciState.activeBundle;
+        if (!exp || !ds || !bundle) return;
+        const W = Number(ds.width) || 128, H = Number(ds.height) || 128;
+        const arr = getPlaneImageArray(bundle, exp);
+        if (!arr) {
+          sciState.currMask = null;
+          document.getElementById('latentModelInfo').textContent = 'EMBEDDING NO DISPONIBLE PARA ESTA OBSERVACIÓN (sin plano FITS válido)';
+          renderWcsSkyOverlay();
+          return;
+        }
+        let validCnt = 0;
+        for (let i = 0; i < arr.length; i++) if (Number.isFinite(arr[i])) validCnt++;
+        if (validCnt < 16) {
+          sciState.currMask = null;
+          document.getElementById('latentModelInfo').textContent = 'EMBEDDING NO DISPONIBLE PARA ESTA OBSERVACIÓN (0 píxeles válidos)';
+          renderWcsSkyOverlay();
+          return;
+        }
+
+        const pIdx = Math.max(0, Math.min(W * H - 1, sciState.protoY * W + sciState.protoX));
+        let protoVec = buildPixelFeatureVec(arr, W, H, pIdx);
+        if (!protoVec) {
+          for (let i = 0; i < arr.length; i++) {
+            protoVec = buildPixelFeatureVec(arr, W, H, i);
+            if (protoVec) break;
+          }
+        }
+        const simMask = new Float32Array(W * H);
+        const classMask = new Int16Array(W * H).fill(-1);
+        const globalVec = new Float64Array(6);
+        let passCnt = 0;
+
+        // K uniform quantile prototypes across intensity for KNN mode
+        const validVals = [];
+        for (let i = 0; i < arr.length; i++) if (Number.isFinite(arr[i])) validVals.push({ i, v: arr[i] });
+        validVals.sort((a, b) => a.v - b.v);
+        const K = sciState.knnK;
+        const centroids = [];
+        for (let k = 0; k < K; k++) {
+          const pick = validVals[Math.min(validVals.length - 1, Math.floor(((k + 0.5) / K) * validVals.length))];
+          const fv = buildPixelFeatureVec(arr, W, H, pick.i);
+          if (fv) centroids.push(fv);
+        }
+
+        for (let i = 0; i < W * H; i++) {
+          const fv = buildPixelFeatureVec(arr, W, H, i);
+          if (!fv) { simMask[i] = NaN; continue; }
+          for (let d = 0; d < 6; d++) globalVec[d] += fv[d];
+          const s = cosSim(fv, protoVec);
+          simMask[i] = s;
+          if (s >= sciState.simThresh) passCnt++;
+          if (sciState.knnMode && centroids.length) {
+            let bestK = 0, bestS = -2;
+            for (let k = 0; k < centroids.length; k++) {
+              const sk = cosSim(fv, centroids[k]);
+              if (sk > bestS) { bestS = sk; bestK = k; }
+            }
+            classMask[i] = bestK;
+          }
+        }
+        for (let d = 0; d < 6; d++) globalVec[d] /= validCnt;
+
+        sciState.currMask = simMask;
+        sciState.currClassMask = classMask;
+        sciState.currImgArr = arr;
+        const prevGlobal = sciState.currGlobalVec;
+        sciState.currGlobalVec = Array.from(globalVec);
+
+        const isCasA = String(ds.id || '').includes('cas_a');
+        const modelTxt = isCasA
+          ? `Modelo: E1 (Perfil espectral/espacial FITS) + E2 temporal.v1 (Cassiopeia A) · K=${K}`
+          : `Modelo: E1 (Representación local FITS 6D·WCS) · E2 temporal.v1 solo precalculado para Cas A`;
+        const modeTxt = sciState.knnMode ? `KNN K=${K}` : `Similitud coseno ≥ ${sciState.simThresh.toFixed(2)} (${passCnt}/${validCnt} px)`;
+        document.getElementById('latentModelInfo').textContent = `${modelTxt} | ${modeTxt} | Válidos: ${validCnt}/${W * H}`;
+
+        drawMiniGray('miniCurrImgCanvas', arr, W, H, 'img');
+        drawMiniGray('miniCurrMaskCanvas', simMask, W, H, 'mask');
+        if (sciState.prevImgArr && sciState.prevImgArr.length === arr.length) {
+          drawMiniGray('miniPrevImgCanvas', sciState.prevImgArr, W, H, 'img');
+          const diff = new Float32Array(arr.length);
+          let mae = 0, dcnt = 0;
+          for (let i = 0; i < arr.length; i++) {
+            if (Number.isFinite(arr[i]) && Number.isFinite(sciState.prevImgArr[i])) {
+              diff[i] = Math.abs(arr[i] - sciState.prevImgArr[i]);
+              mae += diff[i]; dcnt++;
+            } else diff[i] = NaN;
+          }
+          drawMiniGray('miniDiffCanvas', diff, W, H, 'diff');
+          const drift = prevGlobal ? (1 - cosSim(sciState.currGlobalVec, prevGlobal)) : 0;
+          document.getElementById('skyTempDiffBox').textContent =
+            `Comparación vs época anterior: |ΔI| medio = ${dcnt ? (mae / dcnt).toFixed(4) : '—'} MJy/sr · Deriva coseno latente = ${drift.toFixed(4)}. (Nota: diferencias de calibración, banda o ruido alteran la representación; no implica variabilidad astrofísica automática).`;
+        }
+        renderWcsSkyOverlay();
+      }
+
+      function renderWcsSkyOverlay() {
+        const canvas = document.getElementById('skyWcsOverlayCanvas');
+        if (!canvas) return;
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth, h = canvas.clientHeight;
+        if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+          canvas.width = Math.round(w * dpr);
+          canvas.height = Math.round(h * dpr);
+        }
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        if (allSkyCosState.enabled) return; // Preserve all-sky cosine overlay while panning/zooming
+        ctx.clearRect(0, 0, w, h);
+
+        if (!sciState.showWcsMask || !sciState.activeDs || !sciState.currMask || !atlasState.aladin || typeof atlasState.aladin.world2pix !== 'function') {
+          return;
+        }
+        const ds = sciState.activeDs;
+        const W = Number(ds.width) || 128, H = Number(ds.height) || 128;
+        const ra0 = Number(ds.ra), dec0 = Number(ds.dec);
+        const pixDeg = (Number(ds.pix_scale_arcsec) || 6.2) / 3600.0;
+        const cosDec = Math.max(0.05, Math.cos(dec0 * Math.PI / 180));
+        const pCenter = atlasState.aladin.world2pix(ra0, dec0);
+        if (!pCenter || !Number.isFinite(pCenter[0]) || !Number.isFinite(pCenter[1])) return;
+
+        // Project WCS step stride (4px grid in FITS -> real RA/Dec -> Aladin pixel)
+        const stride = 4;
+        const palette = ['#38bdf8', '#34d399', '#fbbf24', '#fb7185', '#a78bfa', '#f472b6', '#2dd4bf', '#facc15', '#60a5fa', '#fb923c'];
+        ctx.globalAlpha = sciState.maskOpacity;
+        for (let y = 0; y < H; y += stride) {
+          for (let x = 0; x < W; x += stride) {
+            const idx = y * W + x;
+            const m = sciState.currMask[idx];
+            if (!Number.isFinite(m)) continue;
+            if (!sciState.knnMode && m < sciState.simThresh) continue;
+            const dRa = -((x - W / 2) * pixDeg) / cosDec;
+            const dDec = ((H / 2 - y) * pixDeg);
+            const pt = atlasState.aladin.world2pix(ra0 + dRa, Math.max(-90, Math.min(90, dec0 + dDec)));
+            if (!pt || !Number.isFinite(pt[0]) || !Number.isFinite(pt[1])) continue;
+            if (pt[0] < -10 || pt[0] > w + 10 || pt[1] < -10 || pt[1] > h + 10) continue;
+            if (sciState.knnMode && sciState.currClassMask) {
+              const cls = sciState.currClassMask[idx];
+              ctx.fillStyle = palette[Math.max(0, cls) % palette.length];
+            } else {
+              const a = Math.max(0.2, Math.min(1, (m - sciState.simThresh) / Math.max(0.05, 1 - sciState.simThresh)));
+              ctx.fillStyle = `rgba(56, 189, 248, ${a.toFixed(2)})`;
+            }
+            ctx.fillRect(pt[0] - 2, pt[1] - 2, 4, 4);
+          }
+        }
+        // Draw WCS footprint box
+        const corners = [[0, 0], [W, 0], [W, H], [0, H]].map(([cx, cy]) => {
+          const dRa = -((cx - W / 2) * pixDeg) / cosDec;
+          const dDec = ((H / 2 - cy) * pixDeg);
+          return atlasState.aladin.world2pix(ra0 + dRa, Math.max(-90, Math.min(90, dec0 + dDec)));
+        });
+        if (corners.every(c => c && Number.isFinite(c[0]) && Number.isFinite(c[1]))) {
+          ctx.globalAlpha = 0.9;
+          ctx.strokeStyle = '#34d399';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(corners[0][0], corners[0][1]);
+          for (let i = 1; i < 4; i++) ctx.lineTo(corners[i][0], corners[i][1]);
+          ctx.closePath();
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function filterTemporalExps() {
+        const all = sciState.allExps || [];
+        if (sciState.mode === 'detector') {
+          sciState.filteredExps = all.filter(e => Number(e.det) === Number(sciState.fixedDet));
+        } else if (sciState.mode === 'channel') {
+          sciState.filteredExps = all.filter(e => Math.abs(Number(e.wave_um) - Number(sciState.fixedWave)) <= 0.25);
+        } else {
+          sciState.filteredExps = all.slice();
+        }
+        const sl = document.getElementById('skyTempSlider');
+        if (sl) {
+          sl.max = String(Math.max(0, sciState.filteredExps.length - 1));
+          sl.value = '0';
+        }
+        sciState.epochIdx = 0;
+        sciState.prevImgArr = null;
+        sciState.currImgArr = null;
+        showTemporalEpoch(0);
+      }
+
+      function populateTempSubSelect() {
+        const sel = document.getElementById('skyTempSubSelect');
+        if (!sel) return;
+        sel.innerHTML = '';
+        if (sciState.mode === 'detector') {
+          sel.style.display = 'inline-block';
+          for (let d = 1; d <= 6; d++) {
+            const o = document.createElement('option');
+            o.value = String(d); o.textContent = `Detector D${d}`;
+            sel.appendChild(o);
+          }
+          sel.value = String(sciState.fixedDet);
+        } else if (sciState.mode === 'channel') {
+          sel.style.display = 'inline-block';
+          const waves = Array.from(new Set(sciState.allExps.map(e => Number(e.wave_um).toFixed(3)))).sort((a, b) => Number(a) - Number(b));
+          waves.forEach(w => {
+            const o = document.createElement('option');
+            o.value = w; o.textContent = `${w} µm`;
+            sel.appendChild(o);
+          });
+          if (waves.length) {
+            if (!waves.includes(Number(sciState.fixedWave).toFixed(3))) sciState.fixedWave = Number(waves[0]);
+            sel.value = Number(sciState.fixedWave).toFixed(3);
+          }
+        } else {
+          sel.style.display = 'none';
+        }
+      }
+
+      function showTemporalEpoch(idx) {
+        const exps = sciState.filteredExps || [];
+        if (!exps.length) {
+          document.getElementById('skyTempMetaBox').textContent = 'Sin exposiciones compatibles en este modo.';
+          return;
+        }
+        if (sciState.currImgArr) sciState.prevImgArr = sciState.currImgArr;
+        sciState.epochIdx = ((idx % exps.length) + exps.length) % exps.length;
+        const sl = document.getElementById('skyTempSlider');
+        if (sl) sl.value = String(sciState.epochIdx);
+
+        const exp = exps[sciState.epochIdx];
+        const prev = sciState.epochIdx > 0 ? exps[sciState.epochIdx - 1] : null;
+        const dtDays = (prev && Number.isFinite(exp.mjd) && Number.isFinite(prev.mjd)) ? (exp.mjd - prev.mjd) : null;
+        const dtStr = dtDays !== null ? (dtDays >= 1 ? `+${dtDays.toFixed(2)} d` : `+${(dtDays * 24).toFixed(1)} h`) : 'Inicio';
+
+        document.getElementById('skyTempMetaBox').innerHTML =
+          `Época <b>${sciState.epochIdx + 1}/${exps.length}</b> · Fecha: <b>${exp.date_obs || '—'}</b> (Δt: ${dtStr})<br/>` +
+          `Colección: <b>${(exp.collection || '').toUpperCase()}</b> · Detector: <b>D${exp.det}</b> · λ = <b>${Number(exp.wave_um).toFixed(4)} µm</b><br/>` +
+          `obs_id: <code>${exp.obs_id}</code>`;
+
+        if (sciState.followEmbedding) {
+          computeEpochLatentMask();
+        } else {
+          document.getElementById('latentModelInfo').textContent = 'SEGUIR EMBEDDING desactivado — la máscara no se recalcula automáticamente al cambiar de época.';
+        }
+      }
+
+      function stopSkyTempPlay() {
+        if (sciState.playTimer) { clearInterval(sciState.playTimer); sciState.playTimer = null; }
+        const b = document.getElementById('btnSkyTempPlay');
+        if (b) b.textContent = '▶ Play';
+      }
+
+      function startSkyTempPlay() {
+        stopSkyTempPlay();
+        if (!sciState.filteredExps || sciState.filteredExps.length < 2) return;
+        const b = document.getElementById('btnSkyTempPlay');
+        if (b) b.textContent = '⏸ Pausa';
+        const ms = Math.max(180, Math.round(900 / (sciState.speed || 1)));
+        sciState.playTimer = setInterval(() => {
+          const next = sciState.epochIdx + sciState.playDir;
+          if (!sciState.loop && (next < 0 || next >= sciState.filteredExps.length)) {
+            stopSkyTempPlay();
+            return;
+          }
+          showTemporalEpoch(next);
+        }, ms);
+      }
+
+      async function inspectSkyRegion(ra, dec) {
+        const drawer = document.getElementById('sciAnalysisDrawer');
+        const banner = document.getElementById('regionStatusBanner');
+        const body = document.getElementById('sciAnalysisBody');
+        drawer.classList.add('open');
+        banner.textContent = `Consultando cobertura real en Kronox para RA ${ra.toFixed(4)}°, Dec ${dec.toFixed(4)}°...`;
+        try {
+          const cat = await ensureCatalogLoaded();
+          let best = null, bestDist = 999;
+          for (const ds of cat) {
+            if (!Number.isFinite(Number(ds.ra)) || !Number.isFinite(Number(ds.dec))) continue;
+            const dist = angDistDeg(ra, dec, Number(ds.ra), Number(ds.dec));
+            const halfSize = Math.max(Number(ds.size_deg || 0.2) * 0.75, 0.25);
+            if (dist <= halfSize && dist < bestDist) {
+              bestDist = dist;
+              best = ds;
+            }
+          }
+          if (!best) {
+            sciState.activeDs = null;
+            sciState.currMask = null;
+            body.style.display = 'none';
+            renderWcsSkyOverlay();
+            banner.innerHTML =
+              `<b>Estado:</b> <span style="color:var(--amber);">Región consultable en IRSA (sin observaciones SPHEREx descargadas localmente en RA ${ra.toFixed(4)}°, Dec ${dec.toFixed(4)}°)</span>. ` +
+              `Usa «🔬 ABRIR ANÁLISIS COMPLETO EN KRONOX» para consultar SIAv2 en IRSA.`;
+            return;
+          }
+
+          atlasState.targetName = best.name || best.id;
+          sciState.activeDs = best;
+          if (best.type === 'real_spherex_ondemand') {
+            body.style.display = 'none';
+            banner.innerHTML =
+              `<b>Dataset:</b> ${best.name} (<code>${best.id}</code>) · <b>Estado:</b> <span style="color:var(--amber);">Región sin observaciones descargadas (IRSA On-Demand)</span>.`;
+            return;
+          }
+
+          const bundle = await fetchBundleCached(best.id);
+          sciState.activeBundle = bundle;
+          const exps = (bundle.dataset?.exposures || []).slice().sort((a, b) => (a.mjd || 0) - (b.mjd || 0));
+          sciState.allExps = exps;
+          const dets = Array.from(new Set(exps.map(e => `D${e.det}`))).sort().join(', ');
+          const rels = best.release_badge || 'DR1/QR3';
+          const partial = best.n_exposures_irsa && exps.length < best.n_exposures_irsa;
+          const stateLabel = partial
+            ? `<span style="color:var(--amber);">Región con cobertura parcial (${exps.length}/${best.n_exposures_irsa} exp en disco)</span>`
+            : `<span style="color:var(--green);">Región con observaciones disponibles (${exps.length} exp en disco)</span>`;
+          banner.innerHTML =
+            `<b>${best.name}</b> (<code>${best.id}</code>) · ${stateLabel}<br/>` +
+            `Fechas: ${best.date_min || '—'} → ${best.date_max || '—'} · Bandas: ${rels} · Detectores: ${dets || '—'}`;
+          body.style.display = 'grid';
+          populateTempSubSelect();
+          filterTemporalExps();
+        } catch (err) {
+          body.style.display = 'none';
+          banner.textContent = `Error consultando región en Kronox: ${err.message}`;
+        }
+      }
+
+      document.getElementById('btnSelectRegion')?.addEventListener('click', e => {
+        sciState.selectMode = !sciState.selectMode;
+        e.currentTarget.classList.toggle('active', sciState.selectMode);
+        document.getElementById('sciAnalysisDrawer')?.classList.add('open');
+        if (sciState.selectMode) {
+          setStatusFooter('Modo SELECCIONAR REGIÓN activo: haz clic en cualquier punto del cielo o pulsa "Analizar centro actual"');
+        }
+      });
+      document.getElementById('btnInspectCenterRegion')?.addEventListener('click', () => {
+        sciState.selectMode = false;
+        document.getElementById('btnSelectRegion')?.classList.remove('active');
+        inspectSkyRegion(atlasState.ra, atlasState.dec);
+      });
+      document.getElementById('btnCloseSciDrawer')?.addEventListener('click', () => {
+        stopSkyTempPlay();
+        document.getElementById('sciAnalysisDrawer')?.classList.remove('open');
+      });
+      document.getElementById('skyKnnKSlider')?.addEventListener('input', e => {
+        sciState.knnK = parseInt(e.target.value, 10) || 4;
+        document.getElementById('skyKnnKVal').textContent = String(sciState.knnK);
+        computeEpochLatentMask();
+      });
+      document.getElementById('skySimThreshSlider')?.addEventListener('input', e => {
+        sciState.simThresh = (parseInt(e.target.value, 10) || 45) / 100;
+        document.getElementById('skySimThreshVal').textContent = sciState.simThresh.toFixed(2);
+        computeEpochLatentMask();
+      });
+      document.getElementById('skyMaskOpacitySlider')?.addEventListener('input', e => {
+        const v = parseInt(e.target.value, 10) || 55;
+        sciState.maskOpacity = v / 100;
+        document.getElementById('skyMaskOpacityVal').textContent = `${v}%`;
+        renderWcsSkyOverlay();
+      });
+      document.getElementById('chkSkyWcsMask')?.addEventListener('change', e => {
+        sciState.showWcsMask = e.target.checked;
+        renderWcsSkyOverlay();
+      });
+      document.getElementById('chkSkyKnnMode')?.addEventListener('change', e => {
+        sciState.knnMode = e.target.checked;
+        computeEpochLatentMask();
+      });
+      document.getElementById('btnPickProtoCenter')?.addEventListener('click', () => {
+        sciState.protoX = 64; sciState.protoY = 64;
+        computeEpochLatentMask();
+      });
+      document.getElementById('skyTempModeSelect')?.addEventListener('change', e => {
+        stopSkyTempPlay();
+        sciState.mode = e.target.value || 'channel';
+        populateTempSubSelect();
+        filterTemporalExps();
+      });
+      document.getElementById('skyTempSubSelect')?.addEventListener('change', e => {
+        stopSkyTempPlay();
+        if (sciState.mode === 'detector') sciState.fixedDet = parseInt(e.target.value, 10) || 1;
+        else sciState.fixedWave = parseFloat(e.target.value) || 1.05;
+        filterTemporalExps();
+      });
+      document.getElementById('btnSkyTempReset')?.addEventListener('click', () => { stopSkyTempPlay(); showTemporalEpoch(0); });
+      document.getElementById('btnSkyTempPrev')?.addEventListener('click', () => { stopSkyTempPlay(); showTemporalEpoch(sciState.epochIdx - 1); });
+      document.getElementById('btnSkyTempNext')?.addEventListener('click', () => { stopSkyTempPlay(); showTemporalEpoch(sciState.epochIdx + 1); });
+      document.getElementById('btnSkyTempPlay')?.addEventListener('click', () => {
+        if (sciState.playTimer) stopSkyTempPlay(); else startSkyTempPlay();
+      });
+      document.getElementById('btnSkyTempRev')?.addEventListener('click', e => {
+        sciState.playDir = sciState.playDir === 1 ? -1 : 1;
+        e.currentTarget.textContent = sciState.playDir === -1 ? '⏪' : '⏩';
+      });
+      document.getElementById('btnSkyTempLoop')?.addEventListener('click', e => {
+        sciState.loop = !sciState.loop;
+        e.currentTarget.style.opacity = sciState.loop ? '1' : '0.45';
+      });
+      document.getElementById('skyTempSpeedSelect')?.addEventListener('change', e => {
+        sciState.speed = parseFloat(e.target.value) || 1;
+        if (sciState.playTimer) startSkyTempPlay();
+      });
+      document.getElementById('skyTempSlider')?.addEventListener('input', e => {
+        stopSkyTempPlay();
+        showTemporalEpoch(parseInt(e.target.value, 10) || 0);
+      });
+      document.getElementById('chkFollowEmbedding')?.addEventListener('change', e => {
+        sciState.followEmbedding = e.target.checked;
+        if (sciState.followEmbedding) computeEpochLatentMask();
+      });
+
+      // =====================================================================
+      // SIMILITUD DEL COSENO EN TODO EL CIELO (64D kronox_visor_cientifico + RdBu)
+      // =====================================================================
+      const allSkyCosState = {
+        enabled: false,
+        pickingProto: false,
+        mode: 'cos', // 'cos' | 'knn'
+        knnK: 5,
+        subspaceMode: 'all', // 'all' | 'sed' | 'morph' | 'flux'
+        thresh: 0.78,
+        protoRa: null,
+        protoDec: null,
+        protoPx: null,
+        protoPy: null,
+        protoCamRa: null,
+        protoCamDec: null,
+        protoCamFov: null,
+        protoVec: null,
+        computeToken: 0,
+        trainedBundleInfo: null,
+        simCanvas: null,
+        equiW: 1080,
+        equiH: 540,
+        isFullSky: true,
+        skyCache: {},
+        skyPromiseCache: {},
+        propsCache: {}
+      };
+
+      const ALLSKY_KNN_PALETTE = [
+        [56, 189, 248],  // C1 cyan
+        [251, 191, 36],  // C2 amber
+        [52, 211, 153],  // C3 emerald
+        [244, 114, 182], // C4 pink
+        [167, 139, 250], // C5 violet
+        [251, 113, 133], // C6 rose
+        [163, 230, 53],  // C7 lime
+        [249, 115, 22],  // C8 orange
+        [45, 212, 191],  // C9 teal
+        [250, 204, 21],  // C10 yellow
+      ];
+
+      function getAllSkySubspaceSlice(mode) {
+        if (mode === 'sed') return [0, 32, '32D Color (0–31)'];
+        if (mode === 'morph') return [32, 56, '24D Morf. (32–55)'];
+        if (mode === 'flux') return [56, 64, '8D Flujo (56–63)'];
+        return [0, 64, '64D Completo'];
+      }
+
+      function normalizeSubspaceVec(vec, dStart, dEnd, out) {
+        const subD = dEnd - dStart;
+        const dst = out || new Float32Array(subD);
+        let n2 = 0;
+        for (let i = 0; i < subD; i++) {
+          const v = vec[dStart + i];
+          dst[i] = v;
+          n2 += v * v;
+        }
+        const inv = 1.0 / (Math.sqrt(n2) + 1e-12);
+        for (let i = 0; i < subD; i++) dst[i] *= inv;
+        return dst;
+      }
+
+      function drawTexturedTriangle(ctx, img, x0, y0, x1, y1, x2, y2, u0, v0, u1, v1, u2, v2) {
+        const denom = u0 * (v1 - v2) - v0 * (u1 - u2) + (u1 * v2 - u2 * v1);
+        if (Math.abs(denom) < 1e-4) return;
+        const cx = (x0 + x1 + x2) / 3;
+        const cy = (y0 + y1 + y2) / 3;
+        const expand = (x, y) => {
+          const dx = x - cx, dy = y - cy;
+          const len = Math.hypot(dx, dy) || 1;
+          return [x + (dx / len) * 0.6, y + (dy / len) * 0.6];
+        };
+        const [ex0, ey0] = expand(x0, y0);
+        const [ex1, ey1] = expand(x1, y1);
+        const [ex2, ey2] = expand(x2, y2);
+
+        const a = (x0 * (v1 - v2) - v0 * (x1 - x2) + (x1 * v2 - x2 * v1)) / denom;
+        const b = (y0 * (v1 - v2) - v0 * (y1 - y2) + (y1 * v2 - y2 * v1)) / denom;
+        const c = (u0 * (x1 - x2) - x0 * (u1 - u2) + (u1 * x2 - u2 * x1)) / denom;
+        const d = (u0 * (y1 - y2) - y0 * (u1 - u2) + (u1 * y2 - u2 * y1)) / denom;
+        const e = (u0 * (v1 * x2 - v2 * x1) - v0 * (u1 * x2 - u2 * x1) + x0 * (u1 * v2 - u2 * v1)) / denom;
+        const f = (u0 * (v1 * y2 - v2 * y1) - v0 * (u1 * y2 - u2 * y1) + y0 * (u1 * v2 - u2 * v1)) / denom;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(ex0, ey0);
+        ctx.lineTo(ex1, ey1);
+        ctx.lineTo(ex2, ey2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.transform(a, b, c, d, e, f);
+        ctx.drawImage(img, 0, 0);
+        ctx.restore();
+      }
+
+      function scheduleCosineOverlaySync(lowRes = false) {
+        if (allSkyCosState.syncRafId) return;
+        allSkyCosState.syncRafId = requestAnimationFrame(() => {
+          allSkyCosState.syncRafId = null;
+          syncCosineOverlayDuringMove(lowRes || !!allSkyCosState.isDragging);
+        });
+      }
+
+      function syncCosineOverlayDuringMove(lowRes = false) {
+        if (!allSkyCosState.enabled || !allSkyCosState.simCanvas || !atlasState.aladin || typeof atlasState.aladin.pix2world !== 'function') return;
+        const canvas = document.getElementById('skyWcsOverlayCanvas');
+        if (!canvas) return;
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const w = canvas.clientWidth, h = canvas.clientHeight;
+        if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+          canvas.width = Math.round(w * dpr);
+          canvas.height = Math.round(h * dpr);
+        }
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        ctx.imageSmoothingEnabled = true;
+
+        const simImg = allSkyCosState.simCanvas;
+        const ew = allSkyCosState.equiW;
+        const eh = allSkyCosState.equiH;
+        const cols = lowRes ? 20 : 32;
+        const rows = lowRes ? 12 : 18;
+        const stride = cols + 1;
+        const grid = new Array((rows + 1) * stride);
+
+        for (let r = 0; r <= rows; r++) {
+          const sy = (r / rows) * h;
+          for (let c = 0; c <= cols; c++) {
+            const sx = (c / cols) * w;
+            const wr = atlasState.aladin.pix2world(sx, sy);
+            if (Array.isArray(wr) && Number.isFinite(wr[0]) && Number.isFinite(wr[1])) {
+              const u = (((wr[0] % 360) + 360) % 360) / 360;
+              const v = Math.max(0, Math.min(1, (90 - wr[1]) / 180));
+              grid[r * stride + c] = { x: sx, y: sy, u, v };
+            } else {
+              grid[r * stride + c] = null;
+            }
+          }
+        }
+
+        const drawSkyTri = (p0, p1, p2) => {
+          let u0 = p0.u, u1 = p1.u, u2 = p2.u;
+          if (u1 - u0 > 0.5) u1 -= 1; else if (u0 - u1 > 0.5) u1 += 1;
+          if (u2 - u0 > 0.5) u2 -= 1; else if (u0 - u2 > 0.5) u2 += 1;
+          const minU = Math.min(u0, u1, u2);
+          if (minU < 0) { u0 += 1; u1 += 1; u2 += 1; }
+          drawTexturedTriangle(
+            ctx, simImg,
+            p0.x, p0.y, p1.x, p1.y, p2.x, p2.y,
+            u0 * ew, p0.v * eh,
+            u1 * ew, p1.v * eh,
+            u2 * ew, p2.v * eh
+          );
+        };
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const i00 = r * stride + c;
+            const i10 = i00 + 1;
+            const i01 = i00 + stride;
+            const i11 = i01 + 1;
+            const p00 = grid[i00], p10 = grid[i10], p01 = grid[i01], p11 = grid[i11];
+            if (p00 && p10 && p11) drawSkyTri(p00, p10, p11);
+            if (p00 && p11 && p01) drawSkyTri(p00, p11, p01);
+          }
+        }
+
+        if (Number.isFinite(allSkyCosState.protoRa) && Number.isFinite(allSkyCosState.protoDec) && typeof atlasState.aladin.world2pix === 'function') {
+          const pt = atlasState.aladin.world2pix(allSkyCosState.protoRa, allSkyCosState.protoDec);
+          if (Array.isArray(pt) && Number.isFinite(pt[0]) && Number.isFinite(pt[1]) && pt[0] >= -20 && pt[0] <= w + 20 && pt[1] >= -20 && pt[1] <= h + 20) {
+            drawPrototypeMarker(pt[0], pt[1]);
+          }
+        }
+      }
+
+      function drawPrototypeMarker(mx, my) {
+        const canvas = document.getElementById('skyWcsOverlayCanvas');
+        if (!canvas || !Number.isFinite(mx) || !Number.isFinite(my)) return;
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const w = canvas.clientWidth, h = canvas.clientHeight;
+        if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+          canvas.width = Math.round(w * dpr);
+          canvas.height = Math.round(h * dpr);
+        }
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.save();
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(mx, my, 12, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(mx, my, 12, 0, Math.PI * 2);
+        ctx.moveTo(mx - 18, my); ctx.lineTo(mx - 6, my);
+        ctx.moveTo(mx + 6, my); ctx.lineTo(mx + 18, my);
+        ctx.moveTo(mx, my - 18); ctx.lineTo(mx, my - 6);
+        ctx.moveTo(mx, my + 6); ctx.lineTo(mx, my + 18);
+        ctx.stroke();
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath();
+        ctx.arc(mx, my, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = 'bold 11px monospace';
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.85)';
+        ctx.fillRect(mx + 14, my - 18, 72, 16);
+        ctx.fillStyle = '#fde047';
+        ctx.fillText('Prototipo', mx + 18, my - 6);
+        ctx.restore();
+      }
+
+      function setAllSkyCosProgress(visible, pct, label) {
+        const wrap = document.getElementById('allSkyCosProgressWrap');
+        const bar = document.getElementById('allSkyCosProgressBar');
+        const pctEl = document.getElementById('allSkyCosProgressPct');
+        const lblEl = document.getElementById('allSkyCosProgressLbl');
+        const hud = document.getElementById('skyCosProgressHud');
+        const hudBar = document.getElementById('skyCosHudBar');
+        const hudPct = document.getElementById('skyCosHudPct');
+        const p = Math.max(0, Math.min(100, Math.round(pct)));
+        if (wrap) wrap.style.display = visible ? 'flex' : 'none';
+        if (bar) bar.style.width = `${p}%`;
+        if (pctEl) pctEl.textContent = `${p}%`;
+        if (lblEl && label) lblEl.textContent = label;
+        if (hud) hud.style.display = visible ? 'block' : 'none';
+        if (hudBar) hudBar.style.width = `${p}%`;
+        if (hudPct) hudPct.textContent = `${p}%`;
+      }
+
+      // Probe trained SPHEREx 64D bundle metadata once (read-only)
+      (async function checkTrainedBundle() {
+        try {
+          const r = await fetch(`${SERVER_BASE}/spherex_v2_interactive_bundle.json`, { method: 'HEAD' });
+          if (r.ok) allSkyCosState.trainedBundleInfo = 'spherex_v2_interactive_bundle.json (64D)';
+        } catch (_) {}
+      })();
+
+      function buildCosineFeatureTables(rgba, W, H) {
+        const S = W + 1;
+        const size = S * (H + 1);
+        const sumR = new Float64Array(size);
+        const sumG = new Float64Array(size);
+        const sumB = new Float64Array(size);
+        const sumL = new Float64Array(size);
+        const sumL2 = new Float64Array(size);
+        const sumGrad = new Float64Array(size);
+        const sumLap = new Float64Array(size);
+        const histR = Array.from({ length: 8 }, () => new Int32Array(size));
+        const histG = Array.from({ length: 8 }, () => new Int32Array(size));
+        const histB = Array.from({ length: 8 }, () => new Int32Array(size));
+        const histL = Array.from({ length: 8 }, () => new Int32Array(size));
+
+        const lum = new Float32Array(W * H);
+        for (let y = 0; y < H; y++) {
+          const rowOff = y * W;
+          for (let x = 0; x < W; x++) {
+            const idx = (rowOff + x) * 4;
+            lum[rowOff + x] = (0.299 * rgba[idx] + 0.587 * rgba[idx + 1] + 0.114 * rgba[idx + 2]) / 255;
+          }
+        }
+
+        for (let y = 0; y < H; y++) {
+          const ym = y > 0 ? y - 1 : 0;
+          const yp = y + 1 < H ? y + 1 : H - 1;
+          const curRow = (y + 1) * S;
+          const prevRow = y * S;
+          for (let x = 0; x < W; x++) {
+            const xm = x > 0 ? x - 1 : 0;
+            const xp = x + 1 < W ? x + 1 : W - 1;
+            const p = y * W + x;
+            const idx = p * 4;
+            const r = rgba[idx] / 255, g = rgba[idx + 1] / 255, b = rgba[idx + 2] / 255;
+            const l = lum[p];
+            const lL = lum[y * W + xm], lR = lum[y * W + xp];
+            const lU = lum[ym * W + x], lD = lum[yp * W + x];
+            const grad = Math.hypot(lR - lL, lD - lU);
+            const lap = Math.abs((lL + lR + lU + lD) * 0.25 - l);
+
+            const c00 = prevRow + x;
+            const c10 = prevRow + x + 1;
+            const c01 = curRow + x;
+            const c11 = curRow + x + 1;
+
+            sumR[c11] = r + sumR[c10] + sumR[c01] - sumR[c00];
+            sumG[c11] = g + sumG[c10] + sumG[c01] - sumG[c00];
+            sumB[c11] = b + sumB[c10] + sumB[c01] - sumB[c00];
+            sumL[c11] = l + sumL[c10] + sumL[c01] - sumL[c00];
+            sumL2[c11] = l * l + sumL2[c10] + sumL2[c01] - sumL2[c00];
+            sumGrad[c11] = grad + sumGrad[c10] + sumGrad[c01] - sumGrad[c00];
+            sumLap[c11] = lap + sumLap[c10] + sumLap[c01] - sumLap[c00];
+
+            const bR = Math.min(7, (r * 7.99) | 0);
+            const bG = Math.min(7, (g * 7.99) | 0);
+            const bB = Math.min(7, (b * 7.99) | 0);
+            const bL = Math.min(7, (l * 7.99) | 0);
+            for (let k = 0; k < 8; k++) {
+              histR[k][c11] = (k === bR ? 1 : 0) + histR[k][c10] + histR[k][c01] - histR[k][c00];
+              histG[k][c11] = (k === bG ? 1 : 0) + histG[k][c10] + histG[k][c01] - histG[k][c00];
+              histB[k][c11] = (k === bB ? 1 : 0) + histB[k][c10] + histB[k][c01] - histB[k][c00];
+              histL[k][c11] = (k === bL ? 1 : 0) + histL[k][c10] + histL[k][c01] - histL[k][c00];
+            }
+          }
+        }
+        return { W, H, S, sumR, sumG, sumB, sumL, sumL2, sumGrad, sumLap, histR, histG, histB, histL };
+      }
+
+      function boxSum(tbl, S, x0, y0, x1, y1) {
+        return tbl[(y1 + 1) * S + (x1 + 1)] - tbl[y0 * S + (x1 + 1)] - tbl[(y1 + 1) * S + x0] + tbl[y0 * S + x0];
+      }
+
+      function extractSignature64FromTables(t, cx, cy, half, outVec) {
+        const vec = outVec || new Float32Array(64);
+        const W = t.W, H = t.H, S = t.S;
+        const h = half || 5;
+        const x0 = Math.max(0, cx - h), x1 = Math.min(W - 1, cx + h);
+        const y0 = Math.max(0, cy - h), y1 = Math.min(H - 1, cy + h);
+        const cnt = Math.max(1, (x1 - x0 + 1) * (y1 - y0 + 1));
+        const inv = 1 / cnt;
+
+        const a0 = y0 * S + x0, a1 = y0 * S + (x1 + 1);
+        const a2 = (y1 + 1) * S + x0, a3 = (y1 + 1) * S + (x1 + 1);
+
+        for (let k = 0; k < 8; k++) {
+          const hR = t.histR[k], hG = t.histG[k], hB = t.histB[k], hL = t.histL[k];
+          vec[k] = (hR[a3] - hR[a1] - hR[a2] + hR[a0]) * inv;
+          vec[8 + k] = (hG[a3] - hG[a1] - hG[a2] + hG[a0]) * inv;
+          vec[16 + k] = (hB[a3] - hB[a1] - hB[a2] + hB[a0]) * inv;
+          vec[24 + k] = (hL[a3] - hL[a1] - hL[a2] + hL[a0]) * inv;
+        }
+
+        // 8 concentric ring mean luminances in O(1) via sumL integral image
+        let prevSum = 0, prevCnt = 0;
+        for (let k = 0; k < 8; k++) {
+          const rk = Math.max(0, Math.round(((k + 1) / 8) * h));
+          const rx0 = Math.max(0, cx - rk), rx1 = Math.min(W - 1, cx + rk);
+          const ry0 = Math.max(0, cy - rk), ry1 = Math.min(H - 1, cy + rk);
+          const rSum = boxSum(t.sumL, S, rx0, ry0, rx1, ry1);
+          const rCnt = (rx1 - rx0 + 1) * (ry1 - ry0 + 1);
+          const ringCnt = rCnt - prevCnt;
+          vec[32 + k] = ringCnt > 0 ? (rSum - prevSum) / ringCnt : (rSum / Math.max(1, rCnt));
+          prevSum = rSum;
+          prevCnt = rCnt;
+        }
+
+        const mR = (t.sumR[a3] - t.sumR[a1] - t.sumR[a2] + t.sumR[a0]) * inv;
+        const mG = (t.sumG[a3] - t.sumG[a1] - t.sumG[a2] + t.sumG[a0]) * inv;
+        const mB = (t.sumB[a3] - t.sumB[a1] - t.sumB[a2] + t.sumB[a0]) * inv;
+        const mL = (t.sumL[a3] - t.sumL[a1] - t.sumL[a2] + t.sumL[a0]) * inv;
+        const mL2 = (t.sumL2[a3] - t.sumL2[a1] - t.sumL2[a2] + t.sumL2[a0]) * inv;
+        const stdL = Math.sqrt(Math.max(0, mL2 - mL * mL));
+        const mGrad = (t.sumGrad[a3] - t.sumGrad[a1] - t.sumGrad[a2] + t.sumGrad[a0]) * inv;
+        const mLap = (t.sumLap[a3] - t.sumLap[a1] - t.sumLap[a2] + t.sumLap[a0]) * inv;
+
+        vec[40] = mR; vec[41] = mG; vec[42] = mB; vec[43] = mL;
+        vec[44] = (mR - mG) * 2.0; vec[45] = (mG - mB) * 2.0; vec[46] = (mR - mB) * 2.0;
+        vec[47] = stdL * 2.0;
+        vec[48] = mGrad * 3.0;
+        vec[49] = mLap * 4.0;
+        for (let d = 50; d < 64; d++) vec[d] = vec[(d - 50) * 3] * vec[(d - 50) * 3 + 1];
+
+        let norm = 0;
+        for (let d = 0; d < 64; d++) norm += vec[d] * vec[d];
+        norm = Math.sqrt(norm) + 1e-8;
+        for (let d = 0; d < 64; d++) vec[d] /= norm;
+        return vec;
+      }
+
+      function divergingRedBlueRGBA(sim, pivot, out, i4) {
+        if (sim >= pivot) {
+          const t = Math.max(0, Math.min(1, (sim - pivot) / Math.max(0.02, 1.0 - pivot)));
+          out[i4] = Math.round(248 + (239 - 248) * t);
+          out[i4 + 1] = Math.round(250 + (48 - 250) * t);
+          out[i4 + 2] = Math.round(252 + (48 - 252) * t);
+          out[i4 + 3] = Math.round((0.08 + 0.62 * Math.pow(t, 0.85)) * 255);
+        } else {
+          const t = Math.max(0, Math.min(1, (pivot - sim) / Math.max(0.05, pivot)));
+          out[i4] = Math.round(248 + (37 - 248) * t);
+          out[i4 + 1] = Math.round(250 + (99 - 250) * t);
+          out[i4 + 2] = Math.round(252 + (235 - 252) * t);
+          out[i4 + 3] = Math.round((0.08 + 0.56 * Math.pow(t, 0.9)) * 255);
+        }
+      }
+
+      function ang2pixNest512(theta, phi) {
+        const nside = 512;
+        const z = Math.cos(theta);
+        const za = Math.abs(z);
+        let tt = (phi % (Math.PI * 2));
+        if (tt < 0) tt += Math.PI * 2;
+        tt = tt / (Math.PI * 0.5);
+        let face, ix, iy;
+        if (za <= 2 / 3) {
+          const temp1 = nside * (0.5 + tt);
+          const temp2 = nside * z * 0.75;
+          const jp = Math.floor(temp1 - temp2);
+          const jm = Math.floor(temp1 + temp2);
+          const ifp = jp >> 9;
+          const ifm = jm >> 9;
+          if (ifp === ifm) face = ifp | 4;
+          else if (ifp < ifm) face = ifp;
+          else face = ifm + 8;
+          ix = jm & 511;
+          iy = nside - (jp & 511) - 1;
+        } else {
+          let ntt = Math.floor(tt);
+          if (ntt >= 4) ntt = 3;
+          const tp = tt - ntt;
+          const tmp = nside * Math.sqrt(3 * (1 - za));
+          const jp = Math.min(nside - 1, Math.floor(tp * tmp));
+          const jm = Math.min(nside - 1, Math.floor((1 - tp) * tmp));
+          if (z >= 0) {
+            face = ntt;
+            ix = nside - jm - 1;
+            iy = nside - jp - 1;
+          } else {
+            face = ntt + 8;
+            ix = jp;
+            iy = jm;
+          }
+        }
+        let ipix = 0;
+        for (let b = 0; b < 9; b++) {
+          ipix |= ((ix >> b) & 1) << (2 * b);
+          ipix |= ((iy >> b) & 1) << (2 * b + 1);
+        }
+        return face * 262144 + ipix;
+      }
+
+      function icrsToGalactic(raDeg, decDeg) {
+        const d2r = Math.PI / 180;
+        const r = raDeg * d2r, d = decDeg * d2r;
+        const cd = Math.cos(d);
+        const x = cd * Math.cos(r), y = cd * Math.sin(r), z = Math.sin(d);
+        const gx = -0.0548755604 * x - 0.8734370902 * y - 0.4838350155 * z;
+        const gy = 0.4941094279 * x - 0.4448296300 * y + 0.7469822445 * z;
+        const gz = -0.8676661490 * x - 0.1980763734 * y + 0.4559837762 * z;
+        const l = Math.atan2(gy, gx);
+        const b = Math.asin(Math.max(-1, Math.min(1, gz)));
+        return { l: l < 0 ? l + Math.PI * 2 : l, b };
+      }
+
+      async function getSurveyHipsMeta(baseUrl) {
+        if (allSkyCosState.propsCache[baseUrl]) return allSkyCosState.propsCache[baseUrl];
+        const meta = { frame: 'equatorial', ext: 'jpg' };
+        try {
+          const ctrl = new AbortController();
+          const t = setTimeout(() => ctrl.abort(), 3000);
+          const r = await fetch(`${baseUrl}/properties`, { mode: 'cors', signal: ctrl.signal });
+          clearTimeout(t);
+          if (r.ok) {
+            const txt = await r.text();
+            if (/hips_frame\s*=\s*galactic/i.test(txt)) meta.frame = 'galactic';
+            if (/hips_tile_format\s*=\s*[^\n]*png/i.test(txt) && !/jpeg/i.test(txt)) meta.ext = 'png';
+          }
+        } catch (_) {}
+        allSkyCosState.propsCache[baseUrl] = meta;
+        return meta;
+      }
+
+      function loadImageWithTimeout(url, timeoutMs = 6000) {
+        return new Promise((resolve, reject) => {
+          const im = new Image();
+          let done = false;
+          const timer = setTimeout(() => {
+            if (done) return;
+            done = true;
+            im.src = '';
+            reject(new Error(`Timeout (${timeoutMs}ms) cargando ${url}`));
+          }, timeoutMs);
+          im.crossOrigin = 'anonymous';
+          im.onload = () => {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            resolve(im);
+          };
+          im.onerror = err => {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            reject(err || new Error(`Error cargando ${url}`));
+          };
+          im.src = url;
+        });
+      }
+
+      async function loadFullSkyEquirectangular(baseUrl, ew, eh) {
+        const cacheKey = `${baseUrl}::${ew}x${eh}`;
+        if (allSkyCosState.skyCache[cacheKey]) return allSkyCosState.skyCache[cacheKey];
+        if (allSkyCosState.skyPromiseCache[cacheKey]) return allSkyCosState.skyPromiseCache[cacheKey];
+
+        const p = (async () => {
+          const meta = await getSurveyHipsMeta(baseUrl);
+          const tryExts = meta.ext === 'png' ? ['png', 'jpg'] : ['jpg', 'png'];
+          const urlsToTry = [];
+          for (const ext of tryExts) urlsToTry.push(`${baseUrl}/Norder3/Allsky.${ext}`);
+          const irsaFallback = 'https://irsa.ipac.caltech.edu/data/hips/CDS/AllWISE/RGB-W4-W2-W1';
+          if (baseUrl !== irsaFallback) urlsToTry.push(`${irsaFallback}/Norder3/Allsky.jpg`);
+
+          let img = null;
+          for (const u of urlsToTry) {
+            try {
+              img = await loadImageWithTimeout(u, 6000);
+              if (img && img.width > 0) break;
+            } catch (_) { img = null; }
+          }
+          if (!img) throw new Error('No se pudo descargar Norder3/Allsky');
+
+        const aw = img.width, ah = img.height;
+        const ac = document.createElement('canvas');
+        ac.width = aw; ac.height = ah;
+        const actx = ac.getContext('2d');
+        actx.drawImage(img, 0, 0);
+        const allskyData = actx.getImageData(0, 0, aw, ah).data;
+        const tileW = Math.floor(aw / 27);
+        const tileH = Math.floor(ah / 29);
+
+        const equiPixels = new Uint8ClampedArray(ew * eh * 4);
+        const d2r = Math.PI / 180;
+        const isGal = meta.frame === 'galactic';
+
+        for (let ey = 0; ey < eh; ey++) {
+          const decDeg = 90 - ((ey + 0.5) / eh) * 180;
+          const thetaEq = (90 - decDeg) * d2r;
+          for (let ex = 0; ex < ew; ex++) {
+            const raDeg = ((ex + 0.5) / ew) * 360;
+            let theta = thetaEq, phi = raDeg * d2r;
+            if (isGal) {
+              const g = icrsToGalactic(raDeg, decDeg);
+              theta = Math.PI * 0.5 - g.b;
+              phi = g.l;
+            }
+            const ipix = ang2pixNest512(theta, phi);
+            const ipix3 = ipix >> 12;
+            const sub = ipix & 4095;
+            let ix = 0, iy = 0;
+            for (let b = 0; b < 6; b++) {
+              ix |= ((sub >> (2 * b)) & 1) << b;
+              iy |= ((sub >> (2 * b + 1)) & 1) << b;
+            }
+            const tx = (ipix3 % 27) * tileW;
+            const ty = Math.floor(ipix3 / 27) * tileH;
+            const fx = Math.min(tileW - 1, Math.floor((iy / 64) * tileW));
+            const fy = Math.min(tileH - 1, Math.floor((ix / 64) * tileH));
+            const srcIdx = ((ty + fy) * aw + (tx + fx)) * 4;
+            const dstIdx = (ey * ew + ex) * 4;
+            equiPixels[dstIdx] = allskyData[srcIdx];
+            equiPixels[dstIdx + 1] = allskyData[srcIdx + 1];
+            equiPixels[dstIdx + 2] = allskyData[srcIdx + 2];
+            equiPixels[dstIdx + 3] = 255;
+          }
+        }
+
+        const equiTables = buildCosineFeatureTables(equiPixels, ew, eh);
+        const entry = { equiPixels, equiTables, ew, eh };
+        allSkyCosState.skyCache[cacheKey] = entry;
+        return entry;
+        })();
+        allSkyCosState.skyPromiseCache[cacheKey] = p;
+        try { return await p; } finally { delete allSkyCosState.skyPromiseCache[cacheKey]; }
+      }
+
+      async function computeAllSkyCosineOverlay() {
+        const token = ++allSkyCosState.computeToken;
+        const canvas = document.getElementById('skyWcsOverlayCanvas');
+        if (!canvas) return;
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth, h = canvas.clientHeight;
+        if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+          canvas.width = Math.round(w * dpr);
+          canvas.height = Math.round(h * dpr);
+        }
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        if (!allSkyCosState.enabled || !atlasState.aladin) {
+          setAllSkyCosProgress(false, 0);
+          if (!sciState.showWcsMask || !sciState.currMask) ctx.clearRect(0, 0, w, h);
+          return;
+        }
+
+        try {
+          const surveyKey = atlasState.baseSurvey || 'ALLWISE';
+          const surveyCfg = SURVEY_CATALOG[surveyKey] || SURVEY_CATALOG.ALLWISE;
+          const ew = allSkyCosState.equiW;
+          const eh = allSkyCosState.equiH;
+
+          setAllSkyCosProgress(true, 10, `Cargando mapa completo 360°×180° (${surveyCfg.short})...`);
+          const sky = await loadFullSkyEquirectangular(surveyCfg.url, ew, eh);
+          if (token !== allSkyCosState.computeToken) return;
+
+          const [dStart, dEnd, subLabel] = getAllSkySubspaceSlice(allSkyCosState.subspaceMode);
+          const subD = dEnd - dStart;
+
+          setAllSkyCosProgress(true, 22, `Extrayendo embedding (${subLabel}) del prototipo...`);
+          let protoRa = allSkyCosState.protoRa;
+          let protoDec = allSkyCosState.protoDec;
+          if (!Number.isFinite(protoRa) || !Number.isFinite(protoDec)) {
+            protoRa = atlasState.ra;
+            protoDec = atlasState.dec;
+          }
+          const normRa = ((protoRa % 360) + 360) % 360;
+          const pcx = Math.max(0, Math.min(ew - 1, Math.floor((normRa / 360) * ew)));
+          const pcy = Math.max(0, Math.min(eh - 1, Math.floor(((90 - protoDec) / 180) * eh)));
+          if (!allSkyCosState.protoVec) {
+            allSkyCosState.protoVec = extractSignature64FromTables(sky.equiTables, pcx, pcy, 3);
+          }
+          const protoSub = normalizeSubspaceVec(allSkyCosState.protoVec, dStart, dEnd);
+
+          const simCanvas = document.createElement('canvas');
+          simCanvas.width = ew * 2;
+          simCanvas.height = eh;
+          const sctx = simCanvas.getContext('2d');
+          const imgData = sctx.createImageData(ew, eh);
+          const out = imgData.data;
+          const pixels = sky.equiPixels;
+          const tables = sky.equiTables;
+          const fvBuf = new Float32Array(64);
+          const subBuf = new Float32Array(subD);
+          let highCnt = 0, lowCnt = 0;
+          const knnCounts = new Int32Array(10);
+
+          let centroids = null;
+          const K = Math.max(2, Math.min(10, allSkyCosState.knnK || 5));
+          if (allSkyCosState.mode === 'knn') {
+            setAllSkyCosProgress(true, 28, `Entrenando ${K} prototipos K-NN (${subLabel})...`);
+            const samples = [];
+            const stepY = 12, stepX = 16;
+            for (let sy = 4; sy < eh; sy += stepY) {
+              for (let sx = 4; sx < ew; sx += stepX) {
+                const i4 = (sy * ew + sx) * 4;
+                if (pixels[i4] + pixels[i4 + 1] + pixels[i4 + 2] < 6) continue;
+                extractSignature64FromTables(tables, sx, sy, 3, fvBuf);
+                samples.push(normalizeSubspaceVec(fvBuf, dStart, dEnd));
+              }
+            }
+            if (samples.length >= K) {
+              // Farthest-first seeding starting at user prototype
+              centroids = [new Float32Array(protoSub)];
+              const minSim = new Float32Array(samples.length);
+              for (let i = 0; i < samples.length; i++) {
+                let dot = 0;
+                for (let d = 0; d < subD; d++) dot += samples[i][d] * centroids[0][d];
+                minSim[i] = dot;
+              }
+              for (let c = 1; c < K; c++) {
+                let bestIdx = 0, lowestSim = Infinity;
+                for (let i = 0; i < samples.length; i++) {
+                  if (minSim[i] < lowestSim) { lowestSim = minSim[i]; bestIdx = i; }
+                }
+                const nextC = new Float32Array(samples[bestIdx]);
+                centroids.push(nextC);
+                for (let i = 0; i < samples.length; i++) {
+                  let dot = 0;
+                  for (let d = 0; d < subD; d++) dot += samples[i][d] * nextC[d];
+                  if (dot > minSim[i]) minSim[i] = dot;
+                }
+              }
+              // 2 refinement passes keeping C1 (index 0) anchored to user's clicked prototype
+              for (let it = 0; it < 2; it++) {
+                const sums = Array.from({ length: K }, () => new Float32Array(subD));
+                const cnts = new Int32Array(K);
+                for (let i = 0; i < samples.length; i++) {
+                  const s = samples[i];
+                  let bk = 0, bs = -2;
+                  for (let c = 0; c < K; c++) {
+                    let dot = 0;
+                    for (let d = 0; d < subD; d++) dot += s[d] * centroids[c][d];
+                    if (dot > bs) { bs = dot; bk = c; }
+                  }
+                  cnts[bk]++;
+                  for (let d = 0; d < subD; d++) sums[bk][d] += s[d];
+                }
+                for (let c = 1; c < K; c++) {
+                  if (cnts[c] > 0) normalizeSubspaceVec(sums[c], 0, subD, centroids[c]);
+                }
+              }
+            }
+          }
+
+          const isKnnMode = allSkyCosState.mode === 'knn' && centroids;
+          const rowsPerChunk = isKnnMode ? 36 : 54;
+          const step = 1;
+          for (let yStart = 0; yStart < eh; yStart += rowsPerChunk) {
+            if (token !== allSkyCosState.computeToken) return;
+            const yEnd = Math.min(eh, yStart + rowsPerChunk);
+            for (let y = yStart; y < yEnd; y += step) {
+              for (let x = 0; x < ew; x += step) {
+                const i4 = (y * ew + x) * 4;
+                if (pixels[i4] + pixels[i4 + 1] + pixels[i4 + 2] < 6) {
+                  out[i4 + 3] = 0;
+                  if (step === 2) {
+                    if (x + 1 < ew) out[i4 + 7] = 0;
+                    if (y + 1 < eh) out[((y + 1) * ew + x) * 4 + 3] = 0;
+                    if (x + 1 < ew && y + 1 < eh) out[((y + 1) * ew + x + 1) * 4 + 3] = 0;
+                  }
+                  continue;
+                }
+                extractSignature64FromTables(tables, x, y, 3, fvBuf);
+                normalizeSubspaceVec(fvBuf, dStart, dEnd, subBuf);
+                if (isKnnMode) {
+                  let bk = 0, bs = -2;
+                  for (let c = 0; c < K; c++) {
+                    let dot = 0;
+                    const cent = centroids[c];
+                    for (let d = 0; d < subD; d++) dot += subBuf[d] * cent[d];
+                    if (dot > bs) { bs = dot; bk = c; }
+                  }
+                  knnCounts[bk] += step * step;
+                  const rgb = ALLSKY_KNN_PALETTE[bk % ALLSKY_KNN_PALETTE.length];
+                  for (let dy = 0; dy < step && y + dy < eh; dy++) {
+                    for (let dx = 0; dx < step && x + dx < ew; dx++) {
+                      const o4 = ((y + dy) * ew + (x + dx)) * 4;
+                      out[o4] = rgb[0];
+                      out[o4 + 1] = rgb[1];
+                      out[o4 + 2] = rgb[2];
+                      out[o4 + 3] = 170;
+                    }
+                  }
+                } else {
+                  let sim = 0;
+                  for (let d = 0; d < subD; d++) sim += subBuf[d] * protoSub[d];
+                  if (sim >= allSkyCosState.thresh) highCnt++; else lowCnt++;
+                  divergingRedBlueRGBA(sim, allSkyCosState.thresh, out, i4);
+                }
+              }
+            }
+            const pctDone = 30 + (yEnd / eh) * 68;
+            const modeLbl = allSkyCosState.mode === 'knn' ? `K-NN (K=${K})` : 'Similitud coseno';
+            setAllSkyCosProgress(true, pctDone, `${modeLbl} · ${subLabel} (${yEnd}/${eh} filas)...`);
+            await new Promise(r => requestAnimationFrame(r));
+          }
+          if (token !== allSkyCosState.computeToken) return;
+
+          sctx.putImageData(imgData, 0, 0);
+          sctx.putImageData(imgData, ew, 0);
+          allSkyCosState.simCanvas = simCanvas;
+          syncCosineOverlayDuringMove();
+
+          const legendEl = document.getElementById('allSkyKnnLegend');
+          if (legendEl) {
+            if (allSkyCosState.mode === 'knn' && centroids) {
+              let tot = 0;
+              for (let c = 0; c < K; c++) tot += knnCounts[c];
+              let html = '';
+              for (let c = 0; c < K; c++) {
+                const rgb = ALLSKY_KNN_PALETTE[c % ALLSKY_KNN_PALETTE.length];
+                const pct = tot > 0 ? ((knnCounts[c] / tot) * 100).toFixed(1) : '0.0';
+                html += `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;background:#0f172a;border:1px solid #334155;"><span style="width:8px;height:8px;border-radius:2px;background:rgb(${rgb[0]},${rgb[1]},${rgb[2]});display:inline-block;"></span>C${c + 1} ${pct}%</span>`;
+              }
+              legendEl.innerHTML = html;
+              legendEl.style.display = 'flex';
+            } else {
+              legendEl.style.display = 'none';
+            }
+          }
+
+          setAllSkyCosProgress(true, 100, `${allSkyCosState.mode === 'knn' ? `K-NN (K=${K})` : 'Similitud coseno'} · ${subLabel} completada`);
+          setTimeout(() => {
+            if (token === allSkyCosState.computeToken) setAllSkyCosProgress(false, 100);
+          }, 600);
+
+          const pTxt = Number.isFinite(allSkyCosState.protoRa)
+            ? `RA ${allSkyCosState.protoRa.toFixed(2)}°, Dec ${allSkyCosState.protoDec.toFixed(2)}°`
+            : 'Centro actual';
+          const modelNote = allSkyCosState.trainedBundleInfo
+            ? `Todo el cielo 360°×180° (${ew}×${eh}) · Modelo SPHEREx: ${allSkyCosState.trainedBundleInfo}`
+            : `Todo el cielo 360°×180° (${ew}×${eh})`;
+          const st = document.getElementById('allSkyCosStatus');
+          if (st) {
+            st.textContent = allSkyCosState.mode === 'knn'
+              ? `Clasificación K-NN (K=${K}) en ${subLabel} · Prototipo semilla: ${pTxt} · ${modelNote}.`
+              : `Similitud coseno ${subLabel} Rojo/Azul (pivote ${allSkyCosState.thresh.toFixed(2)}): Alta(Rojo)=${highCnt} px · Baja(Azul)=${lowCnt} px · Prototipo: ${pTxt} · ${modelNote}.`;
+          }
+        } catch (err) {
+          setAllSkyCosProgress(false, 0);
+          const st = document.getElementById('allSkyCosStatus');
+          if (st) st.textContent = `No se pudo calcular similitud en todo el cielo: ${err.message}`;
+        }
+      }
+
+      document.getElementById('chkAllSkyCosine')?.addEventListener('change', e => {
+        allSkyCosState.enabled = e.target.checked;
+        const box = document.getElementById('allSkyCosControls');
+        if (box) box.style.display = allSkyCosState.enabled ? 'flex' : 'none';
+        if (allSkyCosState.enabled) {
+          allSkyCosState.protoVec = null;
+          allSkyCosState.protoRa = atlasState.ra;
+          allSkyCosState.protoDec = atlasState.dec;
+          computeAllSkyCosineOverlay();
+        } else {
+          renderWcsSkyOverlay();
+        }
+      });
+      document.querySelectorAll('#allSkyModePills [data-allsky-mode]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          allSkyCosState.mode = btn.dataset.allskyMode || 'cos';
+          document.querySelectorAll('#allSkyModePills [data-allsky-mode]').forEach(b => b.classList.toggle('active', b === btn));
+          const isKnn = allSkyCosState.mode === 'knn';
+          const knnRow = document.getElementById('allSkyKnnRow');
+          const threshRow = document.getElementById('allSkyCosThreshRow');
+          const legendEl = document.getElementById('allSkyKnnLegend');
+          if (knnRow) knnRow.style.display = isKnn ? 'flex' : 'none';
+          if (threshRow) threshRow.style.display = isKnn ? 'none' : 'flex';
+          if (legendEl && !isKnn) legendEl.style.display = 'none';
+          if (allSkyCosState.enabled) computeAllSkyCosineOverlay();
+        });
+      });
+      document.querySelectorAll('#allSkySubspacePills [data-allsky-sub]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          allSkyCosState.subspaceMode = btn.dataset.allskySub || 'all';
+          document.querySelectorAll('#allSkySubspacePills [data-allsky-sub]').forEach(b => b.classList.toggle('active', b === btn));
+          if (allSkyCosState.enabled) computeAllSkyCosineOverlay();
+        });
+      });
+      document.getElementById('allSkyKnnSlider')?.addEventListener('input', e => {
+        allSkyCosState.knnK = parseInt(e.target.value, 10) || 5;
+        const valEl = document.getElementById('allSkyKnnKVal');
+        if (valEl) valEl.textContent = String(allSkyCosState.knnK);
+        if (allSkyCosState.enabled && allSkyCosState.mode === 'knn') computeAllSkyCosineOverlay();
+      });
+      document.getElementById('allSkyCosThreshSlider')?.addEventListener('input', e => {
+        allSkyCosState.thresh = (parseInt(e.target.value, 10) || 88) / 100;
+        document.getElementById('allSkyCosThreshVal').textContent = allSkyCosState.thresh.toFixed(2);
+        if (allSkyCosState.enabled) computeAllSkyCosineOverlay();
+      });
+      document.getElementById('btnPickAllSkyProto')?.addEventListener('click', e => {
+        allSkyCosState.pickingProto = !allSkyCosState.pickingProto;
+        e.currentTarget.classList.toggle('active', allSkyCosState.pickingProto);
+        setStatusFooter('Haz clic en cualquier objeto del cielo para fijar el prototipo de similitud del coseno');
+      });
+      document.getElementById('btnResetAllSkyProto')?.addEventListener('click', () => {
+        allSkyCosState.protoRa = atlasState.ra;
+        allSkyCosState.protoDec = atlasState.dec;
+        allSkyCosState.protoPx = null;
+        allSkyCosState.protoPy = null;
+        allSkyCosState.protoVec = null;
+        if (allSkyCosState.enabled) computeAllSkyCosineOverlay();
+      });
+      document.getElementById('btnRecomputeAllSkyCos')?.addEventListener('click', () => {
+        if (allSkyCosState.enabled) computeAllSkyCosineOverlay();
+      });
+
+      window.addEventListener('message', ev => {
+        if (ev.origin !== window.location.origin) return;
+        const msg = ev.data || {};
+        if (msg.type === 'KRONOX_FOCUS_REGION' && atlasState.aladin && Number.isFinite(msg.ra) && Number.isFinite(msg.dec)) {
+          atlasState.targetName = msg.target || atlasState.targetName;
+          atlasState.aladin.gotoRaDec(msg.ra, msg.dec);
+          if (Number.isFinite(msg.fov)) atlasState.aladin.setFov(msg.fov);
+          if (Number.isFinite(msg.channel)) setSpxChannel(msg.channel);
+        }
+      });
+
+      initAladin();
+    })();
+  </script>
+</body>
+</html>

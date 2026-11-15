@@ -1,0 +1,115 @@
+.kronoxSphereXExplorerSheet {
+  width: calc(100vw - 20px);
+  height: calc(100vh - 20px);
+  height: calc(100dvh - 20px);
+  max-width: none;
+  max-height: none;
+  min-height: 0;
+}
+
+.kronoxSphereXExplorerHeader {
+  flex: 0 0 auto;
+  min-height: 68px;
+}
+
+.kronoxSphereXExplorerHeader .kronoxCompassIcon {
+  font-size: 21px;
+}
+
+.kronoxSphereXExplorerHeader .kronoxCloseButton {
+  flex: 0 0 auto;
+}
+
+.kronoxSphereXExplorerNotice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 18px;
+  background: rgba(8, 17, 30, 0.96);
+  border-bottom: 1px solid rgba(130, 201, 255, 0.12);
+  color: #a9bbcf;
+  font-size: 12px;
+  line-height: 1.45;
+  flex: 0 0 auto;
+}
+
+.kronoxSphereXExplorerTag {
+  color: #7dd3fc;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.kronoxSphereXExplorerNotice details {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.kronoxSphereXExplorerNotice summary {
+  color: #c4d6e9;
+  cursor: pointer;
+}
+
+.kronoxSphereXExplorerNotice details p {
+  position: absolute;
+  z-index: 2;
+  right: 22px;
+  max-width: min(620px, 80vw);
+  margin-top: 6px;
+  padding: 12px 14px;
+  background: #0b1422;
+  border: 1px solid rgba(130, 201, 255, 0.24);
+  border-radius: 8px;
+  color: #cbd5e1;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+
+.kronoxSphereXExplorerScreen {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 10px;
+  background: #050914;
+}
+
+.kronoxSphereXExplorerScreen iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid rgba(130, 201, 255, 0.18);
+  border-radius: 9px;
+  background: #000;
+}
+
+@media (max-width: 760px) {
+  .kronoxSphereXExplorerHeader {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .kronoxSphereXExplorerHeader .kronoxHeaderTitle {
+    font-size: 15px;
+  }
+
+  .kronoxSphereXExplorerHeader .kronoxCloseLabel {
+    font-size: 0;
+  }
+
+  .kronoxSphereXExplorerNotice {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 5px 10px;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+
+  .kronoxSphereXExplorerNotice details {
+    margin-left: 0;
+  }
+
+  .kronoxSphereXExplorerScreen {
+    padding: 6px;
+  }
+}

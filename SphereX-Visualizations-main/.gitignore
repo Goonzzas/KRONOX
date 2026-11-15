@@ -1,0 +1,34 @@
+# This repository consumes the real-data viewer and its local API, not the
+# exploratory notebooks, generated demo FITS, downloaded caches, or backups.
+*
+!*/
+!/.gitignore
+!/README.md
+!/server.py
+!/fits_engine.py
+!/irsa_client.py
+!/descargar_spherex_dr1_qr3.py
+!/spherex_api_real.py
+!/kronox_visor_cientifico.html
+!/kronox_cielo_inmersivo.html
+!/spherex_v2_interactive_bundle.json
+!/spherex_temporal_bundle.json
+!/requirements.txt
+!/SPHEREx_REAL/
+/SPHEREx_REAL/*
+!/SPHEREx_REAL/catalog_coords.json
+
+# Caches & bytecode
+__pycache__/
+*.py[cod]
+*.so
+.hips_cache/
+
+# Downloaded NASA/IRSA FITS cutouts (re-downloaded on demand via spherex_api_real.py)
+SPHEREx_REAL/targets/
+SPHEREx_REAL/calib/
+
+# Local backups & OS files
+backups/
+.DS_Store
+.ipynb_checkpoints/

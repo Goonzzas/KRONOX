@@ -17,6 +17,14 @@ La misión de KRONOX permite explorar cómo se ven determinadas regiones del cie
 5. Usa la comparación lado a lado para seleccionar dos fechas.
 6. Marca una posición de interés, añade una nota y exporta las anotaciones a CSV.
 
+## Estación avanzada · mapa de 102 canales
+
+Desde la etapa **Imágenes**, abre **Explorador DR1 · 102 canales** para usar el visor científico original de `SphereX-Visualizations-main` dentro de la interfaz de la misión. Incluye el mapa HiPS de todo el cielo, barrido por canales DR1, selección de datasets reales, inspección de productos FITS/IRSA y lectura de intensidades por píxel y espectro. **Volver a la misión** cierra y descarga el visor; **Regresar al espacio 3D** cierra la expedición completa.
+
+El visor avanzado consulta el servicio local Python incluido en `SphereX-Visualizations-main`. `INICIAR-DEMO.ps1` intenta iniciarlo en `127.0.0.1:8765` si detecta Python; también puede iniciarse manualmente con `python server.py --port 8765` desde esa carpeta. Al abrirlo desde un alojamiento publicado, el visor necesita que ese servicio esté disponible en el equipo local.
+
+Las imágenes y mediciones FITS que entrega el servicio proceden de productos SPHEREx/IRSA y conservan sus metadatos. La paleta RGB, estiramientos y capas de similitud son transformaciones de visualización o análisis; no son imágenes en color visible ni productos o hallazgos oficiales de NASA. El visor identifica los datos disponibles por producto y canal; la cobertura depende del campo y la publicación.
+
 Entre los objetivos de ejemplo están la **estrella de Barnard**, **Epsilon Indi B**, **WISE 0855**, **RW Aurigae** y **R Draconis**. La cobertura varía por posición, banda y fecha de publicación; algunos objetivos pueden tener pocos cuadros o ninguno.
 
 ## ¿Qué son QR2 y QR3?
