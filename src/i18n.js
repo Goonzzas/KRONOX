@@ -1525,6 +1525,19 @@ const en = {
   'Anotación': 'Note',
   'Catálogo': 'Catalog',
   'Imágenes': 'Images',
+  'Explorador DR1 · 102 canales': 'DR1 explorer · 102 channels',
+  'Preparando el analizador espectral…': 'Preparing the spectral analyzer…',
+  'ESTACIÓN DE INVESTIGACIÓN · DR1': 'RESEARCH STATION · DR1',
+  'Explorador espectral de todo el cielo': 'All-sky spectral explorer',
+  'Volver a la misión': 'Return to mission',
+  'VISOR ORIGINAL · SPHEREx DR1': 'ORIGINAL VIEWER · SPHEREx DR1',
+  'Cubo de 102 canales, mapas HiPS, inspección de píxel y espectro. El visor usa el servidor Python de SphereX para catálogo y productos FITS.':
+    '102-channel cube, HiPS maps, pixel and spectrum inspection. The viewer uses the SphereX Python server for catalog and FITS products.',
+  'Procedencia y lectura de los datos': 'Data provenance and interpretation',
+  'Las imágenes y valores inspeccionados proceden de productos del archivo IRSA/SPHEREx. La composición RGB, las escalas de visualización y las capas de análisis son transformaciones para explorar esos datos; los colores no son ópticos y las representaciones de similitud no son resultados oficiales de NASA.':
+    'The inspected images and values come from IRSA/SPHEREx archive products. RGB composites, display stretches, and analysis layers are transformations for exploring those data; the colors are not optical, and similarity maps are not official NASA results.',
+  'Visor científico SPHEREx: 102 canales y datos DR1':
+    'SPHEREx scientific viewer: 102 channels and DR1 data',
   'Arrastra desde cualquier parte del panel para moverlo · doble clic para restaurar': 'Drag anywhere on this panel to move it · double-click to reset',
   'Press [L] to capture or release the mouse (or drag) · Click to choose a planet': 'Press [L] to capture or release the mouse (or drag) · Click to select a planet',
   'PROYECTO HORIZONTE · INICIALIZACIÓN DE SISTEMAS': 'HORIZON PROJECT · SYSTEM INITIALIZATION',
