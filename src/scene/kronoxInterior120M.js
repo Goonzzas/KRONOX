@@ -1902,6 +1902,12 @@ export function buildKronoxInterior120M() {
       bandCounts,
       aiSpeaking: Boolean(telemetry.aiSpeaking),
       aiAudioLevel: telemetry.aiAudioLevel,
+      hasActiveMission: Boolean(telemetry.hasActiveMission),
+      navigationPhase: telemetry.navigationPhase || 'ESTACIONARIA',
+      destination: targetName,
+      speed: Number(telemetry.speed) || 0,
+      heading: Number(telemetry.heading) || 0,
+      pitch: Number(telemetry.pitch) || 0,
       tick: telemetry.elapsedTime || 0,
       observationRecords: records.slice(0, 96).map((record) => ({
         band: record?.band,
@@ -1958,16 +1964,38 @@ export function buildKronoxInterior120M() {
           meta: systemMeta,
         };
       case 'missions':
+        return {
+          title: 'CENTRO DE MISIÓN · OPERACIONES',
+          lines: [
+            `ESTADO: ${telemetry.hasActiveMission ? 'MISIÓN ACTIVA' : 'EN ESPERA'}`,
+            `OBJETIVO: ${targetName}`,
+            `FASE: ${telemetry.navigationPhase || 'ESTACIONARIA'}`,
+            `VELOCIDAD: ${(telemetry.speed || 0).toFixed(2)} u/s`,
+            `RUMBO: ${(telemetry.heading || 0).toFixed(0)}° · PITCH ${(telemetry.pitch || 0).toFixed(0)}°`,
+          ],
+          meta: systemMeta,
+        };
       case 'science':
+        return {
+          title: 'SPHEREx · ANÁLISIS ESPECTRAL',
+          lines: [
+            `OBJETO: ${targetName}`,
+            `BANDA PREFERIDA: ${bandLabel}`,
+            `PRODUCTOS CARGADOS: ${records.length}`,
+            `COBERTURA D1-D6: ${Object.keys(bandCounts).length}/6 BANDAS`,
+            records.length ? `ÚLTIMO PRODUCTO: ${records[0]?.id || 'QR2'}` : 'SIN PRODUCTOS PARA ANALIZAR',
+          ],
+          meta: systemMeta,
+        };
       case 'archive':
         return {
-          title: stationId === 'archive' ? 'NASA/IPAC · ARCHIVO SPHEREx QR2' : 'SPHEREx · DATOS DE MISIÓN',
+          title: 'NASA/IPAC · ARCHIVO SPHEREx QR2',
           lines: [
-            `OBJETIVO: ${targetName}`,
-            coords,
-            `BANDA: ${bandLabel}`,
+            `CONSULTA: ${targetName}`,
+            `CATÁLOGO: ${target?.identifier || 'CNS5 / GAIA DR3'}`,
             recordLabel,
-            records.length ? (records[0]?.id || target?.identifier || 'QR2 · LOCAL') : 'SIN PRODUCTOS LOCALES',
+            records.length ? `MÁS RECIENTE: ${records[0]?.id || 'PRODUCTO QR2'}` : 'SIN PRODUCTOS LOCALES',
+            records.length ? `BANDA: ${records[0]?.band || bandLabel}` : coords,
           ],
           meta: systemMeta,
         };

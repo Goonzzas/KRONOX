@@ -1046,7 +1046,7 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
     g.lineWidth = 1.5;
     g.strokeRect(wx, wy, ww, wh);
 
-    if (stationId === 'nav' || stationId === 'missions' || stationId === 'windows') {
+    if (stationId === 'nav') {
       const cx = wx + ww / 2;
       const cy = wy + wh / 2 - 6;
       [22, 40, 56].forEach((r, idx) => {
@@ -1059,11 +1059,8 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
       g.moveTo(wx + 8, cy); g.lineTo(wx + ww - 8, cy);
       g.moveTo(cx, wy + 8); g.lineTo(cx, wy + wh - 24);
       g.stroke();
-      // Coordenada real del objetivo ICRS; si no hay objetivo, el centro marca el campo actual.
-      const ra = Number(meta?.targetRa);
-      const dec = Number(meta?.targetDec);
-      const markerX = Number.isFinite(ra) ? wx + 10 + (ra / 360) * (ww - 20) : cx;
-      const markerY = Number.isFinite(dec) ? wy + 12 + ((90 - dec) / 180) * (wh - 30) : cy;
+      const markerX = cx + Math.sin((Number(meta?.heading) || 0) * Math.PI / 180) * 34;
+      const markerY = cy - Math.max(-48, Math.min(48, (Number(meta?.pitch) || 0) * 1.2));
       g.strokeStyle = '#ffcf5c';
       g.lineWidth = 2;
       g.beginPath(); g.arc(markerX, markerY, 7, 0, Math.PI * 2); g.stroke();
@@ -1073,7 +1070,42 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
       g.beginPath(); g.arc(cx, cy, 2.5, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#93c5fd';
       g.font = 'bold 11px monospace';
-      g.fillText('ICRS J2000 · NAV', wx + 12, wy + wh - 8);
+      g.fillText('VECTOR · ACTITUD', wx + 22, wy + wh - 8);
+    } else if (stationId === 'windows') {
+      // Ventana de observación: campo estelar basado en las coordenadas ICRS del objetivo.
+      const ra = Number(meta?.targetRa);
+      const dec = Number(meta?.targetDec);
+      const centerX = Number.isFinite(ra) ? wx + 10 + (ra / 360) * (ww - 20) : wx + ww / 2;
+      const centerY = Number.isFinite(dec) ? wy + 12 + ((90 - dec) / 180) * (wh - 30) : wy + wh / 2;
+      for (let i = 0; i < 22; i += 1) {
+        const sx = wx + 12 + ((i * 47 + 13) % (ww - 24));
+        const sy = wy + 12 + ((i * 31 + 9) % (wh - 38));
+        g.fillStyle = i % 5 === 0 ? '#fde68a' : 'rgba(191,232,255,.75)';
+        g.beginPath(); g.arc(sx, sy, i % 5 === 0 ? 2 : 1.2, 0, Math.PI * 2); g.fill();
+      }
+      g.strokeStyle = curAccent;
+      g.lineWidth = 2;
+      g.beginPath(); g.arc(centerX, centerY, 10, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.moveTo(centerX - 15, centerY); g.lineTo(centerX + 15, centerY); g.moveTo(centerX, centerY - 15); g.lineTo(centerX, centerY + 15); g.stroke();
+      g.fillStyle = '#93c5fd';
+      g.font = 'bold 10px monospace';
+      g.fillText('CAMPO ESTELAR · ICRS', wx + 8, wy + wh - 8);
+    } else if (stationId === 'missions') {
+      // Consola de misión: progreso operacional y estado del objetivo activo.
+      const active = Boolean(meta?.hasActiveMission);
+      const cx = wx + ww / 2;
+      const cy = wy + 70;
+      g.strokeStyle = 'rgba(125,211,252,.24)';
+      g.lineWidth = 8;
+      g.beginPath(); g.arc(cx, cy, 48, -Math.PI / 2, Math.PI * 1.5); g.stroke();
+      g.strokeStyle = active ? '#34d399' : '#fbbf24';
+      g.beginPath(); g.arc(cx, cy, 48, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (active ? 0.72 : 0.16)); g.stroke();
+      g.fillStyle = active ? '#34d399' : '#fbbf24';
+      g.font = 'bold 13px monospace';
+      g.fillText(active ? 'ACTIVA' : 'LISTA', cx - 22, cy + 5);
+      g.fillStyle = '#bae6fd';
+      g.font = 'bold 10px monospace';
+      g.fillText(String(meta?.navigationPhase || 'ESTACIONARIA').slice(0, 18).toUpperCase(), wx + 10, wy + wh - 10);
     } else if (stationId === 'science') {
       // Cobertura registrada por banda en los productos SPHEREx QR2 cargados para el objetivo.
       g.fillStyle = 'rgba(8, 28, 48, 0.85)';
@@ -1154,11 +1186,11 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
       g.fillStyle = '#dffcf0';
       g.font = 'bold 11px monospace';
       g.fillText(`MODO ${modeLabel}`, wx + 38, wy + wh - 10);
-    } else if (stationId === 'bioponics' || stationId === 'galley') {
+    } else if (stationId === 'bioponics') {
       const states = [
-        ['BIO', Boolean(meta?.bioponicsActive)],
-        ['H2O', Boolean(meta?.hydrationDispensing)],
-        ['ECLS', null],
+        ['CULTIVO', Boolean(meta?.bioponicsActive)],
+        ['LUZ', Boolean(meta?.bioponicsActive)],
+        ['BOMBA', Boolean(meta?.bioponicsActive)],
       ];
       states.forEach(([label, active], idx) => {
         const x = wx + 12 + idx * 44;
@@ -1173,8 +1205,19 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
         g.fillStyle = '#dff5ff'; g.font = 'bold 9px monospace';
         g.fillText(label, x + 4, wy + 92);
         g.fillStyle = '#b9d3e4'; g.font = '8px monospace';
-        g.fillText(active === null ? 'N/D' : active ? 'ON' : 'OFF', x + 6, wy + wh - 8);
+        g.fillText(active ? 'ON' : 'OFF', x + 6, wy + wh - 8);
       });
+    } else if (stationId === 'galley') {
+      const dispensing = Boolean(meta?.hydrationDispensing);
+      const cx = wx + ww / 2;
+      g.strokeStyle = 'rgba(125,211,252,.28)';
+      g.lineWidth = 2;
+      g.strokeRect(wx + 20, wy + 18, ww - 40, 86);
+      g.fillStyle = dispensing ? '#38bdf8' : 'rgba(56,189,248,.28)';
+      g.fillRect(wx + 28, wy + 98 - (dispensing ? 54 : 30), ww - 56, dispensing ? 54 : 30);
+      g.fillStyle = '#dff5ff';
+      g.font = 'bold 10px monospace';
+      g.fillText(dispensing ? 'RACIÓN EN CURSO' : 'SUMINISTRO LISTO', cx - 51, wy + wh - 12);
     } else if (stationId === 'elevator') {
       // Deck tower diagram C01..C04 with active & target deck indicators
       const deckNames = ['PUENTE', 'HABIT.', 'LABOR.', 'HANGAR'];
