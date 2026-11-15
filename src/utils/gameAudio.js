@@ -48,6 +48,56 @@ export function createGameAudio() {
       resume();
       const now = context.currentTime;
 
+      if (kind === 'footstep') {
+        const length = Math.floor(context.sampleRate * 0.16);
+        const buffer = context.createBuffer(1, length, context.sampleRate);
+        const samples = buffer.getChannelData(0);
+        for (let i = 0; i < length; i++) samples[i] = (Math.random() * 2 - 1) * (1 - i / length);
+        const noise = context.createBufferSource();
+        noise.buffer = buffer;
+        const filter = context.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(520, now);
+        filter.Q.setValueAtTime(0.8, now);
+        const impact = context.createGain();
+        impact.gain.setValueAtTime(0.0001, now);
+        impact.gain.exponentialRampToValueAtTime(0.12, now + 0.009);
+        impact.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+        noise.connect(filter).connect(impact).connect(master);
+        noise.start(now);
+
+        const resonance = context.createOscillator();
+        const metal = context.createGain();
+        resonance.type = 'triangle';
+        resonance.frequency.setValueAtTime(185, now);
+        resonance.frequency.exponentialRampToValueAtTime(118, now + 0.11);
+        metal.gain.setValueAtTime(0.0001, now);
+        metal.gain.exponentialRampToValueAtTime(0.075, now + 0.008);
+        metal.gain.exponentialRampToValueAtTime(0.0001, now + 0.13);
+        resonance.connect(metal).connect(master);
+        resonance.start(now);
+        resonance.stop(now + 0.14);
+        return;
+      }
+
+      if (kind === 'interface-open') {
+        [0, 0.075].forEach((offset, index) => {
+          const osc = context.createOscillator();
+          const gain = context.createGain();
+          const start = now + offset;
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(index ? 1040 : 680, start);
+          osc.frequency.exponentialRampToValueAtTime(index ? 1320 : 920, start + 0.12);
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(0.055, start + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.19);
+          osc.connect(gain).connect(master);
+          osc.start(start);
+          osc.stop(start + 0.2);
+        });
+        return;
+      }
+
       if (kind === 'switch') {
         const osc = context.createOscillator();
         const gain = context.createGain();

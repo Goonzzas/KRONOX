@@ -354,6 +354,7 @@ export default function App() {
     noticeRef = useRef(null),
     noticeTimer = useRef(null),
     gameAudioRef = useRef(null),
+    previousUiOpenRef = useRef(null),
     introSoundtrackRef = useRef(null),
     introMusicElementRef = useRef(null),
     cockpitInsideRef = useRef(false);
@@ -517,6 +518,26 @@ export default function App() {
     setAmbientEnabled(next);
     if (!next) gameAudioRef.current?.cue('tap');
   };
+  const interfaceStates = [
+    missionOpen,
+    missionSelectorOpen,
+    kronoxOpen,
+    Boolean(activeCockpitStation),
+    open,
+    quickOpen,
+    pauseMenuOpen,
+    personalHubOpen,
+    spherexDocOpen,
+    nearbyMapActive,
+  ];
+  useEffect(() => {
+    const previous = previousUiOpenRef.current;
+    previousUiOpenRef.current = interfaceStates;
+    if (previous && interfaceStates.some((isOpen, index) => isOpen && !previous[index])) {
+      playCue('interface-open');
+    }
+  }, [missionOpen, missionSelectorOpen, kronoxOpen, activeCockpitStation, open, quickOpen,
+    pauseMenuOpen, personalHubOpen, spherexDocOpen, nearbyMapActive]);
   const chooseLanguage = (nextLanguage) => {
     languageManuallyChosen.current = true;
     setLanguageState(nextLanguage);
@@ -1269,6 +1290,7 @@ export default function App() {
         }
       },
       onVrAction: (action, payload) => vrHandlersRef.current?.[action]?.(payload),
+      onPlayAudioCue: playCue,
       onVrPauseRequest: (opts) => {
         if (opts?.resumeOnly || pauseMenuOpenRef.current || api.current?.isSimulationPaused?.()) {
           setPauseMenuOpen(false);
