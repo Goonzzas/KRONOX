@@ -31,7 +31,7 @@ export default function SphereXAdvancedExplorer({ targetName, ra, dec, onClose }
           </div>
           <button type="button" className="kronoxCloseButton" onClick={onClose}>
             <span aria-hidden="true">←</span>
-            <span className="kronoxCloseLabel">Volver a la misión</span>
+            <span className="kronoxCloseLabel">Regresar al espacio 3D</span>
           </button>
         </header>
 

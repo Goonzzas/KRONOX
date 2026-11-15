@@ -287,7 +287,7 @@ export default function SpherexDocumentary({
                     if (onOpenObservatory) onOpenObservatory();
                   }}
                 >
-                  🔭 ABRIR OBSERVATORIO SPHEREx
+                  🔭 ABRIR EXPLORADOR SPHEREx · 102 CANALES
                 </button>
                 <button
                   type="button"

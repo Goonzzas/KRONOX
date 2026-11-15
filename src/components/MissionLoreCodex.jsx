@@ -20,7 +20,7 @@ const LORE_CHAPTERS = [
   {
     id: 'spherex',
     number: '02',
-    badge: 'CAPÍTULO 02 / 04 · OBSERVATORIO ESPACIAL',
+    badge: 'CAPÍTULO 02 / 04 · INVESTIGACIÓN ESPECTRAL',
     tabLabel: '02 · NASA SPHEREx',
     title: 'La Revolución Espectral Infrarroja',
     quote: '«En cada longitud de onda infrarroja, una misma región del cielo revela moléculas distintas y épocas perdidas del universo.»',

@@ -869,7 +869,7 @@ export default function SpaceshipCockpit({
                   className="kronoxInspectorBtn secondary"
                   onClick={() => onOpenSpherexObservatory(objectCard.target)}
                 >
-                  Investigar en Consola Científica SPHEREx
+                  {t('Abrir Explorador espectral SPHEREx', language)}
                 </button>
               </>
             ) : objectCard.kind === 'catalog-star' ? (
@@ -1208,8 +1208,10 @@ export default function SpaceshipCockpit({
             </button>
           </div>
           <p className="kronoxStationDesc">
-            Activa el barrido volumétrico 3D de sensores o abre directamente el archivo IRSA de
-            NASA/IPAC para comparar épocas temporales y verificar astrometría WCS:
+            {t(
+              'Abre el Explorador espectral SPHEREx para revisar mapas HiPS, el cubo DR1 de 102 canales y los productos reales de NASA/IPAC IRSA:',
+              language,
+            )}
           </p>
           <div className="kronoxStationBtnRow">
             {SPHEREX_TARGETS.map((tgt) => (
@@ -1226,7 +1228,7 @@ export default function SpaceshipCockpit({
                   onOpenSpherexObservatory(tgt);
                 }}
               >
-                ✦ Escanear e investigar {tgt.name} ({tgt.preferredBand} · {tgt.scientificStatus})
+                ✦ {t('Explorar', language)} {t(tgt.name, language)}
               </button>
             ))}
           </div>

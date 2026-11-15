@@ -17,9 +17,11 @@ La misión de KRONOX permite explorar cómo se ven determinadas regiones del cie
 5. Usa la comparación lado a lado para seleccionar dos fechas.
 6. Marca una posición de interés, añade una nota y exporta las anotaciones a CSV.
 
-## Estación avanzada · mapa de 102 canales
+## Observatorio SPHEREx · mapa de 102 canales
 
-Desde la etapa **Imágenes**, abre **Explorador DR1 · 102 canales** para usar el visor científico original de `SphereX-Visualizations-main` dentro de la interfaz de la misión. Incluye el mapa HiPS de todo el cielo, barrido por canales DR1, selección de datasets reales, inspección de productos FITS/IRSA y lectura de intensidades por píxel y espectro. **Volver a la misión** cierra y descarga el visor; **Regresar al espacio 3D** cierra la expedición completa.
+El **Explorador espectral de todo el cielo** es el observatorio principal de KRONOX. Se abre desde la consola científica de la nave, el acceso rápido del selector de objetivos, el documental o el menú principal. El visor integra `SphereX-Visualizations-main` e incluye el mapa HiPS de todo el cielo, los 102 canales de DR1, selección de datasets reales, inspección de productos FITS/IRSA y lectura de intensidades por píxel y espectro. Al cerrar el visor se vuelve al espacio 3D.
+
+La **expedición guiada** sigue disponible desde **Elegir misión**. Allí se seleccionan objetivos y se recorre el flujo de investigación con observaciones temporales, comparación de fechas y anotaciones.
 
 El visor avanzado consulta el servicio local Python incluido en `SphereX-Visualizations-main`. `INICIAR-DEMO.ps1` intenta iniciarlo en `127.0.0.1:8765` si detecta Python; también puede iniciarse manualmente con `python server.py --port 8765` desde esa carpeta. Al abrirlo desde un alojamiento publicado, el visor necesita que ese servicio esté disponible en el equipo local.
 

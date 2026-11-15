@@ -66,6 +66,7 @@ const voiceProvider = createFishAudioVoiceProvider({
   baseUrl: import.meta.env.BASE_URL,
 });
 const completeKronoxNarrative = (id) => narrativeQueue.complete(id);
+const SphereXAdvancedExplorer = React.lazy(() => import('./components/SphereXAdvancedExplorer.jsx'));
 
 export default function App() {
   const deviceGuess = () =>
@@ -138,6 +139,7 @@ export default function App() {
         return false;
       }
     }),
+    [advancedExplorerOpen, setAdvancedExplorerOpen] = useState(missionOpen),
     [missionSelectorOpen, setMissionSelectorOpen] = useState(false),
     [missionArrival, setMissionArrival] = useState(false),
     [missionTraveling, setMissionTraveling] = useState(false),
@@ -152,6 +154,9 @@ export default function App() {
         return 'barnard';
       }
     }),
+    [advancedExplorerTarget, setAdvancedExplorerTarget] = useState(() =>
+      SPHEREX_TARGETS.find((target) => target.key === missionTargetKey) || SPHEREX_TARGETS[0],
+    ),
     [missionInitialStage, setMissionInitialStage] = useState('arrival'),
     [missionStageSync, setMissionStageSync] = useState('arrival'),
     [missionRecordsSync, setMissionRecordsSync] = useState([]),
@@ -371,6 +376,30 @@ export default function App() {
     clearTimeout(missionOfferTimer.current);
     setMissionLaunchTarget(null);
     setMissionArrival(false);
+  };
+  const openSpherexAdvancedExplorer = (target) => {
+    const requestedKey = typeof target === 'string' ? target : target?.key;
+    const catalogTarget = SPHEREX_TARGETS.find((candidate) => candidate.key === requestedKey);
+    const hasCoordinates =
+      target &&
+      target.ra !== undefined &&
+      target.ra !== null &&
+      target.dec !== undefined &&
+      target.dec !== null &&
+      Number.isFinite(Number(target.ra)) &&
+      Number.isFinite(Number(target.dec));
+    const selectedTarget =
+      catalogTarget ||
+      (hasCoordinates ? { ...target, ra: Number(target.ra), dec: Number(target.dec) } : null) ||
+      SPHEREX_TARGETS.find((candidate) => candidate.key === missionTargetKey) ||
+      SPHEREX_TARGETS[0];
+
+    setAdvancedExplorerTarget(selectedTarget);
+    if (selectedTarget?.key) setMissionTargetKey(selectedTarget.key);
+    setMissionSelectorOpen(false);
+    setSpherexDocOpen(false);
+    setMissionOpen(true);
+    setAdvancedExplorerOpen(true);
   };
   useEffect(() => () => clearTimeout(missionOfferTimer.current), []);
   useEffect(() => {
@@ -1410,7 +1439,7 @@ export default function App() {
           }
         } else if (stationId === 'science') {
           awardInventoryItem('data-spherex-calibration');
-          if (!vrPresenting) setMissionOpen(true);
+          if (!vrPresenting) openSpherexAdvancedExplorer(missionTargetKey);
         } else if (stationId === 'missions') {
           if (!vrPresenting) setMissionSelectorOpen(true);
         } else if (stationId === 'bioponics') {
@@ -2385,13 +2414,12 @@ export default function App() {
           setFr(false);
           setSpec(false);
         } else if (act.type === 'OPEN_OBSERVATORY') {
-          actionLabel = `Consola Científica SPHEREx: ${act.targetKey}`;
-          setMissionTargetKey(act.targetKey);
-          setMissionInitialStage('arrival');
+          actionLabel = `Explorador espectral SPHEREx: ${act.targetKey}`;
           A().moveAiToStation?.('science', 'Explicación');
-          if (!api.current?.getVrState?.()?.presenting) setMissionOpen(true);
+          if (!api.current?.getVrState?.()?.presenting) openSpherexAdvancedExplorer(act.targetKey);
         } else if (act.type === 'OPEN_MISSION_STAGE') {
           actionLabel = `Etapa activa: ${act.stage}`;
+          setAdvancedExplorerOpen(false);
           setMissionTargetKey(act.targetKey);
           setMissionInitialStage(act.stage);
           A().moveAiToStation?.('science', 'Explicación');
@@ -2620,9 +2648,7 @@ export default function App() {
           setMissionSelectorOpen(true);
           return;
         }
-        setMissionTargetKey(key);
-        setMissionInitialStage('explore');
-        setMissionOpen(true);
+        openSpherexAdvancedExplorer(key);
       },
       onReplayIntro: () => {
         clearMissionOffer();
@@ -3308,12 +3334,12 @@ export default function App() {
           'section',
           { className: 'missionMenuCard' },
           h('div', { className: 'missionLaunchMark', 'aria-hidden': 'true' }, '✦'),
-          h('small', null, 'OBSERVATORIO ESPACIAL'),
-          h('h2', null, 'Ecos en infrarrojo'),
+          h('small', null, 'ESTACIÓN DE INVESTIGACIÓN · DR1'),
+          h('h2', null, 'Explorador espectral de todo el cielo'),
           h(
             'p',
             null,
-            'Viaja al mapa de la Vía Láctea y explora las imágenes del cielo captadas por SPHEREx a través del tiempo.',
+            'Explora el mapa HiPS de SPHEREx, recorre sus 102 canales de DR1 y consulta productos disponibles en IRSA.',
           ),
           h(
             'div',
@@ -3327,11 +3353,10 @@ export default function App() {
                   borderColor: '#60a5fa',
                 },
                 onClick: () => {
-                  setMissionTargetKey('wise-0855');
-                  setMissionOpen(true);
+                  openSpherexAdvancedExplorer('wise-0855');
                 },
               },
-              'Abrir Observatorio SPHEREx',
+              'Abrir Explorador · DR1 102 canales',
             ),
             h(
               'button',
@@ -3638,19 +3663,18 @@ export default function App() {
       },
       onSelect: chooseSpherexTarget,
       onDirectOpen: (target) => {
-        setMissionSelectorOpen(false);
-        setMissionTargetKey(target?.key || 'wise-0855');
-        setMissionOpen(true);
+        openSpherexAdvancedExplorer(target || 'wise-0855');
       },
     }),
     missionOpen &&
+    !advancedExplorerOpen &&
     h(
       React.Suspense,
       {
         fallback: h(
           'div',
           { className: 'juanLoadingMission', role: 'status' },
-          'Abriendo el observatorio…',
+          'Abriendo la expedición científica…',
         ),
       },
       h(SpherexMission, {
@@ -3710,13 +3734,36 @@ export default function App() {
         onSfxCue: playCue,
       }),
     ),
+    advancedExplorerOpen &&
+    h(
+      React.Suspense,
+      {
+        fallback: h(
+          'div',
+          { className: 'juanLoadingMission', role: 'status' },
+          'Abriendo el explorador espectral…',
+        ),
+      },
+      h(SphereXAdvancedExplorer, {
+        targetName: t(advancedExplorerTarget?.name || SPHEREX_TARGETS[0]?.name || 'SPHEREx', language),
+        ra: advancedExplorerTarget?.ra,
+        dec: advancedExplorerTarget?.dec,
+        onClose: () => {
+          setAdvancedExplorerOpen(false);
+          setMissionOpen(false);
+          if (activeCockpitStation === 'science') {
+            setActiveCockpitStation(null);
+            A().setActiveCabinStation?.(null);
+          }
+        },
+      }),
+    ),
     spherexDocOpen &&
     h(SpherexDocumentary, {
       language,
       onClose: () => setSpherexDocOpen(false),
       onOpenObservatory: () => {
-        setSpherexDocOpen(false);
-        setMissionOpen(true);
+        openSpherexAdvancedExplorer(missionTargetKey);
       },
       speakNarrator: (text) => speak(text, { interrupt: true }),
       stopNarrator: () => stopVoiceAndClearQueue(),
@@ -3960,10 +4007,8 @@ export default function App() {
       },
       onOpenSpherexObservatory: (target) => {
         setSelectedObject(null);
-        setMissionTargetKey(target?.key || 'barnard');
-        setMissionInitialStage('arrival');
         A().moveAiToStation?.('science', 'Explicación');
-        setMissionOpen(true);
+        openSpherexAdvancedExplorer(target || 'barnard');
       },
       onTravelToPlanet: (planetName) => {
         travelToPlanet(planetName);
@@ -4365,9 +4410,7 @@ export default function App() {
         travelToQuickTarget(key, label);
       },
       onOpenSpherexObservatory: (target) => {
-        setMissionTargetKey(target?.key || missionTargetKey || 'barnard');
-        setMissionInitialStage('arrival');
-        setMissionOpen(true);
+        openSpherexAdvancedExplorer(target || missionTargetKey || 'barnard');
       },
       onOpenMissionSelector: () => {
         setMissionSelectorOpen(true);

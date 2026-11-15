@@ -254,7 +254,7 @@ export default function GameInventoryModal({
                       onClose?.();
                     }}
                   >
-                    🔭 Abrir Observatorio SPHEREx
+                    🔭 Abrir Explorador SPHEREx · 102 canales
                   </button>
                   <button
                     type="button"
@@ -448,7 +448,7 @@ export default function GameInventoryModal({
                     ))}
                   </ul>
                 ) : (
-                  <p className="kronoxHubMuted">Realiza capturas en el Observatorio SPHEREx (C03 o desde el mapa) para registrar hallazgos.</p>
+                  <p className="kronoxHubMuted">Explora canales espectrales SPHEREx (C03 o desde el mapa) para registrar hallazgos.</p>
                 )}
               </section>
 

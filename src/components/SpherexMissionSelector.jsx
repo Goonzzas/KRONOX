@@ -47,7 +47,7 @@ export default function SpherexMissionSelector({ onSelect, onDirectOpen, onClose
                 onClick={() => onDirectOpen(SPHEREX_TARGETS.find((target) => target.key === 'barnard') || SPHEREX_TARGETS[0])}
               >
                 <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: 'middle' }}><circle cx="12" cy="12" r="7"/><path d="M12 9v6"/><path d="M9 12h6"/><path d="m20 20-3-3"/></svg></span>
-                <span>{t('Abrir Observatorio SPHEREx directamente (acceso rápido)', language)}</span>
+                <span>{t('Abrir Explorador SPHEREx directamente (acceso rápido)', language)}</span>
               </button>
             )}
           </div>
