@@ -63,6 +63,28 @@ SEASON_GAP_DAYS = 30.0
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_ROOT = os.path.join(BASE_DIR, "SPHEREx_REAL")
 
+
+def get_writable_out_root() -> str:
+    import tempfile
+
+    env_root = os.environ.get("SPHEREX_RUNTIME_ROOT")
+    if env_root:
+        return env_root
+    if os.environ.get("VERCEL") == "1":
+        return os.path.join(tempfile.gettempdir(), "kronox-spherex-real")
+    try:
+        os.makedirs(OUT_ROOT, exist_ok=True)
+        probe = os.path.join(OUT_ROOT, ".write_probe")
+        with open(probe, "w") as f:
+            f.write("ok")
+        os.remove(probe)
+        return OUT_ROOT
+    except OSError:
+        return os.path.join(tempfile.gettempdir(), "kronox-spherex-real")
+
+
+RUNTIME_OUT_ROOT = get_writable_out_root()
+
 # ---------------------------------------------------------------------------
 # Catálogo de objetos REALES (nombre resoluble en SIMBAD/NED, nombre visible,
 # categoría, tamaño del recorte en grados).
@@ -439,15 +461,15 @@ def sia_query(ra: float, dec: float) -> List[Dict[str, Any]]:
             "POS": f"circle {ra:.6f} {dec:.6f} 0.002",
             "RESPONSEFORMAT": "CSV",
         }
-        for attempt in range(3):
+        for attempt in range(2):
             try:
-                r = session().get(SIA_URL, params=params, timeout=90)
+                r = session().get(SIA_URL, params=params, timeout=22)
                 r.raise_for_status()
                 break
             except Exception:
-                if attempt == 2:
+                if attempt == 1:
                     r = None
-                time.sleep(2 + 3 * attempt)
+                time.sleep(0.6 * (attempt + 1))
         if r is None:
             continue
         text = r.text
@@ -532,10 +554,10 @@ def _data_size(kv: Dict[str, Any]) -> int:
 def fetch_cutout_hdus(url: str, ra: float, dec: float, size_deg: float, want: Tuple[str, ...]) -> Dict[str, Tuple[Dict[str, Any], bytes]]:
     full = f"{url}?center={ra:.6f},{dec:.6f}&size={size_deg:.4f}"
     last_exc: Optional[Exception] = None
-    for attempt in range(4):
+    for attempt in range(3):
         out: Dict[str, Tuple[Dict[str, Any], bytes]] = {}
         try:
-            with session().get(full, stream=True, timeout=120) as r:
+            with session().get(full, stream=True, timeout=25) as r:
                 if r.status_code in (429, 500, 502, 503, 504):
                     raise requests.HTTPError(f"{r.status_code} {r.reason} for url: {full}", response=r)
                 r.raise_for_status()
@@ -577,8 +599,8 @@ def fetch_cutout_hdus(url: str, ra: float, dec: float, size_deg: float, want: Tu
             return out
         except Exception as exc:
             last_exc = exc
-            if attempt < 3:
-                time.sleep(1.5 * (2 ** attempt))
+            if attempt < 2:
+                time.sleep(0.6 * (2 ** attempt))
     raise last_exc  # type: ignore[misc]
 
 
@@ -676,11 +698,16 @@ def load_wave_table(det: int, url: str, ra: float, dec: float, cache_dir: str) -
     with _wave_lock:
         if det in _wave_tables:
             return _wave_tables[det]
-        cache = os.path.join(cache_dir, f"wcs_wave_D{det}.json")
-        if os.path.exists(cache):
-            with open(cache) as f:
-                _wave_tables[det] = json.load(f)
-            return _wave_tables[det]
+        runtime_calib = os.path.join(RUNTIME_OUT_ROOT, "calib")
+        for cdir in (cache_dir, runtime_calib):
+            cache = os.path.join(cdir, f"wcs_wave_D{det}.json")
+            if os.path.exists(cache):
+                try:
+                    with open(cache) as f:
+                        _wave_tables[det] = json.load(f)
+                    return _wave_tables[det]
+                except OSError:
+                    pass
         try:
             hd = fetch_cutout_hdus(url, ra, dec, 0.02, ("WCS-WAVE",))
             kv, data = hd["WCS-WAVE"]
@@ -691,8 +718,12 @@ def load_wave_table(det: int, url: str, ra: float, dec: float, cache_dir: str) -
             ys = list(struct.unpack(f">{ny}i", data[nx * 4 : nx * 4 + ny * 4]))
             vals = list(struct.unpack(f">{nv}f", data[nx * 4 + ny * 4 : nx * 4 + ny * 4 + nv * 4]))
             tbl = {"x": xs, "y": ys, "values": vals, "source": "IRSA WCS-WAVE (spectral_wcs)"}
-            with open(cache, "w") as f:
-                json.dump(tbl, f)
+            try:
+                os.makedirs(runtime_calib, exist_ok=True)
+                with open(os.path.join(runtime_calib, f"wcs_wave_D{det}.json"), "w") as f:
+                    json.dump(tbl, f)
+            except OSError:
+                pass
             _wave_tables[det] = tbl
             log(f"  · Tabla oficial WCS-WAVE del detector D{det} cargada ({nx}x{ny} nodos)")
             return tbl
@@ -955,11 +986,14 @@ def pick_spread(items: List[Dict[str, Any]], k: int) -> List[Dict[str, Any]]:
 def process_target(spec: T, args: argparse.Namespace, resolved_cache: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     query, display, category, size_deg = spec
     tid = slugify(query)
-    tdir = os.path.join(OUT_ROOT, "targets", tid)
+    if not getattr(args, "force", False):
+        for root_cand in (OUT_ROOT, RUNTIME_OUT_ROOT):
+            existing_meta = os.path.join(root_cand, "targets", tid, "meta.json")
+            if os.path.exists(existing_meta):
+                with open(existing_meta) as f:
+                    return json.load(f)
+    tdir = os.path.join(RUNTIME_OUT_ROOT, "targets", tid)
     meta_path = os.path.join(tdir, "meta.json")
-    if os.path.exists(meta_path) and not args.force:
-        with open(meta_path) as f:
-            return json.load(f)
 
     res = resolved_cache.get(query)
     if res is None:
@@ -1090,12 +1124,18 @@ def process_target(spec: T, args: argparse.Namespace, resolved_cache: Dict[str, 
 
 
 def rebuild_index() -> int:
-    tdir = os.path.join(OUT_ROOT, "targets")
+    seen = set()
     items = []
-    if os.path.isdir(tdir):
+    for root_cand in (OUT_ROOT, RUNTIME_OUT_ROOT):
+        tdir = os.path.join(root_cand, "targets")
+        if not os.path.isdir(tdir):
+            continue
         for tid in sorted(os.listdir(tdir)):
+            if tid in seen:
+                continue
             mp = os.path.join(tdir, tid, "meta.json")
             if os.path.exists(mp):
+                seen.add(tid)
                 with open(mp) as f:
                     m = json.load(f)
                 items.append(
@@ -1105,8 +1145,12 @@ def rebuild_index() -> int:
                     }
                     | {"n_exposures": len(m["exposures"]), "n_seasons": len(m["seasons"])}
                 )
-    with open(os.path.join(OUT_ROOT, "index.json"), "w") as f:
-        json.dump({"targets": items, "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}, f, indent=1)
+    try:
+        os.makedirs(RUNTIME_OUT_ROOT, exist_ok=True)
+        with open(os.path.join(RUNTIME_OUT_ROOT, "index.json"), "w") as f:
+            json.dump({"targets": items, "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}, f, indent=1)
+    except OSError:
+        pass
     return len(items)
 
 

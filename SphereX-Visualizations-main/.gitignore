@@ -1,5 +1,5 @@
-# This repository consumes the real-data viewer and its local API, not the
-# exploratory notebooks, generated demo FITS, downloaded caches, or backups.
+# This repository consumes the real-data viewer and its serverless API, not the
+# exploratory notebooks, generated demo FITS, heavy local caches, or backups.
 *
 !*/
 !/.gitignore
@@ -17,6 +17,10 @@
 !/SPHEREx_REAL/
 /SPHEREx_REAL/*
 !/SPHEREx_REAL/catalog_coords.json
+!/SPHEREx_REAL/index.json
+!/SPHEREx_REAL/resolved_names.json
+!/SPHEREx_REAL/targets/
+!/SPHEREx_REAL/targets/**
 
 # Caches & bytecode
 __pycache__/
@@ -24,8 +28,7 @@ __pycache__/
 *.so
 .hips_cache/
 
-# Downloaded NASA/IRSA FITS cutouts (re-downloaded on demand via spherex_api_real.py)
-SPHEREx_REAL/targets/
+# Calibration cache written on demand to /tmp in serverless
 SPHEREx_REAL/calib/
 
 # Local backups & OS files

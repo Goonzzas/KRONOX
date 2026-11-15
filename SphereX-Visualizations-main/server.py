@@ -47,10 +47,20 @@ from irsa_client import (
 import spherex_api_real
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+KRONOX_ROOT = os.path.dirname(BASE_DIR)
 HTTPS_CONTEXT = ssl.create_default_context(cafile=certifi.where())
-DATA_DIR = os.path.join(BASE_DIR, "data")
 REAL_DOWNLOAD_ROOT = os.path.join(BASE_DIR, "SPHEREx_DR1_QR3")
 REAL_API_ROOT = os.path.join(BASE_DIR, "SPHEREx_REAL")
+RUNTIME_API_ROOT = getattr(
+    spherex_api_real,
+    "RUNTIME_OUT_ROOT",
+    os.path.join(tempfile.gettempdir(), "kronox-spherex-real"),
+)
+DATA_DIR = (
+    os.path.join(tempfile.gettempdir(), "kronox-spherex-data")
+    if os.environ.get("VERCEL") == "1"
+    else os.path.join(BASE_DIR, "data")
+)
 DOWNLOAD_DIR = os.path.join(DATA_DIR, "downloads")
 UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
@@ -61,11 +71,19 @@ class DatasetStore:
 
     def __init__(self) -> None:
         self.datasets: Dict[str, Dict[str, Any]] = {}
+        self._initialized: bool = False
+
+    def ensure_initialized(self) -> None:
+        if not self._initialized:
+            self.initialize()
 
     def initialize(self) -> None:
-        os.makedirs(DATA_DIR, exist_ok=True)
-        os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        self._initialized = True
+        for d in (DATA_DIR, DOWNLOAD_DIR, UPLOAD_DIR):
+            try:
+                os.makedirs(d, exist_ok=True)
+            except OSError:
+                pass
 
         self.refresh_real_api_targets()
 
@@ -85,10 +103,63 @@ class DatasetStore:
                 if fits_files:
                     self._register_real_level2_suite(l2set, fits_files)
 
+        # Also register real SPHEREx FITS cutouts bundled in KRONOX/public/demo/ (always present on Vercel)
+        self._register_kronox_public_demo_suites()
+
+    def _register_kronox_public_demo_suites(self) -> None:
+        demo_root = os.path.join(KRONOX_ROOT, "public", "demo")
+        if not os.path.isdir(demo_root):
+            return
+        demo_targets = [
+            {
+                "id": "kronox_real_m101",
+                "folder": "m101",
+                "name": "Galaxia del Molinete (M101 · NGC 5457)",
+                "collection": "spherex_dr1",
+                "ra": 210.8024,
+                "dec": 54.3488,
+            },
+            {
+                "id": "kronox_real_rw_aurigae",
+                "folder": "rw-aurigae",
+                "name": "RW Aurigae (Estrella T Tauri Variable)",
+                "collection": "spherex_dr1",
+                "ra": 76.9565,
+                "dec": 30.4014,
+            },
+            {
+                "id": "kronox_real_barnard",
+                "folder": "barnard",
+                "name": "Estrella de Barnard (Alto Movimiento Propio)",
+                "collection": "spherex_dr1",
+                "ra": 269.4521,
+                "dec": 4.6934,
+            },
+            {
+                "id": "kronox_real_m31",
+                "folder": "m31",
+                "name": "Galaxia de Andrómeda (M31 · NGC 224)",
+                "collection": "spherex_dr1",
+                "ra": 10.6847,
+                "dec": 41.2687,
+            },
+        ]
+        for dt in demo_targets:
+            if dt["id"] in self.datasets:
+                continue
+            folder = os.path.join(demo_root, dt["folder"])
+            if not os.path.isdir(folder):
+                continue
+            fits_files = sorted(glob.glob(os.path.join(folder, "D*.fits")))
+            if fits_files:
+                self._register_real_level2_suite(dt, fits_files)
+
     def refresh_real_api_targets(self) -> int:
-        targets_dir = os.path.join(REAL_API_ROOT, "targets")
         added = 0
-        if os.path.isdir(targets_dir):
+        for root_dir in (REAL_API_ROOT, RUNTIME_API_ROOT):
+            targets_dir = os.path.join(root_dir, "targets")
+            if not os.path.isdir(targets_dir):
+                continue
             for tid in sorted(os.listdir(targets_dir)):
                 meta_path = os.path.join(targets_dir, tid, "meta.json")
                 if not os.path.isfile(meta_path):
@@ -237,15 +308,23 @@ class DatasetStore:
             6: ([0.95, 0.14, 0.68], "D6 · 4.42–5.00 µm (Banda 6 Polvo)"),
         }
 
-        for idx, fpath in enumerate(fits_files, 1):
+        for fpath in fits_files:
             with open(fpath, "rb") as f:
                 hdus = read_fits_bytes(f.read())
-            if not hdus or hdus[0]["float_bytes"] is None:
+            hdu = next((h for h in hdus if h.get("float_bytes") is not None), None)
+            if not hdu:
                 continue
-            hdu = hdus[0]
             width, height = hdu["width"], hdu["height"]
-            chroma, label = det_chromas.get(idx, ([1.0, 1.0, 1.0], f"Detector {idx}"))
-            cid = f"det{idx}"
+            fname = os.path.basename(fpath)
+            det_match = 1
+            for d_num in range(1, 7):
+                if f"D{d_num}" in fname.upper() or f"DET{d_num}" in fname.upper():
+                    det_match = d_num
+                    break
+            else:
+                det_match = min(6, len(encoded_planes) + 1)
+            chroma, label = det_chromas.get(det_match, ([1.0, 1.0, 1.0], f"Detector {det_match}"))
+            cid = f"det{det_match}"
             encoded_planes[cid] = {
                 "IMAGE": {
                     "meta": {
@@ -276,26 +355,37 @@ class DatasetStore:
         }
 
     def get_bundle_planes(self, dataset_id: str) -> Dict[str, Dict[str, Any]]:
+        self.ensure_initialized()
         if dataset_id not in self.datasets:
             raise KeyError(f"Unknown dataset '{dataset_id}'")
         ds = self.datasets[dataset_id]
 
         if ds["type"] == "real_spherex_ondemand":
             tid = dataset_id[4:] if dataset_id.startswith("spx_") else dataset_id
-            tdir = os.path.join(REAL_API_ROOT, "targets", tid)
-            meta_path = os.path.join(tdir, "meta.json")
-            if os.path.isfile(meta_path):
-                with open(meta_path, "r", encoding="utf-8") as f:
-                    meta = json.load(f)
-                self._register_real_api_target(dataset_id, tdir, meta)
+            found_dir = None
+            meta = None
+            for root_dir in (REAL_API_ROOT, RUNTIME_API_ROOT):
+                cand_dir = os.path.join(root_dir, "targets", tid)
+                meta_path = os.path.join(cand_dir, "meta.json")
+                if os.path.isfile(meta_path):
+                    with open(meta_path, "r", encoding="utf-8") as f:
+                        meta = json.load(f)
+                    found_dir = cand_dir
+                    break
+            if meta and found_dir:
+                self._register_real_api_target(dataset_id, found_dir, meta)
                 ds = self.datasets[dataset_id]
             else:
-                ns = argparse.Namespace(per_det=1, inner_workers=2, max_fill=0.20, force=False)
-                cache_path = os.path.join(REAL_API_ROOT, "resolved_names.json")
+                ns = argparse.Namespace(per_det=1, inner_workers=3, max_fill=0.20, force=False)
                 resolved: Dict[str, Any] = {}
-                if os.path.exists(cache_path):
-                    with open(cache_path, "r", encoding="utf-8") as f:
-                        resolved = json.load(f)
+                for root_dir in (REAL_API_ROOT, RUNTIME_API_ROOT):
+                    cache_path = os.path.join(root_dir, "resolved_names.json")
+                    if os.path.exists(cache_path):
+                        try:
+                            with open(cache_path, "r", encoding="utf-8") as f:
+                                resolved.update(json.load(f))
+                        except OSError:
+                            pass
                 meta = spherex_api_real.process_target(
                     (ds.get("query", ds["name"]), ds["name"], ds.get("category", "galaxy"), ds.get("size_deg", 0.25)),
                     ns,
@@ -303,6 +393,9 @@ class DatasetStore:
                 )
                 if not meta:
                     raise RuntimeError(f"Sin exposiciones SPHEREx en IRSA para {ds['name']}")
+                tdir = os.path.join(RUNTIME_API_ROOT, "targets", meta.get("id", tid))
+                if not os.path.isdir(tdir):
+                    tdir = os.path.join(REAL_API_ROOT, "targets", meta.get("id", tid))
                 self._register_real_api_target(dataset_id, tdir, meta)
                 ds = self.datasets[dataset_id]
 
@@ -619,13 +712,40 @@ def _ra_dec_to_hpx_fits_pixel(ra_deg: float, dec_deg: float, wcs: Dict[str, floa
     return best
 
 
+_RANGE_SESSION = None
+
+
+def _get_range_session():
+    global _RANGE_SESSION
+    if _RANGE_SESSION is None:
+        import requests
+        from requests.adapters import HTTPAdapter
+
+        s = requests.Session()
+        s.headers.update({"User-Agent": "SPHEREx-Explorer/1.0"})
+        adapter = HTTPAdapter(pool_connections=16, pool_maxsize=24)
+        s.mount("https://", adapter)
+        s.mount("http://", adapter)
+        _RANGE_SESSION = s
+    return _RANGE_SESSION
+
+
 def _fetch_range_bytes(url: str, start: int, length: int, timeout: int = 15) -> bytes:
-    req = urllib.request.Request(
-        url,
-        headers={"Range": f"bytes={start}-{start + length - 1}", "User-Agent": "SPHEREx-Explorer/1.0"},
-    )
-    with urllib.request.urlopen(req, timeout=timeout, context=HTTPS_CONTEXT) as resp:
-        return resp.read()
+    try:
+        r = _get_range_session().get(
+            url,
+            headers={"Range": f"bytes={start}-{start + length - 1}"},
+            timeout=timeout,
+        )
+        r.raise_for_status()
+        return r.content
+    except Exception:
+        req = urllib.request.Request(
+            url,
+            headers={"Range": f"bytes={start}-{start + length - 1}", "User-Agent": "SPHEREx-Explorer/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=timeout, context=HTTPS_CONTEXT) as resp:
+            return resp.read()
 
 
 def _parse_fits_header_cards(buf: bytes) -> Tuple[Dict[str, str], bool]:
@@ -963,44 +1083,65 @@ class VisualizerRequestHandler(BaseHTTPRequestHandler):
         nh_start = meta["hdus"].get("NHITS", {}).get("data_start")
         fl_start = meta["hdus"].get("FLAGS", {}).get("data_start")
 
-        def read_plane(z: int) -> Dict[str, Any]:
+        def read_plane(z: int, full_meta: bool = True) -> Dict[str, Any]:
             byte_off = (z * n1 * n2 + p_idx) * 4
             val_b = _fetch_range_bytes(cube_url, img_start + byte_off, 4)
             val = struct.unpack(">f", val_b)[0]
             nhits = None
             flags = None
-            if nh_start is not None:
-                nhits = struct.unpack(">i", _fetch_range_bytes(cube_url, nh_start + byte_off, 4))[0]
-            if fl_start is not None:
-                flags = struct.unpack(">i", _fetch_range_bytes(cube_url, fl_start + byte_off, 4))[0]
+            if full_meta:
+                if nh_start is not None:
+                    nhits = struct.unpack(">i", _fetch_range_bytes(cube_url, nh_start + byte_off, 4))[0]
+                if fl_start is not None:
+                    flags = struct.unpack(">i", _fetch_range_bytes(cube_url, fl_start + byte_off, 4))[0]
             return {
                 "intensityMJysr": float(val) if math.isfinite(val) else None,
                 "nhits": nhits,
                 "flags": flags,
             }
 
-        point = read_plane(channel)
+        point = read_plane(channel, full_meta=True)
         sc = meta["spectral_channels"][channel] if channel < len(meta["spectral_channels"]) else {}
 
         spectrum102 = None
         if include_spectrum:
-            def read_plane_with_z(z: int) -> Tuple[int, Dict[str, Any]]:
-                return z, read_plane(z)
-            spectrum102 = [None] * 102
-            with ThreadPoolExecutor(max_workers=12) as pool:
-                for z, res in pool.map(read_plane_with_z, range(102)):
-                    sc_z = meta["spectral_channels"][z] if z < len(meta["spectral_channels"]) else {}
-                    spectrum102[z] = {
-                        "channel": z,
-                        "channel1Based": z + 1,
-                        "detector": sc_z.get("detector", (z // 17) + 1),
-                        "localChannel": sc_z.get("localChannel", (z % 17) + 1),
-                        "wavelengthUm": sc_z.get("wavelengthUm"),
-                        "intensityMJysr": None if z in (50, 51) else res["intensityMJysr"],
-                        "nhits": res["nhits"],
-                        "flags": res["flags"],
-                        "blank": z in (50, 51),
-                    }
+            spec_cache_key = f"cube_spec_{npix}_{x}_{y}.json"
+            spec_cache_path = os.path.join(HIPS_CACHE_DIR, spec_cache_key)
+            if os.path.isfile(spec_cache_path):
+                try:
+                    with open(spec_cache_path, "r", encoding="utf-8") as f:
+                        spectrum102 = json.load(f)
+                except OSError:
+                    spectrum102 = None
+            if spectrum102 is None:
+                def read_plane_with_z(z: int) -> Tuple[int, Dict[str, Any]]:
+                    if z in (50, 51):
+                        return z, {"intensityMJysr": None, "nhits": None, "flags": None}
+                    if z == channel:
+                        return z, point
+                    return z, read_plane(z, full_meta=False)
+
+                spectrum102 = [None] * 102
+                with ThreadPoolExecutor(max_workers=16) as pool:
+                    for z, res in pool.map(read_plane_with_z, range(102)):
+                        sc_z = meta["spectral_channels"][z] if z < len(meta["spectral_channels"]) else {}
+                        spectrum102[z] = {
+                            "channel": z,
+                            "channel1Based": z + 1,
+                            "detector": sc_z.get("detector", (z // 17) + 1),
+                            "localChannel": sc_z.get("localChannel", (z % 17) + 1),
+                            "wavelengthUm": sc_z.get("wavelengthUm"),
+                            "intensityMJysr": None if z in (50, 51) else res["intensityMJysr"],
+                            "nhits": res["nhits"],
+                            "flags": res["flags"],
+                            "blank": z in (50, 51),
+                        }
+                try:
+                    os.makedirs(HIPS_CACHE_DIR, exist_ok=True)
+                    with open(spec_cache_path, "w", encoding="utf-8") as f:
+                        json.dump(spectrum102, f)
+                except OSError:
+                    pass
 
         self._send_json({
             "ok": True,
@@ -1034,14 +1175,27 @@ class VisualizerRequestHandler(BaseHTTPRequestHandler):
             "spectrum102": spectrum102,
         })
 
+    def _normalize_route_path(self, raw_path: str, qs: Dict[str, List[str]]) -> str:
+        routed = qs.get("__route", [""])[0].strip()
+        path = routed if routed else raw_path
+        if path.startswith("/KRONOX/"):
+            path = path[len("/KRONOX") :]
+        if not path.startswith("/"):
+            path = "/" + path
+        return path
+
+    def do_HEAD(self) -> None:
+        self.do_GET()
+
     def do_GET(self) -> None:
+        STORE.ensure_initialized()
         parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
         qs = urllib.parse.parse_qs(parsed.query)
+        path = self._normalize_route_path(parsed.path, qs)
 
         try:
             if path == "/api/health":
-                self._send_json({"ok": True, "service": "spherex-visualizer", "version": 2})
+                self._send_json({"ok": True, "service": "spherex-visualizer", "version": 2, "runtime": "vercel-serverless"})
             elif path == "/api/datasets":
                 self._handle_list_datasets()
             elif path == "/api/bundle":
@@ -1063,6 +1217,12 @@ class VisualizerRequestHandler(BaseHTTPRequestHandler):
                 self._handle_catalog_overlay(qs)
             elif path == "/api/cube/inspect":
                 self._handle_cube_inspect(qs)
+            elif path in ("/api/embeddings_bundle", "/spherex_v2_interactive_bundle.json", "/spherex_temporal_bundle.json"):
+                btype = qs.get("type", [""])[0]
+                if path.endswith("spherex_temporal_bundle.json") or btype == "temporal":
+                    self._serve_static("/spherex_temporal_bundle.json")
+                else:
+                    self._serve_static("/spherex_v2_interactive_bundle.json")
             else:
                 self._serve_static(path)
         except Exception as exc:
@@ -1070,8 +1230,10 @@ class VisualizerRequestHandler(BaseHTTPRequestHandler):
             self._send_error_json(str(exc), status=500)
 
     def do_POST(self) -> None:
+        STORE.ensure_initialized()
         parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
+        qs = urllib.parse.parse_qs(parsed.query)
+        path = self._normalize_route_path(parsed.path, qs)
         content_len = int(self.headers.get("Content-Length", "0"))
         body = self.rfile.read(content_len) if content_len > 0 else b"{}"
 
@@ -1223,33 +1385,47 @@ class VisualizerRequestHandler(BaseHTTPRequestHandler):
             return
         category = str(payload.get("category", "galaxy")).strip() or "galaxy"
         size_deg = float(payload.get("size_deg", 0.25))
-        per_det = int(payload.get("per_det", 2))
+        per_det = int(payload.get("per_det", 1))
 
         ns = argparse.Namespace(
             per_det=per_det,
-            inner_workers=2,
+            inner_workers=3,
             max_fill=0.20,
             force=bool(payload.get("force", False)),
         )
-        cache_path = os.path.join(REAL_API_ROOT, "resolved_names.json")
         resolved: Dict[str, Any] = {}
-        if os.path.exists(cache_path):
-            with open(cache_path, "r", encoding="utf-8") as f:
-                resolved = json.load(f)
+        for root_dir in (REAL_API_ROOT, RUNTIME_API_ROOT):
+            cache_path = os.path.join(root_dir, "resolved_names.json")
+            if os.path.exists(cache_path):
+                try:
+                    with open(cache_path, "r", encoding="utf-8") as f:
+                        resolved.update(json.load(f))
+                except OSError:
+                    pass
 
-        os.makedirs(os.path.join(REAL_API_ROOT, "targets"), exist_ok=True)
-        os.makedirs(os.path.join(REAL_API_ROOT, "calib"), exist_ok=True)
+        for sub in ("targets", "calib"):
+            try:
+                os.makedirs(os.path.join(RUNTIME_API_ROOT, sub), exist_ok=True)
+            except OSError:
+                pass
         meta = spherex_api_real.process_target((query, query, category, size_deg), ns, resolved)
         if not meta:
             self._send_error_json(f"No se encontraron exposiciones reales de SPHEREx en IRSA para '{query}'.", status=404)
             return
 
-        with open(cache_path, "w", encoding="utf-8") as f:
-            json.dump(resolved, f, indent=1)
+        try:
+            with open(os.path.join(RUNTIME_API_ROOT, "resolved_names.json"), "w", encoding="utf-8") as f:
+                json.dump(resolved, f, indent=1)
+        except OSError:
+            pass
         spherex_api_real.rebuild_index()
         STORE.refresh_real_api_targets()
         ds_id = f"spx_{meta['id']}"
-        self._send_json({"ok": True, "dataset_id": ds_id, "dataset": self._dataset_summary(STORE.datasets[ds_id])})
+        ds = STORE.datasets[ds_id]
+        ds_out = self._dataset_summary(ds)
+        ds_out["exposures"] = ds.get("exposures", [])
+        planes = STORE.get_bundle_planes(ds_id)
+        self._send_json({"ok": True, "dataset_id": ds_id, "dataset": ds_out, "planes": planes})
 
     def _handle_resolve(self, qs: Dict[str, List[str]]) -> None:
         query = qs.get("q", [""])[0]
@@ -1290,7 +1466,14 @@ class VisualizerRequestHandler(BaseHTTPRequestHandler):
             filepaths=[local_path],
             source=f"NASA/IRSA ({final_url})",
         )
-        self._send_json({"ok": True, "dataset_id": ds["id"], "local_path": local_path})
+        planes = STORE.get_bundle_planes(ds["id"])
+        self._send_json({
+            "ok": True,
+            "dataset_id": ds["id"],
+            "local_path": local_path,
+            "dataset": self._dataset_summary(ds),
+            "planes": planes,
+        })
 
     def _handle_upload_fits(self, payload: Dict[str, Any]) -> None:
         files = payload.get("files", [])
@@ -1298,6 +1481,10 @@ class VisualizerRequestHandler(BaseHTTPRequestHandler):
             self._send_error_json("No FITS files provided.", status=400)
             return
 
+        try:
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
+        except OSError:
+            pass
         saved_paths: List[str] = []
         for f_obj in files:
             fname = os.path.basename(f_obj.get("filename", "uploaded.fits"))
@@ -1319,7 +1506,13 @@ class VisualizerRequestHandler(BaseHTTPRequestHandler):
             filepaths=saved_paths,
             source="Local FITS Upload",
         )
-        self._send_json({"ok": True, "dataset_id": ds["id"]})
+        planes = STORE.get_bundle_planes(ds["id"])
+        self._send_json({
+            "ok": True,
+            "dataset_id": ds["id"],
+            "dataset": self._dataset_summary(ds),
+            "planes": planes,
+        })
 
     def _serve_static(self, path: str) -> None:
         if path in ("/", ""):

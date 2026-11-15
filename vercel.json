@@ -1,5 +1,30 @@
 {
   "framework": "vite",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "functions": {
+    "api/spherex_viz.py": {
+      "maxDuration": 60,
+      "includeFiles": "{SphereX-Visualizations-main/*.py,SphereX-Visualizations-main/SPHEREx_REAL/**,SphereX-Visualizations-main/spherex_temporal_bundle.json,public/demo/**}"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/health", "destination": "/api/spherex_viz?__route=/api/health" },
+    { "source": "/api/datasets", "destination": "/api/spherex_viz?__route=/api/datasets" },
+    { "source": "/api/bundle", "destination": "/api/spherex_viz?__route=/api/bundle" },
+    { "source": "/api/resolve", "destination": "/api/spherex_viz?__route=/api/resolve" },
+    { "source": "/api/upload", "destination": "/api/spherex_viz?__route=/api/upload" },
+    { "source": "/api/embeddings_bundle", "destination": "/api/spherex_viz?__route=/api/embeddings_bundle" },
+    { "source": "/api/irsa/search", "destination": "/api/spherex_viz?__route=/api/irsa/search" },
+    { "source": "/api/irsa/fetch", "destination": "/api/spherex_viz?__route=/api/irsa/fetch" },
+    { "source": "/api/spherex/refresh", "destination": "/api/spherex_viz?__route=/api/spherex/refresh" },
+    { "source": "/api/spherex/region_stats", "destination": "/api/spherex_viz?__route=/api/spherex/region_stats" },
+    { "source": "/api/spherex/fetch_target", "destination": "/api/spherex_viz?__route=/api/spherex/fetch_target" },
+    { "source": "/api/hips/properties", "destination": "/api/spherex_viz?__route=/api/hips/properties" },
+    { "source": "/api/hips/tile", "destination": "/api/spherex_viz?__route=/api/hips/tile" },
+    { "source": "/api/catalog/overlay", "destination": "/api/spherex_viz?__route=/api/catalog/overlay" },
+    { "source": "/api/cube/inspect", "destination": "/api/spherex_viz?__route=/api/cube/inspect" },
+    { "source": "/spherex_temporal_bundle.json", "destination": "/api/spherex_viz?__route=/spherex_temporal_bundle.json" },
+    { "source": "/spherex_v2_interactive_bundle.json", "destination": "/api/spherex_viz?__route=/spherex_v2_interactive_bundle.json" }
+  ]
 }
