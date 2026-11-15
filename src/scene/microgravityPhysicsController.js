@@ -67,8 +67,8 @@ export function createMicrogravityPhysicsController({
 
   function update(dt = 0.016, keys = {}, viewQuat = new THREE.Quaternion()) {
     const safeDt = Math.max(0.0005, Math.min(0.1, Number(dt) || 0.016));
-    const isStabilizing = Boolean(keys.x);
-    const isBoosting = Boolean(keys.shift);
+    const isStabilizing = Boolean(keys.x || keys.vrStabilize);
+    const isBoosting = Boolean(keys.shift || keys.vrBoost);
 
     if (anchoredRailId) {
       velocity.set(0, 0, 0);
@@ -85,9 +85,13 @@ export function createMicrogravityPhysicsController({
       };
     }
 
-    const fwd = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0);
-    const strafe = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
-    const vert = (keys[' '] || keys.space ? 1 : 0) - (keys.control || keys.ctrl || keys.q ? 1 : 0);
+    const clampAxis = (val) => (Number.isFinite(val) ? Math.max(-1, Math.min(1, val)) : 0);
+    const kbFwd = (keys.w || keys.arrowup ? 1 : 0) - (keys.s || keys.arrowdown ? 1 : 0);
+    const kbStrafe = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
+    const kbVert = (keys[' '] || keys.space ? 1 : 0) - (keys.control || keys.ctrl || keys.q ? 1 : 0);
+    const fwd = clampAxis(kbFwd + clampAxis(keys.vrMoveFwd));
+    const strafe = clampAxis(kbStrafe + clampAxis(keys.vrMoveStrafe));
+    const vert = clampAxis(kbVert + clampAxis(keys.vrMoveVert));
 
     const isDeckWalking = typeof clampPositionFn === 'function' && activeMode === MICROGRAVITY_MODES.ASSISTED;
 
@@ -109,7 +113,7 @@ export function createMicrogravityPhysicsController({
         .addScaledVector(_rightVec, strafe);
 
       // Salto controlado únicamente si las botas están apoyadas en el suelo (evita salir despedido al cielo)
-      if ((keys[' '] || keys.space) && isGrounded) {
+      if ((keys[' '] || keys.space || keys.vrJump) && isGrounded) {
         velocity.y = 2.4;
         isGrounded = false;
       }
@@ -126,10 +130,12 @@ export function createMicrogravityPhysicsController({
         .addScaledVector(_upVec, vert);
     }
 
-    const hasThrust = _thrustDir.lengthSq() > 1e-4;
+    const thrustSq = _thrustDir.lengthSq();
+    const hasThrust = thrustSq > 1e-4;
     if (hasThrust) {
+      const thrustMag = Math.min(1, Math.sqrt(thrustSq));
       _thrustDir.normalize();
-      const accel = baseAccelMps2 * (isBoosting ? boostMult : 1.0);
+      const accel = baseAccelMps2 * thrustMag * (isBoosting ? boostMult : 1.0);
       velocity.addScaledVector(_thrustDir, accel * safeDt);
     }
 

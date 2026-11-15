@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { VR_CONTROL_BINDINGS, normalizeVrSettings } from '../scene/vrControls.js';
 import { loadFindings, deleteFinding } from '../utils/findingsStorage.js';
 import {
   loadExpeditionJournal,
@@ -78,6 +79,9 @@ export default function PauseMenu({
   onUpdateGameSettings,
   graphicsRuntime = null,
   onOpenMissionTarget,
+  vrState = null,
+  onToggleVr,
+  onRecenterVr,
 }) {
   const [activeSection, setActiveSection] = useState(initialSection || 'continue');
   const [activeSettingsTab, setActiveSettingsTab] = useState('graphics');
@@ -157,6 +161,11 @@ export default function PauseMenu({
       ...gameSettings,
       [key]: value,
     });
+  };
+
+  const vrSettings = normalizeVrSettings(gameSettings.vr);
+  const updateVrSetting = (key, value) => {
+    updateSetting('vr', normalizeVrSettings({ ...vrSettings, [key]: value }));
   };
 
   return (
@@ -918,6 +927,117 @@ export default function PauseMenu({
                         <option value="FREE">Libre 6-DOF (Inercial)</option>
                       </select>
                     </div>
+                    <div className="kronox-setting-row">
+                      <div>
+                        <strong>Sesión de Realidad Virtual (WebXR 6DoF)</strong>
+                        <p>
+                          {vrState?.presenting
+                            ? `Sesión VR activa (${vrState?.connectedHands || 0} mandos detectados).`
+                            : vrState?.supported
+                              ? 'Visor WebXR compatible detectado y listo para iniciar.'
+                              : 'Activa WebXR en visores compatibles (Meta Quest, SteamVR, PCVR por HTTPS/localhost).'}
+                        </p>
+                      </div>
+                      <div className="kronox-pause-seg-group" role="group" aria-label="Control de sesión VR">
+                        {onToggleVr && (
+                          <button
+                            type="button"
+                            className={`kronox-pause-seg-btn${vrState?.presenting ? ' is-active' : ''}`}
+                            onClick={() => onToggleVr()}
+                          >
+                            {vrState?.presenting ? 'Salir de VR' : 'Iniciar VR'}
+                          </button>
+                        )}
+                        {vrState?.presenting && onRecenterVr && (
+                          <button
+                            type="button"
+                            className="kronox-pause-seg-btn"
+                            onClick={() => onRecenterVr()}
+                          >
+                            Centrar HMD
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="kronox-setting-row">
+                      <div>
+                        <strong>Tipo de giro con Stick derecho en VR</strong>
+                        <p>El giro por pasos reduce el mareo en cabina; el giro suave rota de forma continua.</p>
+                      </div>
+                      <div className="kronox-pause-seg-group" role="group" aria-label="Tipo de giro VR">
+                        <button
+                          type="button"
+                          className={`kronox-pause-seg-btn${vrSettings.turnMode === 'snap' ? ' is-active' : ''}`}
+                          onClick={() => updateVrSetting('turnMode', 'snap')}
+                        >
+                          Por pasos ({vrSettings.snapAngleDeg}°)
+                        </button>
+                        <button
+                          type="button"
+                          className={`kronox-pause-seg-btn${vrSettings.turnMode === 'smooth' ? ' is-active' : ''}`}
+                          onClick={() => updateVrSetting('turnMode', 'smooth')}
+                        >
+                          Suave continuo
+                        </button>
+                      </div>
+                    </div>
+                    {vrSettings.turnMode === 'snap' && (
+                      <div className="kronox-setting-row">
+                        <div>
+                          <strong>Ángulo de giro por paso (Snap Turn)</strong>
+                          <p>Define cuántos grados gira la orientación del astronauta por cada toque del stick.</p>
+                        </div>
+                        <div className="kronox-pause-seg-group" role="group" aria-label="Ángulo de giro VR">
+                          {[15, 30, 45, 60].map((deg) => (
+                            <button
+                              key={deg}
+                              type="button"
+                              className={`kronox-pause-seg-btn${vrSettings.snapAngleDeg === deg ? ' is-active' : ''}`}
+                              onClick={() => updateVrSetting('snapAngleDeg', deg)}
+                            >
+                              {deg}°
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="kronox-setting-row">
+                      <div>
+                        <strong>Velocidad de desplazamiento VR</strong>
+                        <p>Escala la respuesta del stick izquierdo al caminar en microgravedad o pilotar.</p>
+                      </div>
+                      <select
+                        value={String(vrSettings.moveSpeedScale)}
+                        onChange={(e) => updateVrSetting('moveSpeedScale', Number(e.target.value))}
+                        className="kronox-setting-select"
+                      >
+                        <option value="0.75">Confortable (0.75×)</option>
+                        <option value="1">Estándar (1.0×)</option>
+                        <option value="1.35">Ágil (1.35×)</option>
+                      </select>
+                    </div>
+                    <div className="kronox-setting-row">
+                      <div>
+                        <strong>Punteros láser 3D en mandos VR</strong>
+                        <p>Muestra haces de puntería para seleccionar consolas y el ascensor en Cabina 1P.</p>
+                      </div>
+                      <div className="kronox-pause-seg-group" role="group" aria-label="Punteros VR">
+                        <button
+                          type="button"
+                          className={`kronox-pause-seg-btn${vrSettings.showControllerRays ? ' is-active' : ''}`}
+                          onClick={() => updateVrSetting('showControllerRays', true)}
+                        >
+                          Visibles
+                        </button>
+                        <button
+                          type="button"
+                          className={`kronox-pause-seg-btn${!vrSettings.showControllerRays ? ' is-active' : ''}`}
+                          onClick={() => updateVrSetting('showControllerRays', false)}
+                        >
+                          Ocultos
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -1113,6 +1233,18 @@ export default function PauseMenu({
                       <span>Cambiar modo microgravedad (Asistida / Libre):</span>
                       <strong>Tecla [M]</strong>
                     </li>
+                  </ul>
+                </div>
+
+                <div className="kronox-pause-card">
+                  <h4>Mandos VR (WebXR 6DoF)</h4>
+                  <ul className="kronox-pause-meta-list">
+                    {VR_CONTROL_BINDINGS.map((binding) => (
+                      <li key={binding.id}>
+                        <span>{binding.action}:</span>
+                        <strong>{binding.control}</strong>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               </div>

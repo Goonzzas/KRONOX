@@ -14,6 +14,7 @@ import {
   DEFAULT_GRAPHICS_SETTINGS,
   normalizeGraphicsPreset,
 } from './scene/graphicsConfig.js';
+import { DEFAULT_VR_SETTINGS, normalizeVrSettings } from './scene/vrControls.js';
 import KronoxWidget from './components/KronoxWidget.tsx';
 import ToastNotification from './components/ToastNotification.jsx';
 import PlanetInfoModal from './components/PlanetInfoModal.jsx';
@@ -274,6 +275,9 @@ export default function App() {
           ...DEFAULT_GRAPHICS_SETTINGS,
           preset: initialPreset,
         },
+        vr: {
+          ...DEFAULT_VR_SETTINGS,
+        },
       };
       try {
         const raw = localStorage.getItem('kronox-game-settings-v1');
@@ -296,10 +300,20 @@ export default function App() {
           musicVolume: migratedMusic,
           voiceName: 'Charon',
           graphics: mergedGraphics,
+          vr: normalizeVrSettings(parsed.vr),
         };
       } catch {
         return defaults;
       }
+    }),
+    [vrState, setVrState] = useState({
+      supported: null,
+      webxrApi: false,
+      secureContext: true,
+      presenting: false,
+      connectedHands: 0,
+      reason: 'probing',
+      settings: DEFAULT_VR_SETTINGS,
     }),
     realTimeIntroActiveRef = useRef(false),
     mainMenuVisibleRef = useRef(welcomeOpen || false),
@@ -988,6 +1002,17 @@ export default function App() {
       setVoice(next);
       if (!next) stopVoiceAndClearQueue();
     },
+    handleToggleVr = async () => {
+      const cur = api.current?.getVrState?.() || vrState;
+      if (cur?.presenting) {
+        await api.current?.exitVr?.();
+        return;
+      }
+      const res = await api.current?.enterVr?.();
+      if (res && !res.ok && res.message) {
+        notify(res.message, 'Realidad Virtual (WebXR)');
+      }
+    },
     handleTestVoice = () => {
       voiceRef.current = true;
       setVoice(true);
@@ -1104,8 +1129,24 @@ export default function App() {
     api.current = setupScene(el.current, {
       quality,
       graphicsSettings: gameSettingsRef.current?.graphics,
+      vrSettings: normalizeVrSettings(gameSettingsRef.current?.vr),
       onSceneReady: () => setSceneReady(true),
       onGraphicsStateChange: (info) => setGraphicsRuntime(info),
+      onVrStateChange: (nextVr) => {
+        if (nextVr) setVrState(nextVr);
+      },
+      onVrPauseRequest: () => {
+        if (
+          !pauseMenuOpenRef.current &&
+          !mainMenuVisibleRef.current &&
+          !realTimeIntroActiveRef.current &&
+          !missionOpenRef.current
+        ) {
+          setPauseMenuSection('save');
+          setPauseMenuOpen(true);
+          api.current?.setSimulationPaused?.(true);
+        }
+      },
       onPointerLockChange: (st) => {
         if (st) setPointerLockState(st);
       },
@@ -1514,6 +1555,7 @@ export default function App() {
       sensitivity: gameSettings.cameraSensitivity || 'normal',
       distance3P: gameSettings.cameraDistance3P || 'normal',
     });
+    api.current?.setVrSettings?.(normalizeVrSettings(gameSettings.vr));
     if (gameSettings.microgravityMode && prevSettingMgRef.current !== gameSettings.microgravityMode) {
       prevSettingMgRef.current = gameSettings.microgravityMode;
       api.current?.setMicrogravityMode?.(gameSettings.microgravityMode);
@@ -3509,6 +3551,9 @@ export default function App() {
         gameSettings.showTelescopeTelemetry === false ? null : planetaryTelemetry,
       pointerLockState,
       assetLoadingState,
+      vrState,
+      onToggleVr: handleToggleVr,
+      onRecenterVr: () => api.current?.recenterVr?.(),
       activeObjectiveText: guideObjective,
       activeMissionId: missionTargetKey,
       onOpenMissionFromObjective: (target) => {
@@ -3586,6 +3631,9 @@ export default function App() {
       gameSettings,
       onUpdateGameSettings: setGameSettings,
       graphicsRuntime,
+      vrState,
+      onToggleVr: handleToggleVr,
+      onRecenterVr: () => api.current?.recenterVr?.(),
       onOpenMissionTarget: (targetKey) => {
         setMissionTargetKey(targetKey);
         setMissionInitialStage('investigate');

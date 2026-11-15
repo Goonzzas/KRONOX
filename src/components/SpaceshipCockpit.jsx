@@ -82,6 +82,9 @@ export default function SpaceshipCockpit({
   heldToolId = null,
   pointerLockState = null,
   assetLoadingState = null,
+  vrState = null,
+  onToggleVr,
+  onRecenterVr,
 }) {
   const [navigationMode, setNavigationMode] = useState('manual');
   const [navigationTarget, setNavigationTarget] = useState('planet:Tierra');
@@ -365,6 +368,43 @@ export default function SpaceshipCockpit({
                 >
                   <span>?</span>
                   <span>Tutorial</span>
+                </button>
+              )}
+
+              {onToggleVr && (
+                <button
+                  type="button"
+                  className={`kronoxHudQuickBtn is-vr-toggle${vrState?.presenting ? ' is-vr-active' : ''}`}
+                  aria-pressed={Boolean(vrState?.presenting)}
+                  onClick={() => onToggleVr()}
+                  title={
+                    vrState?.presenting
+                      ? 'Salir de la sesión de Realidad Virtual (WebXR)'
+                      : vrState?.supported
+                        ? 'Entrar en Realidad Virtual (WebXR 6DoF)'
+                        : 'Modo VR (WebXR) — Consultar compatibilidad o conectar visor'
+                  }
+                >
+                  <span>VR</span>
+                  <span>
+                    {vrState?.presenting
+                      ? 'Salir VR'
+                      : vrState?.supported
+                        ? 'Entrar VR'
+                        : 'Modo VR'}
+                  </span>
+                </button>
+              )}
+
+              {vrState?.presenting && onRecenterVr && (
+                <button
+                  type="button"
+                  className="kronoxHudQuickBtn is-vr-toggle"
+                  onClick={() => onRecenterVr()}
+                  title="Centrar vista VR del casco HMD"
+                >
+                  <span>⌖</span>
+                  <span>Centrar</span>
                 </button>
               )}
             </div>

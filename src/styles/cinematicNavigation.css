@@ -516,6 +516,24 @@
   color: #7dd3fc;
 }
 
+.kronoxHudQuickBtn.is-vr-toggle {
+  border-color: rgba(167, 139, 250, 0.42);
+  color: #ddd6fe;
+}
+
+.kronoxHudQuickBtn.is-vr-toggle:hover {
+  background: rgba(139, 92, 246, 0.24);
+  border-color: #a78bfa;
+  color: #ffffff;
+}
+
+.kronoxHudQuickBtn.is-vr-toggle.is-vr-active {
+  background: linear-gradient(135deg, rgba(91, 33, 182, 0.92), rgba(15, 23, 42, 0.94));
+  border-color: #c4b5fd;
+  color: #f5f3ff;
+  box-shadow: 0 0 12px rgba(167, 139, 250, 0.35);
+}
+
 /* =========================================================================
    SUBTÍTULO DISCRETO DE VIDEOJUEGO INFERIOR CENTRADO (KRONOX IA)
    ========================================================================= */
