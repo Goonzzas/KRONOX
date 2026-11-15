@@ -242,8 +242,8 @@ export default function MainMenu({
               <span className="kronox-title-btn-marker" aria-hidden="true" />
               <span className="kronox-title-btn-body">
                 <strong>EXPLORACIÓN PARA NOVATOS</strong>
-                <small className="kronox-exploration-option-description">KRONOX te guiará con indicaciones, balizas y explicaciones visuales mientras conoces la nave, sus controles y sus sistemas. Al terminar podrás explorar libremente.</small>
-                <small className="kronox-exploration-option-hint">RECORRIDO GUIADO · COMENZAR ↗</small>
+                <small className="kronox-exploration-option-description">Mira una cinemática: el astronauta recorrerá la nave por sí solo, KRONOX explicará cada parada y verás una misión completa sin abrir menús ni usar controles.</small>
+                <small className="kronox-exploration-option-hint">CINEMÁTICA GUIADA · VER RECORRIDO ↗</small>
               </span>
             </button>
           </div>
