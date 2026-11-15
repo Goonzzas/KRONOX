@@ -3185,7 +3185,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         : effectiveGraphics.preset === 'high'
           ? 'quality'
           : 'balanced';
-    if (!vrManager?.isPresenting?.() && !R.xr?.isPresenting) {
+    if (!vrManager?.isPresenting?.()) {
       R.setPixelRatio(pixelRatioFor());
       R.setSize(innerWidth, innerHeight);
     }
@@ -3289,9 +3289,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const xrHudHeadQuatScratch = new THREE.Quaternion();
   const xrHudEyeWorldScratch = new THREE.Vector3();
   const xrHudScaleScratch = new THREE.Vector3();
-  const xrSavedLocalPosScratch = new THREE.Vector3();
-  const xrSavedLocalQuatScratch = new THREE.Quaternion();
-  const xrSavedLocalScaleScratch = new THREE.Vector3();
   const extAiTargetScratch = new THREE.Vector3();
   const extAiForwardScratch = new THREE.Vector3();
   const extAiRightScratch = new THREE.Vector3();
@@ -3317,38 +3314,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.onViewChange?.(pv);
     },
     onToggleFreeHelm: () => {
-      if (pv === 3 || exteriorCameraMode) {
-        applyFreeHelmMode(!freeHelmMode);
-      } else {
-        S.onInteractionFeedback?.({
-          id: 'vr-helm-tip',
-          text: 'Cambia a Vista Exterior para pilotar con Timón Libre 6-DOF.',
-          ts: Date.now(),
-        });
-      }
-    },
-    onInteractNearest: () => {
-      if (simulationPaused || pv !== 1 || exteriorCameraMode) return;
-      if (astronautSeatedInBridge) {
-        standUpFromBridgeSeat();
-      } else if (nearestCabinStation?.station) {
-        if (nearestCabinStation.station.id === 'stand-up-seat') {
-          standUpFromBridgeSeat();
-        } else {
-          triggerCabinStationInteraction(nearestCabinStation.station.id, nearestCabinStation.station);
-        }
-      } else {
-        S.onInteractionFeedback?.({
-          id: 'vr-station-tip',
-          text: 'Acércate o apunta el puntero láser a una consola, ascensor o asiento.',
-          ts: Date.now(),
-        });
-      }
-    },
-    onGrabRail: () => {
-      if (simulationPaused || pv !== 1 || exteriorCameraMode) return;
-      const railHit = fourDecksInterior.getNearestHandrail?.(astronautPos, 1.85);
-      microgravityController.toggleGrabRail?.(railHit ? railHit.id : null);
+      applyFreeHelmMode(!freeHelmMode);
     },
     onToggleOptics: () => {
       const enable = !opticalTelescopeState.enabled;
@@ -3366,12 +3332,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (normalizedDeck) startPhysicalElevatorRide(normalizedDeck);
     },
     onPauseMenuRequest: () => {
-      if (vrManager?.isPresenting?.()) {
-        vrManager.exitVr?.().catch(() => {}).finally(() => {
-          S.onVrPauseRequest?.();
-        });
-        return;
-      }
       S.onVrPauseRequest?.();
     },
     onRecenterVr: () => {
@@ -3405,17 +3365,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         luminousAI.setTargetPosition(snap, 'Comunicación');
         luminousAI.resetWake?.(snap);
       } else {
-        const activeQuat =
-          vrManager?.getState?.()?.presenting && hasXrHudHeadPose
-            ? xrHudHeadQuatScratch
-            : localCam.quaternion;
-        const activeOrigin =
-          vrManager?.getState?.()?.presenting && hasXrHudHeadPose
-            ? xrHudEyeWorldScratch
-            : localCam.position;
-        extAiForwardScratch.set(0, 0, -1).applyQuaternion(activeQuat).normalize();
-        const snap = activeOrigin.clone().addScaledVector(extAiForwardScratch, 1.55);
-        snap.y -= 0.08;
+        extAiForwardScratch.set(0, 0, -1).applyQuaternion(localCam.quaternion).normalize();
+        const snap = localCam.position.clone().addScaledVector(extAiForwardScratch, 1.55);
+        snap.y -= 0.1;
         luminousAI.group.position.copy(snap);
         luminousAI.setTargetPosition(snap, 'Comunicación');
         luminousAI.resetWake?.(snap);
@@ -4114,7 +4066,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     galactic_map:
       'Abre «Mapa · Guía» arriba y entra en Mapa galáctico. Allí puedes explorar Sistema Solar, Vecindario Estelar o Galaxias y fijar rumbo.',
     elevator_c02:
-      'Excelente. Ahora entra al Ascensor Central en el eje del puente y pulsa el botón C02 o la tecla 2 para descender a la Cubierta Habitacional e inspeccionar los camarotes y el comedor.',
+      'Excelente. Ahora entra al Ascensor Central en el eje del puente, pulsa E o la tecla 2 y desciende a la Cubierta Habitacional para inspeccionar los camarotes y el comedor.',
     elevator_c03:
       'Módulo habitacional verificado. Usa el Ascensor Central y pulsa la tecla 3 para bajar a la Cubierta Científica e Ingeniería, donde operan el reactor Tokamak y el Laboratorio SPHEREx.',
     science:
@@ -4178,8 +4130,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       nav: 'PASO 3/7 · CONSOLA DE NAVEGACIÓN: Acércate a la consola de navegación en el Puente y úsala con [E].',
       astro_obs: 'PASO 4/7 · EXPLORACIÓN ESPACIAL: Pulsa [T] para usar el Instrumento Óptico o cambia a vista Exterior.',
       galactic_map: 'PASO 5/7 · MAPA GALÁCTICO: Abre «Mapa · Guía» -> Mapa galáctico para explorar escalas y destinos del cosmos.',
-      elevator_c02: 'PASO 6/7 · CUBIERTA HABITACIONAL: Entra al Ascensor Central y pulsa el botón físico C02 o la tecla [2].',
-      elevator_c03: 'PASO 6/7 · CUBIERTA CIENTÍFICA: Entra al ascensor y pulsa el botón físico C03 o la tecla [3].',
+      elevator_c02: 'PASO 6/7 · CUBIERTA HABITACIONAL: Toma el Ascensor Central ([E] o tecla [2]) hacia la Cubierta Habitacional.',
+      elevator_c03: 'PASO 6/7 · CUBIERTA CIENTÍFICA: Baja en el Ascensor Central a la Cubierta Científica (Nivel 3, tecla [3]).',
       science: 'PASO 6/7 · LABORATORIO SPHEREx: Dirígete al Laboratorio SPHEREx en C03 y pulsa [E].',
       inventory_hub: 'PASO 7/7 · MANUAL Y OPERACIONES: Abre «Mapa · Guía» para consultar el Manual operativo y completar el tutorial.',
       missions: 'OBJETIVO: Interactúa con la consola de misiones.',
@@ -4966,11 +4918,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (!stId) return;
     fpHandPulse = 1.0;
 
-    if (stId === 'stand-up-seat') {
-      standUpFromBridgeSeat();
-      return;
-    }
-
     // 1. Pasamanos EVA 3D -> anclaje o liberación directa con audio y respuesta táctil
     if (stId.startsWith('rail-')) {
       microgravityController.toggleAnchor(stId);
@@ -4994,24 +4941,23 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (stId.startsWith('elevator-floor-')) {
       const targetDeckId = stId.replace('elevator-floor-', '');
       const targetCode = CABIN_DECKS.find((d) => d.id === targetDeckId)?.code || targetDeckId.toUpperCase();
-      const started = startPhysicalElevatorRide(targetDeckId);
       S.onSfxCue?.('switch');
+      startPhysicalElevatorRide(targetDeckId);
       S.onInteractionFeedback?.({
         id: stId,
-        text: started ? `Botón ${targetCode} activado. Ascensor rumbo a ${targetCode}.` : 'El ascensor no puede iniciar el trayecto ahora.',
+        text: `Ascensor rumbo a ${targetCode}.`,
         ts: Date.now(),
       });
       return;
     }
 
-    // 3. Llamada exterior: el selector se opera directamente en los cuatro botones físicos de cabina.
+    // 3. Llamada exterior de ascensor o selector interior
     if (stId === 'elevator-panel' || stId.startsWith('elevator-call-')) {
       const elSys = fourDecksInterior?.elevatorSystem;
       if (!elSys) return;
       const elState = elSys.state;
       if (elState.moving || elState.passengerRiding) return;
       const curDeck = resolveCurrentDeck(astronautPos);
-      let text = 'Usa los botones físicos C01–C04 dentro de la cabina, o pulsa las teclas 1–4.';
       if (stId.startsWith('elevator-call-')) {
         const doorHere = Number(elState.doorOpenByDeck?.[curDeck.id] ?? 0);
         const cabHere = Math.abs(elState.cabY - curDeck.elevationY) < 0.25 && doorHere > 0.72;
@@ -5019,13 +4965,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           elSys.requestDeck(curDeck.id, false);
           S.onSfxCue?.('switch');
           S.onElevatorStateChange?.({ ...elState, doorOpenByDeck: { ...elState.doorOpenByDeck } });
-          text = `Ascensor llamado a ${curDeck.code}. Cuando llegue, entra y pulsa uno de los cuatro botones.`;
-        } else {
-          text = `Cabina lista en ${curDeck.code}. Entra y elige destino con los botones C01–C04.`;
+          S.onInteractionFeedback?.({
+            id: stId,
+            text: `Ascensor llamado a ${curDeck.code}.`,
+            ts: Date.now(),
+          });
+          return;
         }
       }
+      activeCabinStation = 'elevator-panel';
+      exitPointerLockIfActive('station');
       S.onSfxCue?.('tap');
-      S.onInteractionFeedback?.({ id: stId, text, ts: Date.now() });
+      S.onElevatorStateChange?.({ ...elState, doorOpenByDeck: { ...elState.doorOpenByDeck } });
+      S.onStationInteract?.('elevator-panel');
       return;
     }
 
@@ -5637,7 +5589,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     delete keys[e.key.toLowerCase()];
   };
   const onResize = () => {
-    if (!vrManager?.isPresenting?.() && !R.xr?.isPresenting) {
+    if (!vrManager?.isPresenting?.()) {
       R.setPixelRatio(pixelRatioFor());
       R.setSize(innerWidth, innerHeight);
     }
@@ -5686,11 +5638,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const _forwardEyeScratch = new V();
   function tick(rafTimestamp, xrFrame = null) {
     if (disposed) return;
-    const xrPresentingNow = Boolean(vrManager?.isPresenting?.() || R.xr?.isPresenting);
-    // Three.js WebGLRenderer.setAnimationLoop también activa window.rAF sin xrFrame: ignorarlo en XR real para no dibujar ni consumir mandos fuera de XRSession.requestAnimationFrame
-    if (!IS_NODE_SCENE_HARNESS && xrPresentingNow && !xrFrame) {
-      return;
-    }
     const xrActiveNow = Boolean(vrManager?.isPresenting?.());
     if (!xrActiveNow) {
       rafId = requestAnimationFrame(tick);
@@ -5702,8 +5649,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return;
     }
     lastRenderedFrameAt = frameNow;
-    const prevAutoClearOnFrame = R.autoClear;
-    try {
     if (frameTiming.active && frameTiming.last !== null) { frameTiming.values.push(frameNow - frameTiming.last); if (frameTiming.values.length >= 600) frameTiming.active = false; }
     frameTiming.last = frameNow;
     const rawDelta = clk.getDelta();
@@ -5761,12 +5706,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           applyCameraView(pv === 1 ? 3 : 1);
           S.onViewChange?.(pv);
         }
-        if (vrFrame.actions?.toggleFreeHelm) {
-          if (pv === 3 || exteriorCameraMode) {
-            applyFreeHelmMode(!freeHelmMode);
-          } else if (vrManager?.getState?.()?.presenting) {
-            vrHudPanel?.toggleTablet();
-          }
+        if (vrFrame.actions?.toggleFreeHelm && (pv === 3 || exteriorCameraMode)) {
+          applyFreeHelmMode(!freeHelmMode);
         }
         if (vrFrame.actions?.toggleTelescope) {
           const enableScope = !opticalTelescopeState?.enabled;
@@ -5790,13 +5731,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
           }
         }
-      }
-      if (vrFrame.actions?.openMenu) {
-        if (vrManager?.getState?.()?.presenting) {
-          if (simulationPaused) simulationPaused = false;
-          vrHudPanel?.toggleTablet();
-        } else if (!simulationPaused) {
-          S.onVrPauseRequest?.();
+        if (vrFrame.actions?.openMenu) {
+          if (vrManager?.getState?.()?.presenting) {
+            vrHudPanel?.toggleTablet();
+          } else {
+            S.onVrPauseRequest?.();
+          }
         }
       }
     } else {
@@ -8260,9 +8200,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
 
     const vrHudPresenting = Boolean(vrManager?.getState?.()?.presenting || xrActiveNow);
-    if (!vrHudPresenting) {
-      hasXrHudHeadPose = false;
-    }
     const vrHudInCabin = Boolean(
       vrLocalEyeReady && free && pv === 1 && !exteriorCameraMode && !spectator && !mainMenuOrbitActive,
     );
@@ -8312,11 +8249,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       opticalEnabled: Boolean(opticalTelescopeState.enabled),
       opticalMag: opticalTelescopeState.magnification || 1,
       activeDeckId: hudDeckLabel,
-      nearestStationId: nearestCabinStation?.station?.id || null,
-      nearestStationLabel:
-        nearestCabinStation?.station?.title || nearestCabinStation?.station?.label || '',
-      seatedInBridge: Boolean(astronautSeatedInBridge),
-      railAnchored: Boolean(microgravityController?.isAnchored?.()),
     });
     vrHudPanel?.syncToObserver({
       eyeWorldPos: vrHudEye,
@@ -8341,48 +8273,23 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       localShipSunLight.intensity = inBridgeLighting ? 0.20 : inInteriorLighting ? 0.72 : 2.35;
       localShipRimLight.intensity = inBridgeLighting ? 0.15 : inInteriorLighting ? 0.32 : 0.55;
       const prevAutoClear = R.autoClear;
-      if (xrActiveNow) {
-        xrSavedLocalPosScratch.copy(localCam.position);
-        xrSavedLocalQuatScratch.copy(localCam.quaternion);
-        xrSavedLocalScaleScratch.copy(localCam.scale);
+      R.autoClear = false;
+      R.clearDepth?.();
+      R.render(localShipScene, localCam);
+      if (R.xr?.isPresenting && R.xr?.getCamera) {
+        const xrLocalCam = R.xr.getCamera();
+        if (xrLocalCam?.matrixWorld) {
+          xrLocalCam.matrixWorld.decompose(
+            xrHudEyeWorldScratch,
+            xrHudHeadQuatScratch,
+            xrHudScaleScratch,
+          );
+          hasXrHudHeadPose = true;
+        }
+      } else {
+        hasXrHudHeadPose = false;
       }
-      try {
-        if (xrActiveNow) {
-          localCam.position.set(0, 0, 0);
-          localCam.quaternion.identity();
-          localCam.scale.set(1, 1, 1);
-          vrManager?.vrLocalRig?.updateMatrixWorld?.(true);
-        }
-        R.autoClear = false;
-        R.clearDepth?.();
-        R.render(localShipScene, localCam);
-        if (xrActiveNow && R.xr?.isPresenting) {
-          let xrPoseMat = localCam.matrixWorld;
-          if (typeof R.xr.getCamera === 'function') {
-            const xrLocalCam = R.xr.getCamera(localCam);
-            if (xrLocalCam?.matrixWorld) {
-              xrPoseMat = xrLocalCam.matrixWorld;
-            }
-          }
-          if (xrPoseMat?.decompose) {
-            xrPoseMat.decompose(
-              xrHudEyeWorldScratch,
-              xrHudHeadQuatScratch,
-              xrHudScaleScratch,
-            );
-            hasXrHudHeadPose = true;
-          }
-        } else {
-          hasXrHudHeadPose = false;
-        }
-      } finally {
-        if (xrActiveNow) {
-          localCam.position.copy(xrSavedLocalPosScratch);
-          localCam.quaternion.copy(xrSavedLocalQuatScratch);
-          localCam.scale.copy(xrSavedLocalScaleScratch);
-        }
-        R.autoClear = prevAutoClear;
-      }
+      R.autoClear = prevAutoClear;
       R.scene = sc;
       R.camera = cam;
       R.localScene = localShipScene;
@@ -8393,13 +8300,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       initialSceneReadyFired = true;
       S.onSceneReady?.();
     }
-    } catch (tickErr) {
-      if (typeof console !== 'undefined' && console.error) {
-        console.error('[KRONOX] Error recuperado en tick:', tickErr);
-      }
-    } finally {
-      R.autoClear = prevAutoClearOnFrame;
-    }
   }
   function applyCameraView(v) {
     if (!userCameraAvailable()) return false;
@@ -8408,7 +8308,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     pv = v;
     vrChaseYaw = 0;
     vrChasePitch = 0;
-    hasXrHudHeadPose = false;
     if (v == 1) {
       if (freeHelmMode) {
         freeHelmMode = false;
@@ -8490,70 +8389,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         cancelAnimationFrame(rafId);
         rafId = 0;
       }
-      // Garantizar cabina 1P interactiva y sin pausa al iniciar sesión VR aunque se entre desde menú, mapa, pausa o asiento
-      simulationPaused = false;
-      realTimeIntroPaused = false;
-      clk.getDelta();
-      releaseInputs();
-      vel.set(0, 0, 0);
-      astronautVel.set(0, 0, 0);
-      if (realTimeIntro) {
-        skipRealTimeIntroSequence();
-      }
-      if (mainMenuOrbitActive) {
-        mainMenuOrbitActive = false;
-      }
-      if (nearbyMapState) {
-        returnFromNearbyMap();
-      }
-      contextOverview = false;
-      spectator = false;
-      if (exteriorCameraMode) {
-        leaveExteriorCamera(false);
-      }
-      if (!free) {
-        setFree(true, false);
-        S.fr?.(true);
-      }
-      if (astronautSeatedInBridge) {
-        standUpFromBridgeSeat();
-      }
-      if (!applyCameraView(1)) {
-        pv = 1;
-        cabinFirstPerson = true;
-        camViewBlend = 0;
-        freeHelmMode = false;
-        vrChaseYaw = 0;
-        vrChasePitch = 0;
-        hasXrHudHeadPose = false;
-        ship.visible = false;
-        localCabinWorld.visible = true;
-        astronaut3D.root.visible = false;
-        astronaut3D.firstPersonHands.visible = false;
-        if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
-        fourDecksInterior?.setActiveVisibleDeck?.(resolveCurrentDeck(astronautPos)?.id || currentLockedDeckId, {
-          showAll: false,
-        });
-        S.onViewChange?.(1);
-        S.onCabinFirstPersonChange?.(true);
-        S.onFreeHelmChange?.(false);
-      } else {
+      if (free && (pv !== 1 || exteriorCameraMode || !cabinFirstPerson || camViewBlend > 0.05)) {
+        applyCameraView(1);
         S.onViewChange?.(1);
       }
-      vrHudPanel?.closeTablet?.();
-      emitPointerLockState();
-      // Usar xr.setAnimationLoop cuando exista para no relanzar window.rAF en paralelo con XRSession
-      if (typeof R.xr?.setAnimationLoop === 'function') {
-        R.xr.setAnimationLoop(tick);
-      } else if (typeof R.setAnimationLoop === 'function') {
+      if (typeof R.setAnimationLoop === 'function') {
         R.setAnimationLoop(tick);
       }
     },
     onSessionEndCallback: () => {
       hasXrHudHeadPose = false;
-      if (typeof R.xr?.setAnimationLoop === 'function') {
-        R.xr.setAnimationLoop(null);
-      }
       if (typeof R.setAnimationLoop === 'function') {
         R.setAnimationLoop(null);
       }
@@ -8579,10 +8424,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         return;
       }
       if (simulationPaused) return;
-      if (interactId === 'stand-up-seat') {
-        standUpFromBridgeSeat();
-        return;
-      }
       triggerCabinStationInteraction(interactId);
     },
     onStatusMessage: (msg) => {

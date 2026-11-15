@@ -1020,27 +1020,7 @@ export default function App() {
       }
       const res = await api.current?.enterVr?.();
       if (res?.ok) {
-        stopVoiceAndClearQueue();
-        introSoundtrackRef.current?.stop?.();
-        setIntroPaused(false);
-        introPausedRef.current = false;
-        setRealTimeIntroActive(false);
-        setWelcomeOpen(false);
-        setShowFullMainMenu(false);
         setPauseMenuOpen(false);
-        setMissionOpen(false);
-        setMissionSelectorOpen(false);
-        setPersonalHubOpen(false);
-        setActiveCockpitStation(null);
-        setSpherexDocOpen(false);
-        setOpen(false);
-        setQuickOpen(false);
-        setNearbyMapActive(false);
-        setSpec(false);
-        setFr(true);
-        setPv(1);
-        setCabinFirstPerson(true);
-        setFreeHelmMode(false);
         api.current?.setSimulationPaused?.(false);
         return;
       }
@@ -1171,10 +1151,6 @@ export default function App() {
         if (nextVr) setVrState(nextVr);
       },
       onVrPauseRequest: () => {
-        if (api.current?.getVrState?.()?.presenting) {
-          api.current?.toggleVrHud?.('cabin');
-          return;
-        }
         if (
           !pauseMenuOpenRef.current &&
           !mainMenuVisibleRef.current &&
@@ -1195,9 +1171,6 @@ export default function App() {
         if (st) setPointerLockState(st);
       },
       onPointerLockEscape: () => {
-        if (api.current?.getVrState?.()?.presenting) {
-          return;
-        }
         if (
           !pauseMenuOpenRef.current &&
           !activeCockpitStationRef.current &&

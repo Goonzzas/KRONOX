@@ -98,12 +98,6 @@ function normalizeAngle(rad) {
   return a;
 }
 
-function truncateText(text = '', max = 28) {
-  const s = String(text || '').trim();
-  if (!s || s.length <= max) return s;
-  return `${s.slice(0, Math.max(1, max - 1)).trimEnd()}…`;
-}
-
 function drawRoundedRect(ctx, x, y, w, h, r = 14) {
   const rad = Math.min(r, w * 0.5, h * 0.5);
   ctx.beginPath();
@@ -275,8 +269,7 @@ export function createVrHudPanel3D(callbacks = {}) {
   const state = {
     xrPresenting: false,
     tabletOpen: false,
-    quickBarCompact: false,
-    activeTab: 'travel', // 'travel' | 'spherex' | 'kronos' | 'cabin'
+    activeTab: 'travel', // 'travel' | 'spherex' | 'kronos'
     travelActionMode: 'travel', // 'travel' | 'focus'
     hoveredButtonId: null,
     hoveredSurfaceId: null,
@@ -285,10 +278,6 @@ export function createVrHudPanel3D(callbacks = {}) {
     opticalEnabled: false,
     opticalMag: 1,
     activeDeckId: 'C01',
-    nearestStationId: null,
-    nearestStationLabel: '',
-    seatedInBridge: false,
-    railAnchored: false,
     focusedObject: 'Tierra',
     nearObject: 'Tierra',
     travelStatus: null, // { active, label, progress, phase }
@@ -633,41 +622,6 @@ export function createVrHudPanel3D(callbacks = {}) {
     const H = quickBar.heightPx;
     if (ctx) {
       ctx.clearRect(0, 0, W, H);
-    }
-
-    if (state.quickBarCompact && !state.tabletOpen) {
-      const hasContextAction = Boolean(state.seatedInBridge || state.nearestStationLabel);
-      if (hasContextAction) {
-        registerBtn(quickBar, 'qb-expand-bar', 164, 108, 336, 68, 'toggle-compact', null, {
-          label: '☰ Menú VR',
-          subLabel: 'Mostrar barra completa',
-          stroke: C_ACCENT,
-          font: '700 20px system-ui, sans-serif',
-          subFont: '500 14px system-ui, sans-serif',
-        });
-        registerBtn(quickBar, 'qb-context-act', 516, 108, 344, 68, 'interact-nearest', null, {
-          label: state.seatedInBridge ? '🪑 Levantarse' : `⚡ ${truncateText(state.nearestStationLabel, 22)}`,
-          subLabel: 'Acción rápida cabina',
-          active: true,
-          stroke: C_GREEN,
-          font: '700 20px system-ui, sans-serif',
-          subFont: '500 14px system-ui, sans-serif',
-        });
-      } else {
-        registerBtn(quickBar, 'qb-expand-bar', 292, 108, 440, 68, 'toggle-compact', null, {
-          label: '☰ MENÚ VR · Cabina y Espacio',
-          subLabel: 'Pulsa o usa B / Grip+Y para abrir',
-          stroke: C_ACCENT,
-          font: '700 20px system-ui, sans-serif',
-          subFont: '500 14px system-ui, sans-serif',
-        });
-      }
-      if (quickBar.texture) quickBar.texture.needsUpdate = true;
-      quickBar.dirty = false;
-      return;
-    }
-
-    if (ctx) {
       drawRoundedRect(ctx, 4, 4, W - 8, H - 8, 24);
       ctx.fillStyle = C_BG;
       ctx.fill();
@@ -681,62 +635,21 @@ export function createVrHudPanel3D(callbacks = {}) {
         : state.viewMode === 3
           ? 'Vista Exterior'
           : `Cabina ${state.activeDeckId}`;
-      const locLabel = truncateText(state.nearObject || state.focusedObject || 'Espacio', 16);
+      const locLabel = state.nearObject || state.focusedObject || 'Espacio profundo';
       ctx.fillStyle = C_ACCENT;
-      ctx.font = '700 15px system-ui, sans-serif';
+      ctx.font = '700 16px system-ui, sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      const headerLeft = state.travelStatus?.active
+      ctx.fillText(`KRONOX VR · ${modeName}`, 24, 28);
+
+      ctx.fillStyle = state.travelStatus?.active ? C_AMBER : C_MUTED;
+      ctx.font = '600 16px system-ui, sans-serif';
+      ctx.textAlign = 'right';
+      const rightInfo = state.travelStatus?.active
         ? `Rumbo ${state.travelStatus.label || ''} · ${Math.round((state.travelStatus.progress || 0) * 100)}%`
-        : `KRONOX VR · ${modeName} · ${locLabel}`;
-      ctx.fillText(headerLeft, 22, 26, 338);
+        : `Cerca: ${locLabel} · Gatillo D/I para pulsar`;
+      ctx.fillText(rightInfo, W - 24, 28);
     }
-
-    const contextBtn = state.seatedInBridge
-      ? {
-          label: '🪑 Levantarse del asiento',
-          action: 'interact-nearest',
-          active: true,
-          stroke: C_GREEN,
-        }
-      : state.nearestStationLabel
-        ? {
-            label: `⚡ Usar: ${truncateText(state.nearestStationLabel, 22)}`,
-            action: 'interact-nearest',
-            active: true,
-            stroke: C_GREEN,
-          }
-        : state.viewMode === 1
-          ? {
-              label: state.railAnchored ? '🧲 Soltar barandal' : '🧲 Agarrar barandal',
-              action: 'grab-rail',
-              active: Boolean(state.railAnchored),
-              stroke: C_ACCENT,
-            }
-          : {
-              label: state.freeHelmMode ? '🛸 Salir Timón Libre' : '🛸 Activar Timón Libre',
-              action: 'toggle-free-helm',
-              active: Boolean(state.freeHelmMode),
-              stroke: C_ACCENT,
-            };
-
-    registerBtn(quickBar, 'qb-context-act', 370, 8, 370, 36, contextBtn.action, null, {
-      label: contextBtn.label,
-      active: contextBtn.active,
-      stroke: contextBtn.stroke,
-      radius: 10,
-      font: '700 15px system-ui, sans-serif',
-    });
-    registerBtn(quickBar, 'qb-recenter-mini', 750, 8, 138, 36, 'recenter-hud', null, {
-      label: '⟲ Centrar',
-      radius: 10,
-      font: '700 15px system-ui, sans-serif',
-    });
-    registerBtn(quickBar, 'qb-compact-bar', 898, 8, 106, 36, 'toggle-compact', null, {
-      label: '▼ Ocultar',
-      radius: 10,
-      font: '700 14px system-ui, sans-serif',
-    });
 
     const gap = 14;
     const padX = 20;
@@ -1462,191 +1375,6 @@ export function createVrHudPanel3D(callbacks = {}) {
     });
   }
 
-  function renderCabinTab(W, H) {
-    const ctx = tabletSurface.ctx;
-    const yTop = 104;
-    const leftX = 24;
-    const leftW = 604;
-    const rightX = 648;
-    const rightW = W - rightX - 24;
-    const panelH = H - yTop - 24;
-
-    if (ctx) {
-      ctx.fillStyle = C_CARD;
-      drawRoundedRect(ctx, leftX, yTop, leftW, panelH, 18);
-      ctx.fill();
-      ctx.strokeStyle = C_BORDER;
-      ctx.stroke();
-
-      ctx.fillStyle = C_ACCENT;
-      ctx.font = '700 20px system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('INTERACCIÓN EN CABINA Y CUBIERTAS', leftX + 20, yTop + 26);
-
-      ctx.fillStyle = C_CARD;
-      drawRoundedRect(ctx, rightX, yTop, rightW, panelH, 18);
-      ctx.fill();
-      ctx.strokeStyle = C_BORDER;
-      ctx.stroke();
-
-      ctx.fillStyle = C_VIOLET;
-      ctx.font = '700 20px system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText('NAVE, ESPACIO Y CONTROLES QUEST VR', rightX + 20, yTop + 26);
-    }
-
-    const nearLabel = state.seatedInBridge
-      ? '🪑 Levantarse del asiento de mando'
-      : state.nearestStationLabel
-        ? `⚡ Activar: ${truncateText(state.nearestStationLabel, 30)}`
-        : '⚡ Apunta con el láser o acércate a una consola';
-    registerBtn(tabletSurface, 'cab-interact-near', leftX + 20, yTop + 52, leftW - 40, 86, 'interact-nearest', null, {
-      label: nearLabel,
-      subLabel: state.seatedInBridge
-        ? 'Salir del asiento y caminar por Cabina 1P'
-        : state.nearestStationId
-          ? `Estación detectada (${state.nearestStationId})`
-          : 'También puedes usar Gatillo I / D sobre cualquier objeto 3D',
-      active: Boolean(state.seatedInBridge || state.nearestStationLabel),
-      stroke: state.seatedInBridge || state.nearestStationLabel ? C_GREEN : C_BORDER,
-      align: 'left',
-      font: '700 21px system-ui, sans-serif',
-      subFont: '500 15px system-ui, sans-serif',
-    });
-
-    registerBtn(tabletSurface, 'cab-grab-rail', leftX + 20, yTop + 154, leftW - 40, 74, 'grab-rail', null, {
-      label: state.railAnchored ? '🧲 Soltar pasamanos EVA' : '🧲 Agarrar / soltar pasamanos cercano',
-      subLabel: 'Atajo rápido en VR: Empuñadura (Grip L o R)',
-      active: Boolean(state.railAnchored),
-      stroke: C_ACCENT,
-      align: 'left',
-      font: '700 20px system-ui, sans-serif',
-      subFont: '500 15px system-ui, sans-serif',
-    });
-
-    if (ctx) {
-      ctx.fillStyle = C_ACCENT;
-      ctx.font = '700 18px system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText('ASCENSOR Y TELETRANSPORTE ENTRE CUBIERTAS', leftX + 20, yTop + 258);
-    }
-
-    const deckList = [
-      { code: 'C01', deckId: 'deck-01', name: 'Puente y Mando' },
-      { code: 'C02', deckId: 'deck-02', name: 'Habitación y Vistas' },
-      { code: 'C03', deckId: 'deck-03', name: 'Laboratorio y Reactor' },
-      { code: 'C04', deckId: 'deck-04', name: 'Hangar y Salida EVA' },
-    ];
-    const dBtnW = Math.floor((leftW - 56) / 2);
-    for (let i = 0; i < deckList.length; i++) {
-      const d = deckList[i];
-      const col = i % 2;
-      const row = Math.floor(i / 2);
-      registerBtn(
-        tabletSurface,
-        `cab-deck-${d.code}`,
-        leftX + 20 + col * (dBtnW + 16),
-        yTop + 280 + row * 94,
-        dBtnW,
-        82,
-        'select-deck',
-        d.deckId,
-        {
-          label: `${d.code} · Cubierta ${i + 1}`,
-          subLabel: d.name,
-          active: state.activeDeckId === d.code,
-          font: '700 20px system-ui, sans-serif',
-          subFont: '500 15px system-ui, sans-serif',
-        },
-      );
-    }
-
-    registerBtn(tabletSurface, 'cab-open-kronos', leftX + 20, yTop + 482, leftW - 40, 74, 'open-tab', 'kronos', {
-      label: '✦ Hablar o consultar a KRONOS IA',
-      subLabel: 'Preguntas científicas, voz espacial e IA a bordo',
-      stroke: C_VIOLET,
-      font: '700 20px system-ui, sans-serif',
-      subFont: '500 15px system-ui, sans-serif',
-    });
-
-    const rColW = Math.floor((rightW - 56) / 2);
-    registerBtn(tabletSurface, 'cab-toggle-view', rightX + 20, yTop + 52, rColW, 84, 'toggle-view', null, {
-      label: state.viewMode === 3 ? 'Ir a Cabina 1P' : 'Vista Exterior 120m',
-      subLabel: 'Botón A / X',
-      active: state.viewMode === 3,
-      font: '700 19px system-ui, sans-serif',
-      subFont: '500 15px system-ui, sans-serif',
-    });
-    registerBtn(tabletSurface, 'cab-toggle-helm', rightX + 36 + rColW, yTop + 52, rColW, 84, 'toggle-free-helm', null, {
-      label: state.freeHelmMode ? 'Salir Timón Libre' : 'Timón Libre 6-DOF',
-      subLabel: 'Botón B (Exterior)',
-      active: state.freeHelmMode,
-      font: '700 19px system-ui, sans-serif',
-      subFont: '500 15px system-ui, sans-serif',
-    });
-
-    registerBtn(tabletSurface, 'cab-toggle-optics', rightX + 20, yTop + 150, rColW, 84, 'toggle-optics', null, {
-      label: state.opticalEnabled ? `Óptica ${state.opticalMag}× ON` : 'Telescopio Óptico',
-      subLabel: 'Botón Y · Zoom espacial',
-      active: state.opticalEnabled,
-      font: '700 19px system-ui, sans-serif',
-      subFont: '500 15px system-ui, sans-serif',
-    });
-    registerBtn(tabletSurface, 'cab-summon-orb', rightX + 36 + rColW, yTop + 150, rColW, 84, 'kronos-summon-orb', null, {
-      label: '✦ Llamar Esfera IA',
-      subLabel: 'Traer holograma frente a ti',
-      stroke: C_VIOLET,
-      font: '700 19px system-ui, sans-serif',
-      subFont: '500 15px system-ui, sans-serif',
-    });
-
-    registerBtn(tabletSurface, 'cab-start-tour', rightX + 20, yTop + 248, rColW, 80, 'kronos-start-tour', null, {
-      label: '▶ Tour guiado nave',
-      subLabel: 'Recorrido C01–C04',
-      font: '700 19px system-ui, sans-serif',
-      subFont: '500 15px system-ui, sans-serif',
-    });
-    registerBtn(tabletSurface, 'cab-open-travel', rightX + 36 + rColW, yTop + 248, rColW, 80, 'open-tab', 'travel', {
-      label: '🚀 Destinos y Mapa',
-      subLabel: 'Planetas y regiones',
-      stroke: C_ACCENT,
-      font: '700 19px system-ui, sans-serif',
-      subFont: '500 15px system-ui, sans-serif',
-    });
-
-    registerBtn(tabletSurface, 'cab-recenter', rightX + 20, yTop + 342, rColW, 74, 'recenter-hud', null, {
-      label: '⟲ Centrar vista HMD',
-      subLabel: 'R3 o Grip I + Gatillo I',
-      font: '700 18px system-ui, sans-serif',
-      subFont: '500 14px system-ui, sans-serif',
-    });
-    registerBtn(tabletSurface, 'cab-pause', rightX + 36 + rColW, yTop + 342, rColW, 74, 'open-pause', null, {
-      label: '⚙ Ajustes / Gráficos',
-      subLabel: 'Abrir menú 2D',
-      font: '700 18px system-ui, sans-serif',
-      subFont: '500 14px system-ui, sans-serif',
-    });
-
-    if (ctx) {
-      drawRoundedRect(ctx, rightX + 20, yTop + 434, rightW - 40, 122, 14);
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
-      ctx.stroke();
-
-      ctx.fillStyle = C_ACCENT;
-      ctx.font = '700 16px system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText('ATAJOS META QUEST TOUCH EN VR', rightX + 36, yTop + 460);
-      ctx.fillStyle = C_TEXT;
-      ctx.font = '500 15px system-ui, sans-serif';
-      ctx.fillText('• Stick I: mover / L3: impulso   • Stick D: girar y subir/bajar', rightX + 36, yTop + 490);
-      ctx.fillText('• Gatillo I o D: usar menú o consola   • Grip I/D: freno y barandal', rightX + 36, yTop + 515);
-      ctx.fillText('• B (Cabina) o Grip + B / Y: abrir tableta   • R3: centrar visor', rightX + 36, yTop + 540);
-    }
-  }
-
   function renderTablet() {
     tabletSurface.buttons = [];
     const ctx = tabletSurface.ctx;
@@ -1672,14 +1400,13 @@ export function createVrHudPanel3D(callbacks = {}) {
       { id: 'tab-travel', label: '🚀 Viajar', value: 'travel' },
       { id: 'tab-spherex', label: '🔬 SPHEREx', value: 'spherex' },
       { id: 'tab-kronos', label: '✦ KRONOS', value: 'kronos' },
-      { id: 'tab-cabin', label: '🛠 Cabina', value: 'cabin' },
     ];
     for (let i = 0; i < tabs.length; i++) {
       const t = tabs[i];
-      registerBtn(tabletSurface, t.id, 296 + i * 160, 18, 150, 62, 'open-tab', t.value, {
+      registerBtn(tabletSurface, t.id, 304 + i * 204, 18, 190, 62, 'open-tab', t.value, {
         label: t.label,
         active: state.activeTab === t.value,
-        font: '700 19px system-ui, sans-serif',
+        font: '700 20px system-ui, sans-serif',
       });
     }
 
@@ -1696,7 +1423,6 @@ export function createVrHudPanel3D(callbacks = {}) {
 
     if (state.activeTab === 'travel') renderTravelTab(W, H);
     else if (state.activeTab === 'spherex') renderSpherexTab(W, H);
-    else if (state.activeTab === 'cabin') renderCabinTab(W, H);
     else renderKronosTab(W, H);
 
     if (tabletSurface.texture) tabletSurface.texture.needsUpdate = true;
@@ -1725,8 +1451,7 @@ export function createVrHudPanel3D(callbacks = {}) {
   }
 
   function openWithTab(tabId = 'travel') {
-    const validTab =
-      tabId === 'spherex' || tabId === 'kronos' || tabId === 'cabin' ? tabId : 'travel';
+    const validTab = tabId === 'spherex' || tabId === 'kronos' ? tabId : 'travel';
     state.activeTab = validTab;
     state.tabletOpen = true;
     forceSnapPose = true;
@@ -1786,17 +1511,6 @@ export function createVrHudPanel3D(callbacks = {}) {
       case 'toggle-free-helm':
         callbacks.onToggleFreeHelm?.();
         return { handled: true, action: btn.action };
-      case 'interact-nearest':
-        closeTablet();
-        callbacks.onInteractNearest?.();
-        return { handled: true, action: btn.action };
-      case 'grab-rail':
-        callbacks.onGrabRail?.();
-        return { handled: true, action: btn.action };
-      case 'toggle-compact':
-        state.quickBarCompact = !state.quickBarCompact;
-        quickBar.dirty = true;
-        return { handled: true, action: btn.action, payload: state.quickBarCompact };
       case 'open-pause':
         closeTablet();
         callbacks.onPauseMenuRequest?.();
@@ -2005,10 +1719,6 @@ export function createVrHudPanel3D(callbacks = {}) {
       ['opticalEnabled', 'opticalEnabled'],
       ['opticalMag', 'opticalMag'],
       ['activeDeckId', 'activeDeckId'],
-      ['nearestStationId', 'nearestStationId'],
-      ['nearestStationLabel', 'nearestStationLabel'],
-      ['seatedInBridge', 'seatedInBridge'],
-      ['railAnchored', 'railAnchored'],
       ['focusedObject', 'focusedObject'],
       ['nearObject', 'nearObject'],
       ['voiceEnabled', 'voiceEnabled'],
@@ -2051,9 +1761,6 @@ export function createVrHudPanel3D(callbacks = {}) {
 
     tempForward.set(0, 0, -1).applyQuaternion(headWorldQuat);
     const flatLen = Math.hypot(tempForward.x, tempForward.z);
-    if (hudAnchorValid && hudAnchorPos.distanceToSquared(eyeWorldPos) > 20) {
-      hudAnchorValid = false;
-    }
     if (flatLen > 0.08) {
       const targetYaw = Math.atan2(-tempForward.x, -tempForward.z);
       if (!hudAnchorValid || forceSnapPose) {
@@ -2083,7 +1790,7 @@ export function createVrHudPanel3D(callbacks = {}) {
     // Place Quick Bar cleanly below eye level so forward view remains open
     quickBar.mesh.visible = true;
     const qbDist = state.tabletOpen ? 1.42 : 1.36;
-    const qbDrop = state.tabletOpen ? -0.60 : state.quickBarCompact ? -0.49 : -0.42;
+    const qbDrop = state.tabletOpen ? -0.60 : -0.40;
     tempOffset.copy(hudAnchorPos).addScaledVector(tempForward, qbDist);
     tempOffset.y += qbDrop;
     quickBar.mesh.position.copy(tempOffset);
