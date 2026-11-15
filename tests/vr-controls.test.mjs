@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
+import * as THREE from 'three';
 import { createSceneHarness } from '../scripts/test-support/sceneHarness.mjs';
 import {
   DEFAULT_VR_SETTINGS,
@@ -12,18 +13,21 @@ import {
   createVrInputStateTracker,
   getVrAvailabilitySync,
   probeVrAvailability,
+  createWebXrManager,
 } from '../src/scene/vrControls.js';
 
 test('vrControls pure helpers normalize settings, deadzones, and decode xr-standard gamepads', () => {
+  assert.equal(DEFAULT_VR_SETTINGS.turnMode, 'smooth');
+  assert.equal(normalizeVrSettings({}).turnMode, 'smooth');
   const normalized = normalizeVrSettings({
-    turnMode: 'smooth',
+    turnMode: 'snap',
     snapAngleDeg: 45,
     smoothTurnSpeed: 9,
     moveSpeedScale: 0.2,
     deadzone: 0.9,
     showControllerRays: false,
   });
-  assert.equal(normalized.turnMode, 'smooth');
+  assert.equal(normalized.turnMode, 'snap');
   assert.equal(normalized.snapAngleDeg, 45);
   assert.equal(normalized.smoothTurnSpeed, 3.5);
   assert.equal(normalized.moveSpeedScale, 0.6);
@@ -38,6 +42,8 @@ test('vrControls pure helpers normalize settings, deadzones, and decode xr-stand
 
   assert.deepEqual(readGamepadThumbstick({ axes: [0.1, -0.2, 0.75, -0.5] }), { x: 0.75, y: -0.5 });
   assert.deepEqual(readGamepadThumbstick({ axes: [-0.4, 0.6] }), { x: -0.4, y: 0.6 });
+  // Alternate OpenXR profile where thumbstick is on axes [0, 1] and [2, 3] remain idle
+  assert.deepEqual(readGamepadThumbstick({ axes: [0.85, -0.4, 0, 0] }), { x: 0.85, y: -0.4 });
 
   const tracker = createVrInputStateTracker({
     turnMode: 'snap',
@@ -90,9 +96,9 @@ test('vrControls pure helpers normalize settings, deadzones, and decode xr-stand
   });
   const f4 = tracker.stepFrame({
     dt: 0.016,
-    rightGamepad: { axes: [0, 0, -0.9, 0], buttons: [] },
+    rightGamepad: { axes: [0, 0, -0.5, 0], buttons: [] },
   });
-  assert.ok(Math.abs(f4.turnYawDeltaRad - (Math.PI / 6)) < 1e-4, 'Snap turn left triggers +30 deg after re-arm');
+  assert.ok(Math.abs(f4.turnYawDeltaRad - (Math.PI / 6)) < 1e-4, 'Snap turn left triggers +30 deg at moderate stick tilt');
 
   // Switch to smooth turn mode
   tracker.setSettings({ ...DEFAULT_VR_SETTINGS, turnMode: 'smooth', smoothTurnSpeed: 2.0 });
@@ -217,10 +223,18 @@ test('VR HUD buttons, PauseMenu VR settings, and createScene WebXR controller lo
     await act(async () => {
       controlsSettingsTab.props.onClick();
     });
+    const snapBtn = pauseMenu.root
+      .findAllByType('button')
+      .find((b) => instanceText(b).includes('Por pasos'));
+    assert.ok(snapBtn, 'PauseMenu Controles tab displays VR snap turn mode button');
+    await act(async () => {
+      snapBtn.props.onClick();
+    });
+    assert.equal(updatedGameSettings?.vr?.turnMode, 'snap');
     const smoothBtn = pauseMenu.root
       .findAllByType('button')
       .find((b) => instanceText(b).includes('Suave continuo'));
-    assert.ok(smoothBtn, 'PauseMenu Controles tab displays VR turn mode selector');
+    assert.ok(smoothBtn, 'PauseMenu Controles tab displays VR smooth turn mode button');
     await act(async () => {
       smoothBtn.props.onClick();
     });
@@ -288,6 +302,21 @@ test('VR HUD buttons, PauseMenu VR settings, and createScene WebXR controller lo
     assert.equal(api.navigationSnapshot().view, 3, 'VR A/X toggle switches from Cabina 1P to Exterior view');
     assert.ok(viewEvents.includes(3), 'onViewChange callback notified of Exterior view');
 
+    // Right thumbstick in Exterior (non-free-helm) rotates camera orbit smoothly
+    assert.equal(api.navigationSnapshot().view, 3);
+    assert.equal(api.isFreeHelmActive(), false);
+    api.setVrSettings({ turnMode: 'smooth', smoothTurnSpeed: 2.0 });
+    const camBeforeOrbit = api.navigationSnapshot().localCameraPosition;
+    api.applyVrControllerInput({ rightAxes: [0, 0, 0.95, 0] });
+    harness.stepFrames(8);
+    api.applyVrControllerInput(null);
+    const camAfterOrbit = api.navigationSnapshot().localCameraPosition;
+    const orbitDelta = Math.hypot(
+      camAfterOrbit[0] - camBeforeOrbit[0],
+      camAfterOrbit[2] - camBeforeOrbit[2],
+    );
+    assert.ok(orbitDelta > 5, `Expected VR right thumbstick to orbit Exterior camera (delta=${orbitDelta})`);
+
     api.setFreeHelmMode(true);
     const shipBeforeMove = api.getShipPosition();
     api.applyVrControllerInput({ leftAxes: [0, 0, 0, -1], boost: true });
@@ -305,5 +334,109 @@ test('VR HUD buttons, PauseMenu VR settings, and createScene WebXR controller lo
     assert.ok(Array.isArray(recenterRes.offset));
   } finally {
     await harness.close();
+  }
+});
+
+test('createWebXrManager auto-calibrates seated/standing HMD eye height and filters gaze sources on right stick', async () => {
+  const prevDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const dummyRefSpace = { id: 'local-floor-ref' };
+  const fakeSession = {
+    inputSources: [
+      // Gaze source without handedness must NOT steal the right controller slot
+      { targetRayMode: 'gaze', handedness: 'none', gamepad: { axes: [], buttons: [] } },
+      { targetRayMode: 'tracked-pointer', handedness: 'left', gamepad: { axes: [0, 0, 0, -0.5], buttons: [] } },
+      // OpenXR/Link right controller reporting thumbstick on axes [0, 1]
+      { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: { axes: [0.88, 0, 0, 0], buttons: [] } },
+    ],
+    addEventListener() {},
+    async end() {},
+  };
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      xr: {
+        isSessionSupported: async (mode) => mode === 'immersive-vr',
+        requestSession: async () => fakeSession,
+      },
+    },
+  });
+  try {
+    const sceneAstro = new THREE.Scene();
+    const sceneLocal = new THREE.Scene();
+    const camAstro = new THREE.PerspectiveCamera();
+    const camLocal = new THREE.PerspectiveCamera();
+    const fakeRenderer = {
+      xr: {
+        enabled: false,
+        setReferenceSpaceType() {},
+        getReferenceSpace: () => dummyRefSpace,
+        async setSession() {},
+        getCamera: () => camLocal,
+      },
+      render() {},
+    };
+    const xrManager = createWebXrManager({
+      renderer: fakeRenderer,
+      sceneAstro,
+      sceneLocal,
+      camAstro,
+      camLocal,
+    });
+    const enterRes = await xrManager.enterVr();
+    assert.equal(enterRes.ok, true);
+
+    // Simulate seated user (HMD y = 0.98m, offset laterally in guardian)
+    const seatedFrame = {
+      getViewerPose: (ref) =>
+        ref === dummyRefSpace
+          ? {
+              transform: {
+                position: { x: 0.25, y: 0.98, z: -0.15 },
+                orientation: { x: 0, y: 0, z: 0, w: 1 },
+              },
+            }
+          : null,
+    };
+    const polled = xrManager.pollInput({ dt: 0.016, xrFrame: seatedFrame });
+    assert.ok(polled, 'pollInput returns frame in XR');
+    assert.ok(polled.turnYawDeltaRad < -0.01, `Expected right stick rotation despite leading gaze source, got ${polled.turnYawDeltaRad}`);
+
+    const cabinEye = new THREE.Vector3(0, 5.05, -10.4);
+    const cabinYaw = new THREE.Quaternion();
+    xrManager.syncRigsBeforeRender({
+      astroCamPos: new THREE.Vector3(),
+      astroCamQuat: new THREE.Quaternion(),
+      localEyePos: cabinEye,
+      localYawQuat: cabinYaw,
+      inCabin: true,
+      xrFrame: seatedFrame,
+    });
+    // Rig position + HMD height (0.98m) should land directly at exact cabinEye.y (5.05m)
+    const renderedEyeY = xrManager.vrLocalRig.position.y + 0.98;
+    assert.ok(Math.abs(renderedEyeY - 5.05) < 1e-4, `Expected rendered eye height 5.05m, got ${renderedEyeY}`);
+
+    // Now test user standing up to 1.72m and calling recenterVr(standingFrame)
+    const standingFrame = {
+      getViewerPose: () => ({
+        transform: {
+          position: { x: 0, y: 1.72, z: 0 },
+          orientation: { x: 0, y: 0, z: 0, w: 1 },
+        },
+      }),
+    };
+    const rec = xrManager.recenterVr(standingFrame);
+    assert.ok(Math.abs(rec.offset[1] - 1.72) < 1e-4);
+    xrManager.syncRigsBeforeRender({
+      astroCamPos: new THREE.Vector3(),
+      astroCamQuat: new THREE.Quaternion(),
+      localEyePos: cabinEye,
+      localYawQuat: cabinYaw,
+      inCabin: true,
+      xrFrame: standingFrame,
+    });
+    assert.ok(Math.abs((xrManager.vrLocalRig.position.y + 1.72) - 5.05) < 1e-4);
+  } finally {
+    if (prevDesc) Object.defineProperty(globalThis, 'navigator', prevDesc);
+    else delete globalThis.navigator;
   }
 });

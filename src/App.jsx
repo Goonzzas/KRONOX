@@ -261,7 +261,7 @@ export default function App() {
         initialPreset = 'auto';
       }
       const defaults = {
-        settingsVersion: 3,
+        settingsVersion: 5,
         cameraSensitivity: 'normal',
         showSubtitles: true,
         subtitleSize: 'normal',
@@ -293,14 +293,19 @@ export default function App() {
           ...(parsed.graphics && typeof parsed.graphics === 'object' ? parsed.graphics : {}),
         };
         mergedGraphics.preset = normalizeGraphicsPreset(mergedGraphics.preset, 'auto');
+        const migratedVr =
+          (!parsed.settingsVersion || Number(parsed.settingsVersion) < 5) &&
+          parsed.vr?.turnMode === 'snap'
+            ? { ...parsed.vr, turnMode: 'smooth' }
+            : parsed.vr;
         return {
           ...defaults,
           ...parsed,
-          settingsVersion: 4,
+          settingsVersion: 5,
           musicVolume: migratedMusic,
           voiceName: 'Charon',
           graphics: mergedGraphics,
-          vr: normalizeVrSettings(parsed.vr),
+          vr: normalizeVrSettings(migratedVr),
         };
       } catch {
         return defaults;
@@ -1009,6 +1014,11 @@ export default function App() {
         return;
       }
       const res = await api.current?.enterVr?.();
+      if (res?.ok) {
+        setPauseMenuOpen(false);
+        api.current?.setSimulationPaused?.(false);
+        return;
+      }
       if (res && !res.ok && res.message) {
         notify(res.message, 'Realidad Virtual (WebXR)');
       }

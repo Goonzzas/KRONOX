@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 export const DEFAULT_VR_SETTINGS = Object.freeze({
-  turnMode: 'snap', // 'snap' | 'smooth'
+  turnMode: 'smooth', // 'smooth' | 'snap'
   snapAngleDeg: 30, // 30 | 45 | 60
   smoothTurnSpeed: 1.85, // rad/s
   moveSpeedScale: 1.0, // 0.6 .. 1.6
@@ -78,7 +78,10 @@ export const VR_CONTROL_BINDINGS = Object.freeze([
 
 export function normalizeVrSettings(raw = {}) {
   const src = raw && typeof raw === 'object' ? raw : {};
-  const turnMode = src.turnMode === 'smooth' ? 'smooth' : 'snap';
+  const turnMode =
+    src.turnMode === 'snap' || src.turnMode === 'smooth'
+      ? src.turnMode
+      : DEFAULT_VR_SETTINGS.turnMode;
   const rawSnap = Number(src.snapAngleDeg);
   const snapAngleDeg = [15, 30, 45, 60].includes(rawSnap) ? rawSnap : DEFAULT_VR_SETTINGS.snapAngleDeg;
   const smoothTurnSpeed = Number.isFinite(Number(src.smoothTurnSpeed))
@@ -112,19 +115,26 @@ export function applyAxisDeadzone(value, deadzone = DEFAULT_VR_SETTINGS.deadzone
 }
 
 export function readGamepadThumbstick(gamepad) {
-  if (!gamepad || !Array.isArray(gamepad.axes)) {
+  if (!gamepad || !gamepad.axes || typeof gamepad.axes.length !== 'number') {
     return { x: 0, y: 0 };
   }
   const axes = gamepad.axes;
-  // En el perfil estándar 'xr-standard', los ejes 2 y 3 corresponden al thumbstick;
-  // en mandos de 2 ejes se usan 0 y 1 como respaldo.
-  const hasFourAxes = axes.length >= 4;
-  const x = hasFourAxes ? axes[2] : axes[0];
-  const y = hasFourAxes ? axes[3] : axes[1];
-  return {
-    x: Number.isFinite(x) ? x : 0,
-    y: Number.isFinite(y) ? y : 0,
-  };
+  const ax0 = Number.isFinite(axes[0]) ? axes[0] : 0;
+  const ax1 = Number.isFinite(axes[1]) ? axes[1] : 0;
+  if (axes.length < 4) {
+    return { x: ax0, y: ax1 };
+  }
+  const ax2 = Number.isFinite(axes[2]) ? axes[2] : 0;
+  const ax3 = Number.isFinite(axes[3]) ? axes[3] : 0;
+  // En WebXR 'xr-standard', los ejes [2,3] son el thumbstick y [0,1] touchpad.
+  // Algunos drivers OpenXR/Link reportan el thumbstick en [0,1] dejando [2,3] en 0:
+  // si [2,3] está en reposo pero [0,1] supera la zona mínima, usamos [0,1] como respaldo.
+  const mag23 = Math.hypot(ax2, ax3);
+  const mag01 = Math.hypot(ax0, ax1);
+  if (mag23 >= 0.02 || mag23 >= mag01) {
+    return { x: ax2, y: ax3 };
+  }
+  return { x: ax0, y: ax1 };
 }
 
 function isGamepadButtonPressed(gamepad, index) {
@@ -227,10 +237,10 @@ export function createVrInputStateTracker(initialSettings = DEFAULT_VR_SETTINGS)
       } else {
         snapCooldown = Math.max(0, snapCooldown - safeDt);
         const absTurn = Math.abs(turnX);
-        if (absTurn < 0.25) {
+        if (absTurn < 0.22) {
           snapArmed = true;
           snapCooldown = 0;
-        } else if (absTurn >= 0.58 && (snapArmed || snapCooldown <= 0)) {
+        } else if (absTurn >= 0.38 && (snapArmed || snapCooldown <= 0)) {
           const stepRad = THREE.MathUtils.degToRad(settings.snapAngleDeg);
           turnYawDeltaRad = -Math.sign(turnX) * stepRad;
           snapArmed = false;
@@ -457,8 +467,12 @@ export function createWebXrManager({
   const vrLocalRig = new THREE.Group();
   vrLocalRig.name = 'kronox-vr-local-rig';
 
-  const recenterOffset = new THREE.Vector3(0, 1.65, 0);
+  const recenterOffset = new THREE.Vector3(0, 0, 0);
   let recenterYawRad = 0;
+  let pendingInitialCalibration = false;
+  let calibrationSamples = 0;
+  let hasSampledPose = false;
+  let lastSampledPoseYaw = 0;
 
   let savedAstroNear = camAstro?.near ?? 0.0005;
   let savedAstroFar = camAstro?.far ?? 4e5;
@@ -472,6 +486,11 @@ export function createWebXrManager({
   const tmpEuler = new THREE.Euler(0, 0, 0, 'YXZ');
   const tmpQuat = new THREE.Quaternion();
   const tmpVec = new THREE.Vector3();
+  const tmpScale = new THREE.Vector3();
+  const lastSampledPosePos = new THREE.Vector3();
+  const savedCamPosScratch = new THREE.Vector3();
+  const savedCamQuatScratch = new THREE.Quaternion();
+  const savedCamScaleScratch = new THREE.Vector3();
   const rebaseOrigin = new THREE.Vector3();
 
   let activeHoveredStation = null;
@@ -602,11 +621,95 @@ export function createWebXrManager({
     activeHoveredStation = null;
   }
 
+  function sampleXrViewerPose(xrFrame = null) {
+    if (!xrPresenting || !renderer?.xr) return null;
+    try {
+      const refSpace =
+        typeof renderer.xr.getReferenceSpace === 'function'
+          ? renderer.xr.getReferenceSpace()
+          : null;
+      if (xrFrame && refSpace && typeof xrFrame.getViewerPose === 'function') {
+        const viewerPose = xrFrame.getViewerPose(refSpace);
+        const transform = viewerPose?.transform;
+        if (transform?.position && transform?.orientation) {
+          tmpVec.set(
+            Number(transform.position.x) || 0,
+            Number(transform.position.y) || 0,
+            Number(transform.position.z) || 0,
+          );
+          tmpQuat.set(
+            Number(transform.orientation.x) || 0,
+            Number(transform.orientation.y) || 0,
+            Number(transform.orientation.z) || 0,
+            Number.isFinite(transform.orientation.w) ? transform.orientation.w : 1,
+          );
+          tmpEuler.setFromQuaternion(tmpQuat, 'YXZ');
+          lastSampledPosePos.copy(tmpVec);
+          lastSampledPoseYaw = Number.isFinite(tmpEuler.y) ? tmpEuler.y : 0;
+          hasSampledPose = true;
+          return { pos: lastSampledPosePos, yaw: lastSampledPoseYaw };
+        }
+      }
+      if (typeof renderer.xr.getCamera === 'function' && camLocal) {
+        savedCamPosScratch.copy(camLocal.position);
+        savedCamQuatScratch.copy(camLocal.quaternion);
+        savedCamScaleScratch.copy(camLocal.scale);
+        try {
+          const xrCam = renderer.xr.getCamera(camLocal);
+          if (xrCam?.matrix && typeof xrCam.matrix.decompose === 'function') {
+            // Three.js WebXRManager copia la matriz de vista en xrCam.matrix sin actualizar xrCam.quaternion
+            xrCam.matrix.decompose(tmpVec, tmpQuat, tmpScale);
+            if (tmpQuat.lengthSq() < 1e-8 && xrCam.quaternion) {
+              tmpQuat.copy(xrCam.quaternion);
+            }
+            tmpEuler.setFromQuaternion(tmpQuat, 'YXZ');
+            lastSampledPosePos.copy(tmpVec);
+            lastSampledPoseYaw = Number.isFinite(tmpEuler.y) ? tmpEuler.y : 0;
+            hasSampledPose = true;
+            return { pos: lastSampledPosePos, yaw: lastSampledPoseYaw };
+          }
+        } finally {
+          camLocal.position.copy(savedCamPosScratch);
+          camLocal.quaternion.copy(savedCamQuatScratch);
+          camLocal.scale.copy(savedCamScaleScratch);
+        }
+      }
+    } catch {
+      /* noop */
+    }
+    return hasSampledPose ? { pos: lastSampledPosePos, yaw: lastSampledPoseYaw } : null;
+  }
+
+  function tryAutoCalibrate(xrFrame = null) {
+    if (!pendingInitialCalibration || !xrPresenting) return;
+    const pose = sampleXrViewerPose(xrFrame);
+    calibrationSamples += 1;
+    if (!pose) {
+      if (calibrationSamples >= 12) {
+        pendingInitialCalibration = false;
+      }
+      return;
+    }
+    // En 'local-floor' la cabeza real (sentado ~0.95m, de pie ~1.7m) supera > 2 cm;
+    // en 'local' (origen 0,0,0) o tras 8 frames de estabilización bloqueamos la referencia exacta.
+    if (pose.pos.length() > 0.02 || calibrationSamples >= 8) {
+      recenterOffset.copy(pose.pos);
+      recenterYawRad = pose.yaw;
+      pendingInitialCalibration = false;
+    }
+  }
+
   function handleSessionEnded() {
     currentSession = null;
     xrPresenting = false;
     referenceSpaceType = null;
     lastHandCount = 0;
+    pendingInitialCalibration = false;
+    calibrationSamples = 0;
+    hasSampledPose = false;
+    lastSampledPoseYaw = 0;
+    recenterOffset.set(0, 0, 0);
+    recenterYawRad = 0;
     tracker.reset();
     detachRigs();
     if (renderer?.xr) {
@@ -656,10 +759,24 @@ export function createWebXrManager({
       ensureControllersBuilt();
       attachRigs();
       session.addEventListener('end', handleSessionEnded, { once: true });
-      await renderer.xr.setSession(session);
+      try {
+        await renderer.xr.setSession(session);
+      } catch (refErr) {
+        // Algunos navegadores/visores sin 'local-floor' requieren respaldo explícito a 'local'
+        if (referenceSpaceType !== 'local') {
+          referenceSpaceType = 'local';
+          renderer.xr.setReferenceSpaceType?.('local');
+          await renderer.xr.setSession(session);
+        } else {
+          throw refErr;
+        }
+      }
       xrPresenting = true;
-      recenterOffset.set(0, referenceSpaceType === 'local-floor' ? 1.65 : 0, 0);
+      recenterOffset.set(0, 0, 0);
       recenterYawRad = 0;
+      pendingInitialCalibration = true;
+      calibrationSamples = 0;
+      hasSampledPose = false;
       onSessionStartCallback?.(session);
       emitState(true);
       return { ok: true, referenceSpaceType };
@@ -687,16 +804,15 @@ export function createWebXrManager({
     }
   }
 
-  function recenterVr() {
-    if (xrPresenting && renderer?.xr && camLocal) {
-      try {
-        const xrCam = renderer.xr.getCamera(camLocal);
-        tmpVec.setFromMatrixPosition(xrCam.matrix);
-        tmpEuler.setFromQuaternion(xrCam.quaternion, 'YXZ');
-        recenterOffset.set(tmpVec.x, tmpVec.y, tmpVec.z);
-        recenterYawRad = tmpEuler.y;
-      } catch {
-        recenterOffset.set(0, referenceSpaceType === 'local-floor' ? 1.65 : 0, 0);
+  function recenterVr(xrFrame = null) {
+    if (xrPresenting && renderer?.xr) {
+      const pose = sampleXrViewerPose(xrFrame);
+      if (pose) {
+        recenterOffset.copy(pose.pos);
+        recenterYawRad = pose.yaw;
+        pendingInitialCalibration = false;
+      } else {
+        recenterOffset.set(0, 0, 0);
         recenterYawRad = 0;
       }
     } else {
@@ -714,14 +830,30 @@ export function createWebXrManager({
     let leftGamepad = null;
     let rightGamepad = null;
     const sources = currentSession?.inputSources;
-    if (sources && typeof sources[Symbol.iterator] === 'function') {
-      for (const src of sources) {
-        if (!src?.gamepad) continue;
-        if (src.handedness === 'left' && !leftGamepad) leftGamepad = src.gamepad;
-        else if (src.handedness === 'right' && !rightGamepad) rightGamepad = src.gamepad;
-        else if (!rightGamepad) rightGamepad = src.gamepad;
-        else if (!leftGamepad) leftGamepad = src.gamepad;
+    if (!sources || typeof sources[Symbol.iterator] !== 'function') {
+      return { leftGamepad, rightGamepad };
+    }
+    const candidates = [];
+    for (const src of sources) {
+      if (!src?.gamepad) continue;
+      if (src.targetRayMode === 'gaze' || src.targetRayMode === 'screen') continue;
+      candidates.push(src);
+    }
+    // Pasada 1: respetar estrictamente handedness 'left' / 'right' evitando que un perfil sin mano ocupe el slot
+    for (const src of candidates) {
+      const axesCount = src.gamepad.axes?.length || 0;
+      if (src.handedness === 'left' && (!leftGamepad || ((leftGamepad.axes?.length || 0) < 2 && axesCount >= 2))) {
+        leftGamepad = src.gamepad;
+      } else if (src.handedness === 'right' && (!rightGamepad || ((rightGamepad.axes?.length || 0) < 2 && axesCount >= 2))) {
+        rightGamepad = src.gamepad;
       }
+    }
+    // Pasada 2: respaldo solo para mandos sin handedness declarado con ejes de stick
+    for (const src of candidates) {
+      if (src.handedness === 'left' || src.handedness === 'right') continue;
+      if ((src.gamepad.axes?.length || 0) < 2) continue;
+      if (!rightGamepad) rightGamepad = src.gamepad;
+      else if (!leftGamepad) leftGamepad = src.gamepad;
     }
     return { leftGamepad, rightGamepad };
   }
@@ -793,7 +925,14 @@ export function createWebXrManager({
     return primaryHit;
   }
 
-  function pollInput({ dt = 0.016, interactableMeshes = [] } = {}) {
+  function pollInput({ dt = 0.016, xrFrame = null, interactableMeshes = [] } = {}) {
+    if (xrPresenting && xrFrame) {
+      if (pendingInitialCalibration) {
+        tryAutoCalibrate(xrFrame);
+      } else {
+        sampleXrViewerPose(xrFrame);
+      }
+    }
     const { leftGamepad, rightGamepad } = xrPresenting
       ? getControllerGamepads()
       : { leftGamepad: null, rightGamepad: null };
@@ -826,7 +965,7 @@ export function createWebXrManager({
       onInteractHit?.(rayHit.stationId, rayHit);
     }
     if (frame.actions.recenter) {
-      recenterVr();
+      recenterVr(xrFrame);
     }
     return { ...frame, rayHit };
   }
@@ -841,8 +980,12 @@ export function createWebXrManager({
     localEyePos,
     localYawQuat,
     inCabin = true,
+    xrFrame = null,
   } = {}) {
     if (!xrPresenting) return;
+    if (pendingInitialCalibration) {
+      tryAutoCalibrate(xrFrame);
+    }
     if (localYawQuat && localEyePos) {
       tmpEuler.set(0, -recenterYawRad, 0, 'YXZ');
       tmpQuat.setFromEuler(tmpEuler);

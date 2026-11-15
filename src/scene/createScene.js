@@ -3335,6 +3335,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let astronautPitch = 0;
   let targetYaw = 0;
   let targetPitch = 0;
+  let vrChaseYaw = 0;
+  let vrChasePitch = 0;
   let cabinFirstPerson = true; // Alternable entre 1P y 3P EVA [V]
   let camViewBlend = 0; // 0 = 1P ojos, 1 = 3P persecución suave
   const getCabinBaseFov = () => THREE.MathUtils.lerp(Math.min(fovBase, 42), Math.min(fovBase, 45), camViewBlend);
@@ -5520,7 +5522,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const _consoleWorldPosScratch = new V();
   const _consoleProjScratch = new V();
   const _forwardEyeScratch = new V();
-  function tick(rafTimestamp) {
+  function tick(rafTimestamp, xrFrame = null) {
     if (disposed) return;
     const xrActiveNow = Boolean(vrManager?.isPresenting?.());
     if (!xrActiveNow) {
@@ -5529,7 +5531,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const introOwnedThisFrame = !!realTimeIntro;
     const minIntervalMs = IS_NODE_SCENE_HARNESS ? 0 : (effectiveGraphics.minFrameIntervalMs || 0);
     const frameNow = typeof rafTimestamp === 'number' && rafTimestamp > 0 ? rafTimestamp : performance.now();
-    if (minIntervalMs > 0 && lastRenderedFrameAt > 0 && frameNow - lastRenderedFrameAt < minIntervalMs - 0.75) {
+    if (!xrActiveNow && minIntervalMs > 0 && lastRenderedFrameAt > 0 && frameNow - lastRenderedFrameAt < minIntervalMs - 0.75) {
       return;
     }
     lastRenderedFrameAt = frameNow;
@@ -5547,6 +5549,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     vrFrame = vrManager
       ? vrManager.pollInput({
         dt: Math.max(dt, 0.001),
+        xrFrame,
         interactableMeshes:
           fourDecksInterior?.getInteractMeshesForDeck?.(resolveCurrentDeck(astronautPos)?.id) ||
           fourDecksInterior?.interactRaycasterMeshes ||
@@ -5562,9 +5565,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (pv === 1 && !exteriorCameraMode && !simulationPaused && free) {
         if (vrFrame.turnYawDeltaRad) {
           targetYaw += vrFrame.turnYawDeltaRad;
-          if (vrManager?.getSettings?.().turnMode === 'snap') {
+          if (xrActiveNow || vrManager?.getSettings?.().turnMode === 'snap') {
             astronautYaw = targetYaw;
           }
+        }
+      } else if (pv === 3 && !exteriorCameraMode && !freeHelmMode && !simulationPaused && free) {
+        if (vrFrame.turnYawDeltaRad) {
+          vrChaseYaw += vrFrame.turnYawDeltaRad;
+        }
+        if (Math.abs(vrFrame.shipPitchAxis || 0) > 0.01) {
+          vrChasePitch = THREE.MathUtils.clamp(
+            vrChasePitch - vrFrame.shipPitchAxis * dt * 1.15,
+            -0.95,
+            0.95,
+          );
         }
       }
       if (!simulationPaused) {
@@ -6957,7 +6971,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           const blendTarget = cabinFirstPerson ? 0 : 1;
           camViewBlend += (blendTarget - camViewBlend) * Math.min(1, dt * 10);
 
-          const headBob = isWalking ? Math.sin(clk.elapsedTime * (keys.shift ? 11.5 : 8.2)) * (0.009 * Math.min(1.2, currentSpeed / 1.4)) : 0;
+          const headBob =
+            !vrManager?.isPresenting?.() && isWalking
+              ? Math.sin(clk.elapsedTime * (keys.shift ? 11.5 : 8.2)) * (0.009 * Math.min(1.2, currentSpeed / 1.4))
+              : 0;
           const eyeX = astronautPos.x;
           const eyeY = astronautPos.y + SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + headBob + freeHelmBlend * 0.18;
           const eyeZ = astronautPos.z + (-13.2 - astronautPos.z) * freeHelmBlend;
@@ -7491,17 +7508,26 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             localCam.fov = fovBase;
             localCam.updateProjectionMatrix();
           } else {
+            const hasVrChaseOrbit =
+              pv == 3 && (Math.abs(vrChaseYaw) > 1e-4 || Math.abs(vrChasePitch) > 1e-4);
             const chaseMeters = new V(0.28, 0.16, 1.0)
-              .multiplyScalar(shipCameraDistanceMeters() * (pv == 3 ? 1 : 0))
-              .applyQuaternion(q);
+              .multiplyScalar(shipCameraDistanceMeters() * (pv == 3 ? 1 : 0));
+            if (hasVrChaseOrbit) {
+              chaseMeters.applyEuler(new THREE.Euler(vrChasePitch, vrChaseYaw, 0, 'YXZ'));
+            }
+            chaseMeters.applyQuaternion(q);
             localCam.position.copy(chaseMeters);
-            localCam.quaternion.copy(q);
+            if (hasVrChaseOrbit) {
+              localCam.lookAt(0, 0, 0);
+            } else {
+              localCam.quaternion.copy(q);
+            }
             localCam.near = 0.25;
             localCam.far = 6000;
             localCam.fov = fovBase;
             localCam.updateProjectionMatrix();
 
-            cam.quaternion.copy(q);
+            cam.quaternion.copy(localCam.quaternion);
             const pilotQuaternion = cam.quaternion.clone(),
               pilotPosition = sp
                 .clone()
@@ -7867,6 +7893,27 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     if ((!free || exteriorCameraMode) && !introOwnedThisFrame && !realTimeIntro && !mainMenuOrbitActive && !cabinReentryBlend) {
       ct.update();
+      if (
+        vrFrame &&
+        !freeHelmMode &&
+        !simulationPaused &&
+        !exteriorCameraTransition &&
+        (vrFrame.turnYawDeltaRad || Math.abs(vrFrame.shipPitchAxis || 0) > 0.01)
+      ) {
+        const orbitOffset = cam.position.clone().sub(ct.target);
+        if (orbitOffset.lengthSq() > 1e-6) {
+          const sph = new THREE.Spherical().setFromVector3(orbitOffset);
+          sph.theta += vrFrame.turnYawDeltaRad || 0;
+          sph.phi = THREE.MathUtils.clamp(
+            sph.phi - (vrFrame.shipPitchAxis || 0) * dt * 1.15,
+            0.08,
+            Math.PI - 0.08,
+          );
+          orbitOffset.setFromSpherical(sph);
+          cam.position.copy(ct.target).add(orbitOffset);
+          cam.lookAt(ct.target);
+        }
+      }
       if (exteriorCameraMode || spectator) {
         const metricOffset = cam.position.clone().sub(sp);
         localCam.position.copy(metricOffset);
@@ -8007,6 +8054,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         localEyePos: inCabinXr ? vrLocalEyeScratch : localCam.position,
         localYawQuat: inCabinXr ? vrLocalYawQuatScratch : localCam.quaternion,
         inCabin: inCabinXr,
+        xrFrame,
       });
       originRebaseState = vrManager.renderAstroInVr({
         threshold: isPhysicalObservationActive() ? 0.001 : 10000,
@@ -8059,6 +8107,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const wasExteriorInspection = exteriorCameraMode;
     if (wasExteriorInspection) leaveExteriorCamera(true);
     pv = v;
+    vrChaseYaw = 0;
+    vrChasePitch = 0;
     if (v == 1) {
       if (freeHelmMode) {
         freeHelmMode = false;
@@ -8140,7 +8190,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         cancelAnimationFrame(rafId);
         rafId = 0;
       }
-      if (pv !== 1 && free) {
+      if (free && (pv !== 1 || exteriorCameraMode || !cabinFirstPerson || camViewBlend > 0.05)) {
         applyCameraView(1);
         S.onViewChange?.(1);
       }
