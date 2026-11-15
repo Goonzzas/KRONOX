@@ -1367,63 +1367,381 @@ export function buildKronoxInterior120M() {
     const d3 = deckContainers['deck-03'];
     const f = -3.4;
 
-    // Reactor principal en popa (KRONOX (0, -3.4, +9.0)) con bobinas en cobre, anillo de seguridad y colectores en techo
+    // ═══════════════════════════════════════════════════════════════════════════
+    // REACTOR TOROIDAL DE FUSIÓN NUCLEAR — MOTOR PRINCIPAL DE PROPULSIÓN AURORA
+    // Sistema de confinamiento magnético tokamak con cámara de vacío toroidal,
+    // 12 bobinas superconductoras de campo toroidal (TF), 6 bobinas poloidales (PF),
+    // núcleo de plasma D-T a 150 millones K, sistema criogénico de helio líquido,
+    // barras de control de neutrones, blindaje de boro y pantallas de telemetría.
+    // Potencia nominal: 4.2 GW térmicos → 1.8 GW propulsión iónica + 600 MW eléctricos
+    // ═══════════════════════════════════════════════════════════════════════════
     const rg = new THREE.Group();
+    rg.name = 'ReactorToroidalAssembly';
     rg.position.set(-9, f, 0);
     d3.add(rg);
-    add(rg, cyl(2.45, 2.55, 0.68, 32), slateM, 0, 0.34, 0, 'console');
-    add(rg, cyl(2.45, 2.55, 0.68, 32), slateM, 0, 2.58, 0, 'console');
-    add(rg, torus(2.62, 0.06, 8, 36), cyanGlow, 0, 0.08, 0).rotation.x = Math.PI / 2;
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2 + 0.25;
-      add(rg, cyl(0.15, 0.15, 2.8, 12), steelM, 2.2 * Math.cos(a), 1.46, 2.2 * Math.sin(a));
-      const coil = add(rg, torus(0.38, 0.09, 8, 18), copperM, 2.02 * Math.cos(a), 1.46, 2.02 * Math.sin(a));
-      coil.rotation.y = -a;
-      // Postes de barandilla de seguridad perimetral alrededor del núcleo magnético
-      add(rg, cyl(0.045, 0.055, 0.96, 8), darkM, 2.95 * Math.cos(a), 0.48, 2.95 * Math.sin(a));
+
+    // --- Materiales especializados del reactor ---
+    const reactorRedGlow = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0.85 }));
+    const reactorPurpleGlow = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0xc084fc, transparent: true, opacity: 0.8 }));
+    const plasmaOrangeGlow = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0xff8c42, transparent: true, opacity: 0.7 }));
+    const neutronBlueGlow = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.6 }));
+    const containmentFieldMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x6ce3ff, transparent: true, opacity: 0.15, side: THREE.DoubleSide }));
+    const warningRedMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0xff2222 }));
+
+    // --- Plataforma base elevada del reactor con suelo antideslizante texturado ---
+    add(rg, cyl(3.85, 4.1, 0.32, 36), slateM, 0, 0.16, 0, 'console');
+    add(rg, cyl(3.72, 3.72, 0.06, 36), darkM, 0, 0.34, 0);
+    // Piso de rejilla técnica con patrón de diamante
+    for (let i = 0; i < 12; i++) {
+      const ga = (i / 12) * Math.PI * 2;
+      add(rg, box(3.4, 0.02, 0.04), steelM, 0, 0.35, 0).rotation.y = ga;
     }
-    const guardRing = add(rg, torus(2.95, 0.035, 8, 36), railAmberM, 0, 0.94, 0);
-    guardRing.rotation.x = Math.PI / 2;
-    reactorPlasmaMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x7ce6ff }));
-    reactorPlasmaCore = add(rg, cyl(1.05, 1.05, 2.85, 24), reactorPlasmaMat, 0, 1.48, 0);
+    // Anillo inferior de contención con marcas de peligro
+    const baseRing = add(rg, torus(3.92, 0.08, 8, 48), hazardM, 0, 0.08, 0);
+    baseRing.rotation.x = Math.PI / 2;
+
+    // --- CÁMARA DE VACÍO TOROIDAL (anillo principal del tokamak) ---
+    // Torus principal: R_mayor = 1.85m, r_menor = 0.72m — cámara de alto vacío donde se confina el plasma
+    add(rg, torus(1.85, 0.72, 16, 48), steelM, 0, 1.48, 0).rotation.x = Math.PI / 2;
+    // Revestimiento interno de tungsteno del divertor (visible como anillo interno más oscuro)
+    add(rg, torus(1.85, 0.58, 12, 48), darkM, 0, 1.48, 0).rotation.x = Math.PI / 2;
+
+    // --- NÚCLEO DE PLASMA (cilindro luminoso central que gira) ---
+    reactorPlasmaMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x7ce6ff, transparent: true, opacity: 0.88 }));
+    reactorPlasmaCore = add(rg, torus(1.85, 0.42, 12, 36), reactorPlasmaMat, 0, 1.48, 0);
+    reactorPlasmaCore.rotation.x = Math.PI / 2;
     reactorPlasmaCore.name = 'ReactorPlasmaCore';
     reactorPlasmaCore.userData.dynamicTransform = true;
-    [0.68, 1.45, 2.22].forEach((ty) => {
-      const t = add(rg, torus(2.46, 0.12, 8, 32), goldM, 0, ty, 0);
-      t.rotation.x = Math.PI / 2;
-      t.userData.dynamicTransform = true;
-    });
-    [-4, 4].forEach((cz) => {
-      add(d3, cyl(0.26, 0.26, 3.05, 12), steelM, -9, f + 1.52, cz, 'console');
-      add(d3, torus(0.32, 0.04, 8, 18), copperM, -9, f + 1.52, cz).rotation.x = Math.PI / 2;
-    });
-    // Conductos criogénicos en techo, colectores de refrigeración y canaleta de seguridad en piso
-    [-3.2, 3.2].forEach((pz) => {
-      add(d3, cyl(0.18, 0.18, 18.0, 12), steelM, 0, f + 2.75, pz).rotation.z = Math.PI / 2;
-      add(d3, cyl(0.22, 0.22, 1.2, 12), goldM, -4.5, f + 2.75, pz).rotation.z = Math.PI / 2;
-      add(d3, cyl(0.22, 0.22, 1.2, 12), goldM, 4.5, f + 2.75, pz).rotation.z = Math.PI / 2;
-      add(d3, box(14.0, 0.025, 0.32), hazardM, 0, f + 0.015, pz);
-    });
-    add(d3, box(0.24, 2.2, 4.6), ventM, -12.8, f + 1.15, 0);
+    // Anillo interior de plasma supercaliente (segunda capa más brillante)
+    const innerPlasmaRing = add(rg, torus(1.85, 0.22, 8, 32), plasmaOrangeGlow, 0, 1.48, 0);
+    innerPlasmaRing.rotation.x = Math.PI / 2;
+    innerPlasmaRing.userData.dynamicTransform = true;
+    innerPlasmaRing.name = 'InnerPlasmaHot';
 
+    // --- 12 BOBINAS SUPERCONDUCTORAS DE CAMPO TOROIDAL (TF Coils) ---
+    // Cada bobina es un toroide vertical que abraza la cámara de vacío
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const cx = 1.85 * Math.cos(a);
+      const cz = 1.85 * Math.sin(a);
+      // Bobina principal de Nb₃Sn superconductor (cobre por fuera)
+      const tfCoil = add(rg, torus(0.92, 0.11, 8, 24), copperM, cx, 1.48, cz);
+      tfCoil.rotation.y = a;
+      tfCoil.rotation.x = Math.PI / 2;
+      tfCoil.userData.dynamicTransform = true;
+      // Soporte estructural de la bobina al carcasa
+      add(rg, cyl(0.065, 0.065, 0.35, 8), steelM, cx * 1.32, 1.48, cz * 1.32).rotation.x = a;
+      // Crioshroud de la bobina (aislamiento térmico MLI dorado)
+      if (i % 3 === 0) {
+        const cryoShield = add(rg, box(0.24, 1.0, 0.08), goldM, cx * 1.15, 1.48, cz * 1.15);
+        cryoShield.rotation.y = a;
+      }
+      // Conexión eléctrica superior con bus de superconductor
+      add(rg, cyl(0.025, 0.025, 0.45, 6), copperM, cx * 0.85, 2.25, cz * 0.85);
+    }
+
+    // --- 6 BOBINAS POLOIDALES (PF Coils) — control de posición y forma del plasma ---
+    [0.55, 0.95, 1.25, 1.71, 2.01, 2.41].forEach((py, idx) => {
+      const pfR = 2.65 + (idx < 3 ? 0.1 * idx : 0.1 * (5 - idx));
+      const pfCoil = add(rg, torus(pfR, 0.075, 8, 32), copperM, 0, py, 0);
+      pfCoil.rotation.x = Math.PI / 2;
+      pfCoil.userData.dynamicTransform = true;
+      // Indicador LED de estado de cada bobina poloidal
+      const ledColor = idx < 2 ? greenGlow : idx < 4 ? cyanGlow : amberGlow;
+      add(rg, sphereGeo(0.04, 8, 6), ledColor, pfR + 0.12, py, 0);
+    });
+
+    // --- SOLENOIDE CENTRAL (CS — Central Solenoid) para inducir corriente en el plasma ---
+    add(rg, cyl(0.35, 0.35, 2.4, 16), copperM, 0, 1.48, 0);
+    add(rg, cyl(0.28, 0.28, 2.55, 12), darkM, 0, 1.48, 0);
+    // Bus bar superior e inferior del solenoide
+    add(rg, cyl(0.42, 0.42, 0.08, 16), goldM, 0, 2.72, 0);
+    add(rg, cyl(0.42, 0.42, 0.08, 16), goldM, 0, 0.24, 0);
+
+    // --- 6 COLUMNAS ESTRUCTURALES del reactor con soportes antisísmicos ---
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + 0.25;
+      const cr = 3.15;
+      // Columna principal de acero
+      add(rg, cyl(0.18, 0.18, 2.95, 12), steelM, cr * Math.cos(a), 1.48, cr * Math.sin(a));
+      // Refuerzo diagonal antitorque (arbotante)
+      const brace = add(rg, cyl(0.06, 0.06, 1.65, 8), darkM, cr * 0.82 * Math.cos(a), 0.82, cr * 0.82 * Math.sin(a));
+      brace.rotation.z = 0.45;
+      brace.rotation.y = -a;
+      // Bobina de estabilización magnética pasiva en cada columna
+      const stabCoil = add(rg, torus(0.28, 0.065, 8, 16), copperM, cr * Math.cos(a), 1.48, cr * Math.sin(a));
+      stabCoil.rotation.y = -a;
+      stabCoil.userData.dynamicTransform = true;
+      // Indicadores de temperatura criogénica
+      add(rg, box(0.06, 0.12, 0.04), i % 2 === 0 ? greenGlow : cyanGlow, (cr + 0.14) * Math.cos(a), 2.1, (cr + 0.14) * Math.sin(a));
+    }
+
+    // --- BARANDILLA DE SEGURIDAD PERIMETRAL con postes iluminados ---
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2;
+      const postR = 3.65;
+      add(rg, cyl(0.04, 0.05, 1.05, 8), darkM, postR * Math.cos(a), 0.52, postR * Math.sin(a));
+      // Mini luces de seguridad en cada poste
+      add(rg, sphereGeo(0.025, 6, 4), i % 3 === 0 ? warningRedMat : amberGlow, postR * Math.cos(a), 1.06, postR * Math.sin(a));
+    }
+    // Pasamanos superior continuo
+    const guardRing = add(rg, torus(3.65, 0.035, 8, 48), railAmberM, 0, 1.04, 0);
+    guardRing.rotation.x = Math.PI / 2;
+    // Segundo pasamanos intermedio
+    const midRail = add(rg, torus(3.65, 0.025, 6, 48), steelM, 0, 0.62, 0);
+    midRail.rotation.x = Math.PI / 2;
+
+    // --- ANILLOS DE CONFINAMIENTO MAGNÉTICO visibles (campo de contención holográfico) ---
+    [0.85, 1.15, 1.48, 1.81, 2.11].forEach((fy, fIdx) => {
+      const fieldRing = add(rg, torus(2.2 + fIdx * 0.04, 0.015, 6, 32), containmentFieldMat, 0, fy, 0);
+      fieldRing.rotation.x = Math.PI / 2;
+      fieldRing.userData.dynamicTransform = true;
+      fieldRing.name = `ContainmentField_${fIdx}`;
+    });
+
+    // --- ANILLOS DECORATIVOS DE CARCASA (exterior del tokamak) ---
+    [0.42, 0.78, 1.18, 1.78, 2.18, 2.54].forEach((ty) => {
+      const casingRing = add(rg, torus(2.95, 0.09, 8, 36), goldM, 0, ty, 0);
+      casingRing.rotation.x = Math.PI / 2;
+      casingRing.userData.dynamicTransform = true;
+    });
+    // Placas de tapa superior e inferior de la carcasa del reactor
+    add(rg, cyl(2.95, 2.82, 0.18, 32), slateM, 0, 0.34, 0, 'console');
+    add(rg, cyl(2.82, 2.95, 0.18, 32), slateM, 0, 2.62, 0, 'console');
+
+    // --- 8 BARRAS DE CONTROL DE NEUTRONES (insertables desde arriba) ---
+    for (let i = 0; i < 8; i++) {
+      const ba = (i / 8) * Math.PI * 2;
+      const br = 1.85;
+      // Guía de la barra
+      add(rg, cyl(0.055, 0.055, 0.65, 8), steelM, br * Math.cos(ba), 2.65, br * Math.sin(ba));
+      // Barra de carburo de boro (elemento absorbedor)
+      const ctrlRod = add(rg, cyl(0.035, 0.035, 0.85, 8), darkM, br * Math.cos(ba), 2.35, br * Math.sin(ba));
+      ctrlRod.userData.dynamicTransform = true;
+      ctrlRod.name = `ControlRod_${i}`;
+      // Indicador LED de posición de barra
+      add(rg, sphereGeo(0.03, 6, 4), i % 2 === 0 ? greenGlow : amberGlow, br * Math.cos(ba), 2.98, br * Math.sin(ba));
+    }
+
+    // --- SISTEMA DE DIAGNÓSTICO DEL PLASMA (puertos de diagnóstico radiales) ---
+    for (let i = 0; i < 4; i++) {
+      const da = (i / 4) * Math.PI * 2 + Math.PI / 8;
+      const diagPort = new THREE.Group();
+      diagPort.position.set(2.65 * Math.cos(da), 1.48, 2.65 * Math.sin(da));
+      diagPort.rotation.y = -da;
+      rg.add(diagPort);
+      // Tubo del puerto de diagnóstico
+      add(diagPort, cyl(0.12, 0.12, 0.55, 10), steelM, 0, 0, 0).rotation.x = Math.PI / 2;
+      // Ventana de cuarzo del espectrómetro
+      add(diagPort, cyl(0.09, 0.09, 0.04, 10), glassM, 0, 0, 0.28);
+      // Detector (caja electrónica al extremo)
+      add(diagPort, box(0.22, 0.16, 0.12), compositeM, 0, 0, 0.38);
+      // LED de estado del diagnóstico
+      add(diagPort, sphereGeo(0.025, 6, 4), greenGlow, 0.08, 0.06, 0.42);
+    }
+
+    // --- PANTALLA DE TELEMETRÍA DEL REACTOR (monitor principal) ---
+    const reactorTelTex = makeDiegeticScreenTexture('engineering', 'REACTOR AURORA — ESTADO DEL PLASMA', [
+      'MODO: NOMINAL · 4.2 GW TÉRMICOS',
+      'TEMP PLASMA: 150.4 × 10⁶ K',
+      'β TOROIDAL: 3.8% · q₉₅: 4.12',
+      'CORRIENTE PLASMA: 12.6 MA',
+      'CONFINAMIENTO τE: 3.82 s',
+      'DENSIDAD: 1.2 × 10²⁰ m⁻³',
+      'POTENCIA FUSIÓN D-T: 4.21 GW',
+      'BLINDAJE NEUTRÓNICO: ACTIVO',
+    ], '#6ce0ff', { activeScan: true });
+    trackExtraTex(reactorTelTex.tex);
+    const reactorTelMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: reactorTelTex.tex }));
+    // Soporte del monitor principal
+    const monitorGroup = new THREE.Group();
+    monitorGroup.position.set(-4.5, f + 1.45, 0);
+    monitorGroup.rotation.y = -Math.PI / 2;
+    d3.add(monitorGroup);
+    add(monitorGroup, box(1.5, 1.0, 0.08), darkM, 0, 0, 0);
+    add(monitorGroup, box(1.42, 0.92, 0.03), reactorTelMat, 0, 0, 0.045);
+    add(monitorGroup, box(1.54, 0.04, 0.12), steelM, 0, 0.52, 0);
+    add(monitorGroup, box(1.54, 0.04, 0.12), steelM, 0, -0.52, 0);
+    registerInteractMesh(monitorGroup.children[1], 'engineering', 'panel');
+
+    // --- SEGUNDA PANTALLA: SISTEMA DE REFRIGERACIÓN CRIOGÉNICA ---
+    const cryoScreenTex = makeDiegeticScreenTexture('engineering', 'CRIOGENIA Y REFRIGERACIÓN', [
+      'HELIO LÍQUIDO: 4.2 K · PRESIÓN: 1.2 bar',
+      'FLUJO CRIOSTATO TF: 340 g/s',
+      'FLUJO CRIOSTATO PF: 180 g/s',
+      'TEMP ESCUDO TÉRMICO: 77.4 K',
+      'NIVEL LHe TANQUE A: 87.3%',
+      'NIVEL LHe TANQUE B: 91.6%',
+      'BOMBA CRYO-1: NOMINAL',
+      'BOMBA CRYO-2: NOMINAL',
+    ], '#2dd4bf', { activeScan: false });
+    trackExtraTex(cryoScreenTex.tex);
+    const cryoScreenMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: cryoScreenTex.tex }));
+    const cryoMonitor = new THREE.Group();
+    cryoMonitor.position.set(-5.5, f + 1.45, 3.2);
+    cryoMonitor.rotation.y = -Math.PI / 3;
+    d3.add(cryoMonitor);
+    add(cryoMonitor, box(1.3, 0.85, 0.07), darkM, 0, 0, 0);
+    add(cryoMonitor, box(1.22, 0.77, 0.03), cryoScreenMat, 0, 0, 0.04);
+
+    // --- TERCERA PANTALLA: CONTROL DE PROPULSIÓN ---
+    const propScreenTex = makeDiegeticScreenTexture('engineering', 'PROPULSIÓN IÓNICA — EMPUJE VECTORIAL', [
+      'MOTOR PRINCIPAL: 1.8 GW → 42.6 kN',
+      'ISP ESPECÍFICO: 18,400 s',
+      'CONSUMO Xe: 12.4 mg/s',
+      'VECTORIZACIÓN: 0.0° / 0.0°',
+      'ACELERACIÓN: 0.0034 m/s²',
+      'DELTA-V RESTANTE: 47.2 km/s',
+      'AUXILIAR 1-4: STANDBY',
+      'ALCUBIERRE WARP: OFFLINE',
+    ], '#ff8c42', { activeScan: true });
+    trackExtraTex(propScreenTex.tex);
+    const propScreenMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: propScreenTex.tex }));
+    const propMonitor = new THREE.Group();
+    propMonitor.position.set(-5.5, f + 1.45, -3.2);
+    propMonitor.rotation.y = Math.PI / 3;
+    d3.add(propMonitor);
+    add(propMonitor, box(1.3, 0.85, 0.07), darkM, 0, 0, 0);
+    add(propMonitor, box(1.22, 0.77, 0.03), propScreenMat, 0, 0, 0.04);
+
+    // --- CONSOLA DE CONTROL PRINCIPAL frente al reactor ---
+    const ctrlConsole = new THREE.Group();
+    ctrlConsole.position.set(-5.2, f, 0);
+    ctrlConsole.rotation.y = Math.PI / 2;
+    d3.add(ctrlConsole);
+    // Mesa inclinada de la consola
+    add(ctrlConsole, box(3.2, 0.08, 0.85), slateM, 0, 0.88, 0);
+    const consoleFace = add(ctrlConsole, box(3.2, 0.72, 0.06), darkM, 0, 0.54, -0.42, 'console');
+    consoleFace.rotation.x = 0.15;
+    // Teclado/touchpad empotrado
+    add(ctrlConsole, box(0.82, 0.03, 0.28), compositeM, 0.6, 0.91, 0.18);
+    add(ctrlConsole, box(0.74, 0.02, 0.22), cyanGlow, 0.6, 0.925, 0.18);
+    // Trackball de control de vectorización
+    add(ctrlConsole, sphereGeo(0.065, 10, 8), steelM, -0.8, 0.96, 0.22);
+    add(ctrlConsole, cyl(0.08, 0.08, 0.04, 12), darkM, -0.8, 0.895, 0.22);
+    // Botones de control (fila de indicadores luminosos)
+    [-1.2, -0.9, -0.6, -0.3, 0, 0.3].forEach((bx, bIdx) => {
+      add(ctrlConsole, cyl(0.035, 0.035, 0.025, 8), bIdx < 2 ? greenGlow : bIdx < 4 ? cyanGlow : amberGlow, bx, 0.93, -0.12);
+    });
+    // Interruptor de emergencia SCRAM (botón rojo grande)
+    add(ctrlConsole, cyl(0.065, 0.065, 0.04, 12), reactorRedGlow, -1.4, 0.93, 0.22);
+    add(ctrlConsole, cyl(0.08, 0.08, 0.02, 12), hazardM, -1.4, 0.905, 0.22);
+    // Silla del ingeniero de reactor
+    chair(d3, -4.2, 0, f, -Math.PI / 2);
+
+    // --- COLUMNAS AUXILIARES de soporte con conductos de refrigerante visibles ---
+    [-4.5, 4.5].forEach((cz) => {
+      // Columna de soporte con brida
+      add(d3, cyl(0.32, 0.32, 3.05, 14), steelM, -9, f + 1.52, cz, 'console');
+      add(d3, torus(0.38, 0.05, 8, 20), copperM, -9, f + 1.52, cz).rotation.x = Math.PI / 2;
+      // Tubería de criogénico que sube por la columna
+      add(d3, cyl(0.065, 0.065, 2.8, 8), goldM, -9 + 0.26, f + 1.52, cz);
+      add(d3, cyl(0.065, 0.065, 2.8, 8), goldM, -9 - 0.26, f + 1.52, cz);
+      // Válvulas de aislamiento en cada columna
+      add(d3, torus(0.09, 0.025, 6, 12), railAmberM, -9 + 0.26, f + 2.2, cz).rotation.x = Math.PI / 2;
+      add(d3, torus(0.09, 0.025, 6, 12), railAmberM, -9 - 0.26, f + 0.8, cz).rotation.x = Math.PI / 2;
+    });
+
+    // --- CONDUCTOS CRIOGÉNICOS PRINCIPALES en techo (ampliados) ---
+    [-3.2, 3.2].forEach((pz) => {
+      // Conducto primario
+      add(d3, cyl(0.22, 0.22, 20.0, 14), steelM, 0, f + 2.75, pz).rotation.z = Math.PI / 2;
+      // Aislamiento MLI dorado
+      add(d3, cyl(0.28, 0.28, 1.5, 14), goldM, -4.5, f + 2.75, pz).rotation.z = Math.PI / 2;
+      add(d3, cyl(0.28, 0.28, 1.5, 14), goldM, 4.5, f + 2.75, pz).rotation.z = Math.PI / 2;
+      add(d3, cyl(0.28, 0.28, 1.5, 14), goldM, 0, f + 2.75, pz).rotation.z = Math.PI / 2;
+      // Soportes colgantes del conducto
+      [-6, -2, 2, 6].forEach((sx) => {
+        add(d3, cyl(0.035, 0.035, 0.28, 6), darkM, sx, f + 2.9, pz);
+      });
+      // Canaleta de seguridad en piso con franjas hazard
+      add(d3, box(16.0, 0.025, 0.38), hazardM, 0, f + 0.015, pz);
+    });
+    // Conductos cruzados transversales (nuevos)
+    [-6, 0, 6].forEach((cx) => {
+      add(d3, cyl(0.12, 0.12, 6.4, 10), steelM, cx, f + 2.72, 0).rotation.x = Math.PI / 2;
+    });
+
+    // --- PANEL DE VENTILACIÓN DE EMERGENCIA ampliado ---
+    add(d3, box(0.28, 2.4, 5.2), ventM, -13.0, f + 1.2, 0);
+    // Rejillas individuales con LEDs de flujo
+    [-1.8, -0.6, 0.6, 1.8].forEach((vz) => {
+      add(d3, box(0.04, 0.4, 0.6), darkM, -12.85, f + 2.0, vz);
+      add(d3, sphereGeo(0.03, 6, 4), greenGlow, -12.82, f + 2.25, vz);
+    });
+
+    // --- VÁLVULA CRIOGÉNICA PRINCIPAL (mejorada con volante y vástago) ---
     cryoValvePivot = new THREE.Group();
     cryoValvePivot.position.set(-6.0, f + 1.1, 0);
     d3.add(cryoValvePivot);
-    const rv = add(cryoValvePivot, torus(0.22, 0.04, 8, 20), railAmberM, 0, 0, 0);
+    // Volante de la válvula con radios
+    const rv = add(cryoValvePivot, torus(0.28, 0.04, 8, 24), railAmberM, 0, 0, 0);
     rv.rotation.y = Math.PI / 2;
-    mountDeckPlacard(d3, -6.4, f + 2.68, 0, Math.PI / 2, 'C03', 'NÚCLEO DEL REACTOR AURORA', 'CONFINAMIENTO MAGNÉTICO Y CRIOGENIA', '#6ce0ff');
+    for (let vs = 0; vs < 4; vs++) {
+      const va = (vs / 4) * Math.PI * 2;
+      add(cryoValvePivot, box(0.24, 0.025, 0.025), steelM, 0, 0.12 * Math.cos(va), 0.12 * Math.sin(va));
+    }
+    // Vástago y cuerpo de la válvula
+    add(d3, cyl(0.06, 0.06, 0.35, 8), steelM, -6.0, f + 1.1, 0).rotation.z = Math.PI / 2;
+    add(d3, box(0.22, 0.18, 0.16), compositeM, -5.7, f + 1.1, 0);
 
-    // Tanques criogénicos dorados MLI a proa con puente colector superior, válvulas y manómetros
-    [-6, 6].forEach((cz) => {
-      add(d3, cyl(1.32, 1.32, 2.35, 24), goldM, 9, f + 1.38, cz, 'console');
-      add(d3, sphereGeo(1.3, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), steelM, 9, f + 2.52, cz);
-      add(d3, cyl(1.42, 1.42, 0.26, 24), slateM, 9, f + 0.16, cz);
-      add(d3, cyl(1.38, 1.38, 0.14, 24), copperM, 9, f + 1.8, cz);
-      add(d3, box(0.12, 1.65, 0.08), cyanGlow, 7.64, f + 1.38, cz);
+    // --- PLACAS DE SEÑALIZACIÓN MEJORADAS ---
+    mountDeckPlacard(d3, -6.4, f + 2.68, 0, Math.PI / 2, 'C03', 'REACTOR TOROIDAL AURORA', 'FUSIÓN D-T · 4.2 GW · CONFINAMIENTO MAGNÉTICO', '#6ce0ff');
+    mountDeckPlacard(d3, -11.5, f + 2.68, 3.0, Math.PI * 0.75, 'C03', 'CRIOGENIA', 'HELIO LÍQUIDO 4.2 K', '#2dd4bf');
+    mountDeckPlacard(d3, -11.5, f + 2.68, -3.0, Math.PI * 0.25, 'C03', 'PROPULSIÓN', 'MOTOR IÓNICO 1.8 GW', '#ff8c42');
+
+    // --- TANQUES CRIOGÉNICOS DORADOS (mejorados con instrumentación) ---
+    [-6, 6].forEach((cz, tIdx) => {
+      const tg = new THREE.Group();
+      tg.position.set(9, f, cz);
+      d3.add(tg);
+      // Tanque cilíndrico principal con MLI dorado
+      add(tg, cyl(1.42, 1.42, 2.55, 28), goldM, 0, 1.38, 0, 'console');
+      // Domo esférico superior
+      add(tg, sphereGeo(1.4, 22, 14, 0, Math.PI * 2, 0, Math.PI * 0.5), steelM, 0, 2.62, 0);
+      // Base con anclaje y brida
+      add(tg, cyl(1.52, 1.52, 0.3, 28), slateM, 0, 0.16, 0);
+      add(tg, cyl(1.48, 1.48, 0.08, 28), darkM, 0, 0.32, 0);
+      // Anillo de refuerzo a media altura
+      add(tg, cyl(1.48, 1.48, 0.16, 28), copperM, 0, 1.8, 0);
+      add(tg, cyl(1.48, 1.48, 0.16, 28), copperM, 0, 1.0, 0);
+      // Indicador de nivel de líquido (tubo visor)
+      add(tg, cyl(0.04, 0.04, 1.8, 8), glassM, 1.32, 1.3, 0);
+      const levelColor = tIdx === 0 ? 0.873 : 0.916;
+      const levelH = 1.8 * levelColor;
+      add(tg, cyl(0.03, 0.03, levelH, 8), neutronBlueGlow, 1.32, 0.4 + levelH * 0.5, 0);
+      // Manómetro y válvula de alivio
+      add(tg, cyl(0.15, 0.15, 0.04, 12), darkM, 0, 2.68, 0);
+      add(tg, cyl(0.12, 0.12, 0.03, 12), cyanGlow, 0, 2.7, 0);
+      // Válvula de seguridad
+      add(tg, cyl(0.06, 0.06, 0.22, 8), steelM, 0.8, 2.55, 0).rotation.z = Math.PI / 4;
+      add(tg, torus(0.08, 0.02, 6, 12), railAmberM, 0.8 + 0.11, 2.55 + 0.11, 0);
+      // Placas de identificación
+      const tankLabel = tIdx === 0 ? 'A' : 'B';
+      add(tg, box(0.5, 0.3, 0.03), darkM, -1.38, 1.5, 0);
+      add(tg, box(0.42, 0.22, 0.02), cyanGlow, -1.38, 1.5, 0.02);
+      // Tuberías de conexión al reactor
+      add(tg, cyl(0.09, 0.09, 4.5, 10), steelM, -4.5, 2.35, -cz * 0.3).rotation.z = Math.PI / 2;
+      add(tg, cyl(0.12, 0.12, 0.3, 10), copperM, -2.5, 2.35, -cz * 0.3);
     });
-    // Colector criogénico transversal entre ambos tanques de proa
-    add(d3, box(0.42, 0.24, 12.4), slateM, 9, f + 2.78, 0);
-    add(d3, cyl(0.11, 0.11, 12.0, 12), copperM, 9, f + 2.62, 0).rotation.x = Math.PI / 2;
+    // Colector criogénico transversal mejorado entre ambos tanques
+    add(d3, box(0.48, 0.28, 12.8), slateM, 9, f + 2.78, 0);
+    add(d3, cyl(0.14, 0.14, 12.4, 14), copperM, 9, f + 2.62, 0).rotation.x = Math.PI / 2;
+    // Tubo de ecualización de presión
+    add(d3, cyl(0.06, 0.06, 12.0, 8), steelM, 9, f + 2.48, 0).rotation.x = Math.PI / 2;
+
+    // --- LUZ AMBIENTAL DEL REACTOR (PointLight que cambia con el modo) ---
+    const reactorPointLight = new THREE.PointLight(0x6ce3ff, 1.6, 12);
+    reactorPointLight.position.set(-9, f + 1.5, 0);
+    d3.add(reactorPointLight);
+    reactorPointLight.userData.dynamicTransform = true;
+
+    // --- BLINDAJE DE NEUTRONES (paneles de boro a los lados del reactor) ---
+    [-2.5, 2.5].forEach((bz) => {
+      add(d3, box(3.8, 2.6, 0.22), compositeM, -9, f + 1.4, bz + (bz > 0 ? 1.5 : -1.5));
+      // Etiqueta de radiación
+      add(d3, box(0.35, 0.35, 0.03), hazardM, -9, f + 2.2, bz + (bz > 0 ? 1.52 : -1.52));
+    });
 
     // Pantallas diferenciadas para Laboratorio Espectral SPHEREx (Babor) vs Banco Óptico Láser (Estribor)
     const spherexLabTex = makeDiegeticScreenTexture('science', 'ESPECTROMETRÍA IR SPHEREx', ['BANDAS: 0.75 - 5.0 µm (102 CANALES)', 'CRIOSTATO DETECTOR: 42.0 K', 'CALIBRACIÓN FOTOMÉTRICA: ACTIVA'], '#ffbe55', { activeScan: true });
@@ -2383,16 +2701,51 @@ export function buildKronoxInterior120M() {
       const isOver = interactiveMechanisms.reactorMode === 'overclock';
       const isQuiet = interactiveMechanisms.reactorMode === 'quiet';
       const freq = isOver ? 7.2 : isQuiet ? 2.1 : 4.4;
+
+      // Animación del plasma toroidal principal
       const s = 0.94 + 0.09 * Math.sin(elapsedTime * freq);
-      reactorPlasmaCore.scale.set(s, 1.0 + 0.03 * Math.cos(elapsedTime * (freq + 0.8)), s);
-      reactorPlasmaCore.rotation.y = elapsedTime * (isOver ? 2.2 : isQuiet ? 0.5 : 1.1);
+      reactorPlasmaCore.scale.set(s, s, 1.0 + 0.03 * Math.cos(elapsedTime * (freq + 0.8)));
+      reactorPlasmaCore.rotation.z = elapsedTime * (isOver ? 2.2 : isQuiet ? 0.5 : 1.1);
       reactorPlasmaMat.color.setHex(isOver ? 0xc084fc : isQuiet ? 0x2dd4bf : 0x7ce6ff);
+      reactorPlasmaMat.opacity = 0.72 + 0.18 * Math.sin(elapsedTime * (freq * 0.7));
+
       if (reactorAssembly) {
         reactorAssembly.children.forEach((child, cIdx) => {
+          // Animación de bobinas TF (giran individualmente)
           if (child !== reactorPlasmaCore && child.geometry?.type === 'TorusGeometry') {
             child.rotation.z = elapsedTime * (cIdx % 2 === 0 ? 0.55 : -0.65) * (isOver ? 1.7 : 1.0);
           }
+          // Animación del plasma interno caliente
+          if (child.name === 'InnerPlasmaHot') {
+            child.rotation.z = -elapsedTime * (isOver ? 3.5 : isQuiet ? 0.8 : 1.8);
+            child.scale.setScalar(0.96 + 0.06 * Math.sin(elapsedTime * (freq * 1.3 + 0.5)));
+          }
+          // Animación de anillos de campo de contención (pulsos ondulantes)
+          if (child.name?.startsWith('ContainmentField_')) {
+            const fIdx = parseInt(child.name.split('_')[1], 10);
+            const wave = Math.sin(elapsedTime * 3.5 + fIdx * 1.2);
+            child.scale.setScalar(1.0 + 0.04 * wave);
+            if (child.material) {
+              child.material.opacity = isOver ? 0.28 + 0.12 * wave : isQuiet ? 0.06 : 0.15 + 0.06 * wave;
+            }
+          }
+          // Animación de barras de control (suben/bajan según modo)
+          if (child.name?.startsWith('ControlRod_')) {
+            const rodIdx = parseInt(child.name.split('_')[1], 10);
+            const targetInsert = isOver ? -0.5 : isQuiet ? 0.35 : 0;
+            const rodWobble = Math.sin(elapsedTime * 0.8 + rodIdx * 0.78) * (isOver ? 0.06 : 0.02);
+            child.position.y += ((2.35 + targetInsert + rodWobble) - child.position.y) * 0.08;
+          }
         });
+      }
+
+      // Luz ambiental del reactor cambia con el modo
+      const reactorLight = deckContainers['deck-03'].getObjectByProperty('type', 'PointLight');
+      if (reactorLight) {
+        const targetColor = isOver ? 0xc084fc : isQuiet ? 0x2dd4bf : 0x6ce3ff;
+        const targetIntensity = isOver ? 3.2 : isQuiet ? 0.6 : 1.6;
+        reactorLight.color.setHex(targetColor);
+        reactorLight.intensity += (targetIntensity - reactorLight.intensity) * 0.1;
       }
     }
 
