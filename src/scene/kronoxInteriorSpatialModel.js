@@ -1,4 +1,4 @@
-</**
+/**
  * Modelo espacial geométrico del interior de la nave Aurora-120 (KRONOX).
  *
  * Sistema de coordenadas local (1 unidad = 1 metro):
