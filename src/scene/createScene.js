@@ -4006,6 +4006,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   };
   // Guided In-World Progressive Tutorial State (Section 6)
   let guidedTourState = null;
+  let noviceCinematicLocked = false;
   const tourNarratives = {
     stand_up:
       'Bienvenido a bordo, comandante. Haremos una primera expedición guiada: nos levantaremos, elegiremos un destino y abriremos una misión SPHEREx. Sigue la baliza luminosa y las indicaciones de KRONOX.',
@@ -4576,7 +4577,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
   function onGuidedScienceAction(payload = {}) {
     if (!guidedTourState || guidedTourState.step === 'free') return;
-    if (guidedTourState.mode === 'mission-walkthrough') {
+    if (guidedTourState.mode === 'novice-cinematic' || guidedTourState.mode === 'mission-walkthrough') {
       if (guidedTourState.step === 'mission_arrival' && payload.stage === 'explore') {
         setTourStep('mission_explore', null);
         S.onAiTourNarrative?.(
@@ -4586,7 +4587,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           { id: 'tut-mission-explore', priority: 9, replace: true, once: false },
         );
       } else if (guidedTourState.step === 'mission_explore' && payload.stage === 'compare') {
-        completeGuidedTourWithConfirmation();
+        if (guidedTourState.mode === 'novice-cinematic') {
+          setTourStep('mission_compare', null);
+          S.onAiTourNarrative?.(
+            tourNarratives.mission_compare,
+            'Análisis',
+            'science',
+            { id: 'novice-cinematic-compare', priority: 9, replace: true, once: false },
+          );
+        } else {
+          completeGuidedTourWithConfirmation();
+        }
       }
       return;
     }
@@ -4595,6 +4606,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
 
   function onGuidedDestinationSelected(target) {
+    if (guidedTourState?.mode === 'novice-cinematic') {
+      guidedTourState.targetName = target?.name || target?.key || 'el objetivo seleccionado';
+      machineSystems.setRouteTargetVector?.(target?.key);
+      S.onAiTourNarrative?.(
+        `Destino seleccionado: ${guidedTourState.targetName}. La ruta queda trazada y comienza el salto.`,
+        'Orientación',
+        'nav',
+        { id: 'novice-cinematic-destination', priority: 9, replace: true, once: false },
+      );
+      return;
+    }
     if (guidedTourState?.mode !== 'mission-walkthrough' || guidedTourState.step !== 'select_destination') return;
     guidedTourState.targetName = target?.name || target?.key || 'el objetivo seleccionado';
     setTourStep('destination_selected', null);
@@ -4607,6 +4629,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
 
   function onGuidedDestinationArrival(target) {
+    if (guidedTourState?.mode === 'novice-cinematic') {
+      guidedTourState.targetName = target?.name || guidedTourState.targetName;
+      setTourStep('mission_start', null);
+      S.onAiTourNarrative?.(
+        `Salto completado. Hemos llegado a ${guidedTourState.targetName || 'nuestro objetivo'}. Ahora veremos cómo se presenta una misión científica y qué datos utiliza.`,
+        'Orientación',
+        'science',
+        { id: 'novice-cinematic-arrival', priority: 9, replace: true, once: false },
+      );
+      return;
+    }
     if (guidedTourState?.mode !== 'mission-walkthrough' || guidedTourState.step !== 'destination_selected') return;
     guidedTourState.targetName = target?.name || guidedTourState.targetName;
     setTourStep('mission_start', null);
@@ -4619,7 +4652,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
 
   function onGuidedMissionStarted() {
-    if (guidedTourState?.mode !== 'mission-walkthrough' || guidedTourState.step !== 'mission_start') return;
+    if (
+      (guidedTourState?.mode !== 'mission-walkthrough' && guidedTourState?.mode !== 'novice-cinematic') ||
+      guidedTourState.step !== 'mission_start'
+    ) return;
     setTourStep('mission_arrival', null);
     S.onAiTourNarrative?.(
       tourNarratives.mission_arrival,
@@ -4656,6 +4692,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   function endGuidedCabinTour() {
     if (!guidedTourState) return;
     guidedTourState = null;
+    noviceCinematicLocked = false;
     aiFollowAstronaut = true;
     luminousAI.pointAtWorldPosition(null, false);
     fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
@@ -4843,6 +4880,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
 
   function startGuidedCabinTour(mode = null) {
+    if (mode === 'novice-cinematic') {
+      startNoviceCinematic();
+      return;
+    }
     const initialStep = astronautSeatedInBridge ? 'stand_up' : 'look_camera';
     const initialFocus = astronautSeatedInBridge ? null : 'nav';
     guidedTourState = {
@@ -4874,7 +4915,94 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     );
   }
 
+  function startNoviceCinematic() {
+    releaseInputs();
+    noviceCinematicLocked = true;
+    free = true;
+    pv = 1;
+    cabinFirstPerson = false;
+    camViewBlend = 1;
+    ct.enabled = false;
+    activeCabinStation = null;
+    currentLockedDeckId = 'deck-01';
+    if (astronautSeatedInBridge) standUpFromBridgeSeat();
+    guidedTourState = {
+      mode: 'novice-cinematic',
+      step: 'cinematic-walk',
+      focus: null,
+      walkFinished: false,
+      walkIntroFinished: false,
+      navigationNarrationStarted: false,
+    };
+    aiFollowAstronaut = true;
+    ship.visible = false;
+    localCabinWorld.visible = true;
+    S.onCabinFirstPersonChange?.(false);
+    S.onGuideStateChange?.({ step: 'cinematic-walk', stationId: null, active: true, cinematic: true });
+    S.onGuideObjective?.('RECORRIDO CINEMÁTICO · KRONOX te mostrará la nave y una misión completa.');
+
+    const navStation = getStationDef('nav');
+    if (navStation) {
+      const start = astronautPos.clone();
+      const mid = new V(start.x * 0.4, navStation.position.y, (start.z + navStation.position.z) * 0.5);
+      deckTransitState = {
+        active: true,
+        targetDeckId: 'deck-01',
+        targetYaw: Math.atan2(
+          -(navStation.consolePos.x - navStation.position.x),
+          -(navStation.consolePos.z - navStation.position.z),
+        ),
+        waypoints: [mid, navStation.position.clone()],
+        index: 0,
+        speed: 1.35,
+      };
+    } else {
+      guidedTourState.walkFinished = true;
+    }
+    S.onAiTourNarrative?.(
+      'Bienvenido a la KRONOX. Esta vez no tendrás que manejar al astronauta: verás una expedición completa mientras te explico cómo funciona la nave.',
+      'Orientación',
+      'nav',
+      { id: 'novice-cinematic-walk', priority: 9, replace: true, once: false },
+    );
+    maybeStartNoviceNavigationBeat();
+  }
+
+  function maybeStartNoviceNavigationBeat() {
+    if (
+      guidedTourState?.mode !== 'novice-cinematic' ||
+      !guidedTourState.walkFinished ||
+      !guidedTourState.walkIntroFinished ||
+      guidedTourState.navigationNarrationStarted
+    ) return;
+    guidedTourState.navigationNarrationStarted = true;
+    const navStation = getStationDef('nav');
+    if (navStation) {
+      activeCabinStation = 'nav';
+      machineSystems.navHoloGroup.visible = true;
+      luminousAI.setTargetPosition(navStation.aiHoverPos, 'Señalización');
+      luminousAI.pointAtWorldPosition(navStation.consolePos, true);
+    }
+    S.onAiTourNarrative?.(
+      'En esta consola se fija el destino de la expedición. KRONOX calcula la ruta y prepara el salto; observa cómo el objetivo queda marcado antes de viajar.',
+      'Explicación',
+      'nav',
+      { id: 'novice-cinematic-navigation', priority: 9, replace: true, once: false },
+    );
+  }
+
   function onGuidedNarrativeComplete(messageId) {
+    if (guidedTourState?.mode === 'novice-cinematic') {
+      if (messageId === 'novice-cinematic-walk') {
+        guidedTourState.walkIntroFinished = true;
+        maybeStartNoviceNavigationBeat();
+      } else if (messageId === 'novice-cinematic-navigation') {
+        S.onNoviceCinematicSelectDestination?.();
+      } else if (messageId === 'novice-cinematic-arrival') {
+        S.onNoviceCinematicOpenMission?.();
+      }
+      return;
+    }
     if (guidedTourState?.step === 'welcome' && messageId === guidedTourState.welcomeMessageId) {
       setTourStep('bridge', null);
       S.onGuideObjective?.('OBJETIVO: Explora el puente de mando. Muévete libremente con WASD.');
@@ -5065,6 +5193,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let pointerClickStart = null;
   let wasPointerLockedOnDown = false;
   const onPointerDown = (e) => {
+    if (noviceCinematicLocked) return;
     wasPointerLockedOnDown = pointerLockActive;
     pointerClickStart = { x: e.clientX, y: e.clientY };
     if (nearbyMapState) nearbyPointerStart = { x: e.clientX, y: e.clientY };
@@ -5488,6 +5617,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   };
 
   const onPointerUp = (e) => {
+    if (noviceCinematicLocked) {
+      pointerClickStart = null;
+      drag = 0;
+      return;
+    }
     drag = 0;
     const clickMoved = pointerClickStart
       ? Math.hypot(e.clientX - pointerClickStart.x, e.clientY - pointerClickStart.y)
@@ -5732,6 +5866,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
   };
   const onPointerMove = (e) => {
+    if (noviceCinematicLocked) return;
     if (!pointerLockActive && !drag && !realTimeIntro && !simulationPaused && spacePlanetLabelHits.length && dom?.style) {
       const rect = dom.getBoundingClientRect();
       const px = e.clientX - rect.left;
@@ -5815,6 +5950,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     emitPointerLockState('error');
   };
   const onWheel = (e) => {
+    if (noviceCinematicLocked) {
+      e.preventDefault();
+      return;
+    }
     if (free && !exteriorCameraMode) {
       e.preventDefault();
       if (pv == 3) {
@@ -5899,6 +6038,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const onKeyDown = (e) => {
     const tag = e.target?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (noviceCinematicLocked) {
+      e.preventDefault();
+      return;
+    }
     const k = e.key.toLowerCase();
     if (k === 'escape' && freeHelmMode) {
       applyFreeHelmMode(false);
@@ -7542,6 +7685,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                 astronautPitch = -0.05;
                 deckTransitState = null;
                 astronautVel.set(0, 0, 0);
+                if (guidedTourState?.mode === 'novice-cinematic' && guidedTourState.step === 'cinematic-walk') {
+                  guidedTourState.walkFinished = true;
+                  guidedTourState.step = 'cinematic-navigation';
+                  maybeStartNoviceNavigationBeat();
+                }
                 if (finishedDeckId && elSys?.snapToDeck) {
                   elSys.snapToDeck(finishedDeckId);
                   S.onElevatorStateChange?.({
@@ -9751,6 +9899,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       sim = d;
     },
     setArrivedTarget: (t) => astronomicalHologram.setArrivedTarget(t),
+    setCinematicMissionDestination: (targetKey) => {
+      machineSystems.setRouteTargetVector?.(targetKey);
+      machineSystems.navHoloGroup.visible = true;
+    },
+    setCinematicMissionDestination: (targetKey) => {
+      machineSystems.setRouteTargetVector?.(targetKey);
+      machineSystems.navHoloGroup.visible = true;
+    },
     getArrivedHologramTarget: () => astronomicalHologram.getActiveTarget(),
     clearAstronomicalHologram: () => astronomicalHologram.clearHologram(),
     getObservationMode,

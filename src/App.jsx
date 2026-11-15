@@ -383,6 +383,7 @@ export default function App() {
   const languageManuallyChosen = useRef(false);
   const languagePreferenceExists = useRef(hasSavedLanguage());
   const missionGuideSyncRef = useRef(null);
+  const noviceCinematicActiveRef = useRef(false);
   const guide = useSyncExternalStore(
     narrativeQueue.subscribe,
     narrativeQueue.getSnapshot,
@@ -1342,6 +1343,21 @@ export default function App() {
       },
       onGuideObjective: (objective) => setGuideObjective(objective || ''),
       onGuidedMissionSelectorOpen: () => setMissionSelectorOpen(true),
+      onNoviceCinematicSelectDestination: () => {
+        const target = SPHEREX_TARGETS.find((item) => item.key === 'barnard') || SPHEREX_TARGETS[0];
+        if (target) chooseSpherexTarget(target);
+      },
+      onNoviceCinematicOpenMission: () => {
+        missionGuideSyncRef.current = null;
+        setMissionInitialStage('arrival');
+        setMissionOpen(true);
+        A().onGuidedMissionStarted?.();
+      },
+      onNoviceCinematicComplete: () => {
+        noviceCinematicActiveRef.current = false;
+        setMissionOpen(false);
+        A().endGuidedCabinTour?.();
+      },
       onGuideStateChange: (st) => {
         setGuideState(st || { active: false, step: 'free', completed: false });
         if (!st?.active || st?.step === 'free') setGuideObjective('');
@@ -1902,12 +1918,17 @@ export default function App() {
       setMissionArrivalName(target.name);
       setMissionTargetKey(target.key);
       A().onGuidedDestinationSelected?.(target);
+      if (noviceCinematicActiveRef.current) {
+        A().setCinematicMissionDestination?.(target.key);
+      }
       const destMsg =
         'Destino fijado: ' +
         t(target.name, language) +
         '. Prepararé el salto hasta su posición en el vecindario galáctico.';
-      say(destMsg);
-      if (voiceRef.current) speak(destMsg, { interrupt: true });
+      if (!noviceCinematicActiveRef.current) {
+        say(destMsg);
+        if (voiceRef.current) speak(destMsg, { interrupt: true });
+      }
       startTravel(
         (onArrive) => {
           if (spec) {
@@ -1922,6 +1943,10 @@ export default function App() {
           setMissionArrival(true);
           A().setArrivedTarget?.(target);
           A().onGuidedDestinationArrival?.(target);
+          if (noviceCinematicActiveRef.current) {
+            setMissionArrival(false);
+            return;
+          }
           const arrivalNotice =
             'Hemos llegado a ' +
             t(target.name, language) +
@@ -3409,6 +3434,8 @@ export default function App() {
         language,
         initialTargetKey: missionTargetKey,
         initialStage: missionInitialStage,
+        cinematicMode: noviceCinematicActiveRef.current,
+        onCinematicComplete: () => A().onNoviceCinematicComplete?.(),
         aiHighlightActive: aiHighlightField,
         onClose: () => {
           setMissionOpen(false);
@@ -3941,6 +3968,7 @@ export default function App() {
       },
       onPlayUiCue: playCue,
       onStartNewExpedition: ({ explorationMode = 'expert' } = {}) => {
+        noviceCinematicActiveRef.current = explorationMode === 'novice';
         ensureGameplayAudioStarted();
         stopVoiceAndClearQueue();
         clearNotices();
@@ -3964,7 +3992,7 @@ export default function App() {
           setAiAvatarState('Bienvenida');
         }, {
           guidedTour: explorationMode === 'novice',
-          guidedTourMode: explorationMode === 'novice' ? 'mission-walkthrough' : null,
+          guidedTourMode: explorationMode === 'novice' ? 'novice-cinematic' : null,
         });
       },
       onContinueExpedition: (saveData) => {

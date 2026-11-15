@@ -448,6 +448,8 @@ export default function SpherexMission({
   onStateSync,
   onAskKronox,
   aiHighlightActive = false,
+  cinematicMode = false,
+  onCinematicComplete,
 }) {
   const [navParams] = useState(() => {
     try {
@@ -560,6 +562,16 @@ export default function SpherexMission({
   const [frameB, setFrameB] = useState(null);
   const [loadingFrameA, setLoadingFrameA] = useState(false);
   const [loadingFrameB, setLoadingFrameB] = useState(false);
+
+  useEffect(() => {
+    if (!cinematicMode) return undefined;
+    const timer = setTimeout(() => {
+      if (stage === 'arrival') setStage('explore');
+      else if (stage === 'explore') setStage('compare');
+      else if (stage === 'compare') onCinematicComplete?.();
+    }, stage === 'arrival' ? 15000 : 18000);
+    return () => clearTimeout(timer);
+  }, [cinematicMode, stage]);
 
   // Zoom and Pan
   const [zoom, setZoom] = useState(1.0);
@@ -1256,7 +1268,12 @@ export default function SpherexMission({
   };
 
   return (
-    <div className="kronoxExpeditionShade" role="dialog" aria-modal="true">
+    <div
+      className="kronoxExpeditionShade"
+      role="dialog"
+      aria-modal="true"
+      style={cinematicMode ? { pointerEvents: 'none' } : undefined}
+    >
       <div className="kronoxExpeditionSheet">
         {/* EXPEDITION HEADER */}
         <header className="kronoxExpeditionHeader">
