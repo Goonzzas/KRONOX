@@ -666,7 +666,27 @@ test('VR diegetic console screens and contextual 3D panels operate every C01-C04
       assert.ok(deck01Ids.includes(id), `Expected C01 deck-01 interactable meshes to include ${id}`);
     }
     assert.ok(deck01Ids.filter((id) => id === 'windows').length >= 2, 'Expected C01 wing/wall displays registered');
-    for (const id of ['comms', 'science', 'archive', 'engineering', 'nav', 'missions', 'elevator-call-deck-02-bow']) {
+    for (const id of [
+      'galley',
+      'galley-synth',
+      'lounge-audio-c02',
+      'bioponics',
+      'storage-c02',
+      'airlock',
+      'bed-hab-01',
+      'bed-hab-06',
+      'door-hab-01',
+      'lamp-hab-01',
+      'locker-hab-01',
+      'tablet-hab-01',
+      'aurora-trophy-c02',
+      'orrery-hab-02',
+      'med-bay-c02',
+      'spec-samples-c02',
+      'gym-c02',
+      'eva-rack-c02',
+      'elevator-call-deck-02-bow',
+    ]) {
       assert.ok(deck02Ids.includes(id), `Expected C02 deck-02 interactable meshes to include ${id}`);
     }
     for (const id of ['engineering', 'science', 'sensor-calibration', 'elevator-call-deck-03-bow']) {
@@ -757,6 +777,33 @@ test('VR diegetic console screens and contextual 3D panels operate every C01-C04
       assert.ok(actions.includes(check.expectAction), `Expected VR console ${check.id} to expose action ${check.expectAction}`);
       assert.ok(actions.includes('close-console'), `Expected VR console ${check.id} to expose close button`);
     }
+
+    overlay.update({
+      presenting: true,
+      inCabin: true,
+      activeStationId: 'bed-rest',
+      stationAnchorPos: new THREE.Vector3(9.97, 1.0, -9.97),
+      eyePos: new THREE.Vector3(9.97, 0.88, -9.97),
+      deckFloorY: 0.0,
+      hoveredHit: null,
+      context: {
+        ...baseCtx,
+        restState: {
+          active: true,
+          bayIndex: 0,
+          suiteCode: 'HAB-01',
+          suiteName: 'Suite del Comandante',
+          sleeping: false,
+          crewRestPct: 82,
+          restCyclesCompleted: 0,
+          lampMode: 'warm',
+        },
+      },
+    });
+    const bedActions = getActions();
+    assert.ok(bedActions.includes('bed-rest-nap'), 'Expected bed-rest VR overlay to expose bed-rest-nap');
+    assert.ok(bedActions.includes('bed-rest-lamp'), 'Expected bed-rest VR overlay to expose bed-rest-lamp');
+    assert.ok(bedActions.includes('bed-rest-stand'), 'Expected bed-rest VR overlay to expose bed-rest-stand');
 
     overlay.setNavTab('spherex');
     overlay.update({
@@ -1108,6 +1155,39 @@ test('VR prevents nav/rail/pause lockups, syncs IRL roomscale walking, and switc
     stepXrFrames(1);
     rightGamepad.buttons[4].pressed = false;
     assert.equal(viewChanges.at(-1), 1, 'Pressing [A] after VR travel arrival returns cleanly to Cabina 1P');
+
+    // Deck 02 suite bed rest, orbital nap, lamp toggle, and clean VR stand-up
+    const { C02_CABIN_BAYS, radialBayPoint } = await harness.server.ssrLoadModule(
+      '/src/scene/kronoxInteriorSpatialModel.js',
+    );
+    api.teleportAstronautToDeck('deck-02');
+    const hab01Approach = radialBayPoint(C02_CABIN_BAYS[0], 12.6, -0.3, 0.0);
+    api.setAstronautPosition(hab01Approach, -C02_CABIN_BAYS[0].angleRad, -0.05);
+    stepXrFrames(3);
+    assert.equal(api.restInBed(0), true, 'Astronaut must rest on HAB-01 suite bed');
+    assert.equal(api.isAstronautResting(), true);
+    assert.equal(api.getRestState()?.suiteCode, 'HAB-01');
+    stepXrFrames(2);
+    const restPanelActions = api.getVrConsoleButtonMeshes().map((m) => m.userData?.vrConsoleAction);
+    assert.ok(restPanelActions.includes('bed-rest-nap'), 'Active VR rest panel must expose bed-rest-nap');
+    assert.ok(restPanelActions.includes('bed-rest-lamp'), 'Active VR rest panel must expose bed-rest-lamp');
+    assert.ok(restPanelActions.includes('bed-rest-stand'), 'Active VR rest panel must expose bed-rest-stand');
+    const lampBefore = api.getRestState()?.lampMode;
+    api.handleVrConsoleAction('bed-rest-lamp');
+    stepXrFrames(1);
+    assert.notEqual(api.getRestState()?.lampMode, lampBefore, 'VR bed panel must cycle bedside circadian lamp');
+    api.handleVrConsoleAction('bed-rest-nap');
+    assert.equal(api.getRestState()?.sleeping, true);
+    for (let i = 0; i < 120 && api.getRestState()?.sleeping; i++) {
+      stepXrFrames(1, 50);
+    }
+    assert.equal(api.getRestState()?.sleeping, false, 'Orbital nap must complete cleanly');
+    assert.equal(api.getRestState()?.crewRestPct, 100, 'Orbital nap must restore crew rest to 100%');
+    assert.ok((api.getRestState()?.restCyclesCompleted ?? 0) >= 1);
+    api.handleVrConsoleAction('bed-rest-stand');
+    stepXrFrames(2);
+    assert.equal(api.isAstronautResting(), false, 'VR bed-rest-stand must return astronaut to standing aisle');
+
     assert.equal(pointerEscapeCount.count, 0, 'PointerLock escape never triggers during WebXR');
   } finally {
     if (prevNavDesc) Object.defineProperty(globalThis, 'navigator', prevNavDesc);

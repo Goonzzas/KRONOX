@@ -17,9 +17,11 @@ import {
   ASTRONAUT_MAX_FEET_ABOVE_FLOOR,
   ASTRONAUT_RADIUS_METERS,
   C02_CABIN_BAYS,
+  C02_HAB_SUITES,
   C03_LAB_ARCS,
   DIRECT_INTERACTION_IDS,
   describeInteractablePrompt,
+  radialBayPoint,
 } from '../src/scene/kronoxInteriorSpatialModel.js';
 import { createMicrogravityPhysicsController, MICROGRAVITY_MODES } from '../src/scene/microgravityPhysicsController.js';
 import {
@@ -531,6 +533,138 @@ test('Deck isolation across C01–C04 ceilings, swept high-speed collision, C02 
   const exitAttemptMidRide = new THREE.Vector3(0.0, el.state.cabY, -1.5);
   interior.clampAstronautPosition(exitAttemptMidRide, 0.34, 0.24, el.state);
   assert.ok(Math.abs(exitAttemptMidRide.z) <= 0.75, 'Pasajero no puede salir de cabina mientras el ascensor cierra puertas o está en movimiento');
+
+  interior.dispose?.();
+});
+
+test('KRONOX CUBIERTA 02 — 6 Suites Habitacionales 1:1, Puertas Privadas, Alcobas Especiales y Descanso en Cama', () => {
+  assert.equal(C02_HAB_SUITES.length, 6, 'Debe definir 6 suites habitacionales C02');
+  assert.equal(C02_CABIN_BAYS.length, 6, 'Debe definir 6 bahías radiales C02');
+
+  const interior = buildFourDecksInterior3D();
+  const el = interior.elevatorSystem;
+  el.snapToDeck('deck-02');
+
+  const deck02InteractIds = new Set(
+    interior.getInteractMeshesForDeck('deck-02').map((m) => m.userData?.interactId),
+  );
+
+  // 1. Verificar geometría transitable, muros, literas, escritorios, alcobas y armarios en las 6 suites
+  C02_HAB_SUITES.forEach((suite, idx) => {
+    const bay = C02_CABIN_BAYS[idx];
+    assert.ok(
+      SHIP_INTERIOR_STATIONS.some((s) => s.id === suite.bedId && s.deckId === 'deck-02'),
+      `${suite.code} debe registrar estación ${suite.bedId} en Cubierta 02`,
+    );
+    assert.ok(deck02InteractIds.has(suite.bedId), `${suite.code} debe registrar interactuable ${suite.bedId}`);
+    for (const reqId of [
+      suite.doorId,
+      suite.lampId,
+      suite.lockerId,
+      suite.tabletId,
+      suite.specialtyId,
+    ]) {
+      assert.ok(deck02InteractIds.has(reqId), `${suite.code} debe registrar interactuable ${reqId}`);
+      assert.ok(DIRECT_INTERACTION_IDS.has(reqId), `${reqId} debe ser interactivo directo en Cabina`);
+    }
+
+    // Umbral abierto en r=7.0, p=0 debe ser caminable
+    const doorPt = radialBayPoint(bay, 7.0, 0.0, 0.0);
+    const doorWalk = new THREE.Vector3(doorPt.x, doorPt.y, doorPt.z);
+    interior.clampAstronautPosition(doorWalk, 0.34, 0.24, el.state, { lockedDeckId: 'deck-02' });
+    assert.ok(Math.hypot(doorWalk.x - doorPt.x, doorWalk.z - doorPt.z) < 0.05, `${suite.code} umbral abierto transitable`);
+
+    // Muros laterales p=±2.06 en r=7.0 deben bloquear paso
+    for (const side of [-2.06, 2.06]) {
+      const wallPt = radialBayPoint(bay, 7.0, side, 0.0);
+      const wallHit = new THREE.Vector3(wallPt.x, wallPt.y, wallPt.z);
+      interior.clampAstronautPosition(wallHit, 0.34, 0.24, el.state, { lockedDeckId: 'deck-02' });
+      assert.ok(Math.hypot(wallHit.x - wallPt.x, wallHit.z - wallPt.z) >= 0.35, `${suite.code} muro frontal (${side}) debe bloquear`);
+    }
+
+    // Litera (r=14.1, p=0) sólida al caminar pero libre en reposo con ignoreBedRestCollider
+    const bedPt = radialBayPoint(bay, 14.1, 0.0, 0.0);
+    const bedWalk = new THREE.Vector3(bedPt.x, bedPt.y, bedPt.z);
+    interior.clampAstronautPosition(bedWalk, 0.34, 0.24, el.state, { lockedDeckId: 'deck-02' });
+    assert.ok(Math.hypot(bedWalk.x - bedPt.x, bedWalk.z - bedPt.z) >= 0.5, `${suite.code} litera debe ser sólida al caminar`);
+
+    const bedRestPt = radialBayPoint(bay, 14.1, 0.0, 0.74);
+    const bedRestPos = new THREE.Vector3(bedRestPt.x, bedRestPt.y, bedRestPt.z);
+    interior.clampAstronautPosition(bedRestPos, 0.34, 0.24, el.state, {
+      lockedDeckId: 'deck-02',
+      ignoreBedRestCollider: idx,
+    });
+    assert.ok(
+      Math.hypot(bedRestPos.x - bedRestPt.x, bedRestPos.z - bedRestPt.z) < 0.02,
+      `${suite.code} ignoreBedRestCollider=${idx} debe permitir postura acostada`,
+    );
+
+    // Escritorio (+2.35), módulo de especialidad (-2.35) y armario (-2.45) sólidos
+    for (const [label, r, p] of [
+      ['escritorio', 12.2, 2.35],
+      ['alcoba', 12.2, -2.35],
+      ['armario', 15.2, -2.45],
+    ]) {
+      const mPt = radialBayPoint(bay, r, p, 0.0);
+      const mHit = new THREE.Vector3(mPt.x, mPt.y, mPt.z);
+      interior.clampAstronautPosition(mHit, 0.34, 0.24, el.state, { lockedDeckId: 'deck-02' });
+      assert.ok(Math.hypot(mHit.x - mPt.x, mHit.z - mPt.z) >= 0.45, `${suite.code} ${label} debe bloquear colisión`);
+    }
+  });
+
+  // 2. Puerta corredera privada (door-hab-01): bloqueo físico e impedimento de interacción a través de puerta cerrada
+  const closedDoorRes = interior.mechanisms.trigger('door-hab-01', false);
+  assert.equal(closedDoorRes.state.cabinDoorsOpen[0], false);
+  const bay0 = C02_CABIN_BAYS[0];
+  const thresholdPt = radialBayPoint(bay0, 7.0, 0.0, 0.0);
+  const blockedDoor = new THREE.Vector3(thresholdPt.x, thresholdPt.y, thresholdPt.z);
+  interior.clampAstronautPosition(blockedDoor, 0.34, 0.24, el.state, { lockedDeckId: 'deck-02' });
+  assert.ok(
+    Math.hypot(blockedDoor.x - thresholdPt.x, blockedDoor.z - thresholdPt.z) >= 0.35,
+    'La puerta privada cerrada door-hab-01 debe impedir atravesar el umbral',
+  );
+  const outsideBay0Pt = radialBayPoint(bay0, 6.4, 0.0, 0.0);
+  const outsideNearest = interior.findNearestInteractiveStation(
+    new THREE.Vector3(outsideBay0Pt.x, outsideBay0Pt.y, outsideBay0Pt.z),
+  );
+  assert.notEqual(outsideNearest?.id, 'bed-hab-01', 'Puerta cerrada debe bloquear detección de litera interior desde el pasillo');
+
+  const reopenedDoorRes = interior.mechanisms.trigger('door-hab-01', true);
+  assert.equal(reopenedDoorRes.state.cabinDoorsOpen[0], true);
+  const passReopened = new THREE.Vector3(thresholdPt.x, thresholdPt.y, thresholdPt.z);
+  interior.clampAstronautPosition(passReopened, 0.34, 0.24, el.state, { lockedDeckId: 'deck-02' });
+  assert.ok(
+    Math.hypot(passReopened.x - thresholdPt.x, passReopened.z - thresholdPt.z) < 0.05,
+    'Al reabrir door-hab-01 debe restaurarse el paso libre',
+  );
+
+  // 3. Módulos axiales C02: Esclusa Proa (-Z), Biopónica Popa (+Z), Comedor (±X) y Taquilla EVA (storage-c02)
+  assert.equal(interior.findNearestInteractiveStation(new THREE.Vector3(0, 0, -13.0))?.id, 'airlock');
+  assert.equal(interior.findNearestInteractiveStation(new THREE.Vector3(0, 0, 10.6))?.id, 'bioponics');
+  assert.equal(interior.findNearestInteractiveStation(new THREE.Vector3(-4.8, 0, -2.6))?.id, 'storage-c02');
+  const bioponicHit = new THREE.Vector3(0.0, 0.0, 12.6);
+  interior.clampAstronautPosition(bioponicHit, 0.34, 0.24, el.state, { lockedDeckId: 'deck-02' });
+  assert.ok(bioponicHit.z <= 12.15, 'Jardinera hidropónica a popa debe contener colisión sólida');
+
+  // 4. Todos los mecanismos interactivos de Cubierta 02 alternan estado limpiamente
+  const before = { ...interior.mechanisms.state };
+  assert.equal(interior.mechanisms.trigger('lamp-hab-01').state.cabinLamps[0], 'night');
+  assert.equal(interior.mechanisms.trigger('locker-hab-01').state.cabinLockersOpen[0], true);
+  assert.equal(interior.mechanisms.trigger('tablet-hab-01').state.cabinTabletPages[0], 1);
+  assert.equal(interior.mechanisms.trigger('galley-synth').state.galleyCoffeeBrewing, !before.galleyCoffeeBrewing);
+  assert.equal(interior.mechanisms.trigger('lounge-audio-c02').state.loungeMusicActive, !before.loungeMusicActive);
+  assert.equal(interior.mechanisms.trigger('aurora-trophy-c02').state.auroraHoloActive, !before.auroraHoloActive);
+  assert.equal(interior.mechanisms.trigger('orrery-hab-02').state.orrerySpinFast, !before.orrerySpinFast);
+  assert.equal(interior.mechanisms.trigger('med-bay-c02').state.medScanActive, !before.medScanActive);
+  assert.equal(interior.mechanisms.trigger('spec-samples-c02').state.specSamplesActive, !before.specSamplesActive);
+  assert.equal(interior.mechanisms.trigger('gym-c02').state.gymWorkoutActive, !before.gymWorkoutActive);
+  assert.equal(interior.mechanisms.trigger('eva-rack-c02').state.evaCheckActive, !before.evaCheckActive);
+  interior.updateStations(1.5, new THREE.Vector3(thresholdPt.x, 0.0, thresholdPt.z));
+
+  const doorPrompt = describeInteractablePrompt('door-hab-01', { mechanisms: interior.mechanisms.state });
+  const bedPrompt = describeInteractablePrompt('bed-hab-01', { mechanisms: interior.mechanisms.state });
+  assert.ok(doorPrompt.label && doorPrompt.actionLabel);
+  assert.ok(bedPrompt.label && bedPrompt.actionLabel);
 
   interior.dispose?.();
 });
