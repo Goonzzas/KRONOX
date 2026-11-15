@@ -348,11 +348,11 @@ export default function SpaceshipCockpit({
                 <button
                   type="button"
                   className="kronoxHudQuickBtn"
-                  onClick={() => onOpenPersonalHub('inventory')}
-                  title="Abrir Inventario, Mapa Galáctico, Misiones y Manual [I]"
+                  onClick={() => onOpenPersonalHub('map')}
+                  title="Abrir Mapa Galáctico, Misiones y Manual"
                 >
-                  <span>🎒</span>
-                  <span>Inventario</span>
+                  <span>🌌</span>
+                  <span>Mapa · Guía</span>
                 </button>
               )}
 

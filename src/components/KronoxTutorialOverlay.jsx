@@ -7,7 +7,7 @@ const TUTORIAL_PILLARS = [
   { id: 'astro_obs', short: '4. Control y Óptica', match: ['astro_obs'] },
   { id: 'galactic_map', short: '5. Mapa Galáctico', match: ['galactic_map'] },
   { id: 'elevator', short: '6. Ascensor y SPHEREx', match: ['elevator_c02', 'elevator_c03', 'science'] },
-  { id: 'inventory', short: '7. Inventario [I]', match: ['manual_journal', 'inventory_hub'] },
+  { id: 'inventory', short: '7. Mapa y Manual', match: ['manual_journal', 'inventory_hub'] },
 ];
 
 const STEP_COPY = {
@@ -44,8 +44,8 @@ const STEP_COPY = {
   galactic_map: {
     badge: 'PASO 5 · MAPA GALÁCTICO',
     title: 'Explora las escalas del cosmos',
-    body: 'Abre el Inventario ([I]) y entra a la pestaña «Mapa galáctico» para cambiar entre Sistema Solar, Vecindario Estelar y Galaxias y trazar un salto.',
-    keys: ['I', 'Mapa galáctico'],
+    body: 'Abre «Mapa · Guía» en la barra superior y entra a «Mapa galáctico» para cambiar entre Sistema Solar, Vecindario Estelar y Galaxias y trazar un salto.',
+    keys: ['Mapa · Guía'],
   },
   elevator_c02: {
     badge: 'PASO 6 · ASCENSOR CENTRAL',
@@ -66,16 +66,16 @@ const STEP_COPY = {
     keys: ['E'],
   },
   manual_journal: {
-    badge: 'PASO 7 · INVENTARIO Y EQUIPAMIENTO',
-    title: 'Domina tu centro de equipamiento',
-    body: 'Pulsa [I] para abrir tu Inventario: gestiona herramientas EVA, accede al Mapa Galáctico, Misiones y Manual.',
-    keys: ['I'],
+    badge: 'PASO 7 · MAPA Y MANUAL OPERATIVO',
+    title: 'Domina tu centro táctico',
+    body: 'Abre «Mapa · Guía» en la barra superior para consultar el Manual de la Nave, Misiones, Exploración y Sistemas y completar el tutorial.',
+    keys: ['Mapa · Guía'],
   },
   inventory_hub: {
-    badge: 'PASO 7 · INVENTARIO Y EQUIPAMIENTO',
-    title: 'Domina tu centro de equipamiento',
-    body: 'Pulsa [I] para abrir tu Inventario: gestiona herramientas EVA, accede al Mapa Galáctico, Misiones y Manual.',
-    keys: ['I'],
+    badge: 'PASO 7 · MAPA Y MANUAL OPERATIVO',
+    title: 'Domina tu centro táctico',
+    body: 'Abre «Mapa · Guía» en la barra superior para consultar el Manual de la Nave, Misiones, Exploración y Sistemas y completar el tutorial.',
+    keys: ['Mapa · Guía'],
   },
 };
 
@@ -158,9 +158,9 @@ export default function KronoxTutorialOverlay({
             <button
               type="button"
               className="kronoxTutorialPrimaryBtn"
-              onClick={() => onOpenInventoryTab('inventory')}
+              onClick={() => onOpenInventoryTab('manual')}
             >
-              Abrir Inventario [I]
+              Abrir Manual operativo
             </button>
           )}
         <button

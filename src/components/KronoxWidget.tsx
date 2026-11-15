@@ -18,6 +18,7 @@ type KronoxWidgetProps = {
   panelOpen?: boolean;
   dialogueHidden?: boolean;
   showSubtitles?: boolean;
+  subtitleSize?: 'normal' | 'large';
   showCornerOrb?: boolean;
   onClose?: () => void;
   onToggleVoice?: () => void;
@@ -87,7 +88,7 @@ function resolveDialogueCategory(
   };
 }
 
-const splitIntervention = (text: string, maxLength = 148) => {
+const splitIntervention = (text: string, maxLength = 104) => {
   const pieces: string[] = [];
   let remaining = text.trim();
   while (remaining.length > maxLength) {
@@ -103,7 +104,7 @@ const splitIntervention = (text: string, maxLength = 148) => {
         .slice(
           0,
           cut +
-            (remaining[cut] === '.' || remaining[cut] === '!' || remaining[cut] === '?' ? 1 : 0),
+          (remaining[cut] === '.' || remaining[cut] === '!' || remaining[cut] === '?' ? 1 : 0),
         )
         .trim(),
     );
@@ -137,6 +138,7 @@ export default function KronoxWidget({
   aiProjection = null,
   dialogueHidden = false,
   showSubtitles = true,
+  subtitleSize = 'normal',
   showCornerOrb = false,
   onMessageComplete,
   onEndGuide,
@@ -225,7 +227,7 @@ export default function KronoxWidget({
       return undefined;
     if (partIndex < interventions.length - 1) {
       const wordCount = Math.max(1, intervention.trim().split(/\s+/).length);
-      const holdMs = Math.max(2400, Math.min(6000, wordCount * 270));
+      const holdMs = Math.max(1900, Math.min(4400, wordCount * 220));
       const timer = setTimeout(() => {
         setPartIndex((index) => index + 1);
         setTyped('');
@@ -233,7 +235,7 @@ export default function KronoxWidget({
       return () => clearTimeout(timer);
     }
     if (!speaking) {
-      const timer = setTimeout(() => onMessageComplete?.(narrative.id), 3600);
+      const timer = setTimeout(() => onMessageComplete?.(narrative.id), 2300);
       return () => clearTimeout(timer);
     }
     return undefined;
@@ -374,6 +376,7 @@ export default function KronoxWidget({
 
   const categoryMeta = resolveDialogueCategory(narrative, resolvedState);
   const showSubtitleBar =
+    !panelOpen &&
     !dialogueHidden &&
     showSubtitles &&
     subtitlesEnabled &&
@@ -393,7 +396,7 @@ export default function KronoxWidget({
           aria-live="polite"
           style={{
             position: 'fixed',
-            bottom: showSubtitleBar ? '152px' : '32px',
+            bottom: showSubtitleBar ? '88px' : '22px',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 48,
@@ -452,10 +455,10 @@ export default function KronoxWidget({
         </button>
       )}
 
-      {/* SUBTÍTULO DISCRETO DE VIDEOJUEGO INFERIOR CENTRADO (Sin controles de conversación) */}
+      {/* SUBTÍTULO DISCRETO DE VIDEOJUEGO INFERIOR CENTRADO (Compacto y no intrusivo) */}
       {showSubtitleBar && narrative && (
         <section
-          className={`kronoxCinematicSubtitleBar ${categoryMeta.accentClass} ${speaking ? 'is-speaking' : ''}`}
+          className={`kronoxCinematicSubtitleBar ${categoryMeta.accentClass} ${speaking ? 'is-speaking' : ''} ${subtitleSize === 'large' ? 'is-large' : ''}`}
           role="status"
           aria-live="polite"
           aria-label={t('Subtítulo de KRONOX IA', language)}
@@ -476,6 +479,18 @@ export default function KronoxWidget({
                 ))}
               </span>
             )}
+            <button
+              type="button"
+              className="kronoxSubtitleDismissBtn"
+              onClick={() => {
+                setDismissedMessageId(narrative.id);
+                onMessageComplete?.(narrative.id);
+              }}
+              title={t('Ocultar subtítulo', language)}
+              aria-label={t('Ocultar subtítulo', language)}
+            >
+              ×
+            </button>
           </div>
           <p className="kronoxSubtitleText">{typed || intervention}</p>
         </section>

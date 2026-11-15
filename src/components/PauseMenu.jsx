@@ -11,7 +11,6 @@ import {
   PRIVACY_LEVELS,
   buildShareableObservationEnvelope,
 } from '../utils/communitySchema.js';
-import { loadPlayerInventory, equipInventoryItem } from '../utils/playerInventory.js';
 import { getGameAchievementsStatus } from '../utils/gameAchievements.js';
 import {
   AudioSettingsGroup,
@@ -31,7 +30,7 @@ const PAUSE_SECTIONS = [
   { id: 'continue', label: '1. Continuar', subtitle: 'Reanudar exploración espacial' },
   { id: 'save', label: '2. Guardar partida', subtitle: 'Estado de nave y efemérides' },
   { id: 'observations', label: '3. Mis observaciones', subtitle: 'Registro científico personal' },
-  { id: 'journal', label: '4. Diario de exploración', subtitle: 'Registro de misiones y objetos' },
+  { id: 'journal', label: '4. Diario de exploración', subtitle: 'Registro de misiones y logros' },
   { id: 'community', label: '5. Comunidad', subtitle: 'Arquitectura de ciencia ciudadana' },
   { id: 'settings', label: '6. Ajustes', subtitle: 'Gráficos, audio, interfaz y voz' },
   { id: 'controls', label: '7. Controles', subtitle: 'Mapa de mando y navegación' },
@@ -83,7 +82,6 @@ export default function PauseMenu({
   const [activeSection, setActiveSection] = useState(initialSection || 'continue');
   const [activeSettingsTab, setActiveSettingsTab] = useState('graphics');
   const [journalSubTab, setJournalSubTab] = useState('bitacora');
-  const [inventory, setInventory] = useState(() => loadPlayerInventory());
   const [achievementsStatus, setAchievementsStatus] = useState(() => getGameAchievementsStatus());
   const [findings, setFindings] = useState([]);
   const [journal, setJournal] = useState(() => loadExpeditionJournal());
@@ -96,7 +94,6 @@ export default function PauseMenu({
     if (open) {
       setFindings(loadFindings());
       setJournal(loadExpeditionJournal());
-      setInventory(loadPlayerInventory());
       setAchievementsStatus(getGameAchievementsStatus());
       setLastSave(loadGameState());
       setSaveFeedback('');
@@ -406,198 +403,136 @@ export default function PauseMenu({
           {activeSection === 'journal' && (
             <section className="kronox-pause-panel">
               <header className="kronox-pause-header">
-                <span className="kronox-pause-eyebrow">EXPEDICIÓN Y EQUIPAMIENTO DE A BORDO</span>
-                <h3>Diario de exploración, inventario y logros</h3>
+                <span className="kronox-pause-eyebrow">EXPEDICIÓN Y PROGRESO DE A BORDO</span>
+                <h3>Diario de exploración y logros</h3>
                 <p>
-                  Registro cronológico de tu expedición, gestión de herramientas de microgravedad y progreso
-                  en los objetivos científicos a bordo de KRONOX.
+                  Registro cronológico de tu expedición y progreso en los objetivos científicos a bordo de KRONOX.
                 </p>
               </header>
 
-                <div className="kronox-settings-tabs" role="tablist" style={{ marginBottom: 16 }}>
-                  <button
-                    type="button"
-                    className={`kronox-settings-tab-btn${journalSubTab === 'bitacora' ? ' is-active' : ''}`}
-                    onClick={() => setJournalSubTab('bitacora')}
-                  >
-                    Registro de Misiones
-                  </button>
-                  <button
-                    type="button"
-                    className={`kronox-settings-tab-btn${journalSubTab === 'inventario' ? ' is-active' : ''}`}
-                    onClick={() => setJournalSubTab('inventario')}
-                  >
-                    Inventario Funcional ({inventory.length})
-                  </button>
-                  <button
-                    type="button"
-                    className={`kronox-settings-tab-btn${journalSubTab === 'logros' ? ' is-active' : ''}`}
-                    onClick={() => setJournalSubTab('logros')}
-                  >
-                    Logros Científicos ({achievementsStatus.unlockedCount}/{achievementsStatus.totalCount})
-                  </button>
-                </div>
+              <div className="kronox-settings-tabs" role="tablist" style={{ marginBottom: 16 }}>
+                <button
+                  type="button"
+                  className={`kronox-settings-tab-btn${journalSubTab === 'bitacora' ? ' is-active' : ''}`}
+                  onClick={() => setJournalSubTab('bitacora')}
+                >
+                  Registro de Misiones
+                </button>
+                <button
+                  type="button"
+                  className={`kronox-settings-tab-btn${journalSubTab === 'logros' ? ' is-active' : ''}`}
+                  onClick={() => setJournalSubTab('logros')}
+                >
+                  Logros Científicos ({achievementsStatus.unlockedCount}/{achievementsStatus.totalCount})
+                </button>
+              </div>
 
-                  {journalSubTab === 'bitacora' && (
-                    <>
-                      <div className="kronox-pause-stats-row">
-                        <div className="kronox-pause-stat-box">
-                          <span className="kronox-pause-stat-num">
-                            {journal.completedMissions.length}
-                          </span>
-                          <span className="kronox-pause-stat-label">Misiones completadas</span>
-                        </div>
-                        <div className="kronox-pause-stat-box">
-                          <span className="kronox-pause-stat-num">
-                            {journal.investigatedObjects.length}
-                          </span>
-                          <span className="kronox-pause-stat-label">Objetos investigados</span>
-                        </div>
-                        <div className="kronox-pause-stat-box">
-                          <span className="kronox-pause-stat-num">{findings.length}</span>
-                          <span className="kronox-pause-stat-label">Observaciones guardadas</span>
-                        </div>
-                        <div className="kronox-pause-stat-box">
-                          <span className="kronox-pause-stat-num">
-                            {journal.personalDiscoveries.length + findings.length}
-                          </span>
-                          <span className="kronox-pause-stat-label">Anotaciones personales</span>
-                        </div>
-                      </div>
+              {journalSubTab === 'bitacora' && (
+                <>
+                  <div className="kronox-pause-stats-row">
+                    <div className="kronox-pause-stat-box">
+                      <span className="kronox-pause-stat-num">
+                        {journal.completedMissions.length}
+                      </span>
+                      <span className="kronox-pause-stat-label">Misiones completadas</span>
+                    </div>
+                    <div className="kronox-pause-stat-box">
+                      <span className="kronox-pause-stat-num">
+                        {journal.investigatedObjects.length}
+                      </span>
+                      <span className="kronox-pause-stat-label">Objetos investigados</span>
+                    </div>
+                    <div className="kronox-pause-stat-box">
+                      <span className="kronox-pause-stat-num">{findings.length}</span>
+                      <span className="kronox-pause-stat-label">Observaciones guardadas</span>
+                    </div>
+                    <div className="kronox-pause-stat-box">
+                      <span className="kronox-pause-stat-num">
+                        {journal.personalDiscoveries.length + findings.length}
+                      </span>
+                      <span className="kronox-pause-stat-label">Anotaciones personales</span>
+                    </div>
+                  </div>
 
-                      <div className="kronox-pause-card-grid">
-                        <div className="kronox-pause-card">
-                          <h4>Objetos astronómicos investigados</h4>
-                          {journal.investigatedObjects.length === 0 ? (
-                            <p className="kronox-pause-empty-text">
-                              Selecciona planetas, estrellas del catálogo o destinos SPHEREx para poblar tu
-                              registro cartográfico.
-                            </p>
-                          ) : (
-                            <ul className="kronox-pause-meta-list">
-                              {journal.investigatedObjects.slice(0, 10).map((obj) => (
-                                <li key={obj.key}>
-                                  <span>{obj.label}</span>
-                                  <strong>{obj.kind}</strong>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-
-                        <div className="kronox-pause-card">
-                          <h4>Actividad reciente</h4>
-                          {journal.activities.length === 0 ? (
-                            <p className="kronox-pause-empty-text">
-                              Sin entradas recientes registradas.
-                            </p>
-                          ) : (
-                            <ul className="kronox-pause-activity-list">
-                              {journal.activities.slice(0, 8).map((act) => (
-                                <li key={act.id}>
-                                  <div className="kronox-pause-act-title">{act.title}</div>
-                                  {act.detail && (
-                                    <div className="kronox-pause-act-detail">{act.detail}</div>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {journalSubTab === 'inventario' && (
+                  <div className="kronox-pause-card-grid">
                     <div className="kronox-pause-card">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <h4>Equipamiento y Repuestos para Microgravedad</h4>
-                        <span className="kronox-badge">6 Ítems Operativos</span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-                        {inventory.map((item) => (
-                          <div
-                            key={item.id}
-                            style={{
-                              background: 'rgba(15, 23, 42, 0.7)',
-                              border: '1px solid rgba(56, 189, 248, 0.2)',
-                              borderRadius: 8,
-                              padding: 12,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 6,
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <span style={{ fontSize: '1.6rem' }}>{item.icon}</span>
-                              <div>
-                                <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.95rem' }}>{item.name}</div>
-                                <span style={{ fontSize: '0.75rem', color: '#38bdf8' }}>{item.category}</span>
-                              </div>
-                            </div>
-                            <p style={{ margin: '4px 0', fontSize: '0.8rem', color: '#94a3b8', lineHeight: 1.4 }}>
-                              {item.description}
-                            </p>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
-                              {item.usableInRepair && (
-                                <span style={{ fontSize: '0.7rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.15)', padding: '2px 6px', borderRadius: 4 }}>
-                                  Útil en Reparación
-                                </span>
+                      <h4>Objetos astronómicos investigados</h4>
+                      {journal.investigatedObjects.length === 0 ? (
+                        <p className="kronox-pause-empty-text">
+                          Selecciona planetas, estrellas del catálogo o destinos SPHEREx para poblar tu
+                          registro cartográfico.
+                        </p>
+                      ) : (
+                        <ul className="kronox-pause-meta-list">
+                          {journal.investigatedObjects.slice(0, 10).map((obj) => (
+                            <li key={obj.key}>
+                              <span>{obj.label}</span>
+                              <strong>{obj.kind}</strong>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div className="kronox-pause-card">
+                      <h4>Actividad reciente</h4>
+                      {journal.activities.length === 0 ? (
+                        <p className="kronox-pause-empty-text">
+                          Sin entradas recientes registradas.
+                        </p>
+                      ) : (
+                        <ul className="kronox-pause-activity-list">
+                          {journal.activities.slice(0, 8).map((act) => (
+                            <li key={act.id}>
+                              <div className="kronox-pause-act-title">{act.title}</div>
+                              {act.detail && (
+                                <div className="kronox-pause-act-detail">{act.detail}</div>
                               )}
-                              <button
-                                type="button"
-                                className="kronox-pause-secondary-btn"
-                                style={{ padding: '3px 8px', fontSize: '0.75rem', marginLeft: 'auto' }}
-                                onClick={() => {
-                                  equipInventoryItem(item.id);
-                                  setInventory(loadPlayerInventory());
-                                }}
-                              >
-                                {item.equipped ? '✓ Equipado' : 'Equipar'}
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
-                  )}
+                  </div>
+                </>
+              )}
 
-                  {journalSubTab === 'logros' && (
-                    <div className="kronox-pause-card">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <h4>Logros de Exploración y Ciencia</h4>
-                        <span className="kronox-badge">
-                          {achievementsStatus.unlockedCount} / {achievementsStatus.totalCount} ({achievementsStatus.percentage}%)
-                        </span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
-                        {achievementsStatus.achievements.map((ach) => (
-                          <div
-                            key={ach.id}
-                            style={{
-                              background: ach.unlocked ? 'rgba(16, 185, 129, 0.1)' : 'rgba(15, 23, 42, 0.5)',
-                              border: `1px solid ${ach.unlocked ? 'rgba(52, 211, 153, 0.5)' : 'rgba(71, 85, 105, 0.3)'}`,
-                              borderRadius: 8,
-                              padding: 10,
-                              opacity: ach.unlocked ? 1 : 0.65,
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ fontSize: '1.4rem' }}>{ach.icon}</span>
-                              <div>
-                                <div style={{ fontWeight: 600, color: ach.unlocked ? '#a7f3d0' : '#e2e8f0', fontSize: '0.9rem' }}>
-                                  {ach.title}
-                                </div>
-                                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{ach.category}</span>
-                              </div>
+              {journalSubTab === 'logros' && (
+                <div className="kronox-pause-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <h4>Logros de Exploración y Ciencia</h4>
+                    <span className="kronox-badge">
+                      {achievementsStatus.unlockedCount} / {achievementsStatus.totalCount} ({achievementsStatus.percentage}%)
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
+                    {achievementsStatus.achievements.map((ach) => (
+                      <div
+                        key={ach.id}
+                        style={{
+                          background: ach.unlocked ? 'rgba(16, 185, 129, 0.1)' : 'rgba(15, 23, 42, 0.5)',
+                          border: `1px solid ${ach.unlocked ? 'rgba(52, 211, 153, 0.5)' : 'rgba(71, 85, 105, 0.3)'}`,
+                          borderRadius: 8,
+                          padding: 10,
+                          opacity: ach.unlocked ? 1 : 0.65,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: '1.4rem' }}>{ach.icon}</span>
+                          <div>
+                            <div style={{ fontWeight: 600, color: ach.unlocked ? '#a7f3d0' : '#e2e8f0', fontSize: '0.9rem' }}>
+                              {ach.title}
                             </div>
-                            <p style={{ margin: '6px 0 0', fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.35 }}>
-                              {ach.description}
-                            </p>
+                            <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{ach.category}</span>
                           </div>
-                        ))}
+                        </div>
+                        <p style={{ margin: '6px 0 0', fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.35 }}>
+                          {ach.description}
+                        </p>
                       </div>
-                    </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </section>
           )}

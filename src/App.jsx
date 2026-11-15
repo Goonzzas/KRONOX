@@ -235,7 +235,7 @@ export default function App() {
     [reticleTarget, setReticleTarget] = useState(null),
     [showFullMainMenu, setShowFullMainMenu] = useState(false),
     [personalHubOpen, setPersonalHubOpen] = useState(false),
-    [personalHubTab, setPersonalHubTab] = useState('inventory'),
+    [personalHubTab, setPersonalHubTab] = useState('map'),
     [inventoryState, setInventoryState] = useState(() => loadAstronautInventory()),
     [recordedAiMessages, setRecordedAiMessages] = useState(() => loadRecordedAiMessages()),
     [guideState, setGuideState] = useState({ active: false, step: 'free', completed: false }),
@@ -1566,16 +1566,6 @@ export default function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (welcomeOpen || showFullMainMenu || realTimeIntroActive) return;
 
-      if (event.key === 'i' || event.key === 'I') {
-        event.preventDefault();
-        setPersonalHubOpen((prev) => {
-          const next = !(prev && personalHubTab === 'inventory');
-          setPersonalHubTab('inventory');
-          if (next) A()?.onGuidedInventoryOpen?.('inventory');
-          return next;
-        });
-        return;
-      }
       if (event.key === 'k' || event.key === 'K') {
         event.preventDefault();
         kronoxDialogHiddenRef.current = false;
@@ -1586,7 +1576,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyShortcuts);
     return () => window.removeEventListener('keydown', handleKeyShortcuts);
-  }, [welcomeOpen, showFullMainMenu, realTimeIntroActive, personalHubTab]);
+  }, [welcomeOpen, showFullMainMenu, realTimeIntroActive]);
 
   useEffect(() => {
     const handleEscKey = (event) => {
@@ -2853,6 +2843,7 @@ export default function App() {
     h(KronoxWidget, {
       narrative: guide,
       showSubtitles: gameSettings.showSubtitles !== false,
+      subtitleSize: gameSettings.subtitleSize || 'normal',
       dialogueHidden:
         kronoxDialogHidden ||
         realTimeIntroActive ||
@@ -3320,8 +3311,8 @@ export default function App() {
         setPersonalHubTab('exploration');
         setPersonalHubOpen(true);
       },
-      onOpenPersonalHub: (tab = 'inventory') => {
-        const targetTab = tab === 'journal' ? 'exploration' : tab || 'inventory';
+      onOpenPersonalHub: (tab = 'map') => {
+        const targetTab = tab === 'journal' ? 'exploration' : !tab || tab === 'inventory' ? 'map' : tab;
         setPersonalHubTab(targetTab);
         setPersonalHubOpen(true);
         A()?.onGuidedInventoryOpen?.(targetTab);
@@ -3710,7 +3701,7 @@ export default function App() {
         setGuideObjective('');
       },
       onOpenInventoryTab: (tabId) => {
-        const nextTab = tabId || 'inventory';
+        const nextTab = !tabId || tabId === 'inventory' ? 'map' : tabId;
         setPersonalHubTab(nextTab);
         setPersonalHubOpen(true);
         A()?.onGuidedInventoryOpen?.(nextTab);
@@ -3770,7 +3761,7 @@ export default function App() {
       },
       onUseInventoryItem: (item) => {
         if (!item) return;
-        notify(`${item.name}: verificado operativo a bordo.`, 'Inventario');
+        notify(`${item.name}: verificado operativo a bordo.`, 'Operaciones');
       },
       onSelectScale: (scaleId) => {
         A()?.setNavigationScale?.(scaleId);

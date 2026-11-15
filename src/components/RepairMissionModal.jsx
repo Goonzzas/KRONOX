@@ -119,7 +119,7 @@ export default function RepairMissionModal({
 
   const handleInstallReplacement = () => {
     clearPendingTimers();
-    setFeedbackMsg('Instalando Acoplador Óptico Cuántico de niobato de litio desde el inventario...');
+    setFeedbackMsg('Instalando Acoplador Óptico Cuántico de niobato de litio de repuesto...');
     const timeoutId = setTimeout(() => {
       timersRef.current.timeouts.delete(timeoutId);
       if (cancelledRef.current) return;
@@ -212,7 +212,7 @@ export default function RepairMissionModal({
 
             {stage === 3 && (
               <div>
-                <p>Selecciona el Acoplador Óptico Cuántico de repuesto de tu inventario:</p>
+                <p>Instala el Acoplador Óptico Cuántico de repuesto en la guía de ondas:</p>
                 <button type="button" className="kronox-repair-btn success" onClick={handleInstallReplacement}>
                   💎 Insertar Acoplador de Repuesto
                 </button>

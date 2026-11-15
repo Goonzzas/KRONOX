@@ -84,7 +84,7 @@ const CONTROLS_MANUAL_DATA = [
   { keys: 'E', action: 'Interactuar con consolas, puertas de ascensor, objetos y sillón de mando' },
   { keys: '1 · 2 · 3 · 4', action: 'Seleccionar cubierta C01–C04 dentro del ascensor central' },
   { keys: 'V / C', action: 'Alternar vista Interior (1P / 3P) y vista Exterior de la nave (120 m)' },
-  { keys: 'J', action: 'Abrir / cerrar Bitácora Personal (Diario, Manual e Inventario)' },
+  { keys: 'J', action: 'Abrir / cerrar Bitácora Personal (Diario y Manual)' },
   { keys: 'K', action: 'Abrir / cerrar ventana de Consulta a KRONOX IA' },
   { keys: 'T', action: 'Alternar aumentos del Telescopio Óptico (1× a 500×)' },
   { keys: 'Shift / Espacio / Ctrl', action: 'Impulso RCS / Ascender / Descender en microgravedad' },
@@ -109,29 +109,16 @@ export default function AstronautPersonalHub({
   onOpenSpherexLab,
   onSaveGame,
 }) {
-  const [activeTab, setActiveTab] = useState(initialTab || 'journal');
+  const [activeTab, setActiveTab] = useState(
+    initialTab === 'manual' ? 'manual' : 'journal',
+  );
   const [manualSection, setManualSection] = useState('decks');
-  const [inventoryCategory, setInventoryCategory] = useState('Todos');
-  const [selectedItemId, setSelectedItemId] = useState('astral-suit-mk4');
 
   React.useEffect(() => {
     if (open && initialTab) {
-      setActiveTab(initialTab);
+      setActiveTab(initialTab === 'manual' ? 'manual' : 'journal');
     }
   }, [open, initialTab]);
-
-  const items = useMemo(() => inventoryState?.items || [], [inventoryState]);
-  const ownedCount = useMemo(() => items.filter((i) => i.owned).length, [items]);
-
-  const filteredItems = useMemo(() => {
-    if (inventoryCategory === 'Todos') return items;
-    return items.filter((i) => i.category === inventoryCategory);
-  }, [items, inventoryCategory]);
-
-  const selectedItem = useMemo(
-    () => items.find((i) => i.id === selectedItemId) || items[0] || null,
-    [items, selectedItemId],
-  );
 
   const tutorialSteps = useMemo(() => {
     const step = guideState?.step || 'free';
@@ -177,7 +164,7 @@ export default function AstronautPersonalHub({
       className="kronoxPersonalHubBackdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Sistema Personal del Astronauta: Diario, Manual e Inventario"
+      aria-label="Sistema Personal del Astronauta: Diario y Manual"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose?.();
       }}
@@ -219,15 +206,6 @@ export default function AstronautPersonalHub({
               onClick={() => setActiveTab('manual')}
             >
               <span>📘</span> Manual de la Nave
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'inventory'}
-              className={`kronoxHubTabBtn ${activeTab === 'inventory' ? 'is-active' : ''}`}
-              onClick={() => setActiveTab('inventory')}
-            >
-              <span>🎒</span> Inventario ({ownedCount}/{items.length})
             </button>
           </div>
 
@@ -548,121 +526,6 @@ export default function AstronautPersonalHub({
                   ))}
                 </div>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* CONTENIDO PESTAÑA 3: INVENTARIO FUNCIONAL */}
-        {activeTab === 'inventory' && (
-          <div className="kronoxPersonalHubBody kronoxInventoryLayout">
-            <div className="kronoxInventoryMain">
-              <div className="kronoxInventoryFilterBar">
-                {[
-                  'Todos',
-                  'Herramientas Técnicas',
-                  'Muestras Científicas',
-                  'Equipamiento EVA',
-                  'Credenciales y Suministros',
-                ].map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    className={`kronoxManualSubBtn ${inventoryCategory === cat ? 'is-active' : ''}`}
-                    onClick={() => setInventoryCategory(cat)}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-
-              <div className="kronoxInventoryGrid">
-                {filteredItems.map((item) => {
-                  const isHeld = Boolean(item.toolId && item.toolId === heldToolId);
-                  const isSelected = selectedItem?.id === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={`kronoxInventoryCard ${item.owned ? 'is-owned' : 'is-locked'} ${isSelected ? 'is-selected' : ''} ${isHeld ? 'is-equipped' : ''}`}
-                      onClick={() => setSelectedItemId(item.id)}
-                    >
-                      <div className="kronoxInventoryIconWrap">
-                        <span className="kronoxInventoryIcon">{item.icon}</span>
-                        {isHeld ? (
-                          <span className="kronoxInventoryStatusBadge is-held">EN MANO</span>
-                        ) : item.alwaysEquipped ? (
-                          <span className="kronoxInventoryStatusBadge is-active">ACTIVO</span>
-                        ) : item.owned ? (
-                          <span className="kronoxInventoryStatusBadge is-owned">EN INVENTARIO</span>
-                        ) : (
-                          <span className="kronoxInventoryStatusBadge is-missing">POR RECOLECTAR</span>
-                        )}
-                      </div>
-                      <div className="kronoxInventoryItemName">{item.name}</div>
-                      <div className="kronoxInventoryItemOrigin">{item.deckOrigin}</div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Panel Inspector de Objeto Seleccionado */}
-            {selectedItem && (
-              <aside className="kronoxHubCard kronoxInventoryInspector">
-                <div className="kronoxInspectorHeader">
-                  <span className="kronoxInspectorBigIcon">{selectedItem.icon}</span>
-                  <div>
-                    <span className="kronoxHubSectionBadge">{selectedItem.category}</span>
-                    <h3>{selectedItem.name}</h3>
-                    <small>Ubicación / Origen: {selectedItem.deckOrigin}</small>
-                  </div>
-                </div>
-
-                <div className="kronoxInspectorSpecs">
-                  <strong>ESPECIFICACIONES TÉCNICAS:</strong>
-                  <p>{selectedItem.specs}</p>
-                </div>
-
-                <p className="kronoxInspectorDesc">{selectedItem.description}</p>
-
-                <div className="kronoxInspectorActions">
-                  {selectedItem.owned ? (
-                    <>
-                      {selectedItem.equippable && selectedItem.toolId && (
-                        <button
-                          type="button"
-                          className="kronoxHubPrimaryActionBtn"
-                          onClick={() => {
-                            const nextTool =
-                              heldToolId === selectedItem.toolId ? null : selectedItem.toolId;
-                            onEquipTool?.(nextTool);
-                          }}
-                        >
-                          {heldToolId === selectedItem.toolId
-                            ? 'Guardar Herramienta en Cinturón EVA'
-                            : 'Equipar en Guantelete EVA (3D)'}
-                        </button>
-                      )}
-                      {selectedItem.category === 'Muestras Científicas' && onInspectSampleWithAi && (
-                        <button
-                          type="button"
-                          className="kronoxHubPrimaryActionBtn"
-                          onClick={() => {
-                            onInspectSampleWithAi(selectedItem);
-                            onClose?.();
-                          }}
-                        >
-                          🔊 Analizar Muestra con KRONOX IA
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <div className="kronoxInspectorLockedHint">
-                      🔒 Objeto aún no recolectado. Dirígete a <strong>{selectedItem.deckOrigin}</strong> y pulsa <kbd>E</kbd> sobre la estación o herramienta para añadirlo a tu inventario.
-                    </div>
-                  )}
-                </div>
-              </aside>
             )}
           </div>
         )}

@@ -3917,7 +3917,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     astro_obs:
       'Desde el puente puedes activar el Telescopio Óptico con la tecla T, inspeccionar el casco en vista Exterior o elegir un planeta o estrella para viajar hacia él.',
     galactic_map:
-      'Pulsa I para abrir tu Inventario y selecciona la pestaña Mapa galáctico. Allí puedes explorar Sistema Solar, Vecindario Estelar o Galaxias y fijar rumbo.',
+      'Abre «Mapa · Guía» arriba y entra en Mapa galáctico. Allí puedes explorar Sistema Solar, Vecindario Estelar o Galaxias y fijar rumbo.',
     elevator_c02:
       'Excelente. Ahora entra al Ascensor Central en el eje del puente, pulsa E o la tecla 2 y desciende a la Cubierta Habitacional para inspeccionar los camarotes y el comedor.',
     elevator_c03:
@@ -3925,7 +3925,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     science:
       'Has llegado a la Cubierta Científica. Sigue la baliza luminosa hacia babor hasta el Laboratorio Espectral SPHEREx y pulsa E para iniciar el análisis.',
     inventory_hub:
-      'Análisis científico registrado. Pulsa la tecla I para gestionar tus herramientas EVA, muestras y manual en el Inventario táctico y completar el tutorial.',
+      'Análisis científico registrado. Abre «Mapa · Guía» en la barra superior para revisar el Manual operativo y completar el tutorial.',
     missions: 'En la consola de misiones puedes revisar y elegir objetivos para la expedición.',
     comms: 'Esta consola abre el canal de comunicaciones de la nave.',
     windows: 'El mirador panorámico permite observar el sistema desde la nave.',
@@ -3982,11 +3982,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       bridge: 'PASO 3/7 · CONSOLA DE CONTROL: Acércate a la consola iluminada del Puente de Mando y pulsa [E].',
       nav: 'PASO 3/7 · CONSOLA DE NAVEGACIÓN: Acércate a la consola de navegación en el Puente y úsala con [E].',
       astro_obs: 'PASO 4/7 · EXPLORACIÓN ESPACIAL: Pulsa [T] para usar el Instrumento Óptico o cambia a vista Exterior.',
-      galactic_map: 'PASO 5/7 · MAPA GALÁCTICO: Pulsa [I] -> Mapa galáctico para explorar escalas y destinos del cosmos.',
+      galactic_map: 'PASO 5/7 · MAPA GALÁCTICO: Abre «Mapa · Guía» -> Mapa galáctico para explorar escalas y destinos del cosmos.',
       elevator_c02: 'PASO 6/7 · CUBIERTA HABITACIONAL: Toma el Ascensor Central ([E] o tecla [2]) hacia la Cubierta Habitacional.',
       elevator_c03: 'PASO 6/7 · CUBIERTA CIENTÍFICA: Baja en el Ascensor Central a la Cubierta Científica (Nivel 3, tecla [3]).',
       science: 'PASO 6/7 · LABORATORIO SPHEREx: Dirígete al Laboratorio SPHEREx en C03 y pulsa [E].',
-      inventory_hub: 'PASO 7/7 · INVENTARIO Y MANUAL: Pulsa [I] para abrir el Inventario táctico, equipamiento y Manual.',
+      inventory_hub: 'PASO 7/7 · MANUAL Y OPERACIONES: Abre «Mapa · Guía» para consultar el Manual operativo y completar el tutorial.',
       missions: 'OBJETIVO: Interactúa con la consola de misiones.',
       comms: 'OBJETIVO: Interactúa con la consola de comunicaciones.',
       windows: 'OBJETIVO: Acércate al mirador o interactúa con él.',
@@ -4015,7 +4015,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     S.onGuideObjective?.(null);
     S.onGuideStateChange?.({ step: 'free', stationId: null, active: false, completed: true });
     S.onAiTourNarrative?.(
-      'Entrenamiento operativo completado. Tienes acceso libre a las cuatro cubiertas, al Inventario, al Mapa Galáctico y a la navegación interestelar.',
+      'Entrenamiento operativo completado. Tienes acceso libre a las cuatro cubiertas, al Mapa Galáctico y a la navegación interestelar.',
       'Confirmación',
       'science',
       { id: 'tut-completed', priority: 9, replace: true, once: false },
@@ -4300,7 +4300,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
   }
 
-  function onGuidedInventoryOpen(tab = 'inventory') {
+  function onGuidedInventoryOpen(tab = 'map') {
     if (!guidedTourState || guidedTourState.step === 'free') return;
     if (tab === 'map' && guidedTourState.step === 'galactic_map') {
       setTourStep('elevator_c02', 'elevator');

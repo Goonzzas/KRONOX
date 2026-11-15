@@ -1,8 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { CATALOG_INVENTORY_ITEMS } from '../utils/astronautInventory.js';
+import React, { useState } from 'react';
 import { SPHEREX_MISSION_TYPES, SPHEREX_TARGETS } from '../data/spherexTargets.js';
 import { OPTICAL_MAGNIFICATION_STEPS } from '../scene/astronomicalScaleEngine.js';
-import ItemSvgIcon from './ItemSvgIcon.jsx';
 import GalacticMapPanel from './GalacticMapPanel.jsx';
 
 const DECK_MANUAL_DATA = [
@@ -88,7 +86,7 @@ const CONTROLS_MANUAL_DATA = [
   { keys: 'E', action: 'Interactuar con consolas, puertas de ascensor, objetos y sillón' },
   { keys: '1 · 2 · 3 · 4', action: 'Seleccionar cubierta C01–C04 dentro del ascensor central' },
   { keys: 'V / C', action: 'Alternar vista Cabina 1P / 3P y vista Exterior de la nave (120 m)' },
-  { keys: 'I', action: 'Abrir / cerrar Inventario, Mapa galáctico, Misiones y Manual' },
+  { keys: 'Mapa · Guía', action: 'Abrir Mapa galáctico, Misiones y Manual desde el HUD superior' },
   { keys: 'K', action: 'Abrir interfaz de KRONOX IA (Chat escrito y Micrófono)' },
   { keys: 'T', action: 'Alternar aumentos del Telescopio Óptico (1× a 500×)' },
   { keys: 'Shift / Espacio / Ctrl', action: 'Impulso RCS / Ascender / Descender en microgravedad' },
@@ -96,7 +94,6 @@ const CONTROLS_MANUAL_DATA = [
 ];
 
 const HUB_TABS = [
-  { id: 'inventory', label: 'Inventario', icon: '🎒' },
   { id: 'map', label: 'Mapa galáctico', icon: '🌌' },
   { id: 'missions', label: 'Misiones', icon: '🎯' },
   { id: 'manual', label: 'Manual', icon: '📘' },
@@ -104,30 +101,17 @@ const HUB_TABS = [
   { id: 'systems', label: 'Sistemas', icon: '⚙️' },
 ];
 
-const SHORT_ITEM_LABELS = {
-  'astral-suit-mk4': 'Traje EVA',
-  'command-keycard': 'Credencial',
-  'dosimeter-ir': 'Dosímetro',
-  'optical-coupler': 'Acoplador',
-  multitool: 'Multiherr.',
-  scanner: 'Escáner IR',
-  'sample-bioponic-flora': 'Biomasa',
-  'data-spherex-calibration': 'SPHEREx',
-  'sample-cryo-he3': 'Helio-3',
-  'eva-ration-pack': 'Ración EVA',
-};
-
-const TOTAL_SLOTS = 14;
+function resolveHubTab(tabId) {
+  return HUB_TABS.some((tab) => tab.id === tabId) ? tabId : 'map';
+}
 
 export default function GameInventoryModal({
   open = false,
-  initialTab = 'inventory',
+  initialTab = 'map',
   onClose,
   onTabChange,
-  inventoryState,
   journal,
   findings = [],
-  heldToolId = null,
   activeMissionId = 'barnard',
   activeObjective = '',
   currentDeck = { code: 'C01', name: 'Puente de Mando' },
@@ -140,9 +124,6 @@ export default function GameInventoryModal({
   observationModeInfo = null,
   navigationScaleId = 'solar',
   selectedGalaxyKey = 'milky-way',
-  onEquipTool,
-  onInspectSampleWithAi,
-  onUseInventoryItem,
   onSaveGame,
   onSelectScale,
   onActivateSceneMapView,
@@ -163,14 +144,12 @@ export default function GameInventoryModal({
   onTransitToDeck,
   onRestartTutorial,
 }) {
-  const [activeTab, setActiveTab] = useState(initialTab || 'inventory');
+  const [activeTab, setActiveTab] = useState(() => resolveHubTab(initialTab));
   const [manualSubTab, setManualSubTab] = useState('controls');
-  const [categoryFilter, setCategoryFilter] = useState('Todos');
-  const [selectedItemId, setSelectedItemId] = useState('multitool');
 
   React.useEffect(() => {
     if (open && initialTab) {
-      setActiveTab(initialTab);
+      setActiveTab(resolveHubTab(initialTab));
     }
   }, [open, initialTab]);
 
@@ -179,67 +158,6 @@ export default function GameInventoryModal({
       onTabChange?.(activeTab);
     }
   }, [open, activeTab, onTabChange]);
-
-  const inventoryItems = useMemo(() => {
-    const inv = inventoryState?.inventory || inventoryState;
-    const rawIds = Array.isArray(inv?.ownedIds)
-      ? inv.ownedIds
-      : Array.isArray(inv?.items)
-        ? inv.items
-            .filter((entry) => (typeof entry === 'string' ? true : entry?.owned !== false))
-            .map((entry) => (typeof entry === 'string' ? entry : entry?.id))
-            .filter(Boolean)
-        : [];
-    const ownedSet = new Set(rawIds);
-    const hasExplicitInventory = Array.isArray(inv?.ownedIds) || Array.isArray(inv?.items);
-    const baseItems = CATALOG_INVENTORY_ITEMS.map((item) => ({
-      ...item,
-      shortName: item.shortName || SHORT_ITEM_LABELS[item.id] || item.name.split('(')[0].trim().slice(0, 14),
-      owned: hasExplicitInventory ? ownedSet.has(item.id) : Boolean(item.defaultOwned),
-      equipped: Boolean(item.toolId && heldToolId === item.toolId),
-    })).filter((i) => i.owned);
-    return baseItems;
-  }, [inventoryState, heldToolId]);
-
-  const filteredItems = useMemo(() => {
-    if (categoryFilter === 'Todos') return inventoryItems;
-    if (categoryFilter === 'Herramientas') {
-      return inventoryItems.filter(
-        (i) =>
-          Boolean(i.toolId) ||
-          i.category === 'Herramientas Técnicas' ||
-          i.category === 'Equipo' ||
-          i.category === 'Instrumento',
-      );
-    }
-    if (categoryFilter === 'Muestras') {
-      return inventoryItems.filter(
-        (i) =>
-          i.category === 'Muestras Científicas' ||
-          i.category === 'Muestra' ||
-          i.category === 'Datos',
-      );
-    }
-    return inventoryItems.filter(
-      (i) =>
-        i.category === 'Equipamiento EVA' ||
-        i.category === 'Credenciales y Suministros' ||
-        i.category === 'Acceso' ||
-        i.category === 'Consumible',
-    );
-  }, [inventoryItems, categoryFilter]);
-
-  const slotsGrid = useMemo(() => {
-    const arr = Array.from({ length: TOTAL_SLOTS }, (_, idx) => filteredItems[idx] || null);
-    return arr;
-  }, [filteredItems]);
-
-  const hotbarTools = useMemo(() => {
-    return inventoryItems.filter((item) => Boolean(item.toolId)).slice(0, 6);
-  }, [inventoryItems]);
-
-  const selectedItem =
-    inventoryItems.find((i) => i.id === selectedItemId) || filteredItems[0] || inventoryItems[0] || null;
 
   const activeMissionTarget =
     SPHEREX_TARGETS.find((t) => t.key === activeMissionId) || SPHEREX_TARGETS[0];
@@ -253,7 +171,7 @@ export default function GameInventoryModal({
       className="kronoxHubBackdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Inventario y Centro de Operaciones KRONOX"
+      aria-label="Centro Táctico y Mapa Galáctico KRONOX"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose?.();
       }}
@@ -263,13 +181,13 @@ export default function GameInventoryModal({
           <div className="kronoxPersonalHubBrand">
             <div className="kronoxHubTitleBlock">
               <span className="kronoxPersonalHubKicker">
-                EQUIPAMIENTO & OPERACIONES · {currentDeck.code} {currentDeck.name.toUpperCase()} · {currentBody.toUpperCase()}
+                NAVEGACIÓN Y OPERACIONES · {currentDeck.code} {currentDeck.name.toUpperCase()} · {currentBody.toUpperCase()}
               </span>
               <h2 className="kronoxPersonalHubTitle">CENTRO TÁCTICO KRONOX</h2>
             </div>
           </div>
 
-          <nav className="kronoxPersonalHubTabs" role="tablist" aria-label="Categorías de inventario y operación">
+          <nav className="kronoxPersonalHubTabs" role="tablist" aria-label="Categorías de operación">
             {HUB_TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -298,165 +216,7 @@ export default function GameInventoryModal({
         </header>
 
         <div className="kronoxPersonalHubBody">
-          {/* 1. INVENTARIO TIPO VIDEOJUEGO CON SLOTS Y CINTURÓN RÁPIDO */}
-          {activeTab === 'inventory' && (
-            <div className="kronoxMcInventoryLayout">
-              <div className="kronoxMcGridColumn">
-                <div className="kronoxMcFilterBar">
-                  <div className="kronoxMcFilterGroup">
-                    {['Todos', 'Herramientas', 'Muestras', 'Sistemas'].map((cat) => (
-                      <button
-                        key={cat}
-                        type="button"
-                        className={`kronoxMcFilterChip${categoryFilter === cat ? ' is-active' : ''}`}
-                        onClick={() => setCategoryFilter(cat)}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                  <span className="kronoxMcCapacityTag">
-                    {inventoryItems.length} / {TOTAL_SLOTS} espacios ocupados
-                  </span>
-                </div>
-
-                {/* Cuadrícula de slots (7x2 estilo videojuego) */}
-                <div className="kronoxMcSlotGrid" role="grid" aria-label="Espacios de inventario">
-                  {slotsGrid.map((item, idx) => {
-                    const isSelected = Boolean(item && selectedItem?.id === item.id);
-                    return (
-                      <button
-                        key={item ? item.id : `empty-${idx}`}
-                        type="button"
-                        disabled={!item}
-                        className={`kronoxMcSlot${item ? ' is-filled' : ' is-empty'}${isSelected ? ' is-selected' : ''}${item?.equipped ? ' is-equipped' : ''}`}
-                        onClick={() => item && setSelectedItemId(item.id)}
-                        title={item ? `${item.name} (${item.category})` : 'Espacio vacío'}
-                      >
-                        {item ? (
-                          <>
-                            <span className="kronoxMcSlotIconWrap">
-                              <ItemSvgIcon itemId={item.id} size={34} />
-                            </span>
-                            <span className="kronoxMcSlotLabel">{item.shortName || item.name}</span>
-                            <span className="kronoxMcSlotQty">×1</span>
-                            {item.equipped && <span className="kronoxMcEquippedDot" title="Equipado en mano" />}
-                          </>
-                        ) : (
-                          <span className="kronoxMcSlotEmptyMark" aria-hidden="true" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Cinturón de acceso rápido inferior (Hotbar) */}
-                <div className="kronoxMcHotbarSection">
-                  <span className="kronoxMcHotbarTitle">CINTURÓN DE EQUIPAMIENTO RÁPIDO (1P):</span>
-                  <div className="kronoxMcHotbar">
-                    <button
-                      type="button"
-                      className={`kronoxMcHotbarSlot${!heldToolId ? ' is-active' : ''}`}
-                      onClick={() => onEquipTool?.(null)}
-                      title="Guardar herramienta y usar manos libres"
-                    >
-                      <span className="kronoxMcHotbarNum">0</span>
-                      <span className="kronoxMcHotbarHands">✋</span>
-                      <small>Manos libres</small>
-                    </button>
-                    {hotbarTools.map((tool, index) => (
-                      <button
-                        key={tool.id}
-                        type="button"
-                        className={`kronoxMcHotbarSlot${heldToolId === tool.toolId ? ' is-active' : ''}`}
-                        onClick={() => {
-                          setSelectedItemId(tool.id);
-                          onEquipTool?.(heldToolId === tool.toolId ? null : tool.toolId);
-                        }}
-                        title={`Equipar ${tool.name}`}
-                      >
-                        <span className="kronoxMcHotbarNum">{index + 1}</span>
-                        <ItemSvgIcon itemId={tool.id} size={26} />
-                        <small>{tool.shortName || tool.name}</small>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Panel derecho: Inspector técnico del objeto seleccionado */}
-              <aside className="kronoxMcInspector" aria-label="Detalle del objeto seleccionado">
-                {selectedItem ? (
-                  <>
-                    <div className="kronoxMcInspectorPreview">
-                      <ItemSvgIcon itemId={selectedItem.id} size={68} />
-                    </div>
-                    <span className="kronoxMcInspectorCat">{selectedItem.category.toUpperCase()}</span>
-                    <h3 className="kronoxMcInspectorTitle">{selectedItem.name}</h3>
-                    <p className="kronoxMcInspectorDesc">{selectedItem.description}</p>
-
-                    {(selectedItem.scientificNote || selectedItem.specs) && (
-                      <div className="kronoxMcInspectorNote">
-                        <strong>Nota técnica / científica:</strong>
-                        <p>{selectedItem.scientificNote || selectedItem.specs}</p>
-                      </div>
-                    )}
-
-                    <div className="kronoxMcInspectorStats">
-                      <div>
-                        <span>Estado:</span>
-                        <strong>{selectedItem.equipped ? 'Equipado en 1P' : 'Almacenado'}</strong>
-                      </div>
-                      <div>
-                        <span>Origen:</span>
-                        <strong>{selectedItem.deckOrigin || 'KRONOX'}</strong>
-                      </div>
-                    </div>
-
-                    <div className="kronoxMcInspectorActions">
-                      {selectedItem.toolId ? (
-                        <button
-                          type="button"
-                          className="kronoxInvPrimaryBtn"
-                          onClick={() =>
-                            onEquipTool?.(selectedItem.equipped ? null : selectedItem.toolId)
-                          }
-                        >
-                          {selectedItem.equipped ? 'Guardar herramienta' : '✋ Equipar en mano 1P'}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="kronoxInvPrimaryBtn"
-                          onClick={() => {
-                            if (
-                              selectedItem.category === 'Muestras Científicas' ||
-                              selectedItem.category === 'Muestra' ||
-                              selectedItem.category === 'Datos'
-                            ) {
-                              onInspectSampleWithAi?.(selectedItem);
-                            } else {
-                              onUseInventoryItem?.(selectedItem);
-                            }
-                          }}
-                        >
-                          {selectedItem.category === 'Muestras Científicas' ||
-                          selectedItem.category === 'Muestra' ||
-                          selectedItem.category === 'Datos'
-                            ? '🤖 Analizar con KRONOX IA'
-                            : '⚡ Usar / Verificar estado'}
-                        </button>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <p className="kronoxHubMuted">Selecciona un objeto del inventario para ver sus especificaciones.</p>
-                )}
-              </aside>
-            </div>
-          )}
-
-          {/* 2. MAPA GALÁCTICO INTERACTIVO CONECTADO AL MOTOR 3D */}
+          {/* 1. MAPA GALÁCTICO INTERACTIVO CONECTADO AL MOTOR 3D */}
           {activeTab === 'map' && (
             <GalacticMapPanel
               navigationScaleId={navigationScaleId}

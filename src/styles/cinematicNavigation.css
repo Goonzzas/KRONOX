@@ -522,30 +522,30 @@
 .kronoxCinematicSubtitleBar {
   position: fixed;
   left: 50%;
-  bottom: 18px;
+  bottom: 14px;
   transform: translateX(-50%);
-  width: min(680px, calc(100vw - 40px));
+  width: fit-content;
+  max-width: min(560px, calc(100vw - 72px));
   z-index: 82;
-  padding: 8px 18px 10px;
+  padding: 5px 14px 6px;
   border-radius: 10px;
-  background: rgba(4, 10, 18, 0.72);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.48);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(3, 8, 18, 0.44);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.34);
   color: #f8fafc;
   pointer-events: none;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  animation: kronoxSubtitleSlideUp 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  gap: 2px;
+  animation: kronoxSubtitleSlideUp 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
 @keyframes kronoxSubtitleSlideUp {
   from {
     opacity: 0;
-    transform: translate(-50%, 8px);
+    transform: translate(-50%, 6px);
   }
   to {
     opacity: 1;
@@ -554,26 +554,79 @@
 }
 
 .kronoxCinematicSubtitleBar.is-tutorial {
-  border-color: rgba(251, 191, 36, 0.28);
+  border-color: rgba(251, 191, 36, 0.24);
 }
 
 .kronoxCinematicSubtitleBar.is-response {
-  border-color: rgba(52, 211, 153, 0.28);
+  border-color: rgba(52, 211, 153, 0.24);
 }
 
 .kronoxSubtitleCompactSpeaker {
+  position: relative;
+  width: 100%;
+  min-height: 14px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 18px;
+  box-sizing: border-box;
 }
 
 .kronoxSubtitleSpeakerTag {
-  font-size: 0.66rem;
+  font-size: 0.58rem;
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   color: #7dd3fc;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+  opacity: 0.92;
+}
+
+.kronoxSubtitleDismissBtn {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0.42;
+  transition: opacity 0.14s ease, color 0.14s ease, background 0.14s ease;
+}
+
+.kronoxSubtitleDismissBtn:hover {
+  opacity: 1;
+  color: #ffffff;
+  background: rgba(148, 163, 184, 0.22);
+}
+
+.app:has(.kronoxCinematicSubtitleBar) .kronoxPointerLockHint {
+  bottom: 82px;
+  opacity: 0.72;
+}
+
+.app:has(.kronoxCinematicSubtitleBar) .kronox-reticle-identifier {
+  bottom: 82px !important;
+}
+
+.app:has(.kronoxHubBackdrop) .kronoxCinematicSubtitleBar,
+.app:has(.kronox-pause-backdrop) .kronoxCinematicSubtitleBar,
+.app:has(.kronoxConsultModalBackdrop) .kronoxCinematicSubtitleBar {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .kronoxCinematicSubtitleBar.is-tutorial .kronoxSubtitleSpeakerTag {
@@ -723,19 +776,24 @@
   color: #fecaca;
 }
 
-.kronoxSubtitleText {
+.kronoxCinematicSubtitleBar .kronoxSubtitleText {
   margin: 0;
-  font-size: 0.94rem;
+  font-size: 0.85rem;
   font-weight: 500;
-  line-height: 1.42;
+  line-height: 1.36;
   color: #f8fafc;
   text-align: center;
   text-shadow:
-    -1px -1px 0 rgba(0, 0, 0, 0.92),
-    1px -1px 0 rgba(0, 0, 0, 0.92),
-    -1px 1px 0 rgba(0, 0, 0, 0.92),
-    1px 1px 0 rgba(0, 0, 0, 0.92),
-    0 2px 6px rgba(0, 0, 0, 0.95);
+    -1px -1px 0 rgba(0, 0, 0, 0.94),
+    1px -1px 0 rgba(0, 0, 0, 0.94),
+    -1px 1px 0 rgba(0, 0, 0, 0.94),
+    1px 1px 0 rgba(0, 0, 0, 0.94),
+    0 2px 8px rgba(0, 0, 0, 0.98);
+}
+
+.kronoxCinematicSubtitleBar.is-large .kronoxSubtitleText {
+  font-size: 1.02rem;
+  line-height: 1.4;
 }
 
 .kronoxConsultModeSwitch {
