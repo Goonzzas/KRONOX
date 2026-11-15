@@ -634,6 +634,13 @@ export function buildKronoxInterior120M() {
   add(elevatorCab, box(0.02, 0.28, 0.22), cabScreenMat, 0.835, 1.66, 0.76);
 
   const cabButtonsByDeck = {};
+  const elevatorButtonHitMat = trackExtraMat(new THREE.MeshBasicMaterial({
+    colorWrite: false,
+    depthWrite: false,
+    transparent: true,
+    opacity: 0,
+    side: THREE.DoubleSide,
+  }));
   CABIN_DECKS.forEach((d, idx) => {
     const btnTex = makeElevatorFloorButtonTexture(d);
     const btnMat = trackExtraMat(
@@ -647,11 +654,16 @@ export function buildKronoxInterior120M() {
     const btn = add(elevatorCab, box(0.32, 0.098, 0.042), btnMat, 0, by, 0.84);
     btn.userData.elevatorFloorButton = d.id;
     registerInteractMesh(btn, `elevator-floor-${d.id}`, 'elevator-floor');
+    // Zona de impacto ampliada para poder pulsar la botonera con ratón o con el centro de cámara.
+    const btnHitTarget = add(elevatorCab, box(0.44, 0.16, 0.11), elevatorButtonHitMat, 0, by, 0.81);
+    registerInteractMesh(btnHitTarget, `elevator-floor-${d.id}`, 'elevator-floor');
 
     // Botón rotulado también en la pilastra frontal de marcha
     const frontBtn = add(elevatorCab, box(0.04, 0.095, 0.20), btnMat, 0.83, by, 0.76);
     frontBtn.userData.elevatorFloorButton = d.id;
     registerInteractMesh(frontBtn, `elevator-floor-${d.id}`, 'elevator-floor');
+    const frontHitTarget = add(elevatorCab, box(0.12, 0.16, 0.28), elevatorButtonHitMat, 0.83, by, 0.76);
+    registerInteractMesh(frontHitTarget, `elevator-floor-${d.id}`, 'elevator-floor');
     cabButtonsByDeck[d.id] = btnMat;
   });
 
@@ -749,7 +761,7 @@ export function buildKronoxInterior120M() {
         `CUBIERTA: ${curDeck.shortName.toUpperCase()}`,
         doorStatus,
         `DESTINO: ${targetDeck.code} · ${targetDeck.shortName.toUpperCase()}`,
-        'PULSA [E] O [1-4] PARA VIAJAR',
+        'PULSA C01–C04 O TECLAS [1–4]',
       ],
       '#38d8ff',
       {

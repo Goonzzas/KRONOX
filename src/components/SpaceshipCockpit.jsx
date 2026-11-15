@@ -709,7 +709,7 @@ export default function SpaceshipCockpit({
       )}
 
       {/* DISCRETE MINIMAL CONTEXTUAL PROMPT WHEN ASTRONAUT IS NEAR A PHYSICAL 3D CONSOLE */}
-      {cockpitVisible && nearestStation && !activeStation && (
+      {cockpitVisible && nearestStation && nearestStation.id !== 'elevator-panel' && !activeStation && (
         <div className="kronoxProximityPrompt" role="status" aria-live="polite">
           <div className="kronoxProximityKey">[E]</div>
           <div className="kronoxProximityInfo">

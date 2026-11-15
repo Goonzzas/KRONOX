@@ -4066,7 +4066,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     galactic_map:
       'Abre «Mapa · Guía» arriba y entra en Mapa galáctico. Allí puedes explorar Sistema Solar, Vecindario Estelar o Galaxias y fijar rumbo.',
     elevator_c02:
-      'Excelente. Ahora entra al Ascensor Central en el eje del puente, pulsa E o la tecla 2 y desciende a la Cubierta Habitacional para inspeccionar los camarotes y el comedor.',
+      'Excelente. Ahora entra al Ascensor Central en el eje del puente y pulsa el botón C02 o la tecla 2 para descender a la Cubierta Habitacional e inspeccionar los camarotes y el comedor.',
     elevator_c03:
       'Módulo habitacional verificado. Usa el Ascensor Central y pulsa la tecla 3 para bajar a la Cubierta Científica e Ingeniería, donde operan el reactor Tokamak y el Laboratorio SPHEREx.',
     science:
@@ -4130,8 +4130,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       nav: 'PASO 3/7 · CONSOLA DE NAVEGACIÓN: Acércate a la consola de navegación en el Puente y úsala con [E].',
       astro_obs: 'PASO 4/7 · EXPLORACIÓN ESPACIAL: Pulsa [T] para usar el Instrumento Óptico o cambia a vista Exterior.',
       galactic_map: 'PASO 5/7 · MAPA GALÁCTICO: Abre «Mapa · Guía» -> Mapa galáctico para explorar escalas y destinos del cosmos.',
-      elevator_c02: 'PASO 6/7 · CUBIERTA HABITACIONAL: Toma el Ascensor Central ([E] o tecla [2]) hacia la Cubierta Habitacional.',
-      elevator_c03: 'PASO 6/7 · CUBIERTA CIENTÍFICA: Baja en el Ascensor Central a la Cubierta Científica (Nivel 3, tecla [3]).',
+      elevator_c02: 'PASO 6/7 · CUBIERTA HABITACIONAL: Entra al Ascensor Central y pulsa el botón físico C02 o la tecla [2].',
+      elevator_c03: 'PASO 6/7 · CUBIERTA CIENTÍFICA: Entra al ascensor y pulsa el botón físico C03 o la tecla [3].',
       science: 'PASO 6/7 · LABORATORIO SPHEREx: Dirígete al Laboratorio SPHEREx en C03 y pulsa [E].',
       inventory_hub: 'PASO 7/7 · MANUAL Y OPERACIONES: Abre «Mapa · Guía» para consultar el Manual operativo y completar el tutorial.',
       missions: 'OBJETIVO: Interactúa con la consola de misiones.',
