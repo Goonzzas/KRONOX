@@ -29,6 +29,9 @@ import {
   createKronoxSceneDirector,
 } from './kronoxSceneDirector.js';
 import { createSpherexObservatory3D, SPHEREX_ORBIT_SPEC } from './spherexObservatory3D.js';
+const SPHEREX_MODEL_SCALE = 1 / (SPHEREX_ORBIT_SPEC.earthRadiusKm * 1000);
+const SPHEREX_ORBIT_RADIUS_EARTH_RADII =
+  1 + SPHEREX_ORBIT_SPEC.nominalAltitudeKm / SPHEREX_ORBIT_SPEC.earthRadiusKm;
 import {
   COSMIC_HIERARCHY,
   GALAXY_MORPHOLOGY_METADATA,
@@ -688,9 +691,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   };
   // brazos espirales logarítmicos (pitch ~17°), trailing, saliendo de los extremos de la barra
   const arm = (r, k) => 0.739 + (k * TAU) / 4 - Math.log(r / 9000) / 0.3;
-  // A deliberately generous scale height keeps the camera immersed in a
-  // three-dimensional stellar volume instead of seeing the galaxy as an edge-on line.
-  const diskHeight = (r) => 950 + 2600 * Math.exp(-r / 14000);
+  // Thin-disk profile from the supplied Milky Way model (about ±600 units near the inner arms).
+  // Keep the radial scale intact while avoiding an oversized vertical bulge.
+  const diskHeight = (r) => 600 * (1 - 0.5 * (r / 45000));
   a = [];
   c = [];
   let Rr = [],
@@ -706,14 +709,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         w = gs() * (i % 3 ? 1800 : 5000);
       x = u * 0.89 - w * 0.45;
       z = u * 0.45 + w * 0.89;
-      y = gs() * (i % 3 ? 2500 : 6200);
+      y = gs() * (i % 3 ? 900 : 2500);
       col = [1, 0.85, 0.6];
     } else if (i < 16000) {
       const r = 3000 + Math.random() * 10000,
         an = Math.random() * TAU;
       x = Math.cos(an) * r;
       z = Math.sin(an) * r;
-      y = gs() * (1100 + 3300 * Math.exp(-r / 7000));
+      y = gs() * 500;
       rr = r;
       col = [1, 0.82, 0.58];
     } else {
@@ -759,7 +762,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   }
   for (let i = 0; i < 220; i++) {
     const q = gs() * 5000;
-    a.push(RG + q * 0.25 + gs() * 1500, gs() * 2400, q + gs() * 1500);
+    a.push(RG + q * 0.25 + gs() * 1500, gs() * 200, q + gs() * 1500);
     c.push(...nc());
     Rr.push(RG);
     Z.push(200 + Math.random() * 700);
@@ -767,7 +770,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   for (let i = 0; i < 60; i++) {
     const r = Math.random() * 4500,
       an = Math.random() * TAU;
-    a.push(Math.cos(an) * r, gs() * 3200, Math.sin(an) * r);
+    a.push(Math.cos(an) * r, gs() * 600, Math.sin(an) * r);
     c.push(1, 0.7, 0.4);
     Rr.push(RG);
     Z.push(3000 + Math.random() * 5000);
@@ -811,7 +814,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   Z = [];
   for (let i = 0; i < 900; i++) {
     const q = gs() * 4500;
-    a.push(RG + q * 0.25 + gs() * 250, gs() * 1800, q + gs() * 250);
+    a.push(RG + q * 0.25 + gs() * 250, gs() * 400, q + gs() * 250);
     c.push(0.4, 0.9, 1);
     Rr.push(RG);
     Z.push(0);
@@ -1623,14 +1626,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
       // Observatorio Espacial SPHEREx (NASA/JPL) reconstruido en 3D en órbita polar heliosíncrona (~650 km, ~98 min)
       const spherex = createSpherexObservatory3D();
-      spherex.root.scale.setScalar(0.052);
+      spherex.root.scale.setScalar(SPHEREX_MODEL_SCALE);
       const spherexLabel = lab('SPHEREx · NASA (Órbita polar ~650 km)', 0.16, 18);
       spherexLabel.position.set(0, 2.35, 0);
       spherexLabel.visible = false;
       spherex.root.add(spherexLabel);
       LB.push(spherexLabel);
       system.add(spherex.root);
-      spherex.update({ simDays: 0, elapsedTime: 0, earthRadius: 1, orbitRadius: 1.95, scanning: false });
+      spherex.update({
+        simDays: 0,
+        elapsedTime: 0,
+        earthRadius: 1,
+        orbitRadius: SPHEREX_ORBIT_RADIUS_EARTH_RADII,
+        scanning: false,
+      });
       b.spherex = spherex;
     }
     if (p.n === 'Júpiter') {
@@ -4492,7 +4501,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     sceneDirector.skipActiveSequence();
     if (earth?.spherex) {
       earth.spherex.spectralScanGroup.visible = false;
-      earth.spherex.root.scale.setScalar(0.052);
+      earth.spherex.root.scale.setScalar(SPHEREX_MODEL_SCALE);
     }
     if (!free) {
       setFree(true, false);
@@ -6074,7 +6083,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           simDays: sim,
           elapsedTime: clk.elapsedTime,
           earthRadius: 1,
-          orbitRadius: 1.95,
+          orbitRadius: SPHEREX_ORBIT_RADIUS_EARTH_RADII,
           scanning: false,
         });
       }
@@ -6378,19 +6387,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           ship.visible = false;
           localCabinWorld.visible = false;
           if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
-          cam.near = 0.0005;
+          const spherexCameraDistance = er * SPHEREX_MODEL_SCALE * 8;
+          cam.near = Math.max(1e-14, spherexCameraDistance * 0.001);
           cam.fov = fovBase;
           cam.updateProjectionMatrix();
 
           const t2 = Math.min(1, u / cut1);
           const ease2 = t2 * t2 * (3 - 2 * t2);
           if (earth?.spherex) {
-            earth.spherex.root.scale.setScalar(0.068);
+            earth.spherex.root.scale.setScalar(SPHEREX_MODEL_SCALE);
             earth.spherex.update({
               simDays: sim,
               elapsedTime: clk.elapsedTime,
               earthRadius: 1,
-              orbitRadius: 1.95,
+              orbitRadius: SPHEREX_ORBIT_RADIUS_EARTH_RADII,
               scanning: true,
               cinematicAngleOverride: 0.72 + ease2 * 0.28 + realTimeIntro.stageElapsed * 0.025,
             });
@@ -6398,16 +6408,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             const spherexPos = earth.spherex.root.getWorldPosition(new V());
             const spherexQuat = earth.spherex.root.getWorldQuaternion(new THREE.Quaternion());
             const orbitSweep = -0.85 + ease2 * 1.95 + realTimeIntro.stageElapsed * 0.08;
-            const camDist = er * THREE.MathUtils.lerp(0.46, 0.23, ease2);
+            const camDist = spherexCameraDistance * THREE.MathUtils.lerp(1.35, 0.72, ease2);
             const localOff = new V(
               Math.cos(orbitSweep) * camDist,
-              er * THREE.MathUtils.lerp(0.15, 0.05, ease2),
+              spherexCameraDistance * THREE.MathUtils.lerp(0.2, 0.08, ease2),
               Math.sin(orbitSweep) * camDist,
             ).applyQuaternion(spherexQuat);
             cam.position.copy(spherexPos).add(localOff);
             const lookTarget = spherexPos
               .clone()
-              .add(new V(0, er * 0.02, 0).applyQuaternion(spherexQuat));
+              .add(new V(0, er * SPHEREX_MODEL_SCALE * 1.3, 0).applyQuaternion(spherexQuat));
             cam.lookAt(lookTarget);
           } else {
             cam.position.copy(earthPos).add(new V(er * 2.1, er * 1.1, er * 1.8));
@@ -6420,7 +6430,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             realTimeIntro.stageElapsed = 0;
             if (earth?.spherex) {
               earth.spherex.spectralScanGroup.visible = false;
-              earth.spherex.root.scale.setScalar(0.052);
+              earth.spherex.root.scale.setScalar(SPHEREX_MODEL_SCALE);
             }
             S.onIntroStageChange?.(
               'escena3_conocimiento',
@@ -6493,7 +6503,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             realTimeIntro.stageElapsed = 0;
             if (earth?.spherex) {
               earth.spherex.spectralScanGroup.visible = false;
-              earth.spherex.root.scale.setScalar(0.052);
+              earth.spherex.root.scale.setScalar(SPHEREX_MODEL_SCALE);
             }
             S.onIntroStageChange?.(
               'escena4_galaxia',
@@ -6568,7 +6578,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             realTimeIntro.stageElapsed = 0;
             if (earth?.spherex) {
               earth.spherex.spectralScanGroup.visible = false;
-              earth.spherex.root.scale.setScalar(0.052);
+              earth.spherex.root.scale.setScalar(SPHEREX_MODEL_SCALE);
             }
             alignShipInEarthOrbit();
             S.onIntroStageChange?.(
@@ -6835,7 +6845,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           realTimeIntroPaused = false;
           if (earth?.spherex) {
             earth.spherex.spectralScanGroup.visible = false;
-            earth.spherex.root.scale.setScalar(0.052);
+            earth.spherex.root.scale.setScalar(SPHEREX_MODEL_SCALE);
           }
           releaseInputs(); vel.set(0, 0, 0); activeCabinStation = null; freeHelmMode = false;
           currentLockedDeckId = 'deck-01';

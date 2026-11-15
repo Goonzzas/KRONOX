@@ -421,7 +421,8 @@ export function createSpherexObservatory3D() {
     cinematicAngleOverride = null,
   } = {}) {
     // Altitud orbital coherente alrededor de la Tierra (por encima de las nubes/atmósfera 3D)
-    const rOrbit = orbitRadius ?? Math.max(earthRadius * 1.42, 0.045);
+    const physicalOrbitRatio = 1 + SPHEREX_ORBIT_SPEC.nominalAltitudeKm / SPHEREX_ORBIT_SPEC.earthRadiusKm;
+    const rOrbit = orbitRadius ?? Math.max(earthRadius * physicalOrbitRatio, 1e-6);
 
     // Período orbital real de SPHEREx: ~98 minutos = 14.69 órbitas por día
     const orbitsPerDay = (24 * 60) / SPHEREX_ORBIT_SPEC.orbitalPeriodMinutes;
