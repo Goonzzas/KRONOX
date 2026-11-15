@@ -1761,6 +1761,9 @@ export function createVrHudPanel3D(callbacks = {}) {
 
     tempForward.set(0, 0, -1).applyQuaternion(headWorldQuat);
     const flatLen = Math.hypot(tempForward.x, tempForward.z);
+    if (hudAnchorValid && hudAnchorPos.distanceToSquared(eyeWorldPos) > 20) {
+      hudAnchorValid = false;
+    }
     if (flatLen > 0.08) {
       const targetYaw = Math.atan2(-tempForward.x, -tempForward.z);
       if (!hudAnchorValid || forceSnapPose) {

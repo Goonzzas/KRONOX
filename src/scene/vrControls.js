@@ -313,7 +313,7 @@ export function getVrAvailabilitySync({
   const secureContext =
     typeof windowObj?.isSecureContext === 'boolean' ? windowObj.isSecureContext : true;
   const webxrApi = Boolean(navigatorObj && 'xr' in navigatorObj && navigatorObj.xr);
-  if (isNodeHarness) {
+  if (isNodeHarness && !webxrApi) {
     return {
       secureContext: true,
       webxrApi: false,
@@ -491,6 +491,9 @@ export function createWebXrManager({
   const savedCamPosScratch = new THREE.Vector3();
   const savedCamQuatScratch = new THREE.Quaternion();
   const savedCamScaleScratch = new THREE.Vector3();
+  const savedAstroPosScratch = new THREE.Vector3();
+  const savedAstroQuatScratch = new THREE.Quaternion();
+  const savedAstroScaleScratch = new THREE.Vector3();
   const rebaseOrigin = new THREE.Vector3();
 
   let activeHoveredStation = null;
@@ -1044,21 +1047,24 @@ export function createWebXrManager({
    */
   function renderAstroInVr({ threshold = 10000, cellSize = 1024 } = {}) {
     if (!renderer || !sceneAstro || !camAstro) return { rebased: false };
+    savedAstroPosScratch.copy(camAstro.position);
+    savedAstroQuatScratch.copy(camAstro.quaternion);
+    savedAstroScaleScratch.copy(camAstro.scale);
     const dist = vrAstroRig.position.length();
-    if (dist < threshold) {
-      vrAstroRig.updateMatrixWorld(true);
-      renderer.render(sceneAstro, camAstro);
-      return { rebased: false, origin: [0, 0, 0], precisionBits: 32 };
-    }
-    const savedScenePos = sceneAstro.position.clone();
-    const savedRigPos = vrAstroRig.position.clone();
-    const step = cellSize > 0 ? cellSize : 1024;
-    rebaseOrigin.set(
-      Math.round(savedRigPos.x / step) * step,
-      Math.round(savedRigPos.y / step) * step,
-      Math.round(savedRigPos.z / step) * step,
-    );
+    const savedScenePos = dist >= threshold ? sceneAstro.position.clone() : null;
+    const savedRigPos = dist >= threshold ? vrAstroRig.position.clone() : null;
     try {
+      if (dist < threshold) {
+        vrAstroRig.updateMatrixWorld(true);
+        renderer.render(sceneAstro, camAstro);
+        return { rebased: false, origin: [0, 0, 0], precisionBits: 32 };
+      }
+      const step = cellSize > 0 ? cellSize : 1024;
+      rebaseOrigin.set(
+        Math.round(savedRigPos.x / step) * step,
+        Math.round(savedRigPos.y / step) * step,
+        Math.round(savedRigPos.z / step) * step,
+      );
       sceneAstro.position.sub(rebaseOrigin);
       vrAstroRig.position.sub(rebaseOrigin);
       sceneAstro.updateMatrixWorld(true);
@@ -1070,10 +1076,16 @@ export function createWebXrManager({
         precisionBits: 64,
       };
     } finally {
-      sceneAstro.position.copy(savedScenePos);
-      vrAstroRig.position.copy(savedRigPos);
-      sceneAstro.updateMatrixWorld(true);
-      vrAstroRig.updateMatrixWorld(true);
+      if (savedScenePos && savedRigPos) {
+        sceneAstro.position.copy(savedScenePos);
+        vrAstroRig.position.copy(savedRigPos);
+        sceneAstro.updateMatrixWorld(true);
+        vrAstroRig.updateMatrixWorld(true);
+      }
+      // Three.js WebXRManager.getCamera muta position/quaternion/scale en cada render
+      camAstro.position.copy(savedAstroPosScratch);
+      camAstro.quaternion.copy(savedAstroQuatScratch);
+      camAstro.scale.copy(savedAstroScaleScratch);
     }
   }
 

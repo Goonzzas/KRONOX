@@ -348,8 +348,8 @@ test('createWebXrManager auto-calibrates seated/standing HMD eye height and filt
       // OpenXR/Link right controller reporting thumbstick on axes [0, 1]
       { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: { axes: [0.88, 0, 0, 0], buttons: [] } },
     ],
-    addEventListener() {},
-    async end() {},
+    addEventListener() { },
+    async end() { },
   };
   Object.defineProperty(globalThis, 'navigator', {
     configurable: true,
@@ -368,12 +368,12 @@ test('createWebXrManager auto-calibrates seated/standing HMD eye height and filt
     const fakeRenderer = {
       xr: {
         enabled: false,
-        setReferenceSpaceType() {},
+        setReferenceSpaceType() { },
         getReferenceSpace: () => dummyRefSpace,
-        async setSession() {},
+        async setSession() { },
         getCamera: () => camLocal,
       },
-      render() {},
+      render() { },
     };
     const xrManager = createWebXrManager({
       renderer: fakeRenderer,
@@ -390,11 +390,11 @@ test('createWebXrManager auto-calibrates seated/standing HMD eye height and filt
       getViewerPose: (ref) =>
         ref === dummyRefSpace
           ? {
-              transform: {
-                position: { x: 0.25, y: 0.98, z: -0.15 },
-                orientation: { x: 0, y: 0, z: 0, w: 1 },
-              },
-            }
+            transform: {
+              position: { x: 0.25, y: 0.98, z: -0.15 },
+              orientation: { x: 0, y: 0, z: 0, w: 1 },
+            },
+          }
           : null,
     };
     const polled = xrManager.pollInput({ dt: 0.016, xrFrame: seatedFrame });
@@ -564,102 +564,196 @@ test('VR HUD 3D: raycast UV sobre QuickBar, Viajes, SPHEREx FITS real y Kronos I
   hud.dispose();
 });
 
-test('VR integración en setupScene: HUD espacial y Kronox IA visible en Cabina 1P y Exterior VR', async () => {
-  const prevNav = globalThis.navigator;
+test('VR integración en setupScene: mundo 3D, HUD espacial y Kronox IA visibles sin corrupción de cámara en WebXR', async () => {
+  const endListeners = [];
   const fakeSession = {
-    addEventListener: () => {},
-    removeEventListener: () => {},
+    addEventListener: (ev, cb) => {
+      if (ev === 'end' && typeof cb === 'function') endListeners.push(cb);
+    },
+    removeEventListener: () => { },
     requestReferenceSpace: async () => ({ type: 'local-floor' }),
-    end: async () => {},
+    end: async () => {
+      presentingFlag = false;
+      while (endListeners.length) endListeners.shift()();
+    },
     inputSources: [],
   };
-  Object.defineProperty(globalThis, 'navigator', {
-    configurable: true,
-    value: {
-      xr: {
-        isSessionSupported: async () => true,
-        requestSession: async () => fakeSession,
+
+  const travelRequests = [];
+  const kronoxQueries = [];
+  let presentingFlag = false;
+  let xrLoop = null;
+  const hmdLocalMatrix = new THREE.Matrix4().compose(
+    new THREE.Vector3(0.04, 1.65, 0.06),
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(0.03, 0.18, 0, 'YXZ')),
+    new THREE.Vector3(1, 1, 1),
+  );
+  const renderLog = [];
+
+  const harness = await createSceneHarness({
+    stateOverrides: {
+      onVrTravelRequest: (req) => travelRequests.push(req),
+      onVrKronoxQuery: (q) => {
+        kronoxQueries.push(q);
+        return { reply: `Respuesta VR para: ${q}`, role: 'Kronox IA' };
       },
     },
   });
 
-  const harness = createSceneHarness({ width: 960, height: 540 });
-  const travelRequests = [];
-  const kronoxQueries = [];
-  const api = setupScene(harness.el, {
-    quality: 'bajo',
-    vrSettings: { enabled: true },
-    onVrTravelRequest: (req) => travelRequests.push(req),
-    onVrKronoxQuery: (q) => {
-      kronoxQueries.push(q);
-      return { reply: `Respuesta VR para: ${q}`, role: 'Kronox IA' };
-    },
-  });
-
   try {
+    // Habilitar navigator.xr después de createSceneHarness (el harness sobrescribe navigator)
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: {
+        ...globalThis.navigator,
+        xr: {
+          isSessionSupported: async () => true,
+          requestSession: async () => fakeSession,
+        },
+      },
+    });
+    globalThis.window.isSecureContext = true;
+
+    const renderer = harness.renderers[0];
+    renderer.autoClear = true;
+    renderer.clearDepth = () => { };
+    renderer.setAnimationLoop = (cb) => {
+      xrLoop = cb;
+    };
+    const origRender = renderer.render.bind(renderer);
+    renderer.xr = {
+      enabled: false,
+      get isPresenting() {
+        return presentingFlag;
+      },
+      setReferenceSpaceType: () => { },
+      getReferenceSpace: () => ({ type: 'local-floor' }),
+      setSession: async () => {
+        presentingFlag = true;
+      },
+      getController: () => new THREE.Group(),
+      getControllerGrip: () => new THREE.Group(),
+      getCamera: (camera) => {
+        // Replicar Three.js WebXRManager.getCamera: lanza TypeError si falta camera y muta la cámara pasada
+        if (!camera) {
+          throw new TypeError("Cannot read properties of undefined (reading 'near')");
+        }
+        const parent = camera.parent;
+        if (parent) parent.updateMatrixWorld(true);
+        const worldMat = parent
+          ? new THREE.Matrix4().multiplyMatrices(parent.matrixWorld, hmdLocalMatrix)
+          : hmdLocalMatrix.clone();
+        camera.matrixWorld.copy(worldMat);
+        camera.matrix.copy(hmdLocalMatrix);
+        camera.matrix.decompose(camera.position, camera.quaternion, camera.scale);
+        return { matrix: hmdLocalMatrix.clone(), matrixWorld: worldMat };
+      },
+    };
+    renderer.render = (sceneObj, cameraObj) => {
+      origRender(sceneObj, cameraObj);
+      if (renderer.xr.isPresenting) {
+        const camVr = renderer.xr.getCamera(cameraObj);
+        const isLocal = Boolean(sceneObj.getObjectByName('vr-hud-quickbar'));
+        renderLog.push({
+          isLocal,
+          autoClear: renderer.autoClear,
+          camWorldPos: new THREE.Vector3().setFromMatrixPosition(camVr.matrixWorld),
+        });
+      }
+    };
+
+    const api = await harness.start();
     api.skipRealTimeIntro();
     api.free(true, false);
     api.view(1);
-    harness.step(3, 1 / 60);
+    harness.stepFrames(3);
+
+    const stepXrOrRaf = (count) => {
+      for (let i = 0; i < count; i++) {
+        if (presentingFlag && xrLoop) {
+          xrLoop(performance.now(), {
+            getViewerPose: () => ({
+              transform: {
+                position: { x: 0.04, y: 1.65, z: 0.06 },
+                orientation: { x: 0, y: 0.09, z: 0, w: 0.996 },
+              },
+            }),
+          });
+        } else {
+          harness.stepFrames(1);
+        }
+      }
+    };
 
     // En modo escritorio no VR el HUD VR permanece oculto
     assert.equal(api.getVrHudState().xrPresenting, false);
     assert.equal(api.getVrHudRaycastTargets().length, 0);
 
-    // Simular entrada WebXR presentando sesión en el renderer de prueba
-    let presentingFlag = false;
-    harness.renderer.xr = {
-      enabled: true,
-      get isPresenting() {
-        return presentingFlag;
-      },
-      setReferenceSpaceType: () => {},
-      setSession: async () => {
-        presentingFlag = true;
-      },
-      getController: () => {
-        const g = new THREE.Group();
-        return g;
-      },
-      getControllerGrip: () => new THREE.Group(),
-    };
-
     const enterRes = await api.enterVr();
-    assert.equal(enterRes.ok, true);
-    presentingFlag = true;
-    harness.step(3, 1 / 60);
+    assert.equal(enterRes.ok, true, `enterVr falló: ${enterRes.reason} ${enterRes.message || ''}`);
+    renderLog.length = 0;
+    stepXrOrRaf(6);
 
-    // Cabina 1P en VR: Quick Bar visible y raycast target activo + Kronox IA visible
+    assert.equal(renderer.autoClear, true, 'R.autoClear debe quedar restaurado tras tick() VR');
+    const cabinSnap = api.navigationSnapshot();
+    assert.equal(cabinSnap.cabinVisible, true, 'La cabina 3D debe seguir visible en Cabina 1P VR');
+    assert.equal(cabinSnap.view, 1);
+
+    const lastTwoCabin = renderLog.slice(-2);
+    assert.equal(lastTwoCabin.length, 2);
+    assert.equal(lastTwoCabin[0].isLocal, false, 'Pass 1 debe renderizar el universo astronómico sc');
+    assert.equal(lastTwoCabin[0].autoClear, true);
+    assert.equal(lastTwoCabin[1].isLocal, true, 'Pass 2 debe renderizar localShipScene encima de sc');
+    assert.equal(lastTwoCabin[1].autoClear, false);
+
     const hudCabin = api.getVrHudState();
     assert.equal(hudCabin.xrPresenting, true);
     assert.ok(api.getVrHudRaycastTargets().some((m) => m.userData?.interactId === 'vr-hud-quickbar'));
 
-    const aiRootCabin = api.sceneLocal.getObjectByName('KronoxCompanionWorldRoot');
-    assert.ok(aiRootCabin, 'KronoxCompanionWorldRoot debe vivir en localShipScene');
-    assert.equal(aiRootCabin.visible, true);
+    const aiRoot = renderer.localScene?.getObjectByName('KronoxCompanionWorldRoot');
+    assert.ok(aiRoot, 'KronoxCompanionWorldRoot debe vivir en localShipScene');
+    assert.equal(aiRoot.visible, true);
 
-    // Abrir SPHEREx y Travel en VR y cambiar a Exterior VR
+    // Abrir SPHEREx y luego pasar a Exterior VR por múltiples frames
     api.openVrHudTab('spherex');
     assert.equal(api.getVrHudState().activeTab, 'spherex');
     assert.equal(api.getVrHudState().tabletOpen, true);
 
     api.view(3);
-    harness.step(3, 1 / 60);
-    // Exterior VR: tanto HUD como Kronox IA siguen visibles y alcanzables
-    assert.equal(api.getVrHudState().xrPresenting, true);
-    assert.equal(aiRootCabin.visible, true);
+    renderLog.length = 0;
+    stepXrOrRaf(6);
 
-    // Salir de VR oculta el HUD VR y la esfera acompañante en Exterior no-VR
-    presentingFlag = false;
+    assert.equal(renderer.autoClear, true, 'R.autoClear debe quedar restaurado en Exterior VR');
+    const extSnap = api.navigationSnapshot();
+    assert.equal(extSnap.view, 3);
+    assert.equal(extSnap.shipVisible, true, 'La nave 3D debe ser visible en Exterior VR');
+    assert.equal(extSnap.cabinVisible, false);
+    assert.equal(api.getVrHudState().xrPresenting, true);
+    assert.equal(aiRoot.visible, true);
+
+    // Verificar que WebXRManager.getCamera no corrompió cam ni localCam hacia el origen/Sol o -sp
+    const shipVec = new THREE.Vector3(...extSnap.shipPosition);
+    const camVec = new THREE.Vector3(...extSnap.cameraPosition);
+    assert.ok(camVec.length() > 50, 'La cámara astronómica VR no debe colapsar a (0, 1.65, 0) en Exterior');
+    assert.ok(camVec.distanceTo(shipVec) < 5, 'La cámara astronómica VR debe permanecer junto a la nave');
+
+    const localCamDist = Math.hypot(...extSnap.localCameraPosition);
+    assert.ok(
+      localCamDist > 4 && localCamDist < 120,
+      `localCam VR en Exterior no debe alejarse a -sp (${localCamDist} m)`,
+    );
+
+    const lastTwoExt = renderLog.slice(-2);
+    assert.equal(lastTwoExt[0].isLocal, false);
+    assert.equal(lastTwoExt[1].isLocal, true);
+    assert.ok(lastTwoExt[1].camWorldPos.length() < 120, 'El eye world VR en Exterior debe seguir cerca de la nave');
+
     await api.exitVr();
-    harness.step(3, 1 / 60);
+    stepXrOrRaf(3);
     assert.equal(api.getVrHudState().xrPresenting, false);
-    assert.equal(aiRootCabin.visible, false);
+    assert.equal(aiRoot.visible, false);
   } finally {
-    api.dispose();
-    Object.defineProperty(globalThis, 'navigator', {
-      configurable: true,
-      value: prevNav,
-    });
+    await harness.close();
   }
 });

@@ -3289,6 +3289,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const xrHudHeadQuatScratch = new THREE.Quaternion();
   const xrHudEyeWorldScratch = new THREE.Vector3();
   const xrHudScaleScratch = new THREE.Vector3();
+  const xrSavedLocalPosScratch = new THREE.Vector3();
+  const xrSavedLocalQuatScratch = new THREE.Quaternion();
+  const xrSavedLocalScaleScratch = new THREE.Vector3();
   const extAiTargetScratch = new THREE.Vector3();
   const extAiForwardScratch = new THREE.Vector3();
   const extAiRightScratch = new THREE.Vector3();
@@ -8200,6 +8203,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
 
     const vrHudPresenting = Boolean(vrManager?.getState?.()?.presenting || xrActiveNow);
+    if (!vrHudPresenting) {
+      hasXrHudHeadPose = false;
+    }
     const vrHudInCabin = Boolean(
       vrLocalEyeReady && free && pv === 1 && !exteriorCameraMode && !spectator && !mainMenuOrbitActive,
     );
@@ -8273,23 +8279,42 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       localShipSunLight.intensity = inBridgeLighting ? 0.20 : inInteriorLighting ? 0.72 : 2.35;
       localShipRimLight.intensity = inBridgeLighting ? 0.15 : inInteriorLighting ? 0.32 : 0.55;
       const prevAutoClear = R.autoClear;
-      R.autoClear = false;
-      R.clearDepth?.();
-      R.render(localShipScene, localCam);
-      if (R.xr?.isPresenting && R.xr?.getCamera) {
-        const xrLocalCam = R.xr.getCamera();
-        if (xrLocalCam?.matrixWorld) {
-          xrLocalCam.matrixWorld.decompose(
-            xrHudEyeWorldScratch,
-            xrHudHeadQuatScratch,
-            xrHudScaleScratch,
-          );
-          hasXrHudHeadPose = true;
-        }
-      } else {
-        hasXrHudHeadPose = false;
+      if (xrActiveNow) {
+        xrSavedLocalPosScratch.copy(localCam.position);
+        xrSavedLocalQuatScratch.copy(localCam.quaternion);
+        xrSavedLocalScaleScratch.copy(localCam.scale);
       }
-      R.autoClear = prevAutoClear;
+      try {
+        R.autoClear = false;
+        R.clearDepth?.();
+        R.render(localShipScene, localCam);
+        if (xrActiveNow && R.xr?.isPresenting) {
+          let xrPoseMat = localCam.matrixWorld;
+          if (typeof R.xr.getCamera === 'function') {
+            const xrLocalCam = R.xr.getCamera(localCam);
+            if (xrLocalCam?.matrixWorld) {
+              xrPoseMat = xrLocalCam.matrixWorld;
+            }
+          }
+          if (xrPoseMat?.decompose) {
+            xrPoseMat.decompose(
+              xrHudEyeWorldScratch,
+              xrHudHeadQuatScratch,
+              xrHudScaleScratch,
+            );
+            hasXrHudHeadPose = true;
+          }
+        } else {
+          hasXrHudHeadPose = false;
+        }
+      } finally {
+        if (xrActiveNow) {
+          localCam.position.copy(xrSavedLocalPosScratch);
+          localCam.quaternion.copy(xrSavedLocalQuatScratch);
+          localCam.scale.copy(xrSavedLocalScaleScratch);
+        }
+        R.autoClear = prevAutoClear;
+      }
       R.scene = sc;
       R.camera = cam;
       R.localScene = localShipScene;
@@ -8308,6 +8333,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     pv = v;
     vrChaseYaw = 0;
     vrChasePitch = 0;
+    hasXrHudHeadPose = false;
     if (v == 1) {
       if (freeHelmMode) {
         freeHelmMode = false;
