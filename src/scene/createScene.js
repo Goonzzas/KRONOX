@@ -4941,23 +4941,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (stId.startsWith('elevator-floor-')) {
       const targetDeckId = stId.replace('elevator-floor-', '');
       const targetCode = CABIN_DECKS.find((d) => d.id === targetDeckId)?.code || targetDeckId.toUpperCase();
+      const started = startPhysicalElevatorRide(targetDeckId);
       S.onSfxCue?.('switch');
-      startPhysicalElevatorRide(targetDeckId);
       S.onInteractionFeedback?.({
         id: stId,
-        text: `Ascensor rumbo a ${targetCode}.`,
+        text: started ? `Botón ${targetCode} activado. Ascensor rumbo a ${targetCode}.` : 'El ascensor no puede iniciar el trayecto ahora.',
         ts: Date.now(),
       });
       return;
     }
 
-    // 3. Llamada exterior de ascensor o selector interior
+    // 3. Llamada exterior: el selector se opera directamente en los cuatro botones físicos de cabina.
     if (stId === 'elevator-panel' || stId.startsWith('elevator-call-')) {
       const elSys = fourDecksInterior?.elevatorSystem;
       if (!elSys) return;
       const elState = elSys.state;
       if (elState.moving || elState.passengerRiding) return;
       const curDeck = resolveCurrentDeck(astronautPos);
+      let text = 'Usa los botones físicos C01–C04 dentro de la cabina, o pulsa las teclas 1–4.';
       if (stId.startsWith('elevator-call-')) {
         const doorHere = Number(elState.doorOpenByDeck?.[curDeck.id] ?? 0);
         const cabHere = Math.abs(elState.cabY - curDeck.elevationY) < 0.25 && doorHere > 0.72;
@@ -4965,19 +4966,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           elSys.requestDeck(curDeck.id, false);
           S.onSfxCue?.('switch');
           S.onElevatorStateChange?.({ ...elState, doorOpenByDeck: { ...elState.doorOpenByDeck } });
-          S.onInteractionFeedback?.({
-            id: stId,
-            text: `Ascensor llamado a ${curDeck.code}.`,
-            ts: Date.now(),
-          });
-          return;
+          text = `Ascensor llamado a ${curDeck.code}. Cuando llegue, entra y pulsa uno de los cuatro botones.`;
+        } else {
+          text = `Cabina lista en ${curDeck.code}. Entra y elige destino con los botones C01–C04.`;
         }
       }
-      activeCabinStation = 'elevator-panel';
-      exitPointerLockIfActive('station');
       S.onSfxCue?.('tap');
-      S.onElevatorStateChange?.({ ...elState, doorOpenByDeck: { ...elState.doorOpenByDeck } });
-      S.onStationInteract?.('elevator-panel');
+      S.onInteractionFeedback?.({ id: stId, text, ts: Date.now() });
       return;
     }
 

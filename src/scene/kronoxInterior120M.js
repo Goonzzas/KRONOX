@@ -764,12 +764,11 @@ export function buildKronoxInterior120M() {
   function requestElevatorDeck(targetDeckId, passengerInside = false) {
     const targetDeck = CABIN_DECKS.find((d) => d.id === targetDeckId);
     if (!targetDeck) return false;
-    // Mantener estado de pasajero si ya viaja o acaba de activar dentro de la cabina
-    elevatorState.passengerRiding = Boolean(passengerInside || elevatorState.passengerRiding);
     if (
       Math.abs(elevatorState.cabY - targetDeck.elevationY) < 0.08 &&
       elevatorState.phase === 'idle'
     ) {
+      elevatorState.passengerRiding = false;
       elevatorState.targetDeckId = targetDeck.id;
       elevatorState.currentDeckId = targetDeck.id;
       elevatorState.rideStartY = targetDeck.elevationY;
@@ -786,6 +785,8 @@ export function buildKronoxInterior120M() {
       return true;
     }
 
+    // Mantener pasajero a bordo durante los trayectos iniciados desde la botonera física.
+    elevatorState.passengerRiding = Boolean(passengerInside || elevatorState.passengerRiding);
     elevatorState.targetDeckId = targetDeck.id;
     elevatorState.phase = 'door-closing';
     elevatorState.phaseTimer = 0;

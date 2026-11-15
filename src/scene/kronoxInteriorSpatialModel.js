@@ -1142,7 +1142,7 @@ export function describeInteractablePrompt(interactId, ctx = {}) {
     return { id: interactId, direct: true, label: ctx.cabHere ? 'Panel de cubiertas (Ascensor)' : 'Llamar ascensor a esta cubierta', actionLabel: ctx.cabHere ? 'Elegir piso' : 'Llamar' };
   }
   if (interactId === 'elevator-panel') {
-    return { id: interactId, direct: false, label: 'Selector de cubierta [1-4]', actionLabel: 'Planta' };
+    return { id: interactId, direct: false, label: 'Botonera física C01–C04', actionLabel: 'Ver destinos' };
   }
   if (interactId.startsWith('rail-')) {
     return {

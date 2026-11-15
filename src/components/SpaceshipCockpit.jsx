@@ -72,9 +72,7 @@ export default function SpaceshipCockpit({
   activeObjectiveText = '',
   activeMissionId = 'barnard',
   onOpenMissionFromObjective,
-  elevatorState = null,
   mechanismsState = null,
-  onSelectElevatorFloor,
   onTriggerMechanism,
   onActivateNearestStation,
   onSitInCommandSeat,
@@ -1340,41 +1338,6 @@ export default function SpaceshipCockpit({
             <button type="button" onClick={() => { onSelectStation(null); onOpenSpherexDoc?.(); }}>
               Ver archivo histórico SPHEREx
             </button>
-          </div>
-        </div>
-      )}
-
-      {cockpitVisible && activeStation === 'elevator-panel' && (
-        <div className="kronoxDiegeticConsole compact" role="dialog" aria-label="Panel del Ascensor Central">
-          <div className="kronoxStationDrawerHead">
-            <div>
-              <span className="kronoxDiegeticTag">
-                CABINA ASCENSOR · PLANTA ACTUAL {String(elevatorState?.currentDeckId || 'deck-01').replace('deck-', 'C')}
-                {elevatorState?.moving ? ' · EN TRÁNSITO' : ' · PUERTAS ABIERTAS'}
-              </span>
-              <h4>ASCENSOR CENTRAL DE CUBIERTAS (TECLAS [1–4])</h4>
-            </div>
-            <button type="button" onClick={() => onSelectStation(null)} aria-label="Cerrar panel de ascensor">×</button>
-          </div>
-          <p className="kronoxStationDesc">
-            Selecciona una cubierta para cerrar compuertas e iniciar desplazamiento vertical en tiempo real dentro de la cabina:
-          </p>
-          <div className="kronoxStationBtnRow">
-            {[
-              ['deck-01', '[1] C01 · Puente de Mando'],
-              ['deck-02', '[2] C02 · Habitacional'],
-              ['deck-03', '[3] C03 · Ingeniería y SPHEREx'],
-              ['deck-04', '[4] C04 · Bodega y Hangar'],
-            ].map(([dId, label]) => (
-              <button
-                key={dId}
-                type="button"
-                className={elevatorState?.currentDeckId === dId ? 'active' : undefined}
-                onClick={() => onSelectElevatorFloor?.(dId)}
-              >
-                {label}
-              </button>
-            ))}
           </div>
         </div>
       )}
