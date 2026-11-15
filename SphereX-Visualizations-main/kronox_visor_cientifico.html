@@ -2706,9 +2706,15 @@
         if (!resp.ok || !data || !data.ok) {
           throw new Error((data && data.error) ? data.error : `HTTP ${resp.status}`);
         }
-        const bResp = await fetch(`${SERVER_BASE}/api/bundle?dataset_id=${encodeURIComponent(data.dataset_id)}`, { signal });
-        const bData = await bResp.json();
-        if (!bResp.ok || !bData || !bData.ok) throw new Error(bData?.error || `HTTP ${bResp.status}`);
+        let bData = (data.planes && typeof data.planes === 'object') ? data : null;
+        if (!bData) {
+          const bResp = await fetch(`${SERVER_BASE}/api/bundle?dataset_id=${encodeURIComponent(data.dataset_id)}`, { signal });
+          bData = await bResp.json();
+          if (!bResp.ok || !bData || !bData.ok) throw new Error(bData?.error || `HTTP ${bResp.status}`);
+        }
+        if (data.dataset_id && bData && bData.planes) {
+          datasetBundleCache.set(data.dataset_id, { ok: true, dataset: bData.dataset || data.dataset || null, planes: bData.planes });
+        }
         if (token !== activeObsFetchToken) return false;
 
         let addedPlane = null;
@@ -3270,11 +3276,24 @@
         if (!resp.ok || !data.ok) {
           throw new Error(data.error || `HTTP ${resp.status}`);
         }
-        if (statusEl) statusEl.textContent = `Descargado: ${data.dataset.name}. Recargando catálogo...`;
-        const dsResp = await fetch(`${SERVER_BASE}/api/datasets`);
-        const dsData = await dsResp.json();
-        if (dsData.ok && Array.isArray(dsData.datasets)) state.catalog = dsData.datasets;
-        await loadRealDataset(data.dataset.id);
+        const dsObj = data.dataset || { id: data.dataset_id, name: q };
+        if (data.planes && typeof data.planes === 'object' && dsObj.id) {
+          datasetBundleCache.set(dsObj.id, { ok: true, dataset: dsObj, planes: data.planes });
+        }
+        if (statusEl) statusEl.textContent = `Descargado: ${dsObj.name}. Actualizando catálogo...`;
+        try {
+          const dsResp = await fetch(`${SERVER_BASE}/api/datasets`);
+          const dsData = await dsResp.json();
+          if (dsData.ok && Array.isArray(dsData.datasets)) state.catalog = dsData.datasets;
+        } catch (_) {}
+        if (dsObj.id && !state.catalog.some(d => d.id === dsObj.id)) {
+          state.catalog.unshift(dsObj);
+        }
+        populatePresetSelect();
+        renderCatalogMosaic();
+        renderAllSkyModalMap();
+        renderModalTilesList();
+        await loadRealDataset(dsObj.id);
         document.getElementById('catalogModal').classList.remove('active');
       } catch (err) {
         if (statusEl) statusEl.textContent = `Error IRSA: ${err.message}`;
