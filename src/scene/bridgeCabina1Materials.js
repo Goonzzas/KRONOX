@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { NAVIGATION_CATALOG } from '../data/navigationCatalog.js';
 
 function makeDataFallback(r, g, b, a = 255) {
   const data = new Uint8Array([r, g, b, a]);
@@ -648,6 +649,191 @@ export function createBridgeCabina1MaterialSuite() {
   const mfdAstroMat = buildMfdMaterial('astro');
   const mfdNeuralMat = buildMfdMaterial('neural');
   const mfdEngMat = buildMfdMaterial('eng');
+  const mfdDisplays = [
+    [mfdHelmMat, 'helm'],
+    [mfdAstroMat, 'astro'],
+    [mfdNeuralMat, 'neural'],
+    [mfdEngMat, 'eng'],
+  ];
+
+  const updateScreens = (telemetry = {}) => {
+    const target = telemetry.target || null;
+    const records = Array.isArray(target?.localRecords) ? target.localRecords : [];
+    const bandCounts = records.reduce((counts, record) => {
+      const band = String(record?.band || '').match(/D[1-6]$/)?.[0];
+      if (band) counts[band] = (counts[band] || 0) + 1;
+      return counts;
+    }, {});
+    const heading = Number.isFinite(telemetry.heading) ? telemetry.heading : 0;
+    const pitch = Number.isFinite(telemetry.pitch) ? telemetry.pitch : 0;
+    const speed = Number.isFinite(telemetry.speed) ? telemetry.speed : 0;
+    const mode = telemetry.flightMode || 'ESPERA';
+    const targetName = target?.name || telemetry.destination || 'Sistema Solar';
+    const accentByRole = { helm: '#38d8ff', astro: '#7cd7ff', neural: '#fbbf24', eng: '#58e2a4' };
+
+    mfdDisplays.forEach(([material, role]) => {
+      const canvas = material.map?.image;
+      const ctx = canvas?.getContext?.('2d');
+      if (!ctx) return;
+      const w = canvas.width;
+      const h = canvas.height;
+      const accent = accentByRole[role];
+      ctx.fillStyle = '#06101b';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = 'rgba(104,184,220,.24)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(12, 12, w - 24, h - 24);
+      ctx.fillStyle = accent;
+      ctx.fillRect(18, 18, w - 36, 42);
+      ctx.fillStyle = '#05121c';
+      ctx.font = '700 23px monospace';
+      const headings = {
+        helm: 'KRONOX // NAVEGACIÓN Y ACTITUD',
+        astro: 'CARTA ESTELAR // CNS5 + GAIA DR3',
+        neural: 'ENLACE DE MISIÓN // KRONOX IA',
+        eng: 'SISTEMAS DE NAVE // ESTADO OPERATIVO',
+      };
+      ctx.fillText(headings[role], 32, 48);
+      ctx.font = '600 18px monospace';
+      ctx.fillStyle = '#b9d3e4';
+      ctx.fillText(`UTC ${new Date().toISOString().slice(11, 19)}  ·  TELEMETRÍA ${mode}`, 32, 88);
+
+      if (role === 'helm') {
+        const cx = 300;
+        const cy = 292;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 156, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.fillStyle = '#0a2438';
+        ctx.fillRect(cx - 170, cy - 170, 340, 170);
+        ctx.fillStyle = '#17242d';
+        ctx.fillRect(cx - 170, cy, 340, 170);
+        ctx.translate(cx, cy);
+        ctx.rotate((heading * Math.PI) / 180);
+        ctx.strokeStyle = '#78dcff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-180, Math.max(-90, Math.min(90, pitch * 2.2)));
+        ctx.lineTo(180, Math.max(-90, Math.min(90, pitch * 2.2)));
+        ctx.stroke();
+        ctx.restore();
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 156, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#e7f7ff';
+        ctx.font = '700 25px monospace';
+        ctx.fillText(`V ${speed.toFixed(2)} u/s`, 550, 190);
+        ctx.fillText(`HDG ${heading.toFixed(0)}°`, 550, 244);
+        ctx.fillText(`PITCH ${pitch.toFixed(0)}°`, 550, 298);
+        ctx.fillStyle = '#8eafc1';
+        ctx.font = '18px monospace';
+        ctx.fillText('DESTINO', 550, 358);
+        ctx.fillStyle = '#d8efff';
+        ctx.fillText(String(telemetry.destination || targetName).slice(0, 34), 550, 389);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillText(`FASE ${String(telemetry.navigationPhase || 'ESTACIONARIA').toUpperCase()}`, 550, 435);
+      } else if (role === 'astro') {
+        const chart = { x: 38, y: 112, w: 550, h: 350 };
+        ctx.strokeStyle = 'rgba(124,215,255,.24)';
+        ctx.lineWidth = 1;
+        for (let n = 1; n < 5; n += 1) {
+          const x = chart.x + (chart.w * n) / 5;
+          ctx.beginPath(); ctx.moveTo(x, chart.y); ctx.lineTo(x, chart.y + chart.h); ctx.stroke();
+        }
+        for (let n = 1; n < 4; n += 1) {
+          const y = chart.y + (chart.h * n) / 4;
+          ctx.beginPath(); ctx.moveTo(chart.x, y); ctx.lineTo(chart.x + chart.w, y); ctx.stroke();
+        }
+        NAVIGATION_CATALOG.stars.slice(0, 180).forEach((star) => {
+          if (!Number.isFinite(star.ra) || !Number.isFinite(star.dec)) return;
+          const x = chart.x + ((star.ra % 360) / 360) * chart.w;
+          const y = chart.y + ((90 - star.dec) / 180) * chart.h;
+          const magnitude = Number(star.apparentMagnitude);
+          const radius = star.missionKey ? 4.2 : Number.isFinite(magnitude) ? Math.max(1.5, 3.8 - magnitude * 0.18) : 1.8;
+          ctx.fillStyle = star.missionKey ? '#ffd28a' : '#bfe9ff';
+          ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
+        });
+        if (Number.isFinite(target?.ra) && Number.isFinite(target?.dec)) {
+          const x = chart.x + ((target.ra % 360) / 360) * chart.w;
+          const y = chart.y + ((90 - target.dec) / 180) * chart.h;
+          ctx.strokeStyle = '#ffbf5b';
+          ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(x, y, 13, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.fillStyle = '#d9efff';
+        ctx.font = '17px monospace';
+        ctx.fillText('RA 0°', chart.x, 489);
+        ctx.fillText('180°', chart.x + chart.w * 0.48, 489);
+        ctx.fillText('360°', chart.x + chart.w - 54, 489);
+        ctx.fillStyle = '#7cd7ff';
+        ctx.font = '700 18px monospace';
+        ctx.fillText(target ? `${targetName}  ·  ${target.ra.toFixed(4)}° / ${target.dec.toFixed(4)}°` : 'CNS5 · coordenadas ecuatoriales ICRS', 620, 156);
+        ctx.fillStyle = '#b9d3e4';
+        ctx.font = '17px monospace';
+        ctx.fillText(target?.identifier || 'CNS5 · Gaia DR3', 620, 194);
+        ctx.fillText(`ÉPOCA ${target?.referenceEpoch || 2016} · ICRS`, 620, 228);
+        ctx.fillText(`DIST. ${Number.isFinite(target?.distanceLy) ? `${target.distanceLy.toFixed(2)} a.l.` : 'N/D'}`, 620, 262);
+        ctx.fillText('SPHEREx · COBERTURA POR BANDA', 620, 320);
+        ['D1', 'D2', 'D3', 'D4', 'D5', 'D6'].forEach((band, i) => {
+          const x = 620 + i * 62;
+          const count = bandCounts[band] || 0;
+          ctx.fillStyle = '#112a3b'; ctx.fillRect(x, 350, 40, 76);
+          ctx.fillStyle = count ? '#39c9ef' : '#345165';
+          const barHeight = count ? Math.max(8, Math.min(66, count * 3)) : 3;
+          ctx.fillRect(x, 423 - barHeight, 40, barHeight);
+          ctx.fillStyle = '#c8e5f5'; ctx.font = '14px monospace'; ctx.fillText(band, x + 4, 447);
+          ctx.fillText(String(count), x + 10, 467);
+        });
+        ctx.fillStyle = '#8aa9bb';
+        ctx.font = '14px monospace';
+        ctx.fillText('Datos de archivo · NASA/IPAC IRSA QR2', 620, 492);
+      } else if (role === 'neural') {
+        const speaking = Boolean(telemetry.aiSpeaking);
+        const level = speaking ? Math.max(0.08, Math.min(1, Number(telemetry.aiAudioLevel) || 0.2)) : 0;
+        ctx.strokeStyle = speaking ? '#fbbf24' : 'rgba(251,191,36,.42)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (let x = 0; x <= 920; x += 8) {
+          const y = 270 + Math.sin(x * 0.027 + (telemetry.elapsedTime || 0) * 3) * (speaking ? 66 * level : 2);
+          if (x === 0) ctx.moveTo(48 + x, y); else ctx.lineTo(48 + x, y);
+        }
+        ctx.stroke();
+        ctx.fillStyle = '#e6f4ff';
+        ctx.font = '700 25px monospace';
+        ctx.fillText(speaking ? 'CANAL DE VOZ · TRANSMITIENDO' : 'CANAL DE VOZ · EN ESPERA', 48, 158);
+        ctx.font = '19px monospace';
+        ctx.fillStyle = '#9fc2d6';
+        ctx.fillText(`NÚCLEO IA · ${telemetry.aiReady === false ? 'SIN CONEXIÓN' : 'DISPONIBLE'}`, 48, 388);
+        ctx.fillText(`EXPEDICIÓN · ${targetName}`, 48, 426);
+        ctx.fillText('ESTADO DE AUDIO · TELEMETRÍA LOCAL', 48, 462);
+      } else {
+        const mechanisms = telemetry.mechanisms || {};
+        const reactor = mechanisms.reactorMode || 'nominal';
+        const reactorLabel = reactor === 'overclock' ? 'POTENCIA' : reactor === 'quiet' ? 'SILENCIOSO' : 'NOMINAL';
+        const systems = [
+          ['REACTOR', reactorLabel],
+          ['BIOPÓNICA', mechanisms.bioponicsActive ? 'ACTIVA' : 'PAUSADA'],
+          ['ESCLUSA', mechanisms.airlockPressurized ? 'PRESURIZADA' : 'CICLO EVA'],
+          ['GRÚA HANGAR', mechanisms.hangarCraneDeployed ? 'DESPLEGADA' : 'REPLEGADA'],
+        ];
+        systems.forEach(([label, value], index) => {
+          const y = 153 + index * 76;
+          ctx.fillStyle = '#10283a'; ctx.fillRect(44, y, 920, 52);
+          ctx.fillStyle = '#9fc2d6'; ctx.font = '19px monospace'; ctx.fillText(label, 62, y + 33);
+          ctx.fillStyle = value === 'PAUSADA' || value === 'CICLO EVA' ? '#fbbf24' : '#58e2a4';
+          ctx.fillRect(390, y + 15, 15, 15);
+          ctx.fillStyle = '#e6f4ff'; ctx.font = '700 20px monospace'; ctx.fillText(value, 426, y + 34);
+        });
+        ctx.fillStyle = '#87a9ba';
+        ctx.font = '15px monospace';
+        ctx.fillText('ESTADO DE SISTEMAS DE LA SIMULACIÓN · SIN SENSORES FÍSICOS', 44, 488);
+      }
+      material.map.needsUpdate = true;
+    });
+  };
 
   let disposed = false;
   const dispose = () => {
@@ -690,6 +876,7 @@ export function createBridgeCabina1MaterialSuite() {
       mfdEngMat,
     },
     setAnisotropy,
+    updateScreens,
     dispose,
   };
 }

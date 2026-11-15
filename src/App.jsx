@@ -1126,6 +1126,7 @@ export default function App() {
       onNavigationScale: setNavigationScale,
       onNearbyMapChange: setNearbyMapActive,
       reducedMotion: () => reducedMotion,
+      voiceEnabled: () => voiceRef.current,
       // Deja que termine la locución de cada capítulo antes del corte, con límite de seguridad para que
       // una petición de audio atascada nunca pueda dejar la introducción congelada indefinidamente.
       shouldHoldIntroStage: (_stageKey, stageElapsed = 0) => {
