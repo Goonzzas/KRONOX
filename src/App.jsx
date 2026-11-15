@@ -3291,6 +3291,7 @@ export default function App() {
     ),
     h(KronoxWidget, {
       narrative: guide,
+      cinematic: Boolean(guideState?.cinematic),
       showSubtitles: gameSettings.showSubtitles !== false,
       subtitleSize: gameSettings.subtitleSize || 'normal',
       dialogueHidden:

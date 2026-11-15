@@ -17,6 +17,7 @@ type KronoxWidgetProps = {
   audioLevels?: number[];
   panelOpen?: boolean;
   dialogueHidden?: boolean;
+  cinematic?: boolean;
   showSubtitles?: boolean;
   subtitleSize?: 'normal' | 'large';
   showCornerOrb?: boolean;
@@ -137,6 +138,7 @@ export default function KronoxWidget({
   history = [],
   aiProjection = null,
   dialogueHidden = false,
+  cinematic = false,
   showSubtitles = true,
   subtitleSize = 'normal',
   showCornerOrb = false,
@@ -156,8 +158,8 @@ export default function KronoxWidget({
   const micTimerRef = useRef<any>(null);
 
   const interventions = useMemo(
-    () => splitIntervention(narrative?.text || ''),
-    [narrative?.id, narrative?.text],
+    () => (cinematic ? [narrative?.text || ''] : splitIntervention(narrative?.text || '')),
+    [cinematic, narrative?.id, narrative?.text],
   );
   const intervention = interventions[partIndex] || '';
 
@@ -225,7 +227,7 @@ export default function KronoxWidget({
       return undefined;
     if (partIndex < interventions.length - 1) {
       const wordCount = Math.max(1, intervention.trim().split(/\s+/).length);
-      const holdMs = Math.max(1900, Math.min(4400, wordCount * 220));
+      const holdMs = cinematic ? 0 : Math.max(1900, Math.min(4400, wordCount * 220));
       const timer = setTimeout(() => {
         setPartIndex((index) => index + 1);
         setTyped('');
@@ -233,7 +235,7 @@ export default function KronoxWidget({
       return () => clearTimeout(timer);
     }
     if (!speaking) {
-      const timer = setTimeout(() => onMessageComplete?.(narrative.id), 2300);
+      const timer = setTimeout(() => onMessageComplete?.(narrative.id), cinematic ? 0 : 2300);
       return () => clearTimeout(timer);
     }
     return undefined;
@@ -245,6 +247,7 @@ export default function KronoxWidget({
     typed.length,
     textPaused,
     speechPaused,
+    cinematic,
     speaking,
     onMessageComplete,
   ]);
