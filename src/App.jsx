@@ -354,12 +354,7 @@ export default function App() {
     gameAudioRef = useRef(null),
     introSoundtrackRef = useRef(null),
     introMusicElementRef = useRef(null),
-    cockpitInsideRef = useRef(false),
-    vrTravelHandlerRef = useRef(null),
-    vrKronoxQueryHandlerRef = useRef(null),
-    vrToggleVoiceHandlerRef = useRef(null),
-    vrRepeatVoiceHandlerRef = useRef(null),
-    vrGuidedTourHandlerRef = useRef(null);
+    cockpitInsideRef = useRef(false);
   useEffect(() => {
     cockpitInsideRef.current = Boolean(fr && pv == 1);
     if (!fr || pv != 1) {
@@ -1162,11 +1157,6 @@ export default function App() {
           api.current?.setSimulationPaused?.(true);
         }
       },
-      onVrTravelRequest: (req) => vrTravelHandlerRef.current?.(req),
-      onVrKronoxQuery: (q) => vrKronoxQueryHandlerRef.current?.(q),
-      onVrToggleVoice: (en) => vrToggleVoiceHandlerRef.current?.(en),
-      onVrRepeatVoice: () => vrRepeatVoiceHandlerRef.current?.(),
-      onVrStartGuidedTour: () => vrGuidedTourHandlerRef.current?.(),
       onPointerLockChange: (st) => {
         if (st) setPointerLockState(st);
       },
@@ -1588,48 +1578,6 @@ export default function App() {
       : 0.08;
     api.current?.setAiLuminousState?.(realTimeIntroActive ? null : aiAvatarState, speaking, normLevel);
   }, [speaking, aiAvatarState, audioLevels, realTimeIntroActive]);
-  useEffect(() => {
-    api.current?.syncVrHudContext?.({
-      viewMode: pv,
-      freeHelmMode: Boolean(freeHelmMode),
-      opticalEnabled: Boolean((observationModeInfo?.opticalMagnification || 1) > 1),
-      opticalMag: observationModeInfo?.opticalMagnification || 1,
-      focusedObject: f || undefined,
-      nearObject: near || undefined,
-      voiceEnabled: Boolean(voice),
-      aiSpeaking: Boolean(speaking),
-      aiStateLabel: aiAvatarState || 'En línea',
-      aiRole,
-      assistantTitle: guide?.title || 'Kronox IA',
-      assistantRole: aiRole || 'Inteligencia de a bordo',
-      assistantCategory: aiEpistemicCategory || 'Puente espacial VR',
-      assistantMessage: guide?.text || undefined,
-      spherexTargetKey: missionTargetKey || 'barnard',
-      travelStatus: navigation
-        ? {
-            active: Boolean(navigation.phase && navigation.phase !== 'ARRIVED'),
-            phase: navigation.phase,
-            progress: Number(navigation.progress || 0),
-            label: navigation.label || '',
-          }
-        : { active: false, progress: 0, label: '' },
-    });
-  }, [
-    pv,
-    freeHelmMode,
-    observationModeInfo,
-    f,
-    near,
-    voice,
-    speaking,
-    aiAvatarState,
-    aiRole,
-    aiEpistemicCategory,
-    guide,
-    missionTargetKey,
-    navigation,
-    vrState?.presenting,
-  ]);
   useEffect(() => {
     let cancelled = false;
     fetch(voiceProvider.statusUrl()).then(response => response.json()).then(status => {
@@ -2137,82 +2085,6 @@ export default function App() {
         nm[k],
       ),
     pi = f && P.find((x) => x.n == f);
-  vrTravelHandlerRef.current = ({ kind, target, mode } = {}) => {
-    if (!target) return;
-    if (kind === 'planet') {
-      if (mode === 'focus') {
-        api.current?.focus?.(target);
-        setF(target);
-        return;
-      }
-      setMissionOpen(false);
-      setMissionSelectorOpen(false);
-      startTravel(() => {
-        if (spec) {
-          api.current?.board?.();
-          setSpec(false);
-          setFr(true);
-        } else if (!fr) {
-          setFr(true);
-          api.current?.free?.(true);
-        }
-        api.current?.focus?.(target);
-      }, target);
-      return;
-    }
-    if (kind === 'quick') {
-      setMissionOpen(false);
-      setMissionSelectorOpen(false);
-      startTravel(() => {
-        if (spec) {
-          api.current?.board?.();
-          setSpec(false);
-          setFr(true);
-        } else if (!fr) {
-          setFr(true);
-          api.current?.free?.(true);
-        }
-        api.current?.quick?.(target);
-      }, target);
-      return;
-    }
-    if (kind === 'spherex') {
-      const targetObj = SPHEREX_TARGETS.find((t) => t.key === target);
-      if (targetObj) {
-        setMissionOpen(false);
-        setMissionSelectorOpen(false);
-        setMissionTargetKey(targetObj.key);
-        chooseSpherexTarget(targetObj);
-      }
-    }
-  };
-  vrToggleVoiceHandlerRef.current = (enabled) => {
-    const next = Boolean(enabled);
-    voiceRef.current = next;
-    setVoice(next);
-    if (!next) stopVoiceAndClearQueue();
-  };
-  vrRepeatVoiceHandlerRef.current = () => {
-    const lastMsg = narrativeQueue.repeat();
-    if (lastMsg && voiceRef.current) speak(lastMsg.text);
-  };
-  vrGuidedTourHandlerRef.current = () => {
-    api.current?.startGuidedTour?.();
-  };
-  vrKronoxQueryHandlerRef.current = async (query) => {
-    if (!query) return null;
-    handleKronoxCommand(query);
-    return processKronoxQuery(query, {
-      nearPlanet: near || 'Tierra',
-      focusedPlanet: f || near || 'Tierra',
-      viewMode: pv,
-      activeTargetKey: missionTargetKey,
-      missionOpen,
-      opticalMagnification: observationModeInfo?.opticalMagnification || 1,
-      activeStation: activeCockpitStation || 'Puente de mando',
-      activeObjective: guideObjective || 'Exploración científica libre',
-    });
-  };
   return h(
     'div',
     {
@@ -3031,7 +2903,7 @@ export default function App() {
         welcomeOpen ||
         showFullMainMenu ||
         (gameSettings.showSubtitles === false && !kronoxOpen),
-      showCornerOrb: fr && (pv === 3 || pv === 1) && !welcomeOpen && !showFullMainMenu && !realTimeIntroActive,
+      showCornerOrb: fr && pv === 3 && !welcomeOpen && !showFullMainMenu && !realTimeIntroActive,
       speaking,
       audioLevels,
       panelOpen: kronoxOpen,
@@ -3055,13 +2927,7 @@ export default function App() {
       near,
       onAccentChange: setVoiceAccent,
       onMore: setMore,
-      onStartMission: () => {
-        setKronoxOpen(false);
-        setPersonalHubOpen(false);
-        setPauseMenuOpen(false);
-        setOpen(false);
-        setMissionSelectorOpen(true);
-      },
+      onStartMission: () => setMissionSelectorOpen(true),
       missionStarting: countdown !== null || missionArrival || missionTraveling,
       onCommand: handleKronoxCommand,
       onMessageComplete: (messageId) => {
@@ -3779,11 +3645,6 @@ export default function App() {
       onToggleVr: handleToggleVr,
       onRecenterVr: () => api.current?.recenterVr?.(),
       onOpenMissionTarget: (targetKey) => {
-        setKronoxOpen(false);
-        setPersonalHubOpen(false);
-        setPauseMenuOpen(false);
-        setOpen(false);
-        setMissionSelectorOpen(false);
         setMissionTargetKey(targetKey);
         setMissionInitialStage('investigate');
         setMissionOpen(true);
@@ -4012,20 +3873,11 @@ export default function App() {
         startTravel(() => A()?.quick?.(key), label);
       },
       onOpenSpherexObservatory: (target) => {
-        setKronoxOpen(false);
-        setPersonalHubOpen(false);
-        setPauseMenuOpen(false);
-        setOpen(false);
-        setMissionSelectorOpen(false);
         setMissionTargetKey(target?.key || missionTargetKey || 'barnard');
         setMissionInitialStage('arrival');
         setMissionOpen(true);
       },
       onOpenMissionSelector: () => {
-        setKronoxOpen(false);
-        setPersonalHubOpen(false);
-        setPauseMenuOpen(false);
-        setOpen(false);
         setMissionSelectorOpen(true);
       },
       onOpenPlanetInfo: (planetName) => {

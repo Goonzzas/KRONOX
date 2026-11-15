@@ -269,7 +269,7 @@ export function createVrInputStateTracker(initialSettings = DEFAULT_VR_SETTINGS)
       const bPressed = risingEdge('buttonB', rightBtn(5));
       const xPressed = risingEdge('buttonX', leftBtn(4));
       const yPressed = risingEdge('buttonY', leftBtn(5));
-      const menuPressed = risingEdge('menu', Boolean(ext?.openMenu || leftBtn(2) || rightBtn(2)));
+      const menuPressed = risingEdge('menu', Boolean(ext?.openMenu));
       const recenterEdge = Boolean(ext?.recenter) || triggerLeftPressed || rightStickPressed;
 
       return {
@@ -880,30 +880,13 @@ export function createWebXrManager({
       rayOrigin.setFromMatrixPosition(ctrl.matrixWorld);
       rayDir.set(0, 0, -1).applyMatrix4(rayRotMatrix).normalize();
 
-      let hitIsHud = false;
       if (Array.isArray(interactableMeshes) && interactableMeshes.length > 0) {
         raycaster.set(rayOrigin, rayDir);
         raycaster.near = 0.05;
         raycaster.far = 6.0;
-        const visibleHits = raycaster.intersectObjects(interactableMeshes, true).filter((h) => {
-          let vis = h.object;
-          while (vis) {
-            if (vis.visible === false) return false;
-            vis = vis.parent;
-          }
-          return true;
-        });
-        const hudHit = visibleHits.find((h) => {
-          let cur = h.object;
-          while (cur) {
-            if (cur.userData?.isVrHud) return true;
-            cur = cur.parent;
-          }
-          return false;
-        });
-        const hit = hudHit || visibleHits[0];
-        if (hit) {
-          hitIsHud = Boolean(hudHit);
+        const hits = raycaster.intersectObjects(interactableMeshes, true);
+        if (hits.length > 0) {
+          const hit = hits[0];
           const dist = Math.max(0.12, hit.distance);
           const posAttr = ray.beamGeo.attributes?.position;
           if (posAttr && typeof posAttr.setXYZ === 'function') {
@@ -912,11 +895,7 @@ export function createWebXrManager({
           }
           ray.reticle.position.set(0, 0, -dist);
           ray.reticle.visible = true;
-          ray.reticle.renderOrder = hitIsHud ? 120 : 12;
-          if (ray.reticle.material) {
-            ray.reticle.material.depthTest = !hitIsHud;
-          }
-          ray.beamMat.color.setHex(hitIsHud ? 0x38bdf8 : 0x34d399);
+          ray.beamMat.color.setHex(0x34d399);
           if (!primaryHit) {
             let cur = hit.object;
             while (cur && !(cur.userData?.interactId || cur.userData?.stationId) && cur.parent) cur = cur.parent;
@@ -925,21 +904,14 @@ export function createWebXrManager({
               activeHoveredStation = cur;
               primaryHit = {
                 stationId: hitId,
-                interactId: hitId,
-                isHud: hitIsHud,
-                hand: ray === ray0 ? 'left' : 'right',
                 distance: dist,
                 point: hit.point.clone(),
-                uv: hit.uv ? hit.uv.clone() : null,
-                object: cur,
               };
             }
           }
           continue;
         }
       }
-      if (ray.reticle.material) ray.reticle.material.depthTest = true;
-      ray.reticle.renderOrder = 12;
 
       const posAttr = ray.beamGeo.attributes?.position;
       if (posAttr && typeof posAttr.setXYZ === 'function') {
@@ -989,14 +961,10 @@ export function createWebXrManager({
       delete ext.recenter;
       delete ext.openMenu;
     }
-    const hudLeftClick =
-      Boolean(rayHit?.isHud || rayHit?.interactId === 'kronox-ai') &&
-      rayHit?.hand === 'left' &&
-      Boolean(frame.actions.recenter);
-    if ((frame.actions.interact || hudLeftClick) && rayHit?.stationId) {
+    if (frame.actions.interact && rayHit?.stationId) {
       onInteractHit?.(rayHit.stationId, rayHit);
     }
-    if (frame.actions.recenter && !hudLeftClick) {
+    if (frame.actions.recenter) {
       recenterVr(xrFrame);
     }
     return { ...frame, rayHit };
