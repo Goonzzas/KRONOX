@@ -381,8 +381,56 @@
   to { opacity: 1; transform: perspective(1400px) translateY(0) rotateY(-1.1deg) rotateX(.45deg) scale(1); }
 }
 
+.kronox-exploration-mode-panel {
+  width: min(92vw, 760px);
+  max-height: min(92vh, 760px);
+  overflow-y: auto;
+}
+.kronox-exploration-mode-panel .kronox-menu-panel-header { align-items: center; margin-bottom: 18px; }
+.kronox-exploration-mode-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 18px 8px 4px;
+  counter-reset: flight-menu;
+}
+.kronox-exploration-option.kronox-title-btn {
+  min-height: 96px;
+  padding: 14px 46px 14px 16px;
+  text-align: left;
+}
+.kronox-exploration-option.is-novice { margin-left: 14px; }
+.kronox-exploration-option .kronox-title-btn-body { display: flex; flex-direction: column; gap: 4px; }
+.kronox-exploration-option .kronox-title-btn-body strong { font-size: 14px; }
+.kronox-exploration-option-description {
+  display: block;
+  max-width: 520px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: max-height 240ms ease, opacity 180ms ease, transform 180ms ease, margin 180ms ease;
+}
+.kronox-exploration-option-hint { color: #9adfe6 !important; font: 700 9px/1.4 'Share Tech Mono', monospace !important; letter-spacing: .12em; }
+.kronox-exploration-option.is-novice .kronox-exploration-option-hint { color: #f1cf8f !important; }
+.kronox-exploration-option:hover .kronox-exploration-option-description,
+.kronox-exploration-option:focus-visible .kronox-exploration-option-description {
+  max-height: 72px;
+  margin-top: 3px;
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (hover: none) {
+  .kronox-exploration-option-description { max-height: 72px; margin-top: 3px; opacity: 1; transform: none; }
+}
+
 @media (max-width: 780px) {
   .kronox-title-stage { align-items: flex-end; padding: 20px 16px max(20px, env(safe-area-inset-bottom)); }
+  .kronox-exploration-mode-panel { width: min(100%, 620px); max-height: 94vh; padding: 18px; }
+  .kronox-exploration-mode-panel .kronox-menu-panel-header { align-items: flex-start; }
+  .kronox-exploration-mode-grid { padding: 6px 8px 6px 2px; }
+  .kronox-exploration-option.is-novice { margin-left: 8px; }
+  .kronox-exploration-option.kronox-title-btn { min-height: 82px; padding: 12px 34px 12px 10px; }
   .kronox-title-rail { width: min(100%, 430px); height: auto; gap: 12px; }
   .kronox-title-header { position: static; align-items: flex-start; width: 100%; text-align: left; }
   .kronox-main-title { font-size: clamp(34px, 10vw, 48px); }

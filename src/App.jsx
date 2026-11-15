@@ -3926,7 +3926,7 @@ export default function App() {
         A()?.mode?.(nextReal);
       },
       onPlayUiCue: playCue,
-      onStartNewExpedition: () => {
+      onStartNewExpedition: ({ explorationMode = 'expert' } = {}) => {
         ensureGameplayAudioStarted();
         stopVoiceAndClearQueue();
         clearNotices();
@@ -3948,7 +3948,7 @@ export default function App() {
           setPv(1);
           setMissionTargetKey('barnard');
           setAiAvatarState('Bienvenida');
-        });
+        }, { guidedTour: explorationMode === 'novice' });
       },
       onContinueExpedition: (saveData) => {
         ensureGameplayAudioStarted();

@@ -36,7 +36,7 @@ export default function MainMenu({
   onPlayUiCue,
   language = 'es',
 }) {
-  const [activeView, setActiveView] = useState('home'); // 'home' | 'no-save' | 'settings' | 'credits'
+  const [activeView, setActiveView] = useState('home'); // 'home' | 'exploration-mode' | 'no-save' | 'settings' | 'credits'
   const [settingsTab, setSettingsTab] = useState('audio'); // 'audio' | 'subtitles' | 'graphics' | 'controls'
   const [explorerAlias, setExplorerAlias] = useState(
     () => loadExplorerProfile()?.alias || 'Comandante Horizonte',
@@ -55,16 +55,24 @@ export default function MainMenu({
     onUpdateGameSettings?.({ ...gameSettings, [key]: value });
   };
 
-  const handleNewGame = () => {
+  const openExplorationMode = () => {
+    onPlayUiCue?.('confirm');
+    setActiveView('exploration-mode');
+  };
+
+  const handleNewGame = (explorationMode = 'expert') => {
+    const skillLevel = explorationMode === 'novice' ? 'Novato' : 'Experto';
+    const alias = (explorerAlias || '').trim() || 'Comandante Horizonte';
     onPlayUiCue?.('confirm');
     saveExplorerProfile({
-      alias: (explorerAlias || '').trim() || 'Comandante Horizonte',
-      skillLevel: 'Estándar',
+      alias,
+      skillLevel,
       onboardingCompleted: true,
     });
     onStartNewExpedition?.({
-      alias: (explorerAlias || '').trim() || 'Comandante Horizonte',
-      skillLevel: 'Estándar',
+      alias,
+      skillLevel,
+      explorationMode,
     });
   };
 
@@ -107,12 +115,12 @@ export default function MainMenu({
               <button
                 type="button"
                 className="kronox-title-btn is-primary"
-                onClick={handleNewGame}
+                onClick={openExplorationMode}
               >
                 <span className="kronox-title-btn-marker" aria-hidden="true" />
                 <span className="kronox-title-btn-body">
                   <strong>NUEVA PARTIDA</strong>
-                  <small>Inicia una nueva expedición y reproduce la introducción 3D</small>
+                  <small>Elige entre exploración libre o un recorrido guiado</small>
                 </span>
               </button>
 
@@ -193,6 +201,55 @@ export default function MainMenu({
         </div>
       )}
 
+      {activeView === 'exploration-mode' && (
+        <section className="kronox-menu-panel kronox-menu-panel-wide kronox-exploration-mode-panel" aria-label="Elegir modo de exploración">
+          <div className="kronox-menu-panel-header">
+            <div>
+              <span className="kronox-main-menu-badge">NUEVA EXPEDICIÓN · ELIGE TU RUTA</span>
+              <h2>¿Cómo quieres explorar KRONOX?</h2>
+              <p className="kronox-reg-intro">
+                La introducción cinematográfica presenta la misión. Después, elige cuánta guía quieres durante la exploración.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="kronox-pause-secondary-btn"
+              onClick={() => setActiveView('home')}
+            >
+              ← Volver
+            </button>
+          </div>
+
+          <div className="kronox-exploration-mode-grid kronox-title-nav" aria-label="Tipos de exploración">
+            <button
+              type="button"
+              className="kronox-title-btn kronox-exploration-option is-expert"
+              onClick={() => handleNewGame('expert')}
+            >
+              <span className="kronox-title-btn-marker" aria-hidden="true" />
+              <span className="kronox-title-btn-body">
+                <strong>EXPLORACIÓN PARA EXPERTOS</strong>
+                <small className="kronox-exploration-option-description">Tras la introducción, toma el mando sin tutorial. Las cuatro cubiertas, los sistemas y los destinos quedan disponibles para explorar por tu cuenta.</small>
+                <small className="kronox-exploration-option-hint">RUTA LIBRE · ELEGIR EXPLORACIÓN ↗</small>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className="kronox-title-btn kronox-exploration-option is-novice"
+              onClick={() => handleNewGame('novice')}
+            >
+              <span className="kronox-title-btn-marker" aria-hidden="true" />
+              <span className="kronox-title-btn-body">
+                <strong>EXPLORACIÓN PARA NOVATOS</strong>
+                <small className="kronox-exploration-option-description">KRONOX te guiará con indicaciones, balizas y explicaciones visuales mientras conoces la nave, sus controles y sus sistemas. Al terminar podrás explorar libremente.</small>
+                <small className="kronox-exploration-option-hint">RECORRIDO GUIADO · COMENZAR ↗</small>
+              </span>
+            </button>
+          </div>
+        </section>
+      )}
+
       {activeView === 'no-save' && (
         <section className="kronox-menu-panel" aria-label="Aviso de partida guardada">
           <div className="kronox-menu-panel-header">
@@ -234,7 +291,7 @@ export default function MainMenu({
             <button
               type="button"
               className="kronox-pause-primary-btn"
-              onClick={handleNewGame}
+              onClick={openExplorationMode}
             >
               Iniciar Nueva Partida →
             </button>
@@ -391,7 +448,7 @@ export default function MainMenu({
       {activeView === 'lore' && (
         <MissionLoreCodex
           onBack={() => setActiveView('home')}
-          onStartExpedition={handleNewGame}
+          onStartExpedition={openExplorationMode}
           onPlayUiCue={onPlayUiCue}
         />
       )}

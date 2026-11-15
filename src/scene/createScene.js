@@ -4415,7 +4415,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     S.onGuideStateChange?.({ step: 'free', stationId: null, active: false });
   }
 
-  function startRealTimeIntroSequence(onCompleteCallback) {
+  function startRealTimeIntroSequence(onCompleteCallback, options = {}) {
     cancelTravel(); if (nearbyMapState) returnFromNearbyMap(); contextOverview = false;
     publishScale('solar');
     // Cancel any incompatible active sequences so two sequences never run simultaneously (Section 4)
@@ -4480,6 +4480,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       cameraHandoff: null,
       boardingFrom: null,
       boardingQuaternion: null,
+      guidedTourOnArrival: options.guidedTour !== false,
       onComplete: onCompleteCallback,
     };
     S.onIntroStageChange?.(
@@ -4492,6 +4493,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     cancelTravel();
     const wasInIntro = Boolean(realTimeIntro);
     const cb = realTimeIntro?.onComplete;
+    const guidedTourOnArrival = realTimeIntro?.guidedTourOnArrival !== false;
     releaseInputs(); vel.set(0, 0, 0); activeCabinStation = null; freeHelmMode = false;
     realTimeIntro = null;
     realTimeIntroPaused = false;
@@ -4578,7 +4580,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     sceneDirector.dispatchEvent('AI_ACTIVATED', {});
     suppressDirectorNarrative = false;
     if (cb) cb();
-    startGuidedCabinTour();
+    if (guidedTourOnArrival) {
+      startGuidedCabinTour();
+    } else {
+      guidedTourState = null;
+      fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+      S.onGuideObjective?.(null);
+      S.onGuideStateChange?.({ step: 'free', stationId: null, active: false });
+    }
     emitPointerLockState('cabin-ready');
     S.onObservationModeChange?.(getObservationMode());
   }
@@ -6841,6 +6850,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
         if (u >= 1) {
           const cb = realTimeIntro.onComplete;
+          const guidedTourOnArrival = realTimeIntro.guidedTourOnArrival !== false;
           realTimeIntro = null;
           realTimeIntroPaused = false;
           if (earth?.spherex) {
@@ -6906,7 +6916,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           sceneDirector.dispatchEvent('AI_ACTIVATED', {});
           suppressDirectorNarrative = false;
           if (cb) cb();
-          startGuidedCabinTour();
+          if (guidedTourOnArrival) {
+            startGuidedCabinTour();
+          } else {
+            guidedTourState = null;
+            fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+            S.onGuideObjective?.(null);
+            S.onGuideStateChange?.({ step: 'free', stationId: null, active: false });
+          }
         }
       } else {
         // Actualizar KronoxSceneDirector y secuencias dirigidas por los sistemas de la nave (Secciones 2, 3 y 4)
