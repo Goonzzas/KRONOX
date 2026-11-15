@@ -1290,7 +1290,7 @@ export default function App() {
         }
       },
       onVrAction: (action, payload) => vrHandlersRef.current?.[action]?.(payload),
-      onPlayAudioCue: playCue,
+      onSfxCue: playCue,
       onVrPauseRequest: (opts) => {
         if (opts?.resumeOnly || pauseMenuOpenRef.current || api.current?.isSimulationPaused?.()) {
           setPauseMenuOpen(false);

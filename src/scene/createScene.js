@@ -3470,7 +3470,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     'deck-04': { pos: new V(2.8, -6.8, -5.0), yaw: 0.35 },
   };
   let deckTransitState = null;
-  let noviceFootstepDistance = 0;
+  let footstepDistance = 0;
 
   function buildDeckTransitWaypoints(fromPos, targetDeckId, yawOverride = null) {
     const dest = DECK_SPAWNS[targetDeckId] || DECK_SPAWNS['deck-01'];
@@ -7759,20 +7759,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               isBoosting: false,
             };
           } else if (deckTransitState?.active) {
-            const noviceWalkStep = guidedTourState?.mode === 'novice-cinematic' &&
-              ['cinematic-walk', 'cinematic-walk-elevator', 'cinematic-walk-science'].includes(guidedTourState.step);
             const wp = deckTransitState.waypoints[deckTransitState.index];
             const toWp = new V().subVectors(wp, astronautPos);
             const distToWp = toWp.length();
             const stepDist = deckTransitState.speed * Math.max(0.008, Math.min(0.05, dt));
-            if (noviceWalkStep) {
-              noviceFootstepDistance += Math.min(stepDist, distToWp);
-              if (noviceFootstepDistance >= 0.72) {
-                S.onPlayAudioCue?.('footstep');
-                noviceFootstepDistance %= 0.72;
-              }
-            } else {
-              noviceFootstepDistance = 0;
+            footstepDistance += Math.min(stepDist, distToWp);
+            if (footstepDistance >= 0.72) {
+              S.onSfxCue?.('footstep');
+              footstepDistance %= 0.72;
             }
             if (distToWp <= stepDist + 0.04) {
               astronautPos.copy(wp);
@@ -7786,6 +7780,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                 targetPitch = -0.05;
                 astronautPitch = -0.05;
                 deckTransitState = null;
+                footstepDistance = 0;
                 astronautVel.set(0, 0, 0);
                 if (guidedTourState?.mode === 'novice-cinematic' && guidedTourState.step === 'cinematic-walk') {
                   guidedTourState.walkFinished = true;
