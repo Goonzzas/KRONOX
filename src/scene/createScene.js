@@ -4370,10 +4370,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     const isTestHarness = IS_NODE_SCENE_HARNESS;
     realTimeIntro = {
       phase: 'opening',
-      openingDuration: isReduced ? 0.6 : isTestHarness ? 3.2 : 6.0,
+      openingDuration: isReduced ? 0.6 : isTestHarness ? 3.2 : 8.5,
       elapsed: 0,
       stageElapsed: 0,
-      duration: isReduced ? 1.8 : isTestHarness ? 23.0 : 44.0,
+      duration: isReduced ? 1.8 : isTestHarness ? 23.0 : 62.0,
       stageNotified: 0,
       cameraHandoff: null,
       boardingFrom: null,
