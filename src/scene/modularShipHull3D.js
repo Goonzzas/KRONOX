@@ -1,9 +1,8 @@
 import * as THREE from 'three';
 import { createShipPbrSuite } from './shipPbrMaterials.js';
-// Data URI fallback para entornos Node ESM sin cargador de imágenes
-const astralSentinelsLogoUrl =
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="30" fill="%230b3d91"/><polygon points="32,8 54,52 10,52" fill="%23fc3d21"/><circle cx="32" cy="32" r="8" fill="%23ffffff"/></svg>';
-
+// Referencia estática: Vite resuelve el recurso y Node ESM no necesita cargar
+// la imagen en los harness de escena que no tienen DOM.
+const astralSentinelsLogoUrl = new URL('../assets/astral-sentinels-logo.jpg', import.meta.url).href;
 
 /**
  * AURORA-120 / KRONOX 120-Meter Modular Exploration Cruiser Exterior 3D Architecture.
