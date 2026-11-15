@@ -61,6 +61,7 @@ const voiceProvider = createFishAudioVoiceProvider({
   endpoint: import.meta.env.BASE_URL + 'api/fish-tts',
   fallbackEndpoint: import.meta.env.BASE_URL + 'api/voice',
   referenceId: FISH_AUDIO_VOICE_ID,
+  baseUrl: import.meta.env.BASE_URL,
 });
 const completeKronoxNarrative = (id) => narrativeQueue.complete(id);
 
@@ -1125,8 +1126,17 @@ export default function App() {
       onNavigationScale: setNavigationScale,
       onNearbyMapChange: setNearbyMapActive,
       reducedMotion: () => reducedMotion,
-      // Mantiene movimiento cinematográfico continuo sin pausas artificiales ni congelamientos de pantalla
-      shouldHoldIntroStage: () => Boolean(introPausedRef.current),
+      // Deja que termine la locución de cada capítulo antes del corte, con límite de seguridad para que
+      // una petición de audio atascada nunca pueda dejar la introducción congelada indefinidamente.
+      shouldHoldIntroStage: (_stageKey, stageElapsed = 0) => {
+        const narrationBusy = Boolean(
+          speakingRef.current || voiceAudio.current || voiceQueueRef.current.length > 0,
+        );
+        return Boolean(
+          introPausedRef.current ||
+          (voiceRef.current && narrationBusy && stageElapsed < 14),
+        );
+      },
       onNearbyGalaxySelect: (key) => {
         setNearbyGalaxyKey(key);
         clearMissionOffer();

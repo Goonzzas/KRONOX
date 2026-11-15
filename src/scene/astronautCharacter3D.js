@@ -268,20 +268,21 @@ function createAstronautMaterials() {
 
   return {
     suitOuter: new THREE.MeshStandardMaterial({
-      color: 0x141a24,
-      roughness: 0.52,
-      metalness: 0.28,
-      ...(hasCarbon ? { bumpMap: carbonTex, bumpScale: 0.04 } : {}),
+      // Match the reference astronaut: orange carbon-fiber pressure suit.
+      color: 0xc94b0d,
+      roughness: 0.48,
+      metalness: 0.16,
+      ...(hasCarbon ? { bumpMap: carbonTex, bumpScale: 0.055 } : {}),
     }),
     suitCrease: new THREE.MeshStandardMaterial({
-      color: 0x222a38,
-      roughness: 0.68,
-      metalness: 0.2,
+      color: 0xa83b09,
+      roughness: 0.62,
+      metalness: 0.12,
     }),
     armorPlate: new THREE.MeshStandardMaterial({
-      color: 0xf0f2f6,
-      roughness: 0.3,
-      metalness: 0.18,
+      color: 0xe96a18,
+      roughness: 0.34,
+      metalness: 0.2,
     }),
     jointDark: new THREE.MeshStandardMaterial({
       color: 0x0f1115,
@@ -294,9 +295,9 @@ function createAstronautMaterials() {
       metalness: 0.12,
     }),
     missionAccent: new THREE.MeshStandardMaterial({
-      color: 0xdf5d14, // Vibrant Astral Orange
-      roughness: 0.38,
-      metalness: 0.25,
+      color: 0x686d72,
+      roughness: 0.42,
+      metalness: 0.34,
     }),
     tealLED: new THREE.MeshStandardMaterial({
       color: 0x19c9d0,
@@ -772,7 +773,8 @@ export function createAstronautCharacter3D() {
   helm.add(helmetShellMesh);
 
   const visorMesh = new THREE.Mesh(
-    createSuperEllipsoidGeometry(0.1635, 0.92, 36, 28, Math.PI / 2 - 1.2, 2.4, 0.45, 1.85),
+    // The chest and astronaut forward axis point toward -Z; mirror the visor there too.
+    createSuperEllipsoidGeometry(0.1635, 0.92, 36, 28, Math.PI + Math.PI / 2 - 1.2, 2.4, 0.45, 1.85),
     mats.visorGold
   );
   visorMesh.castShadow = true;
@@ -819,6 +821,7 @@ export function createAstronautCharacter3D() {
   let currentState = ASTRONAUT_ANIMATION_STATES.IDLE_FLOAT;
   let clockT = 0;
   let walkPhase = 0;
+  const torsoRestY = torso.position.y;
 
   function setState(nextState) {
     if (Object.values(ASTRONAUT_ANIMATION_STATES).includes(nextState)) {
@@ -847,12 +850,17 @@ export function createAstronautCharacter3D() {
     let bobY = 0;
     let bodyPitch = 0.02;
     let bodyYaw = 0;
+    let pelvisSway = 0;
+    let torsoPitch = 0;
+    let torsoRoll = 0;
+    let headRoll = 0;
+    let headYaw = 0;
     let laX = 0.14,
       laZ = 0.12,
-      leX = -0.32;
+      leX = 0.16;
     let raX = 0.14,
       raZ = -0.12,
-      reX = -0.32;
+      reX = 0.16;
     let llX = 0,
       lkX = 0.06;
     let rlX = 0,
@@ -877,36 +885,46 @@ export function createAstronautCharacter3D() {
       bobY = 0.005 * Math.sin(clockT * 2.0);
       raX = 0.42;
       raZ = -0.2;
-      reX = -0.6;
+      reX = 0.36;
       laX = 0.14;
     } else if (isWalking) {
-      // Straight, controlled bipedal walk cycle
-      walkPhase += safeDt * (5.8 + speedRatio * 3.2);
-      const strideAngle = Math.min(0.68, 0.32 + speedRatio * 0.32);
-      const armSwing = Math.min(0.48, 0.22 + speedRatio * 0.25);
+      // Relaxed EVA gait: slower cadence, weight transfer, and offset upper-body follow-through.
+      walkPhase += safeDt * (5.0 + speedRatio * 2.4);
+      const strideAngle = Math.min(0.56, 0.28 + speedRatio * 0.26);
+      const armSwing = Math.min(0.4, 0.17 + speedRatio * 0.2);
+      const step = Math.sin(walkPhase);
+      const oppositeStep = Math.sin(walkPhase + Math.PI);
 
       // Legs stride in alternating opposition
-      llX = Math.sin(walkPhase) * strideAngle;
-      rlX = -Math.sin(walkPhase) * strideAngle;
+      llX = step * strideAngle;
+      rlX = oppositeStep * strideAngle;
 
-      // Knees flex naturally on swing phase
-      lkX = Math.max(0, -Math.sin(walkPhase + 0.3)) * 0.72;
-      rkX = Math.max(0, Math.sin(walkPhase + 0.3)) * 0.72;
+      // Knees flex mostly while each foot swings forward.
+      lkX = Math.max(0, -Math.sin(walkPhase + 0.22)) * 0.52;
+      rkX = Math.max(0, Math.sin(walkPhase + 0.22)) * 0.52;
 
-      // Arms swing in counter-phase to legs
-      laX = -Math.sin(walkPhase) * armSwing + 0.12;
-      raX = Math.sin(walkPhase) * armSwing + 0.12;
-      leX = -0.32 - Math.max(0, Math.sin(walkPhase)) * 0.25;
-      reX = -0.32 - Math.max(0, -Math.sin(walkPhase)) * 0.25;
+      // Arms counter-swing with slight asymmetry and relaxed elbow flex.
+      laX = -step * armSwing + 0.1;
+      raX = oppositeStep * (armSwing * 0.92) + 0.12;
+      laZ = 0.11 + Math.sin(walkPhase + 0.65) * 0.025;
+      raZ = -0.1 + Math.sin(walkPhase + 2.1) * 0.028;
+      leX = 0.14 + Math.max(0, step) * 0.18;
+      reX = 0.14 + Math.max(0, oppositeStep) * 0.17;
 
-      // Subtle, stable hip bobbing
-      bobY = Math.abs(Math.sin(walkPhase)) * 0.022;
-      bodyPitch = 0.03 + speedRatio * 0.03;
-      bodyYaw = Math.sin(walkPhase) * 0.028;
+      // Transfer weight through hips, torso, and head instead of moving as one rigid block.
+      bobY = Math.abs(step) * 0.014;
+      pelvisSway = Math.sin(walkPhase + Math.PI / 2) * 0.014;
+      bodyPitch = 0.015 + speedRatio * 0.018;
+      torsoPitch = 0.012 + Math.sin(walkPhase - 0.45) * 0.018;
+      torsoRoll = Math.sin(walkPhase + Math.PI / 2) * 0.026;
+      headRoll = -torsoRoll * 0.45;
+      bodyYaw = Math.sin(walkPhase - 0.35) * 0.014;
+      headYaw = -bodyYaw * 0.8 + Math.sin(walkPhase * 0.5) * 0.012;
     } else {
       switch (currentState) {
         case ASTRONAUT_ANIMATION_STATES.THRUSTER_BURST: {
           bodyPitch = 0.16;
+          torsoPitch = 0.035;
           laX = -0.12;
           laZ = 0.28;
           raX = -0.12;
@@ -920,24 +938,28 @@ export function createAstronautCharacter3D() {
         }
         case ASTRONAUT_ANIMATION_STATES.CONSOLE_WORK: {
           bodyPitch = 0.04;
+          torsoPitch = 0.025 + Math.sin(clockT * 1.7) * 0.012;
+          torsoRoll = Math.sin(clockT * 1.1) * 0.012;
           laX = 0.82 + Math.sin(clockT * 4.0) * 0.06;
           raX = 0.86 + Math.cos(clockT * 4.5) * 0.06;
-          leX = -0.72;
-          reX = -0.72;
+          leX = 0.56;
+          reX = 0.56;
           break;
         }
         case ASTRONAUT_ANIMATION_STATES.REPAIR_INTERACT: {
           bodyPitch = 0.1;
+          torsoPitch = 0.045 + Math.sin(clockT * 1.5) * 0.012;
+          torsoRoll = Math.sin(clockT * 1.2) * 0.014;
           raX = 1.02 + Math.sin(clockT * 6.0) * 0.12;
-          reX = -0.6;
+          reX = 0.5;
           laX = 0.74;
-          leX = -0.78;
+          leX = 0.58;
           break;
         }
         case ASTRONAUT_ANIMATION_STATES.GRAB_RAIL: {
           raX = 1.2;
           raZ = 0.08;
-          reX = -0.45;
+          reX = 0.38;
           break;
         }
         case ASTRONAUT_ANIMATION_STATES.STABILIZE: {
@@ -957,12 +979,19 @@ export function createAstronautCharacter3D() {
           break;
         }
         default: {
-          // Standing idle grounded
-          bobY = Math.sin(clockT * 1.5) * 0.008;
-          laX = 0.14 + Math.sin(clockT * 1.2) * 0.02;
-          raX = 0.14 + Math.cos(clockT * 1.2) * 0.02;
-          leX = -0.32;
-          reX = -0.32;
+          // Quiet breathing, small balance corrections, and non-mirrored arm drift.
+          bobY = Math.sin(clockT * 1.15) * 0.004;
+          pelvisSway = Math.sin(clockT * 0.72) * 0.014;
+          torsoPitch = Math.sin(clockT * 1.15 + 0.5) * 0.009;
+          torsoRoll = Math.sin(clockT * 0.72 + 0.9) * 0.02;
+          headRoll = -torsoRoll * 0.4;
+          headYaw = Math.sin(clockT * 0.42) * 0.055;
+          laX = 0.1 + Math.sin(clockT * 0.9) * 0.045;
+          raX = 0.12 + Math.sin(clockT * 0.9 + 1.1) * 0.038;
+          laZ = 0.1 + Math.sin(clockT * 0.65) * 0.022;
+          raZ = -0.1 + Math.sin(clockT * 0.65 + 1.3) * 0.022;
+          leX = 0.16;
+          reX = 0.16;
           llX = -0.02;
           rlX = 0.02;
           lkX = 0.06;
@@ -974,10 +1003,16 @@ export function createAstronautCharacter3D() {
 
     const k = Math.min(1, Math.max(0.1, safeDt * 10));
     pelvis.position.y += (0.9 + bobY - pelvis.position.y) * k;
+    pelvis.position.x += (pelvisSway - pelvis.position.x) * k;
     pelvis.rotation.x += (bodyPitch - pelvis.rotation.x) * k;
     pelvis.rotation.y += (bodyYaw - pelvis.rotation.y) * k;
     pelvis.rotation.z += (bankRoll - pelvis.rotation.z) * k;
-    headGroup.rotation.x += (-bodyPitch * 0.5 + headPitch * 0.45 - headGroup.rotation.x) * k;
+    torso.rotation.x += (torsoPitch - torso.rotation.x) * k;
+    torso.rotation.z += (torsoRoll - torso.rotation.z) * k;
+    torso.position.y += (torsoRestY + Math.sin(clockT * 1.8) * 0.0018 - torso.position.y) * k;
+    headGroup.rotation.x += (-bodyPitch * 0.32 - torsoPitch * 0.45 + headPitch * 0.45 - headGroup.rotation.x) * k;
+    headGroup.rotation.y += (headYaw - headGroup.rotation.y) * k;
+    headGroup.rotation.z += (headRoll - headGroup.rotation.z) * k;
 
     leftArmRig.root.rotation.x += (laX - leftArmRig.root.rotation.x) * k;
     leftArmRig.root.rotation.z += (laZ - leftArmRig.root.rotation.z) * k;

@@ -89,6 +89,7 @@ export function createFishAudioVoiceProvider({
   endpoint = '/api/fish-tts',
   fallbackEndpoint = '/api/voice',
   referenceId = FISH_AUDIO_VOICE_ID,
+  baseUrl = '/',
 } = {}) {
   if (!endpoint.startsWith('/') || endpoint.startsWith('//'))
     throw Error('Fish Audio provider must use a same-origin backend');
@@ -98,7 +99,12 @@ export function createFishAudioVoiceProvider({
     id: 'fish-audio-cronos',
     referenceId,
     staticAudioUrl({ text }) {
-      return resolvePredefinedVoiceUrl(text);
+      const clipUrl = resolvePredefinedVoiceUrl(text);
+      if (!clipUrl) return null;
+      const normalizedBaseUrl = String(baseUrl || '/').endsWith('/')
+        ? String(baseUrl || '/')
+        : `${baseUrl}/`;
+      return `${normalizedBaseUrl}${clipUrl.replace(/^\/+/, '')}`;
     },
     audioUrl({ text, language = 'es-US', voiceId }) {
       const q = new URLSearchParams({

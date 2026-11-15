@@ -4371,12 +4371,23 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     realTimeIntroPaused = false;
     const isReduced = Boolean(S.reducedMotion?.());
     const isTestHarness = IS_NODE_SCENE_HARNESS;
+    // Límites ponderados por la duración real de las locuciones pregrabadas, más ~2.5 s
+    // de recorrido visual para que cada capítulo respire antes del siguiente corte.
+    const productionStageDurations = [13, 14.5, 11.5, 16, 11, 12.5, 13.5, 13.5, 14.5];
+    let productionElapsed = 0;
+    const productionStageCuts = productionStageDurations.map((seconds) => {
+      productionElapsed += seconds;
+      return productionElapsed / 120;
+    });
     realTimeIntro = {
       phase: 'opening',
-      openingDuration: isReduced ? 0.6 : isTestHarness ? 3.2 : 6.0,
+      openingDuration: isReduced ? 0.6 : isTestHarness ? 3.2 : 10.5,
       elapsed: 0,
       stageElapsed: 0,
-      duration: isReduced ? 1.8 : isTestHarness ? 23.0 : 44.0,
+      duration: isReduced ? 1.8 : isTestHarness ? 23.0 : 120.0,
+      stageCuts: isReduced || isTestHarness
+        ? [0.12, 0.23, 0.35, 0.48, 0.59, 0.71, 0.81, 0.90, 1]
+        : productionStageCuts,
       stageNotified: 0,
       cameraHandoff: null,
       boardingFrom: null,
@@ -5941,18 +5952,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         realTimeIntro.elapsed += introDt;
         realTimeIntro.stageElapsed = (realTimeIntro.stageElapsed || 0) + introDt;
         let u = Math.min(1, realTimeIntro.elapsed / Math.max(0.1, realTimeIntro.duration));
+        const cuts = realTimeIntro.stageCuts || [0.12, 0.23, 0.35, 0.48, 0.59, 0.71, 0.81, 0.90, 1];
+        const [cut1, cut2, cut3, cut4, cut5, cut6, cut7, cut8] = cuts;
         const earthPos = earth?.pivot ? earth.pivot.position.clone() : new V(Dd(1), 0, 0);
         const er = earth?.r || 0.35;
 
         const nextStage =
-          u < 0.12 ? 1
-          : u < 0.23 ? 2
-          : u < 0.35 ? 3
-          : u < 0.48 ? 4
-          : u < 0.59 ? 5
-          : u < 0.71 ? 6
-          : u < 0.81 ? 7
-          : u < 0.90 ? 8
+          u < cut1 ? 1
+          : u < cut2 ? 2
+          : u < cut3 ? 3
+          : u < cut4 ? 4
+          : u < cut5 ? 5
+          : u < cut6 ? 6
+          : u < cut7 ? 7
+          : u < cut8 ? 8
           : 9;
         if (nextStage !== realTimeIntro.stageNotified) {
           // Suavizar la transición opening -> escena2_spherex alrededor de la Tierra; cortes limpios entre capítulos planetarios
@@ -5968,7 +5981,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           }
         }
 
-        if (u < 0.12) {
+        if (u < cut1) {
           // ACTO I · ESCENA 2 — EL OBSERVADOR NASA SPHEREx (`escena2_spherex`)
           if (realTimeIntro.stageNotified < 1) {
             realTimeIntro.stageNotified = 1;
@@ -5978,9 +5991,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               'Misiones reales como el telescopio espacial NASA SPHEREx abrieron una nueva ventana infrarroja al cosmos, revelando luces ocultas al ojo humano.',
             );
           }
-          if (u >= 0.114 && S.shouldHoldIntroStage?.('escena2_spherex', realTimeIntro.stageElapsed)) {
-            realTimeIntro.elapsed = 0.114 * realTimeIntro.duration;
-            u = 0.114;
+          if (u >= cut1 - 0.006 && S.shouldHoldIntroStage?.('escena2_spherex', realTimeIntro.stageElapsed)) {
+            realTimeIntro.elapsed = (cut1 - 0.006) * realTimeIntro.duration;
+            u = cut1 - 0.006;
           }
           ship.visible = false;
           localCabinWorld.visible = false;
@@ -5989,7 +6002,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           cam.fov = fovBase;
           cam.updateProjectionMatrix();
 
-          const t2 = Math.min(1, u / 0.12);
+          const t2 = Math.min(1, u / cut1);
           const ease2 = t2 * t2 * (3 - 2 * t2);
           if (earth?.spherex) {
             earth.spherex.root.scale.setScalar(0.068);
@@ -6020,7 +6033,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             cam.position.copy(earthPos).add(new V(er * 2.1, er * 1.1, er * 1.8));
             cam.lookAt(earthPos);
           }
-        } else if (u < 0.23) {
+        } else if (u < cut2) {
           // ACTO I · ESCENA 3 — TRAVESÍA POR JÚPITER, LUNAS Y UNIVERSO INFRARROJO (`escena3_conocimiento`)
           if (realTimeIntro.stageNotified < 2) {
             realTimeIntro.stageNotified = 2;
@@ -6034,11 +6047,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               'En cada longitud de onda infrarroja detectamos hielos primordiales, viveros de estrellas y enigmas gravitacionales más allá de los gigantes gaseosos.',
             );
           }
-          if (u >= 0.224 && S.shouldHoldIntroStage?.('escena3_conocimiento', realTimeIntro.stageElapsed)) {
-            realTimeIntro.elapsed = 0.224 * realTimeIntro.duration;
-            u = 0.224;
+          if (u >= cut2 - 0.006 && S.shouldHoldIntroStage?.('escena3_conocimiento', realTimeIntro.stageElapsed)) {
+            realTimeIntro.elapsed = (cut2 - 0.006) * realTimeIntro.duration;
+            u = cut2 - 0.006;
           }
-          const t3 = Math.min(1, (u - 0.12) / 0.11);
+          const t3 = Math.min(1, (u - cut1) / (cut2 - cut1));
           const ease3 = t3 * t3 * (3 - 2 * t3);
           const jupBody = B.find((b) => b.p?.n === 'Júpiter') || earth;
           jupBody?.pivot?.updateMatrixWorld?.(true);
@@ -6093,7 +6106,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           cam.updateProjectionMatrix();
           cam.position.copy(sp).addScaledVector(localCam.position, metersToAstroSceneUnits());
           cam.quaternion.copy(localCam.quaternion);
-        } else if (u < 0.35) {
+        } else if (u < cut3) {
           // ACTO I · ESCENA 4 — ANILLOS DE SATURNO, VÍA LÁCTEA Y PROYECTO HORIZONTE (`escena4_galaxia`)
           if (realTimeIntro.stageNotified < 3) {
             realTimeIntro.stageNotified = 3;
@@ -6107,11 +6120,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               'Para descifrar esa historia escrita entre anillos planetarios y brazos galácticos, la humanidad puso en marcha el Proyecto Horizonte.',
             );
           }
-          if (u >= 0.344 && S.shouldHoldIntroStage?.('escena4_galaxia', realTimeIntro.stageElapsed)) {
-            realTimeIntro.elapsed = 0.344 * realTimeIntro.duration;
-            u = 0.344;
+          if (u >= cut3 - 0.006 && S.shouldHoldIntroStage?.('escena4_galaxia', realTimeIntro.stageElapsed)) {
+            realTimeIntro.elapsed = (cut3 - 0.006) * realTimeIntro.duration;
+            u = cut3 - 0.006;
           }
-          const tGal = Math.min(1, (u - 0.23) / 0.12);
+          const tGal = Math.min(1, (u - cut2) / (cut3 - cut2));
           const easeGal = tGal * tGal * (3 - 2 * tGal);
           const satBody = B.find((b) => b.p?.n === 'Saturno') || B.find((b) => b.p?.n === 'Júpiter') || earth;
           satBody?.pivot?.updateMatrixWorld?.(true);
@@ -6168,7 +6181,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           cam.updateProjectionMatrix();
           cam.position.copy(sp).addScaledVector(localCam.position, metersToAstroSceneUnits());
           cam.quaternion.copy(localCam.quaternion);
-        } else if (u < 0.48) {
+        } else if (u < cut4) {
           // ACTO II · ESCENA 5 — KRONOX AURORA-120 EN ÓRBITA TERRESTRE (EXTERIOR 120 m, `escena5_nave`)
           if (realTimeIntro.stageNotified < 4) {
             realTimeIntro.stageNotified = 4;
@@ -6183,14 +6196,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               'El Proyecto Horizonte construyó KRONOX Aurora-120: un crucero científico modular de ciento veinte metros diseñado para explorar desde la órbita hasta el espacio profundo.',
             );
           }
-          if (u >= 0.472 && S.shouldHoldIntroStage?.('escena5_nave', realTimeIntro.stageElapsed)) {
-            realTimeIntro.elapsed = 0.472 * realTimeIntro.duration;
-            u = 0.472;
+          if (u >= cut4 - 0.006 && S.shouldHoldIntroStage?.('escena5_nave', realTimeIntro.stageElapsed)) {
+            realTimeIntro.elapsed = (cut4 - 0.006) * realTimeIntro.duration;
+            u = cut4 - 0.006;
           }
           ship.visible = true;
           localCabinWorld.visible = false;
           if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
-          const t5 = Math.min(1, (u - 0.35) / 0.13);
+          const t5 = Math.min(1, (u - cut3) / (cut4 - cut3));
           const ease5 = t5 * t5 * (3 - 2 * t5);
 
           const localPos = INTRO_CURVES.extPos.getPoint(ease5, _introTmpVec).clone().applyQuaternion(q);
@@ -6215,7 +6228,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           localCabinWorld.scale.set(1, 1, 1);
           localCabinWorld.quaternion.copy(q);
 
-          if (u < 0.59) {
+          if (u < cut5) {
             // ESCENA 6 — PUENTE DE MANDO (`escena6_puente`, Cubierta 01)
             fourDecksInterior?.setActiveVisibleDeck?.('deck-01', { showAll: true });
             if (realTimeIntro.stageNotified < 5) {
@@ -6227,11 +6240,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                 'En el puente de mando coordinamos la astrometría J2000, el rumbo interestelar y los sistemas de observación de toda la expedición.',
               );
             }
-            if (u >= 0.584 && S.shouldHoldIntroStage?.('escena6_puente', realTimeIntro.stageElapsed)) {
-              realTimeIntro.elapsed = 0.584 * realTimeIntro.duration;
-              u = 0.584;
+            if (u >= cut5 - 0.006 && S.shouldHoldIntroStage?.('escena6_puente', realTimeIntro.stageElapsed)) {
+              realTimeIntro.elapsed = (cut5 - 0.006) * realTimeIntro.duration;
+              u = cut5 - 0.006;
             }
-            const t6 = Math.min(1, (u - 0.48) / 0.11);
+            const t6 = Math.min(1, (u - cut4) / (cut5 - cut4));
             const ease6 = t6 * t6 * (3 - 2 * t6);
             if (articulatedAstronaut) {
               articulatedAstronaut.root.visible = true;
@@ -6241,7 +6254,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
             localCam.position.copy(INTRO_CURVES.bridgePos.getPoint(ease6, _introTmpVec).clone().applyQuaternion(q));
             localCam.lookAt(INTRO_CURVES.bridgeLook.getPoint(ease6, _introTmpLook).clone().applyQuaternion(q));
-          } else if (u < 0.71) {
+          } else if (u < cut6) {
             // ESCENA 7 — LABORATORIO SPHEREx Y BANCO ÓPTICO (`escena7_spherex`, Cubierta 03)
             fourDecksInterior?.setActiveVisibleDeck?.('deck-03', { showAll: true });
             if (realTimeIntro.stageNotified < 6) {
@@ -6253,11 +6266,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                 'La cubierta científica combina espectroscopía inspirada en NASA SPHEREx y bancos ópticos de calibración para investigar cada archivo real sin conjeturas.',
               );
             }
-            if (u >= 0.704 && S.shouldHoldIntroStage?.('escena7_spherex', realTimeIntro.stageElapsed)) {
-              realTimeIntro.elapsed = 0.704 * realTimeIntro.duration;
-              u = 0.704;
+            if (u >= cut6 - 0.006 && S.shouldHoldIntroStage?.('escena7_spherex', realTimeIntro.stageElapsed)) {
+              realTimeIntro.elapsed = (cut6 - 0.006) * realTimeIntro.duration;
+              u = cut6 - 0.006;
             }
-            const t7 = Math.min(1, (u - 0.59) / 0.12);
+            const t7 = Math.min(1, (u - cut5) / (cut6 - cut5));
             const ease7 = t7 * t7 * (3 - 2 * t7);
             if (articulatedAstronaut) {
               articulatedAstronaut.root.visible = true;
@@ -6267,7 +6280,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
             localCam.position.copy(INTRO_CURVES.spherexPos.getPoint(ease7, _introTmpVec).clone().applyQuaternion(q));
             localCam.lookAt(INTRO_CURVES.spherexLook.getPoint(ease7, _introTmpLook).clone().applyQuaternion(q));
-          } else if (u < 0.81) {
+          } else if (u < cut7) {
             // ESCENA 8 — MÓDULO DE HABITABILIDAD EN MICROGRAVEDAD (`escena8_habitabilidad`, Cubierta 02)
             fourDecksInterior?.setActiveVisibleDeck?.('deck-02', { showAll: true });
             if (realTimeIntro.stageNotified < 7) {
@@ -6279,11 +6292,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                 'El módulo de habitabilidad mantiene a la tripulación en microgravedad durante largas travesías con soporte vital de ciclo cerrado y gravedad anular asistida.',
               );
             }
-            if (u >= 0.804 && S.shouldHoldIntroStage?.('escena8_habitabilidad', realTimeIntro.stageElapsed)) {
-              realTimeIntro.elapsed = 0.804 * realTimeIntro.duration;
-              u = 0.804;
+            if (u >= cut7 - 0.006 && S.shouldHoldIntroStage?.('escena8_habitabilidad', realTimeIntro.stageElapsed)) {
+              realTimeIntro.elapsed = (cut7 - 0.006) * realTimeIntro.duration;
+              u = cut7 - 0.006;
             }
-            const t8 = Math.min(1, (u - 0.71) / 0.10);
+            const t8 = Math.min(1, (u - cut6) / (cut7 - cut6));
             const ease8 = t8 * t8 * (3 - 2 * t8);
             const swimX = THREE.MathUtils.lerp(3.2, -2.8, ease8);
             const swimZ = -2.0 - Math.sin(ease8 * Math.PI) * 0.9;
@@ -6297,7 +6310,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             luminousAI.setTargetPosition(new V(swimX - 1.1, swimY + 1.35, swimZ - 0.85), 'Acompañamiento');
             localCam.position.copy(INTRO_CURVES.habitatPos.getPoint(ease8, _introTmpVec).clone().applyQuaternion(q));
             localCam.lookAt(INTRO_CURVES.habitatLook.getPoint(ease8, _introTmpLook).clone().applyQuaternion(q));
-          } else if (u < 0.90) {
+          } else if (u < cut8) {
             // ESCENA 9 — INGENIERÍA Y REACTOR TOKAMAK (`escena9_ingenieria`, Cubierta 03)
             fourDecksInterior?.setActiveVisibleDeck?.('deck-03', { showAll: true });
             if (realTimeIntro.stageNotified < 8) {
@@ -6309,11 +6322,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                 'En ingeniería, el reactor toroidal de fusión y sus propulsores magnetoplasmadinámicos suministran la energía limpia que impulsa a KRONOX entre mundos.',
               );
             }
-            if (u >= 0.894 && S.shouldHoldIntroStage?.('escena9_ingenieria', realTimeIntro.stageElapsed)) {
-              realTimeIntro.elapsed = 0.894 * realTimeIntro.duration;
-              u = 0.894;
+            if (u >= cut8 - 0.006 && S.shouldHoldIntroStage?.('escena9_ingenieria', realTimeIntro.stageElapsed)) {
+              realTimeIntro.elapsed = (cut8 - 0.006) * realTimeIntro.duration;
+              u = cut8 - 0.006;
             }
-            const t9 = Math.min(1, (u - 0.81) / 0.09);
+            const t9 = Math.min(1, (u - cut7) / (cut8 - cut7));
             const ease9 = t9 * t9 * (3 - 2 * t9);
             if (articulatedAstronaut) {
               articulatedAstronaut.root.visible = true;
@@ -6335,11 +6348,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                 'Soy KRONOX IA, tu inteligencia de a bordo. El puente es tuyo, comandante: calibra tus instrumentos y comienza tu primera investigación espacial.',
               );
             }
-            if (u >= 0.992 && S.shouldHoldIntroStage?.('escena10_inicio', realTimeIntro.stageElapsed)) {
-              realTimeIntro.elapsed = 0.992 * realTimeIntro.duration;
-              u = 0.992;
+            if (u >= 0.994 && S.shouldHoldIntroStage?.('escena10_inicio', realTimeIntro.stageElapsed)) {
+              realTimeIntro.elapsed = 0.994 * realTimeIntro.duration;
+              u = 0.994;
             }
-            const t10 = Math.min(1, (u - 0.90) / 0.10);
+            const t10 = Math.min(1, (u - cut8) / (1 - cut8));
             astronautPos.copy(BRIDGE_SPAWN_POS);
             astronautVel.set(0, 0, 0);
             microgravityController.setPosition(astronautPos);
