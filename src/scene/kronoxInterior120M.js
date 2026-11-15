@@ -977,6 +977,9 @@ export function buildKronoxInterior120M() {
     maintDrawerOpen: false,
     multitoolCollected: false,
     scannerCollected: false,
+    workLightActive: true,
+    benchClampLocked: false,
+    partsTrayOpen: false,
   };
   let storageDoorPivot = null;
   let bioponicLightMat = uvVioletGlow;
@@ -989,6 +992,13 @@ export function buildKronoxInterior120M() {
   let craneTrolleyGroup = null;
   let maintArmPivot = null;
   let maintDrawerPivot = null;
+  let partsTrayPivot = null;
+  let workLightPivot = null;
+  let workLampMat = null;
+  let clampJawParts = null;
+  let maintenanceFanRotor = null;
+  let maintenanceDrone = null;
+  let maintenanceDroneRings = [];
   let shuttleHatchPivot = null;
   let pickupMultitoolGroup = null;
   let pickupScannerGroup = null;
@@ -1472,9 +1482,23 @@ export function buildKronoxInterior120M() {
     const d4 = deckContainers['deck-04'];
     const f = -6.8;
 
-    // Contenedores modulares corrugados deterministas con bastidores de anclaje ISO y balizas de estado
+    // Contenedores modulares de carga con bastidores ISO, identificadores de misión y puntos de anclaje.
+    const cargoManifests = [
+      ['EVA-01', 'REPUESTOS EVA', 'SELLOS · JUNTAS', '#53d8f4'],
+      ['FOOD-02', 'RACIONES', 'ALIMENTOS · 90 DÍAS', '#f0b85a'],
+      ['TOOL-03', 'HERRAMIENTAS', 'KITS DE REPARACIÓN', '#ff9d55'],
+      ['SCI-04', 'MATERIAL CIENTÍFICO', 'MUESTRAS · CRIO', '#8ab9ff'],
+      ['MECH-05', 'REPUESTOS', 'BOMBAS · FILTROS', '#53d8f4'],
+      ['O2-06', 'SOPORTE VITAL', 'CILINDROS · ECLS', '#6de0a6'],
+      ['FOOD-07', 'RACIONES', 'ALIMENTOS · FRÍO', '#f0b85a'],
+      ['TOOL-08', 'HERRAMIENTAS', 'EVA · MULTÍMETROS', '#ff9d55'],
+      ['MECH-09', 'REPUESTOS', 'BOBINAS · ACOPLES', '#53d8f4'],
+    ];
     C04_CARGO_CONTAINERS.forEach((b, cIdx) => {
       const cm = trackExtraMat(pbrSuite.makeCargoMat(b.color));
+      const [cargoCode, cargoTitle, cargoSubtitle, cargoAccent] = cargoManifests[cIdx % cargoManifests.length];
+      const manifestTexture = trackExtraTex(makeDeckSignTexture(cargoCode, cargoTitle, cargoSubtitle, cargoAccent));
+      const manifestMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: manifestTexture, toneMapped: false }));
       const ax = -b.cz;
       const az = b.cx;
       const wX = b.hz * 2;
@@ -1484,10 +1508,33 @@ export function buildKronoxInterior120M() {
         add(d4, box(wX, b.h - 0.04, wZ), cm, ax, cy, az, 'console');
         add(d4, box(wX + 0.06, 0.1, wZ + 0.06), slateM, ax, cy - b.h * 0.45, az);
         add(d4, box(wX + 0.06, 0.1, wZ + 0.06), steelM, ax, cy + b.h * 0.45, az);
+        // Bastidor, cierres y placa de inventario en la cara de acceso del contenedor.
+        [-1, 1].forEach((side) => {
+          add(d4, box(0.09, b.h - 0.12, 0.09), steelM, ax + side * (wX * 0.46), cy, az + wZ * 0.46);
+          add(d4, box(0.18, 0.08, 0.035), railAmberM, ax + side * (wX * 0.46), cy - 0.32, az + wZ * 0.5 + 0.025);
+        });
+        add(d4, box(wX * 0.78, 0.48, 0.045), manifestMat, ax, cy + 0.12, az + wZ * 0.5 + 0.03);
+        add(d4, box(wX * 0.74, 0.055, 0.045), cIdx % 3 === 1 ? amberGlow : cyanGlow, ax, cy - 0.48, az + wZ * 0.5 + 0.03);
         add(d4, box(0.08, 0.16, 0.08), cIdx % 2 === 0 ? greenGlow : amberGlow, ax + wX * 0.46, cy + b.h * 0.28, az + wZ * 0.46);
       };
       placeContainer(0);
       if (b.double) placeContainer(1);
+
+      // Cajas de acceso rápido y envases de ración sobre pallets sencillos, dentro de la huella del contenedor.
+      if (!b.double && (cIdx === 1 || cIdx === 4 || cIdx === 6 || cIdx === 7)) {
+        const topY = f + b.h;
+        const packMats = cIdx === 1 || cIdx === 6 ? [warmHabM, amberGlow, compositeM] : [steelM, slateM, railAmberM];
+        [-0.52, 0.52].forEach((side, packIdx) => {
+          add(d4, box(0.72, 0.42, 0.68), packMats[packIdx], ax + side * 0.52, topY + 0.21, az);
+          add(d4, box(0.76, 0.055, 0.72), steelM, ax + side * 0.52, topY + 0.44, az);
+          add(d4, box(0.08, 0.46, 0.08), cargoAccent === '#f0b85a' ? amberGlow : cyanGlow, ax + side * 0.52, topY + 0.22, az + 0.28);
+        });
+        if (cIdx === 1 || cIdx === 6) {
+          [-0.55, 0, 0.55].forEach((offset, canIdx) => {
+            const can = add(d4, cyl(0.13, 0.13, 0.38, 12), canIdx % 2 ? greenGlow : amberGlow, ax + offset, topY + 0.64, az - 0.28);
+          });
+        }
+      }
     });
 
     // Plataforma de apontaje y pórtico umbilical del Transbordador de Servicio en proa (Aurora +X = 11.5)
@@ -1503,33 +1550,77 @@ export function buildKronoxInterior120M() {
     add(d4, box(0.52, 0.14, 1.15), steelM, 11.2, f + 2.38, -1.85);
     add(d4, cyl(0.045, 0.045, 1.1, 8), goldM, 11.2, f + 2.25, -1.85).rotation.x = Math.PI / 2;
 
-    // Transbordador de servicio esculpido con compuerta lateral de mantenimiento abrible
+    // Transbordador de servicio con fuselaje aerodinámico, alas barridas y tren de aterrizaje.
     const shuttleM = pbrSuite.materials.shuttleCompositeMat || hullM;
     const sg = new THREE.Group();
     sg.name = 'ServiceShuttleHangar';
     sg.position.set(11.5, f, 0);
     d4.add(sg);
-    add(sg, box(6.0, 1.8, 2.6), shuttleM, 0, 1.4, 0, 'console');
-    add(sg, box(5.4, 0.14, 2.7), darkM, -0.1, 1.45, 0);
-    add(sg, box(3.6, 0.12, 2.68), goldM, 0.4, 1.15, 0);
-    const nose = add(sg, cyl(0.45, 1.32, 2.8, 16), shuttleM, 4.3, 1.4, 0);
+    const shuttleCore = add(sg, cyl(1.10, 1.28, 6.6, 28), shuttleM, 0, 1.38, 0, 'console');
+    shuttleCore.rotation.z = -Math.PI / 2;
+    const nose = add(sg, cyl(0.08, 1.12, 2.8, 24), shuttleM, 4.25, 1.38, 0);
     nose.rotation.z = -Math.PI / 2;
-    add(sg, box(2.4, 0.15, 7.0), finM, -0.5, 1.2, 0, 'console');
+    const noseCollar = add(sg, torus(1.06, 0.055, 10, 36), goldM, 2.85, 1.38, 0);
+    noseCollar.rotation.y = Math.PI / 2;
+
+    const shuttleWingMat = trackExtraMat(finM.clone());
+    shuttleWingMat.side = THREE.DoubleSide;
+    [-1, 1].forEach((side) => {
+      const wingShape = new THREE.Shape();
+      const wingPoint = (x, z) => [x, -side * z];
+      const [x0, z0] = wingPoint(-1.7, 0.78);
+      wingShape.moveTo(x0, z0);
+      wingShape.lineTo(...wingPoint(1.35, 0.82));
+      wingShape.lineTo(...wingPoint(0.35, 3.25));
+      wingShape.lineTo(...wingPoint(-2.7, 2.82));
+      wingShape.closePath();
+      const wing = add(sg, trackExtraGeo(new THREE.ShapeGeometry(wingShape)), shuttleWingMat, 0, 0.84, 0);
+      wing.rotation.x = -Math.PI / 2;
+      const wingStripe = add(sg, box(2.4, 0.045, 0.07), side > 0 ? cyanGlow : railAmberM, -0.68, 0.91, side * 2.05);
+      wingStripe.rotation.y = side * 0.18;
+      add(sg, box(0.52, 0.09, 0.28), steelM, -2.08, 0.9, side * 2.67);
+    });
+
+    // Canopia elevada con cristal tintado, travesaño y marcadores de orientación.
+    const shuttleCanopyMat = trackExtraMat(new THREE.MeshPhysicalMaterial({
+      color: 0x4a9fc4,
+      transparent: true,
+      opacity: 0.72,
+      roughness: 0.14,
+      metalness: 0.26,
+      clearcoat: 0.9,
+      clearcoatRoughness: 0.08,
+      side: THREE.DoubleSide,
+    }));
+    const canopy = add(sg, sphereGeo(0.9, 24, 16), shuttleCanopyMat, 1.82, 2.12, 0);
+    canopy.scale.set(1.08, 0.5, 0.82);
+    add(sg, box(0.12, 0.48, 1.45), steelM, 1.85, 2.22, 0);
+    add(sg, box(3.3, 0.11, 0.36), darkM, -0.2, 2.43, 0);
+    add(sg, box(2.7, 0.055, 0.13), goldM, -0.45, 2.37, 0);
+
+    // Doble propulsor de plasma y tren de aterrizaje con ruedas visibles.
     [-1.1, 1.1].forEach((tz) => {
-      add(sg, cyl(0.32, 0.36, 0.95, 16), copperM, -2.65, 1.55, tz).rotation.z = Math.PI / 2;
-      add(sg, torus(0.30, 0.035, 8, 16), cyanGlow, -3.12, 1.55, tz).rotation.y = Math.PI / 2;
+      const engine = add(sg, cyl(0.34, 0.40, 0.92, 18), copperM, -3.15, 1.38, tz);
+      engine.rotation.z = -Math.PI / 2;
+      const engineGlow = add(sg, cyl(0.29, 0.31, 0.09, 18), cyanGlow, -3.66, 1.38, tz);
+      engineGlow.rotation.z = -Math.PI / 2;
+      add(sg, torus(0.33, 0.045, 8, 20), steelM, -3.71, 1.38, tz).rotation.y = Math.PI / 2;
+      const leg = add(sg, cyl(0.045, 0.07, 0.62, 10), steelM, -2.0, 0.53, tz * 0.82);
+      leg.rotation.z = -0.18;
+      const wheel = add(sg, torus(0.24, 0.075, 8, 20), darkM, -2.0, 0.26, tz * 0.94);
+      wheel.rotation.x = Math.PI / 2;
+      add(sg, box(0.5, 0.055, 0.38), railAmberM, -2.0, 0.06, tz * 0.94);
     });
-    add(sg, box(1.5, 0.55, 1.9), darkM, 2.55, 2.15, 0);
-    add(sg, box(1.25, 0.36, 1.68), cyanGlow, 2.68, 2.22, 0);
-    [[-2, -1], [-2, 1], [2, 0]].forEach(([sx, sz]) => {
-      add(sg, cyl(0.11, 0.11, 0.6, 8), steelM, sx, 0.3, sz * 1.2);
-      add(sg, box(0.36, 0.08, 0.28), railAmberM, sx, 0.05, sz * 1.2);
-    });
+    const tailThruster = add(sg, torus(0.88, 0.055, 10, 36), steelM, -3.42, 1.38, 0);
+    tailThruster.rotation.y = Math.PI / 2;
+    add(sg, box(1.0, 0.08, 0.12), railAmberM, -1.95, 1.95, 0);
 
     shuttleHatchPivot = new THREE.Group();
     shuttleHatchPivot.position.set(0.6, 1.45, 1.32);
     sg.add(shuttleHatchPivot);
-    const shuttleHatchLeaf = add(shuttleHatchPivot, box(1.35, 0.9, 0.08), doorM, 0, 0, 0);
+    add(shuttleHatchPivot, box(1.52, 1.06, 0.06), steelM, 0, 0, 0.015);
+    const shuttleHatchLeaf = add(shuttleHatchPivot, box(1.35, 0.9, 0.08), doorM, 0, 0, 0.06);
+    add(shuttleHatchPivot, box(0.08, 0.48, 0.06), cyanGlow, 0.54, 0, 0.11);
     registerInteractMesh(shuttleHatchLeaf, 'hangar', 'direct');
 
     // Grúa puente superior animada sobre la pista del hangar
@@ -1567,10 +1658,103 @@ export function buildKronoxInterior120M() {
     registerInteractMesh(drawerBox, 'maintenance-c04', 'direct');
     registerInteractMesh(drawerHandle, 'maintenance-c04', 'direct');
 
+    // Pantalla de diagnóstico protegida y superficie de trabajo con marcas de uso.
+    add(maintGroup, box(0.96, 0.66, 0.10), darkM, -0.42, 1.68, -0.97);
+    add(maintGroup, box(0.82, 0.50, 0.035), cyanGlow, -0.42, 1.68, -0.91);
+    add(maintGroup, box(0.32, 0.06, 0.20), steelM, -0.42, 1.32, -0.88);
+    add(maintGroup, box(1.36, 0.025, 0.06), amberGlow, 0.08, 1.03, -0.84);
+    [-0.52, 0.0, 0.52].forEach((x) => {
+      add(maintGroup, cyl(0.045, 0.045, 0.05, 10), railAmberM, x, 1.03, -0.65);
+    });
+
+    // Bandeja deslizable con pequeñas piezas; al abrirse queda a mano sin invadir el pasillo.
+    partsTrayPivot = new THREE.Group();
+    partsTrayPivot.position.set(0.14, 1.04, -0.74);
+    maintGroup.add(partsTrayPivot);
+    const partsTray = add(partsTrayPivot, box(0.82, 0.065, 0.52), darkM, 0, 0, 0);
+    add(partsTrayPivot, box(0.72, 0.035, 0.42), steelM, 0, 0.05, 0);
+    add(partsTrayPivot, box(0.12, 0.10, 0.10), railAmberM, -0.22, 0.105, -0.08);
+    add(partsTrayPivot, box(0.16, 0.08, 0.12), cyanGlow, 0.02, 0.095, -0.06);
+    add(partsTrayPivot, cyl(0.075, 0.075, 0.18, 12), copperM, 0.25, 0.12, 0.06);
+    const partsTrayHandle = add(partsTrayPivot, box(0.28, 0.045, 0.055), steelM, 0, 0.035, 0.27);
+    registerInteractMesh(partsTray, 'parts-tray-c04', 'direct');
+    registerInteractMesh(partsTrayHandle, 'parts-tray-c04', 'direct');
+
+    // Lámpara articulada con interruptor físico y movimiento de enfoque.
+    workLightPivot = new THREE.Group();
+    workLightPivot.position.set(-0.55, 2.16, -0.32);
+    maintGroup.add(workLightPivot);
+    add(workLightPivot, cyl(0.055, 0.055, 0.62, 10), steelM, 0.22, -0.12, 0).rotation.z = -Math.PI / 2;
+    add(workLightPivot, torus(0.105, 0.028, 8, 18), railAmberM, 0.46, -0.12, 0).rotation.y = Math.PI / 2;
+    workLampMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0xffe4a3 }));
+    const lampHead = add(workLightPivot, box(0.34, 0.16, 0.30), darkM, 0.58, -0.16, 0);
+    const lampFace = add(workLightPivot, box(0.24, 0.045, 0.20), workLampMat, 0.60, -0.25, 0);
+    const lightSwitch = add(maintGroup, box(0.18, 0.16, 0.06), workLampMat, -0.62, 1.35, -0.93);
+    registerInteractMesh(lampFace, 'maintenance-light-c04', 'direct');
+    registerInteractMesh(lightSwitch, 'maintenance-light-c04', 'direct');
+
+    // Mordaza de banco móvil; el pomo gira y las garras se cierran sobre una pieza de calibración.
+    const clampGroup = new THREE.Group();
+    clampGroup.position.set(0.28, 1.08, 0.22);
+    maintGroup.add(clampGroup);
+    add(clampGroup, box(0.56, 0.075, 0.34), steelM, 0, 0, 0);
+    const clampJawA = add(clampGroup, box(0.10, 0.22, 0.30), railAmberM, -0.20, 0.15, 0);
+    const clampJawB = add(clampGroup, box(0.10, 0.22, 0.30), railAmberM, 0.20, 0.15, 0);
+    const clampWorkpieceMat = trackExtraMat(new THREE.MeshStandardMaterial({ color: 0xc98249, roughness: 0.38, metalness: 0.68 }));
+    const clampWorkpiece = add(clampGroup, box(0.18, 0.16, 0.22), clampWorkpieceMat, 0, 0.17, 0);
+    const clampScrew = add(clampGroup, cyl(0.035, 0.035, 0.54, 10), steelM, 0, 0.30, 0.18);
+    clampScrew.rotation.z = Math.PI / 2;
+    const clampKnob = add(clampGroup, torus(0.12, 0.03, 8, 18), cyanGlow, 0.30, 0.30, 0.18);
+    [clampJawA, clampJawB, clampScrew, clampKnob].forEach((part) => { part.userData.dynamicTransform = true; });
+    registerInteractMesh(clampKnob, 'bench-clamp-c04', 'direct');
+    clampJawParts = { clampJawA, clampJawB, clampWorkpiece, clampScrew, clampKnob };
+
+    // Ventilador de extracción animado y tres herramientas colgadas sobre el panel ranurado.
+    const fanGroup = new THREE.Group();
+    fanGroup.position.set(-0.64, 2.40, 0.70);
+    maintGroup.add(fanGroup);
+    add(fanGroup, torus(0.25, 0.035, 8, 24), steelM, 0, 0, 0);
+    maintenanceFanRotor = new THREE.Group();
+    fanGroup.add(maintenanceFanRotor);
+    for (let blade = 0; blade < 4; blade += 1) {
+      const angle = (blade * Math.PI) / 2;
+      const fin = add(maintenanceFanRotor, box(0.07, 0.30, 0.055), blade % 2 ? cyanGlow : steelM, Math.cos(angle) * 0.12, Math.sin(angle) * 0.12, 0);
+      fin.rotation.z = angle;
+    }
+    add(maintenanceFanRotor, sphereGeo(0.075, 12, 8), railAmberM, 0, 0, 0);
+    [-0.52, 0.05, 0.58].forEach((x, toolIndex) => {
+      const tool = new THREE.Group();
+      tool.position.set(x, 1.50, 1.06);
+      maintGroup.add(tool);
+      const handle = add(tool, cyl(0.035, 0.035, 0.42, 8), toolIndex === 1 ? copperM : railAmberM, 0, 0, 0);
+      handle.rotation.z = Math.PI / 2;
+      const head = add(tool, toolIndex === 1 ? torus(0.10, 0.025, 8, 16) : box(0.16, 0.06, 0.08), steelM, 0.22, 0, 0);
+      if (toolIndex === 1) head.rotation.z = Math.PI / 2;
+    });
+
+    maintenanceDrone = new THREE.Group();
+    maintenanceDrone.name = 'C04MaintenanceInspectionDrone';
+    maintenanceDrone.position.set(-2.0, f + 2.18, -7.8);
+    d4.add(maintenanceDrone);
+    add(maintenanceDrone, sphereGeo(0.18, 16, 10), darkM, 0, 0, 0);
+    add(maintenanceDrone, sphereGeo(0.10, 12, 8), cyanGlow, 0.02, -0.02, 0.16);
+    [-1, 1].forEach((side) => {
+      const rotor = add(maintenanceDrone, torus(0.22, 0.025, 6, 20), side > 0 ? cyanGlow : railAmberM, side * 0.34, 0.06, 0);
+      rotor.userData.droneRotor = true;
+      rotor.userData.dynamicTransform = true;
+      maintenanceDroneRings.push(rotor);
+      add(maintenanceDrone, box(0.44, 0.055, 0.06), steelM, side * 0.30, 0.07, 0);
+    });
+    const scanBeamMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x58e2ff, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }));
+    const scanBeam = add(maintenanceDrone, cyl(0.015, 0.32, 0.7, 16), scanBeamMat, 0, -0.45, 0.12);
+    scanBeam.userData.dynamicTransform = true;
+    add(d4, box(1.8, 0.05, 0.72), slateM, -2.0, f + 0.06, -7.8);
+    add(d4, box(1.52, 0.04, 0.42), greenGlow, -2.0, f + 0.09, -7.8);
+
     // Multiherramienta EVA física recogible sobre bandeja magnética en C04
     pickupMultitoolGroup = new THREE.Group();
     pickupMultitoolGroup.name = 'PickupMultitoolProp';
-    pickupMultitoolGroup.position.set(0.18, 1.08, 0.48);
+    pickupMultitoolGroup.position.set(-0.42, 1.08, 0.72);
     maintGroup.add(pickupMultitoolGroup);
     const mtBodyProp = add(pickupMultitoolGroup, box(0.14, 0.08, 0.42), steelM, 0, 0.04, 0);
     const mtAccentProp = add(pickupMultitoolGroup, box(0.16, 0.05, 0.16), railAmberM, 0, 0.05, 0.12);
@@ -1923,6 +2107,9 @@ export function buildKronoxInterior120M() {
       multitoolCollected: Boolean(mechanisms.multitoolCollected),
       hangarCraneDeployed: Boolean(mechanisms.hangarCraneDeployed),
       maintDrawerOpen: Boolean(mechanisms.maintDrawerOpen),
+      workLightActive: Boolean(mechanisms.workLightActive),
+      benchClampLocked: Boolean(mechanisms.benchClampLocked),
+      partsTrayOpen: Boolean(mechanisms.partsTrayOpen),
       elevatorProgress: telemetry.elevator?.progress,
     };
 
@@ -2089,9 +2276,9 @@ export function buildKronoxInterior120M() {
           lines: [
             `CAJÓN: ${mechanisms.maintDrawerOpen ? 'ABIERTO' : 'CERRADO'}`,
             `REPARACIÓN ÓPTICA: ${Math.max(0, Math.min(4, repairStage))}/4`,
-            `ESCÁNER EVA: ${mechanisms.scannerCollected ? 'ASIGNADO' : 'DISPONIBLE'}`,
+            `LÁMPARA: ${mechanisms.workLightActive ? 'ENCENDIDA' : 'APAGADA'} · MORDAZA: ${mechanisms.benchClampLocked ? 'FIJA' : 'LIBRE'}`,
+            `BANDEJA: ${mechanisms.partsTrayOpen ? 'EXTENDIDA' : 'REPLEGADA'} · ESCÁNER: ${mechanisms.scannerCollected ? 'ASIGNADO' : 'DISPONIBLE'}`,
             `MULTIHERRAMIENTA: ${mechanisms.multitoolCollected ? 'ASIGNADA' : 'DISPONIBLE'}`,
-            'ESTADO: INVENTARIO DE PARTIDA',
           ],
           meta: systemMeta,
         };
@@ -2236,6 +2423,35 @@ export function buildKronoxInterior120M() {
       maintDrawerPivot.position.x += (targetDrawerX - maintDrawerPivot.position.x) * 0.14;
     }
 
+    if (partsTrayPivot) {
+      const targetTrayZ = interactiveMechanisms.partsTrayOpen ? 0.48 : 0;
+      partsTrayPivot.position.z += (targetTrayZ - partsTrayPivot.position.z) * 0.16;
+    }
+    if (workLightPivot && workLampMat) {
+      const lightOn = Boolean(interactiveMechanisms.workLightActive);
+      const targetLampAngle = lightOn ? -0.34 : 0.48;
+      workLightPivot.rotation.z += (targetLampAngle - workLightPivot.rotation.z) * 0.09;
+      workLampMat.color.setHex(lightOn ? 0xffe4a3 : 0x354254);
+    }
+    if (clampJawParts) {
+      const jawX = interactiveMechanisms.benchClampLocked ? 0.14 : 0.24;
+      clampJawParts.clampJawA.position.x += (-jawX - clampJawParts.clampJawA.position.x) * 0.18;
+      clampJawParts.clampJawB.position.x += (jawX - clampJawParts.clampJawB.position.x) * 0.18;
+      clampJawParts.clampScrew.rotation.x = interactiveMechanisms.benchClampLocked ? elapsedTime * 0.35 : 0;
+      const knobTarget = interactiveMechanisms.benchClampLocked ? Math.sin(elapsedTime * 1.8) * 0.12 : 0;
+      clampJawParts.clampKnob.rotation.z += (knobTarget - clampJawParts.clampKnob.rotation.z) * 0.12;
+      clampJawParts.clampWorkpiece.material.color.setHex(interactiveMechanisms.benchClampLocked ? 0x45e89e : 0xc98249);
+    }
+    if (maintenanceFanRotor) maintenanceFanRotor.rotation.z = elapsedTime * 1.7;
+    if (maintenanceDrone) {
+      maintenanceDrone.position.x = -2.0 + Math.sin(elapsedTime * 0.42) * 0.28;
+      maintenanceDrone.position.y = -6.8 + 2.18 + Math.sin(elapsedTime * 1.65) * 0.08;
+      maintenanceDrone.position.z = -7.8 + Math.cos(elapsedTime * 0.34) * 0.22;
+      maintenanceDroneRings.forEach((rotor, index) => {
+        rotor.rotation.z = elapsedTime * (index ? -4.8 : 4.8);
+      });
+    }
+
     if (pickupMultitoolGroup) {
       pickupMultitoolGroup.visible = !interactiveMechanisms.multitoolCollected;
       if (pickupMultitoolGroup.visible) {
@@ -2295,6 +2511,18 @@ export function buildKronoxInterior120M() {
     }
     if (actionId === 'maintenance-c04') {
       interactiveMechanisms.maintDrawerOpen = value != null ? Boolean(value) : !interactiveMechanisms.maintDrawerOpen;
+      return { ok: true, state: { ...interactiveMechanisms } };
+    }
+    if (actionId === 'maintenance-light-c04') {
+      interactiveMechanisms.workLightActive = value != null ? Boolean(value) : !interactiveMechanisms.workLightActive;
+      return { ok: true, state: { ...interactiveMechanisms } };
+    }
+    if (actionId === 'bench-clamp-c04') {
+      interactiveMechanisms.benchClampLocked = value != null ? Boolean(value) : !interactiveMechanisms.benchClampLocked;
+      return { ok: true, state: { ...interactiveMechanisms } };
+    }
+    if (actionId === 'parts-tray-c04') {
+      interactiveMechanisms.partsTrayOpen = value != null ? Boolean(value) : !interactiveMechanisms.partsTrayOpen;
       return { ok: true, state: { ...interactiveMechanisms } };
     }
     if (actionId === 'pickup-multitool') {

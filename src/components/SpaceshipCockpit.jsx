@@ -1571,6 +1571,20 @@ export default function SpaceshipCockpit({
                 : '⚙ Activar Brazo Robótico y Cajón 3D'}
             </button>
           </div>
+          <p className="kronoxStationDesc">
+            Banco auxiliar: lámpara {mechanismsState?.workLightActive ? 'encendida' : 'apagada'} · mordaza {mechanismsState?.benchClampLocked ? 'sujetando la pieza' : 'libre'} · bandeja de repuestos {mechanismsState?.partsTrayOpen ? 'extendida' : 'guardada'}.
+          </p>
+          <div className="kronoxStationBtnRow">
+            <button type="button" onClick={() => onTriggerMechanism?.('maintenance-light-c04')}>
+              {mechanismsState?.workLightActive ? '☼ Apagar lámpara articulada' : '☼ Encender lámpara articulada'}
+            </button>
+            <button type="button" onClick={() => onTriggerMechanism?.('bench-clamp-c04')}>
+              {mechanismsState?.benchClampLocked ? '↔ Liberar mordaza' : '↔ Sujetar pieza'}
+            </button>
+            <button type="button" onClick={() => onTriggerMechanism?.('parts-tray-c04')}>
+              {mechanismsState?.partsTrayOpen ? '⌄ Replegar bandeja' : '⌃ Extender bandeja'}
+            </button>
+          </div>
         </div>
       )}
     </>

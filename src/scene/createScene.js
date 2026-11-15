@@ -80,6 +80,7 @@ import {
   resolveCurrentDeck,
 } from './fourDecksInterior3D.js';
 import {
+  CABIN_DECKS,
   describeInteractablePrompt,
   DIRECT_INTERACTION_IDS,
 } from './kronoxInteriorSpatialModel.js';
@@ -4896,6 +4897,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       cue = 'door';
     } else if (stId === 'maintenance-c04') {
       text = state.maintDrawerOpen ? 'Cajón hidráulico y brazo robótico activos.' : 'Banco de mantenimiento replegado.';
+    } else if (stId === 'maintenance-light-c04') {
+      text = state.workLightActive ? 'Lámpara articulada enfocada sobre el banco.' : 'Lámpara de mantenimiento apagada.';
+    } else if (stId === 'bench-clamp-c04') {
+      text = state.benchClampLocked ? 'Pieza sujeta en la mordaza de precisión.' : 'Mordaza liberada.';
+    } else if (stId === 'parts-tray-c04') {
+      text = state.partsTrayOpen ? 'Bandeja de repuestos extendida.' : 'Bandeja de repuestos guardada.';
     } else if (stId === 'pickup-multitool') {
       text = 'Multiherramienta EVA equipada.';
       cue = 'pickup';

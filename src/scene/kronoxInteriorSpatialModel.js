@@ -1076,6 +1076,9 @@ export const DIRECT_INTERACTION_IDS = new Set([
   'airlock',
   'hangar',
   'maintenance-c04',
+  'maintenance-light-c04',
+  'bench-clamp-c04',
+  'parts-tray-c04',
   'pickup-multitool',
   'pickup-scanner',
 ]);
@@ -1111,6 +1114,18 @@ export function describeInteractablePrompt(interactId, ctx = {}) {
   if (interactId === 'maintenance-c04') {
     const out = Boolean(mech.maintDrawerOpen);
     return { id: interactId, direct: true, label: out ? 'Cerrar cajón y brazo robótico' : 'Extender brazo y cajón de taller', actionLabel: out ? 'Replegar' : 'Activar' };
+  }
+  if (interactId === 'maintenance-light-c04') {
+    const on = mech.workLightActive !== false;
+    return { id: interactId, direct: true, label: on ? 'Apagar lámpara articulada del banco' : 'Encender lámpara articulada del banco', actionLabel: on ? 'Apagar' : 'Encender' };
+  }
+  if (interactId === 'bench-clamp-c04') {
+    const locked = Boolean(mech.benchClampLocked);
+    return { id: interactId, direct: true, label: locked ? 'Liberar pieza de la mordaza' : 'Apretar mordaza del banco', actionLabel: locked ? 'Liberar' : 'Sujetar' };
+  }
+  if (interactId === 'parts-tray-c04') {
+    const open = Boolean(mech.partsTrayOpen);
+    return { id: interactId, direct: true, label: open ? 'Replegar bandeja de repuestos' : 'Extender bandeja de repuestos', actionLabel: open ? 'Replegar' : 'Extender' };
   }
   if (interactId === 'pickup-multitool') {
     return { id: interactId, direct: true, label: 'Recoger Multiherramienta EVA', actionLabel: 'Recoger' };
