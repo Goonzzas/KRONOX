@@ -1157,6 +1157,10 @@ export default function App() {
       onGraphicsStateChange: (info) => setGraphicsRuntime(info),
       onVrStateChange: (nextVr) => {
         if (nextVr) setVrState(nextVr);
+        if (nextVr?.presenting) {
+          setPauseMenuOpen(false);
+          api.current?.setSimulationPaused?.(false);
+        }
         if (nextVr && !nextVr.presenting && vrSpeechRecRef.current) {
           try {
             vrSpeechRecRef.current.stop();
@@ -1165,7 +1169,16 @@ export default function App() {
         }
       },
       onVrAction: (action, payload) => vrHandlersRef.current?.[action]?.(payload),
-      onVrPauseRequest: () => {
+      onVrPauseRequest: (opts) => {
+        if (opts?.resumeOnly || pauseMenuOpenRef.current || api.current?.isSimulationPaused?.()) {
+          setPauseMenuOpen(false);
+          api.current?.setSimulationPaused?.(false);
+          return;
+        }
+        if (api.current?.getVrState?.()?.presenting) {
+          api.current?.recenterVr?.();
+          return;
+        }
         if (
           !pauseMenuOpenRef.current &&
           !mainMenuVisibleRef.current &&
@@ -1181,6 +1194,7 @@ export default function App() {
         if (st) setPointerLockState(st);
       },
       onPointerLockEscape: () => {
+        if (api.current?.getVrState?.()?.presenting) return;
         if (
           !pauseMenuOpenRef.current &&
           !activeCockpitStationRef.current &&
@@ -1706,7 +1720,13 @@ export default function App() {
         setOpen(false);
         return;
       }
-      if (!welcomeOpen && !showFullMainMenu && !realTimeIntroActive && !missionOpen) {
+      if (
+        !welcomeOpen &&
+        !showFullMainMenu &&
+        !realTimeIntroActive &&
+        !missionOpen &&
+        !api.current?.getVrState?.()?.presenting
+      ) {
         setPauseMenuSection('save');
         setPauseMenuOpen(true);
         api.current?.setSimulationPaused?.(true);
@@ -1777,9 +1797,18 @@ export default function App() {
       gal: 'Movimiento galáctico',
     },
     startTravel = (run, label, afterArrival, awaitSceneArrival = false) => {
-      // Keep the active cockpit/exterior perspective for the whole trip. If
-      // travel starts from a navigation-only state, use the chase camera.
-      const travelView = fr ? pv : 3;
+      const vrPresentingNow = Boolean(api.current?.getVrState?.()?.presenting);
+      // In WebXR, travel switches cleanly to the exterior ship camera (pv = 3) so the player watches
+      // the KRONOX fly toward the destination instead of locking inside the bridge or an invisible DOM countdown.
+      const travelView = vrPresentingNow ? 3 : (fr ? pv : 3);
+      if (vrPresentingNow) {
+        setPauseMenuOpen(false);
+        api.current?.setSimulationPaused?.(false);
+        setActiveCockpitStation(null);
+        api.current?.setActiveCabinStation?.(null);
+        setMissionSelectorOpen(false);
+        setKronoxOpen(false);
+      }
       if (spec) {
         A().board();
         setSpec(false);
@@ -1791,7 +1820,11 @@ export default function App() {
       A().view(travelView);
       A().clearAstronomicalHologram?.();
       playCue('travel');
-      setNavigation({ label: t(label, language), phase: 'countdown', progress: 0 });
+      setNavigation({
+        label: t(label, language),
+        phase: vrPresentingNow ? 'PREPARING' : 'countdown',
+        progress: 0,
+      });
       clearTimeout(missionTravelTipTimer.current);
       travelRef.current = true;
       countTimers.current.forEach(clearTimeout);
@@ -1799,36 +1832,56 @@ export default function App() {
       noticeQueue.current = [];
       noticeRef.current = null;
       setNotice(null);
+      const launchJump = () => {
+        setCountdown(null);
+        notify('¡Salto iniciado! Rumbo a ' + t(label, language) + '.', 'Viaje rápido');
+        if (awaitSceneArrival) {
+          const started = run(() => {
+            travelRef.current = false;
+            playCue('arrival');
+            setNavigation(null);
+            clearTimeout(missionTravelTipTimer.current);
+            if (afterArrival) afterArrival();
+          });
+          if (started === false) {
+            travelRef.current = false;
+            setNavigation(null);
+            setMissionTraveling(false);
+          }
+        } else {
+          const started = run();
+          if (started === false) {
+            travelRef.current = false;
+            setNavigation(null);
+            setMissionTraveling(false);
+            return;
+          }
+          setTimeout(
+            () => {
+              if (!api.current?.navigationActive?.()) {
+                travelRef.current = false;
+                playCue('arrival');
+                setNavigation(null);
+              }
+              if (afterArrival) afterArrival();
+            },
+            afterArrival ? 1900 : 1200,
+          );
+        }
+      };
+      if (vrPresentingNow) {
+        setCountdown(null);
+        say('Iniciando viaje exterior en la nave KRONOX hacia ' + t(label, language) + '.');
+        countTimers.current = [setTimeout(launchJump, 120)];
+        return;
+      }
       setCountdown(3);
       say('Preparando viaje rápido hacia ' + t(label, language) + '. Cuenta atrás: 3, 2, 1.');
       if (!awaitSceneArrival) speak('Tres.');
       let n = 3;
       const tick = () => {
         if (n === 1) {
-          setCountdown(null);
-          notify('¡Salto iniciado! Rumbo a ' + t(label, language) + '.', 'Viaje rápido');
-          if (awaitSceneArrival) {
-            run(() => {
-              travelRef.current = false;
-              playCue('arrival');
-              setNavigation(null);
-              clearTimeout(missionTravelTipTimer.current);
-              if (afterArrival) afterArrival();
-            });
-          } else {
-            run();
-            setTimeout(
-              () => {
-                if (!api.current?.navigationActive?.()) {
-                  travelRef.current = false;
-                  playCue('arrival');
-                  setNavigation(null);
-                }
-                if (afterArrival) afterArrival();
-              },
-              afterArrival ? 1900 : 1200,
-            );
-          }
+          launchJump();
           return;
         }
         n--;
@@ -1857,7 +1910,7 @@ export default function App() {
             A().board();
             setSpec(false);
           }
-          A().missionTarget(target.key, onArrive);
+          return A().missionTarget(target.key, onArrive);
         },
         target.name,
         () => {
@@ -1872,7 +1925,21 @@ export default function App() {
           if (voiceRef.current) speak(arrivalNotice, { interrupt: false });
           missionOfferTimer.current = setTimeout(() => {
             setMissionArrival(false);
-            setMissionLaunchTarget(target);
+            if (api.current?.getVrState?.()?.presenting) {
+              setMissionLaunchTarget(null);
+              const vrReadyMsg =
+                'Objetivo SPHEREx listo en ' +
+                t(target.name, language) +
+                '. Pulsa [A] en tu mando cuando quieras regresar a la cabina.';
+              say(vrReadyMsg);
+              if (voiceRef.current) speak(vrReadyMsg, { interrupt: false });
+              api.current?.syncVrContext?.({
+                activeTargetKey: target.key,
+                lastKronoxReply: vrReadyMsg,
+              });
+            } else {
+              setMissionLaunchTarget(target);
+            }
           }, 1900);
         },
         true,
@@ -2124,7 +2191,7 @@ export default function App() {
           setFr(true);
           A()?.free?.(true);
         }
-        A()?.focus?.(planetName);
+        return A()?.focus?.(planetName);
       }, planetName);
     },
     'travel-spherex': (payload) => {
@@ -2964,7 +3031,7 @@ export default function App() {
                   setSpec(false);
                   setFr(true);
                 }
-                A().quick(key);
+                return A().quick(key);
               }, label);
               setQuickOpen(false);
             },
@@ -2978,7 +3045,7 @@ export default function App() {
                   setFr(true);
                   A().free(true);
                 }
-                A().focus(name);
+                return A().focus(name);
               }, name);
               setQuickOpen(false);
             },

@@ -48,10 +48,10 @@ export function createMicrogravityPhysicsController({
     return activeMode;
   }
 
-  function setPosition(pos) {
+  function setPosition(pos, preserveVelocity = false) {
     if (!pos) return position;
     position.set(Number(pos.x || 0), Number(pos.y || 0), Number(pos.z || 0));
-    velocity.set(0, 0, 0);
+    if (!preserveVelocity) velocity.set(0, 0, 0);
     return position;
   }
 

@@ -865,3 +865,254 @@ test('VR diegetic console screens and contextual 3D panels operate every C01-C04
     await harness.close();
   }
 });
+
+test('VR prevents nav/rail/pause lockups, syncs IRL roomscale walking, and switches travel to exterior view', async () => {
+  const prevNavDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const prevDocDesc = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const pauseRequests = [];
+  const pointerEscapeCount = { count: 0 };
+  const viewChanges = [];
+  const stationEvents = [];
+  const harness = await createSceneHarness({
+    stateOverrides: {
+      onVrPauseRequest: (opts) => pauseRequests.push(opts || {}),
+      onPointerLockEscape: () => { pointerEscapeCount.count += 1; },
+      onViewChange: (v) => viewChanges.push(v),
+      onStationInteract: (id) => stationEvents.push(id),
+    },
+  });
+
+  try {
+    // 1. Unit-verify syncRoomscaleAvatarStep sliding wall clamp and 1:1 floor sync
+    const dummyRefSpace = { id: 'local-floor-stage' };
+    let unitPose = { x: 0.1, y: 1.66, z: 0.2 };
+    const unitSceneAstro = new THREE.Scene();
+    const unitSceneLocal = new THREE.Scene();
+    const unitCamAstro = new THREE.PerspectiveCamera();
+    const unitCamLocal = new THREE.PerspectiveCamera();
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: {
+        languages: ['es-CO'],
+        language: 'es-CO',
+        xr: {
+          isSessionSupported: async (mode) => mode === 'immersive-vr',
+          requestSession: async () => ({
+            inputSources: [],
+            addEventListener() {},
+            async end() {},
+          }),
+        },
+      },
+    });
+    const unitRenderer = {
+      xr: {
+        enabled: false,
+        setReferenceSpaceType() {},
+        getReferenceSpace: () => dummyRefSpace,
+        async setSession() {},
+        getCamera: () => unitCamLocal,
+      },
+      render() {},
+    };
+    const xrMgr = createWebXrManager({
+      renderer: unitRenderer,
+      sceneAstro: unitSceneAstro,
+      sceneLocal: unitSceneLocal,
+      camAstro: unitCamAstro,
+      camLocal: unitCamLocal,
+    });
+    assert.equal((await xrMgr.enterVr()).ok, true);
+    const makePoseFrame = (p) => ({
+      getViewerPose: (ref) =>
+        ref === dummyRefSpace
+          ? {
+              transform: {
+                position: { x: p.x, y: p.y, z: p.z },
+                orientation: { x: 0, y: 0, z: 0, w: 1 },
+              },
+            }
+          : null,
+    });
+    // Calibrate baseline at (0.1, 1.66, 0.2)
+    xrMgr.pollInput({ dt: 0.016, xrFrame: makePoseFrame(unitPose) });
+    // Step IRL forward 0.45 m along -Z on open deck
+    unitPose = { x: 0.1, y: 1.66, z: -0.25 };
+    xrMgr.pollInput({ dt: 0.016, xrFrame: makePoseFrame(unitPose) });
+    let avatarZ = -9.0;
+    const step1 = xrMgr.syncRoomscaleAvatarStep(0, (dx, dz) => {
+      avatarZ += dz;
+      return { dx, dz };
+    });
+    assert.ok(Math.abs(step1.localDz + 0.45) < 1e-4, `Expected -0.45 m roomscale delta, got ${step1.localDz}`);
+    assert.ok(Math.abs(avatarZ + 9.45) < 1e-4);
+    assert.ok(Math.hypot(xrMgr.getViewerStageOffset().x, xrMgr.getViewerStageOffset().z) < 1e-4);
+
+    // Next step tries to push through a wall at z=-9.6 (only 0.15 m allowed)
+    unitPose = { x: 0.1, y: 1.66, z: -0.65 };
+    xrMgr.pollInput({ dt: 0.016, xrFrame: makePoseFrame(unitPose) });
+    xrMgr.syncRoomscaleAvatarStep(0, (dx, dz) => {
+      const nextZ = Math.max(-9.6, avatarZ + dz);
+      const clampedDz = nextZ - avatarZ;
+      avatarZ = nextZ;
+      return { dx: 0, dz: clampedDz };
+    });
+    assert.ok(Math.abs(avatarZ + 9.6) < 1e-4, `Avatar clamped at wall -9.6, got ${avatarZ}`);
+    assert.ok(Math.abs(xrMgr.getViewerStageOffset().z + 0.25) < 1e-4, 'Blocked wall penetration does not shift stage baseline past wall');
+
+    // 2. Full createScene VR session tests
+    const api = await harness.start();
+    api.skipRealTimeIntro();
+    api.view(1);
+    harness.stepFrames(3);
+
+    // Ensure grabbing a rail and opening 'nav' no longer traps VR thumbstick locomotion
+    api.teleportAstronautToDeck('deck-01');
+    api.setAstronautPosition({ x: 0.0, y: 3.4, z: -8.6 }, 0, -0.05);
+    harness.stepFrames(3);
+    assert.equal(api.activateNearestStation(), true);
+    api.handleVrConsoleAction('sit-command-seat');
+    api.setActiveCabinStation('nav');
+    harness.stepFrames(2);
+    const beforeNavWalk = api.getAstronautPosition();
+    api.applyVrControllerInput({ leftAxes: [0, 0, 0, -0.95] });
+    harness.stepFrames(10);
+    api.applyVrControllerInput(null);
+    harness.stepFrames(2);
+    const afterNavWalk = api.getAstronautPosition();
+    const walkedFromNav = Math.hypot(
+      afterNavWalk.x - beforeNavWalk.x,
+      afterNavWalk.z - beforeNavWalk.z,
+    );
+    assert.ok(walkedFromNav > 0.05, `Left stick must walk even from seated nav console (moved=${walkedFromNav})`);
+
+    // Attach mock XR onto the scene renderer so full WebXR tick runs
+    const renderer = harness.renderers[0];
+    let xrLoop = null;
+    const leftGamepad = { axes: [0, 0, 0, 0], buttons: [{ pressed: false }] };
+    const rightGamepad = { axes: [0, 0, 0, 0], buttons: Array.from({ length: 6 }, () => ({ pressed: false })) };
+    const fakeSceneSession = {
+      inputSources: [
+        { targetRayMode: 'tracked-pointer', handedness: 'left', gamepad: leftGamepad },
+        { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: rightGamepad },
+      ],
+      addEventListener() {},
+      async end() {},
+    };
+    const sceneRefSpace = { id: 'scene-local-floor' };
+    let scenePose = { x: 0, y: 1.7, z: 0 };
+    const ctrl0 = new THREE.Group();
+    const ctrl1 = new THREE.Group();
+    const grip0 = new THREE.Group();
+    const grip1 = new THREE.Group();
+    renderer.xr = {
+      enabled: false,
+      setReferenceSpaceType() {},
+      getReferenceSpace: () => sceneRefSpace,
+      async setSession() {},
+      getCamera: (cam) => cam,
+      getController: (idx) => (idx === 0 ? ctrl0 : ctrl1),
+      getControllerGrip: (idx) => (idx === 0 ? grip0 : grip1),
+    };
+    renderer.setAnimationLoop = (cb) => { xrLoop = cb; };
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: {
+        languages: ['es-CO'],
+        language: 'es-CO',
+        xr: {
+          isSessionSupported: async (mode) => mode === 'immersive-vr',
+          requestSession: async () => fakeSceneSession,
+        },
+      },
+    });
+
+    // Pause before entering VR must automatically resume on session start
+    api.setSimulationPaused(true);
+    assert.equal(api.isSimulationPaused(), true);
+    const vrStartRes = await api.enterVr();
+    assert.equal(vrStartRes.ok, true);
+    assert.equal(api.isSimulationPaused(), false, 'Entering WebXR must clear lingering pause state');
+    assert.ok(typeof xrLoop === 'function');
+
+    const stepXrFrames = (count, dtMs = 33.3) => {
+      for (let i = 0; i < count; i++) {
+        xrLoop(performance.now() + i * dtMs, {
+          getViewerPose: (ref) =>
+            ref === sceneRefSpace
+              ? {
+                  transform: {
+                    position: { x: scenePose.x, y: scenePose.y, z: scenePose.z },
+                    orientation: { x: 0, y: 0, z: 0, w: 1 },
+                  },
+                }
+              : null,
+        });
+      }
+    };
+
+    // Stabilize initial HMD pose calibration
+    api.setAstronautPosition({ x: 0, y: 3.4, z: -8.8 }, 0, 0);
+    stepXrFrames(4);
+
+    // Walking IRL in roomscale while seated must stand up (>0.55m) and sync astronautPos on deck
+    api.sitInCommandSeat();
+    assert.equal(api.isAstronautSeated(), true);
+    stepXrFrames(2);
+    scenePose = { x: 0.2, y: 1.7, z: 0.25 };
+    stepXrFrames(2);
+    scenePose = { x: 0.3, y: 1.7, z: 0.55 };
+    stepXrFrames(2);
+    assert.equal(api.isAstronautSeated(), false, 'Walking IRL >0.55m must automatically stand up from seat');
+    scenePose = { x: 0.35, y: 1.7, z: 0.95 };
+    stepXrFrames(2);
+    scenePose = { x: 0.4, y: 1.7, z: 1.35 };
+    stepXrFrames(2);
+    const posAfterIrl = api.getAstronautPosition();
+    assert.ok(posAfterIrl.x > 0.25 && posAfterIrl.z > -8.6, `IRL walking must advance astronautPos cleanly (${posAfterIrl.x}, ${posAfterIrl.z})`);
+
+    // Rail grab auto-releases on VR thumbstick input
+    const micro = api.getMicrogravityController();
+    micro.toggleAnchor('rail-nav-01');
+    assert.equal(micro.isAnchored(), true);
+    leftGamepad.axes = [0, 0, 0, -0.95];
+    stepXrFrames(4);
+    leftGamepad.axes = [0, 0, 0, 0];
+    assert.equal(micro.isAnchored(), false, 'Pushing VR stick must auto-release handrail anchor');
+
+    // Recover from external simulationPaused with VR B button
+    api.setSimulationPaused(true);
+    rightGamepad.buttons[5].pressed = true;
+    stepXrFrames(1);
+    rightGamepad.buttons[5].pressed = false;
+    assert.equal(pauseRequests.at(-1)?.resumeOnly, true, 'VR controller button while paused requests resume instead of staying locked');
+    api.setSimulationPaused(false);
+    stepXrFrames(1);
+
+    // Travel triggered while presenting in Cabina 1P must switch to Exterior view (pv = 3, ship visible)
+    const travelStarted = api.focus('Saturno');
+    assert.equal(travelStarted, true);
+    assert.equal(viewChanges.at(-1), 3, 'VR travel must immediately switch to Exterior view 3');
+    stepXrFrames(3);
+    assert.equal(api.navigationActive(), true);
+    assert.equal(renderer.scene.name === 'kronox-local-ship-scene' || renderer.camera !== null, true);
+
+    // Advance travel through completion and verify controls + returning to Cabina 1P with [A]
+    for (let i = 0; i < 650 && api.navigationActive(); i++) {
+      stepXrFrames(1, 50);
+    }
+    assert.equal(api.navigationActive(), false, 'VR exterior travel completes arrival cleanly');
+    rightGamepad.buttons[4].pressed = true;
+    stepXrFrames(1);
+    rightGamepad.buttons[4].pressed = false;
+    assert.equal(viewChanges.at(-1), 1, 'Pressing [A] after VR travel arrival returns cleanly to Cabina 1P');
+    assert.equal(pointerEscapeCount.count, 0, 'PointerLock escape never triggers during WebXR');
+  } finally {
+    if (prevNavDesc) Object.defineProperty(globalThis, 'navigator', prevNavDesc);
+    else delete globalThis.navigator;
+    if (prevDocDesc) Object.defineProperty(globalThis, 'document', prevDocDesc);
+    await harness.close();
+  }
+});

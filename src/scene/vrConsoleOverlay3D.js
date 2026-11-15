@@ -1038,18 +1038,24 @@ export function createVrConsoleOverlay3D() {
       panelGroup.visible = true;
       tooltipGroup.visible = false;
 
-      // Posicionar el panel 3D justo encima/delante de la consola física cliqueada
+      // Posicionar el panel 3D a distancia ergonómica frente a la vista (sin quedar detrás de obstáculos o en la cara)
       const baseAnchor = stationAnchorPos || eyePos || new THREE.Vector3(0, deckFloorY + 1.4, -10);
       tmpPanelPos.copy(baseAnchor);
       if (eyePos) {
-        tmpDir.copy(eyePos).sub(baseAnchor);
+        tmpDir.copy(baseAnchor).sub(eyePos);
         tmpDir.y = 0;
-        if (tmpDir.lengthSq() > 1e-6) {
-          tmpDir.normalize();
-          tmpPanelPos.addScaledVector(tmpDir, 0.34);
+        const horizDist = Math.hypot(tmpDir.x, tmpDir.z);
+        if (horizDist > 1e-5) {
+          tmpDir.divideScalar(horizDist);
+          const clampedDist = Math.max(0.95, Math.min(1.75, horizDist - 0.34));
+          tmpPanelPos.x = eyePos.x + tmpDir.x * clampedDist;
+          tmpPanelPos.z = eyePos.z + tmpDir.z * clampedDist;
         }
       }
-      tmpPanelPos.y = Math.max(deckFloorY + 1.42, Math.min(deckFloorY + 2.15, baseAnchor.y + 0.42));
+      tmpPanelPos.y = Math.max(
+        deckFloorY + 1.42,
+        Math.min(deckFloorY + 2.15, (eyePos ? eyePos.y - 0.08 : baseAnchor.y + 0.42)),
+      );
       orientBillboardTowardEye(panelGroup, tmpPanelPos, eyePos);
 
       const layout = buildConsoleLayout(activeStationId, context);

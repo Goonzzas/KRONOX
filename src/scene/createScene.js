@@ -2684,8 +2684,21 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   function tripTo(target, clearance, name, b, onArrive, respectSpeed = false, arrivedTarget = null) {
     if (nav || realTimeIntro || launchSequence || launchCameraBlend || cabinReentryBlend) return false;
     if (exteriorCameraMode) leaveExteriorCamera(true);
+    const vrPresentingNow = Boolean(vrManager?.isPresenting?.());
+    const switchedToVrExterior = Boolean(vrPresentingNow && pv !== 3);
+    if (vrPresentingNow && pv !== 3) {
+      enterExteriorCameraClearHud();
+      pv = 3;
+      vrChaseYaw = 0;
+      vrChasePitch = 0;
+      localCabinWorld.visible = false;
+      ship.visible = true;
+      if (articulatedAstronaut?.root) articulatedAstronaut.root.visible = false;
+      if (astronaut3D?.root) astronaut3D.root.visible = false;
+      S.onViewChange?.(3);
+    }
     sceneDirector.skipActiveSequence(); releaseInputs(); tw = null; vel.set(0, 0, 0); bk = 0; ti = 9;
-    activeCabinStation = null; freeHelmMode = false; S.onFreeHelmChange?.(false); arrivalTarget = null;
+    activeCabinStation = null; activeCabinStationAnchorPos = null; freeHelmMode = false; S.onFreeHelmChange?.(false); arrivalTarget = null; S.onStationInteract?.(null);
     if (astronautSeatedInBridge) {
       astronautSeatedInBridge = false;
       S.onSeatedStateChange?.(false);
@@ -2698,10 +2711,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     fourDecksInterior?.elevatorSystem?.snapToDeck?.('deck-01');
     astronomicalHologram?.clearHologram();
     const distance = sp.distanceTo(target), long = distance > Math.max(clearance * 3, 0.08);
-    const startLocalMeters = localCam.position.lengthSq() > 1e-6
-      ? localCam.position.clone().applyQuaternion(ship.quaternion.clone().invert())
-      : (pv === 1 ? new V(astronautPos.x, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, astronautPos.z) : new V(0.28, 0.16, 1.0).multiplyScalar(shipCameraDistanceMeters()));
-    nav = { ...createJumpSequence({ from: sp, target, startQuaternion: ship.quaternion, clearance, durations: jumpDurations, reducedMotion: !!S.reducedMotion?.(), long }), b, name, onArrive, respectSpeed, oldFs: fs, objectKey: activeMissionKey, arrivedTarget: arrivedTarget || (b ? { name, key: b.p?.n || name, type: b.p?.sun ? 'estrella' : 'planeta' } : null), cabinStart: astronautPos.clone(), cabinLookout: new V(0.0, 3.4, -12.6), cameraStartPosition: cam.position.clone(), cameraStartQuaternion: cam.quaternion.clone(), cameraStartLocalOffset: startLocalMeters, cameraStartLocalQuaternion: ship.quaternion.clone().invert().multiply(cam.quaternion) };
+    const exteriorChaseOffsetMeters = new V(0.28, 0.16, 1.0).multiplyScalar(shipCameraDistanceMeters());
+    const startLocalMeters = (pv === 3 || switchedToVrExterior)
+      ? exteriorChaseOffsetMeters.clone()
+      : (localCam.position.lengthSq() > 1e-6
+          ? localCam.position.clone().applyQuaternion(ship.quaternion.clone().invert())
+          : new V(astronautPos.x, SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, astronautPos.z));
+    const startLocalQuat = switchedToVrExterior
+      ? new THREE.Quaternion()
+      : ship.quaternion.clone().invert().multiply(cam.quaternion);
+    nav = { ...createJumpSequence({ from: sp, target, startQuaternion: ship.quaternion, clearance, durations: jumpDurations, reducedMotion: !!S.reducedMotion?.(), long }), b, name, onArrive, respectSpeed, oldFs: fs, objectKey: activeMissionKey, arrivedTarget: arrivedTarget || (b ? { name, key: b.p?.n || name, type: b.p?.sun ? 'estrella' : 'planeta' } : null), cabinStart: astronautPos.clone(), cabinLookout: new V(0.0, 3.4, -12.6), cameraStartPosition: cam.position.clone(), cameraStartQuaternion: cam.quaternion.clone(), cameraStartLocalOffset: startLocalMeters, cameraStartLocalQuaternion: startLocalQuat };
     if (long) {
       disposeTravelEffect();
       hyperspace = createHyperspaceEffect({
@@ -2725,7 +2744,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
       foc = null;
       layout();
-      tripTo(
+      return tripTo(
         b.pivot.position.clone(),
         computeSafeOrbitalClearance(b, {
           isCabinActive: pv === 1,
@@ -2735,7 +2754,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         n,
         b,
       );
-      return;
     }
     foc = b;
     if (!b) {
@@ -2791,28 +2809,29 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (k === 'orion') {
       publishScale('milkyway');
       gal.updateMatrixWorld(true);
-      tripTo(gal.localToWorld(new V(24500, 0, -3500)), 4000, 'Brazo de Orión');
+      return tripTo(gal.localToWorld(new V(24500, 0, -3500)), 4000, 'Brazo de Orión');
     } else if (k === 'core') {
       publishScale('milkyway');
-      tripTo(gal.position.clone(), 6000, 'Centro galáctico');
+      return tripTo(gal.position.clone(), 6000, 'Centro galáctico');
     } else if (k === 'sunOrbit') {
-      tripTo(
+      return tripTo(
         B[0].pivot.position.clone(),
         Math.max(B[0].r * 2.15, isPhysicalObservationActive() ? 1.5 : 9),
         'Órbita próxima al Sol',
       );
     } else if (k === 'asteroids') {
-      tripTo(new V(0, 0, Dd(2.7)), Math.max(0.3, isPhysicalObservationActive() ? 2 : 1.2), 'Cinturón de asteroides');
+      return tripTo(new V(0, 0, Dd(2.7)), Math.max(0.3, isPhysicalObservationActive() ? 2 : 1.2), 'Cinturón de asteroides');
     } else if (k === 'sun') {
-      focus('Sol');
+      return focus('Sol');
     }
+    return false;
   }
   function missionTarget(key, onArrive) {
     if (realTimeIntro || launchSequence || launchCameraBlend || nav) return false;
     if (nearbyMapState) returnFromNearbyMap();
     contextOverview = false; selectedContextStar = null;
     const found = missionMarkers.get(key);
-    if (!found) return;
+    if (!found) return false;
     if (!free) {
       setFree(true);
       S.fr(true);
@@ -2833,7 +2852,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     const isGalaxy = found.target?.type === 'galaxia';
     const travelClearance = Math.max(found.marker.userData.inspectionClearance || 16, isGalaxy ? 24 : 18);
-    tripTo(
+    return tripTo(
       destination,
       travelClearance,
       found.target.name,
@@ -5437,7 +5456,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     } else {
       const expectedExit = suppressNextUnlockNotification;
       suppressNextUnlockNotification = false;
-      if (wasLocked && !expectedExit && !simulationPaused && free && pv === 1 && !exteriorCameraMode && !activeCabinStation) {
+      if (wasLocked && !expectedExit && !simulationPaused && free && pv === 1 && !exteriorCameraMode && !activeCabinStation && !vrManager?.isPresenting?.()) {
         S.onPointerLockEscape?.();
       }
       emitPointerLockState(expectedExit ? 'ui-exit' : 'unlocked');
@@ -5777,7 +5796,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           );
         }
       }
-      if (!simulationPaused) {
+      if (simulationPaused) {
+        if (
+          xrActiveNow &&
+          (vrFrame.actions?.openMenu || vrFrame.actions?.toggleFreeHelm || vrFrame.actions?.interact)
+        ) {
+          S.onVrPauseRequest?.({ resumeOnly: true });
+        }
+      } else {
         if (vrFrame.actions?.toggleView) {
           applyCameraView(pv === 1 ? 3 : 1);
           S.onViewChange?.(pv);
@@ -5802,7 +5828,22 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         }
         if (vrFrame.actions?.grabRail && pv === 1 && !exteriorCameraMode) {
           const railHit = fourDecksInterior.getNearestHandrail?.(astronautPos, 1.35);
-          microgravityController.toggleGrabRail?.(railHit ? railHit.id : null);
+          if (railHit || microgravityController.isAnchored?.()) {
+            microgravityController.toggleAnchor?.(railHit ? railHit.id : undefined);
+            const anchored = microgravityController.isAnchored();
+            S.onMicrogravityStateChange?.({
+              mode: microgravityController.getMode(),
+              anchored,
+              anchoredRailId: microgravityController.getAnchoredRailId(),
+              speed: microgravityController.getSpeed(),
+            });
+            if (xrActiveNow) {
+              vrConsoleOverlay.showDirectToast({
+                text: anchored ? 'Anclado a pasamanos EVA.' : 'Liberado del pasamanos.',
+                anchorPos: astronautPos,
+              });
+            }
+          }
         }
         if (
           vrFrame.actions?.interact &&
@@ -7006,6 +7047,27 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           if (astronautSeatedInBridge && hasManualThrustInput) {
             standUpFromBridgeSeat();
           }
+          const xrStageOffsetNow = xrActiveNow ? vrManager?.getViewerStageOffset?.() : null;
+          if (
+            astronautSeatedInBridge &&
+            xrStageOffsetNow &&
+            Math.hypot(xrStageOffsetNow.x, xrStageOffsetNow.z) > 0.55
+          ) {
+            standUpFromBridgeSeat();
+          }
+          if (
+            microgravityController.isAnchored?.() &&
+            hasManualThrustInput &&
+            (xrActiveNow || Math.abs(keys.vrMoveFwd || 0) > 0.12 || Math.abs(keys.vrMoveStrafe || 0) > 0.12)
+          ) {
+            microgravityController.toggleAnchor();
+            S.onMicrogravityStateChange?.({
+              mode: microgravityController.getMode(),
+              anchored: false,
+              anchoredRailId: null,
+              speed: microgravityController.getSpeed(),
+            });
+          }
 
           let mgResult;
           if (astronautSeatedInBridge) {
@@ -7086,7 +7148,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               isStabilizing: false,
               isBoosting: Boolean(deckTransitState),
             };
-          } else if (activeCabinStation === 'nav' && !freeHelmMode) {
+          } else if (activeCabinStation === 'nav' && !freeHelmMode && !hasManualThrustInput) {
             astronautVel.set(0, 0, 0);
             microgravityController.setPosition(astronautPos);
             mgResult = {
@@ -7102,6 +7164,40 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             mgResult = microgravityController.update(dt, keys, localLookQuat);
             astronautPos.copy(mgResult.position);
             astronautVel.copy(mgResult.velocity);
+          }
+
+          if (
+            xrActiveNow &&
+            pv === 1 &&
+            !exteriorCameraMode &&
+            !astronautSeatedInBridge &&
+            !isElevatorTransitLocked &&
+            !deckTransitState?.active &&
+            vrManager?.syncRoomscaleAvatarStep
+          ) {
+            vrManager.syncRoomscaleAvatarStep(astronautYaw, (localDx, localDz) => {
+              const prevX = astronautPos.x;
+              const prevZ = astronautPos.z;
+              const candidatePos = astronautPos.clone();
+              candidatePos.x += localDx;
+              candidatePos.z += localDz;
+              fourDecksInterior.clampAstronautPosition(
+                candidatePos,
+                undefined,
+                undefined,
+                elSys?.state || null,
+                {
+                  prevPos: astronautPos,
+                  lockedDeckId: currentLockedDeckId,
+                },
+              );
+              astronautPos.copy(candidatePos);
+              microgravityController.setPosition(astronautPos, true);
+              return {
+                dx: astronautPos.x - prevX,
+                dz: astronautPos.z - prevZ,
+              };
+            });
           }
 
           const currentSpeed = mgResult.speed;
@@ -7247,12 +7343,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             THREE.MathUtils.lerp(eyeY, _camTarget.y, camViewBlend),
             THREE.MathUtils.lerp(eyeZ, _camTarget.z, camViewBlend),
           );
+          const xrActiveFrame = Boolean(vrManager?.isPresenting?.());
           if (camViewBlend < 0.08) {
             fourDecksInterior.clampAstronautPosition(localCamPos, 0.28, 0.26, elSys?.state || null, {
               lockedDeckId: currentLockedDeckId,
             });
-            // Escudo anti-clipping en 1ª persona contra consolas y mamparos cercanos
-            if (_armRaycaster && activeCollisionMeshes?.length) {
+            // Escudo anti-clipping en 1ª persona contra consolas y mamparos cercanos (escritorio; en VR el HMD tiene tracking real)
+            if (!xrActiveFrame && _armRaycaster && activeCollisionMeshes?.length) {
               _forwardEyeScratch.set(0, 0, -1).applyQuaternion(localLookQuat).normalize();
               _camClipOrigin.copy(localCamPos).applyQuaternion(q);
               _camClipDir.copy(_forwardEyeScratch).applyQuaternion(q).normalize();
@@ -7270,7 +7367,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
           const localEyeOffsetMeters = localCamPos.clone().applyQuaternion(q);
           const baseCabinFov = getCabinBaseFov();
-          const xrActiveFrame = Boolean(vrManager?.isPresenting?.());
 
           vrLocalEyeScratch.copy(localEyeOffsetMeters);
           vrEulerScratch.set(0, astronautYaw, 0, 'YXZ');
@@ -7332,12 +7428,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               const activeStObj = getStationDef(activeCabinStation);
               const anchorCheckPos = activeCabinStationAnchorPos || activeStObj?.position;
               if (anchorCheckPos) {
+                const maxStationKeepDist = xrActiveFrame ? 6.5 : 3.5;
                 const distFromActive = Math.hypot(
                   astronautPos.x - anchorCheckPos.x,
                   (astronautPos.y - anchorCheckPos.y) * 0.45,
                   astronautPos.z - anchorCheckPos.z,
                 );
-                if (distFromActive > 3.5) {
+                if (distFromActive > maxStationKeepDist) {
                   activeCabinStation = null;
                   activeCabinStationAnchorPos = null;
                   aiFollowAstronaut = true;
@@ -7822,7 +7919,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           activeLocalOffsetMeters = new V(astronautPos.x, astronautPos.y + SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS, astronautPos.z).applyQuaternion(q);
         } else {
           localCabinWorld.visible = false;
-          activeLocalOffsetMeters = new V(0.28, 0.16, 1.0).multiplyScalar(shipCameraDistanceMeters()).applyQuaternion(q);
+          ship.visible = true;
+          const baseTravelChase = new V(0.28, 0.16, 1.0).multiplyScalar(shipCameraDistanceMeters());
+          if (Math.abs(vrChaseYaw) > 1e-4 || Math.abs(vrChasePitch) > 1e-4) {
+            baseTravelChase.applyEuler(new THREE.Euler(vrChasePitch, vrChaseYaw, 0, 'YXZ'));
+          }
+          activeLocalOffsetMeters = baseTravelChase.applyQuaternion(q);
         }
         localCam.position.copy(activeLocalOffsetMeters);
         cam.position.copy(sp).addScaledVector(activeLocalOffsetMeters, metersToAstroSceneUnits());
@@ -8439,6 +8541,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     onStateChange: (vrState) => S.onVrStateChange?.(vrState),
     onSessionStartCallback: () => {
       exitPointerLockIfActive('vr');
+      simulationPaused = false;
+      realTimeIntroPaused = false;
       if (rafId) {
         cancelAnimationFrame(rafId);
         rafId = 0;
@@ -8465,7 +8569,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
     },
     onInteractHit: (interactId, rayHit) => {
-      if (simulationPaused) return;
+      if (simulationPaused) {
+        if (vrManager?.isPresenting?.()) {
+          simulationPaused = false;
+          S.onVrPauseRequest?.({ resumeOnly: true });
+        } else {
+          return;
+        }
+      }
       if (rayHit?.vrAction) {
         handleVrConsoleAction(rayHit.vrAction, rayHit.vrPayload);
         return;

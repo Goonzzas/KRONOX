@@ -313,7 +313,7 @@ export function getVrAvailabilitySync({
   const secureContext =
     typeof windowObj?.isSecureContext === 'boolean' ? windowObj.isSecureContext : true;
   const webxrApi = Boolean(navigatorObj && 'xr' in navigatorObj && navigatorObj.xr);
-  if (isNodeHarness) {
+  if (isNodeHarness && !webxrApi) {
     return {
       secureContext: true,
       webxrApi: false,
@@ -486,6 +486,8 @@ export function createWebXrManager({
   const tmpEuler = new THREE.Euler(0, 0, 0, 'YXZ');
   const tmpQuat = new THREE.Quaternion();
   const tmpVec = new THREE.Vector3();
+  const tmpRoomscaleVec = new THREE.Vector3();
+  const Y_AXIS = new THREE.Vector3(0, 1, 0);
   const tmpScale = new THREE.Vector3();
   const lastSampledPosePos = new THREE.Vector3();
   const savedCamPosScratch = new THREE.Vector3();
@@ -897,6 +899,7 @@ export function createWebXrManager({
   function updateControllerRays({ interactableMeshes = [], priorityMeshes = [] } = {}) {
     activeHoveredStation = null;
     if (!xrPresenting || !rigInitialized) return null;
+    vrLocalRig.updateMatrixWorld(true);
 
     const rawPairs = [
       { ctrl: controller1, ray: ray1 },
@@ -1057,6 +1060,47 @@ export function createWebXrManager({
   }
 
   /**
+   * Sincroniza el desplazamiento físico real en habitación (roomscale XZ) dentro del avatar/nave,
+   * permitiendo caminar en la vida real sin desincronizar colisiones ni dejar el cuerpo atascado atrás.
+   */
+  function syncRoomscaleAvatarStep(avatarYawRad = 0, applyClampedLocalStepFn = null) {
+    if (
+      !xrPresenting ||
+      pendingInitialCalibration ||
+      !hasSampledPose ||
+      typeof applyClampedLocalStepFn !== 'function'
+    ) {
+      return null;
+    }
+    const stageDx = lastSampledPosePos.x - recenterOffset.x;
+    const stageDz = lastSampledPosePos.z - recenterOffset.z;
+    const stageDistSq = stageDx * stageDx + stageDz * stageDz;
+    if (stageDistSq < 1e-8) return null;
+    if (stageDistSq > 0.75 * 0.75) {
+      // Evitar teletransportes bruscos tras pérdida/reubicación de tracking del visor
+      recenterOffset.x = lastSampledPosePos.x;
+      recenterOffset.z = lastSampledPosePos.z;
+      return null;
+    }
+    const phi = (Number.isFinite(avatarYawRad) ? avatarYawRad : 0) - recenterYawRad;
+    tmpRoomscaleVec.set(stageDx, 0, stageDz).applyAxisAngle(Y_AXIS, phi);
+    const achieved = applyClampedLocalStepFn(tmpRoomscaleVec.x, tmpRoomscaleVec.z);
+    const accDx = Number(achieved?.dx) || 0;
+    const accDz = Number(achieved?.dz) || 0;
+    if (accDx * accDx + accDz * accDz > 1e-10) {
+      tmpRoomscaleVec.set(accDx, 0, accDz).applyAxisAngle(Y_AXIS, -phi);
+      recenterOffset.x += tmpRoomscaleVec.x;
+      recenterOffset.z += tmpRoomscaleVec.z;
+    }
+    return {
+      stageDx,
+      stageDz,
+      localDx: accDx,
+      localDz: accDz,
+    };
+  }
+
+  /**
    * Ejecuta el render de `sceneAstro` con rebasing Float64 sobre `vrAstroRig` en WebXR.
    */
   function renderAstroInVr({ threshold = 10000, cellSize = 1024 } = {}) {
@@ -1140,10 +1184,19 @@ export function createWebXrManager({
     setSettings,
     setSyntheticInput,
     pollInput,
+    syncRoomscaleAvatarStep,
     syncRigsBeforeRender,
     renderAstroInVr,
     vrAstroRig,
     vrLocalRig,
+    getViewerStageOffset: () =>
+      hasSampledPose
+        ? {
+            x: lastSampledPosePos.x - recenterOffset.x,
+            y: lastSampledPosePos.y - recenterOffset.y,
+            z: lastSampledPosePos.z - recenterOffset.z,
+          }
+        : { x: 0, y: 0, z: 0 },
     dispose,
   };
 }
