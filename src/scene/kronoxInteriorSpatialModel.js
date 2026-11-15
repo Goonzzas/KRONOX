@@ -1,4 +1,4 @@
-/**
+</**
  * Modelo espacial geométrico del interior de la nave Aurora-120 (KRONOX).
  *
  * Sistema de coordenadas local (1 unidad = 1 metro):
@@ -14,7 +14,7 @@
  * - Núcleo vertical de ascensores / pozo microgravedad compartido en (X = 0, Z = 0, R = 1.25 m).
  */
 
-export const ASTRONAUT_HEIGHT_METERS = 1.72;
+  export const ASTRONAUT_HEIGHT_METERS= 1.72;
 export const ASTRONAUT_EYE_METERS = 1.60;
 export const ASTRONAUT_RADIUS_METERS = 0.34;
 
@@ -47,7 +47,7 @@ export const CABIN_DECKS = [
     zRange: [-18.2, 18.2],
     halfWidth: 18.2,
     accentHex: 0xffb857,
-    description: 'Ocho camarotes radiales con litera y armario alrededor del comedor circular y del núcleo central de ascensores.',
+    description: 'Seis suites habitacionales radiales con litera descansable, lámpara y puerta privada, comedor circular, biopónica e infraestructura EVA.',
   },
   {
     id: 'deck-03',
@@ -144,6 +144,157 @@ export function getDeckZoneById(deckId) {
   return ZONE_BY_DECK_ID[deckId] || HULL_INTERIOR_ZONES.bridgeMain;
 }
 
+// 6 bahías de suites habitacionales en C02 (omitiendo k=0 esclusa proa -Z y k=4 biopónica popa +Z)
+export const C02_CABIN_BAYS = Object.freeze(
+  [1, 2, 3, 5, 6, 7].map((k) => {
+    const angleRad = (k * Math.PI) / 4;
+    return Object.freeze({
+      index: k,
+      angleRad,
+      ux: Math.sin(angleRad),
+      uz: -Math.cos(angleRad),
+      px: Math.cos(angleRad),
+      pz: Math.sin(angleRad),
+    });
+  })
+);
+
+/**
+ * Convierte coordenadas locales de bahía radial (distancia radial r, desplazamiento tangencial p)
+ * a coordenadas 3D reales de Cubierta 02.
+ */
+export function radialBayPoint(bay, radialDist, tangentDist = 0, floorY = 0.0) {
+  return {
+    x: Number((bay.ux * radialDist + bay.px * tangentDist).toFixed(3)),
+    y: floorY,
+    z: Number((bay.uz * radialDist + bay.pz * tangentDist).toFixed(3)),
+  };
+}
+
+// Descriptor canónico de las 6 suites/módulos habitables de Cubierta 02 (1:1 con C02_CABIN_BAYS)
+export const C02_HAB_SUITES = Object.freeze([
+  Object.freeze({
+    bayIndex: 0,
+    code: 'HAB-01',
+    idSuffix: 'hab-01',
+    name: 'Suite del Comandante',
+    crewRole: 'COMANDO',
+    occupant: 'Cmdte. KRONOX',
+    bedId: 'bed-hab-01',
+    doorId: 'door-hab-01',
+    lampId: 'lamp-hab-01',
+    lockerId: 'locker-hab-01',
+    tabletId: 'tablet-hab-01',
+    bedLabel: 'Litera Principal · Suite Comandante (HAB-01)',
+    specialtyId: 'aurora-trophy-c02',
+    specialtyLabel: 'Maqueta Holográfica Aurora-120',
+    specialtyTag: 'RECUPERACIÓN Y MANDO',
+    accentHex: 0x38d8ff,
+    pillowHex: 0x1e3a5f,
+    blanketHex: 0x255387,
+  }),
+  Object.freeze({
+    bayIndex: 1,
+    code: 'HAB-02',
+    idSuffix: 'hab-02',
+    name: 'Camarote de Astronavegación',
+    crewRole: 'ASTROMETRÍA',
+    occupant: 'Oficial de Ruta',
+    bedId: 'bed-hab-02',
+    doorId: 'door-hab-02',
+    lampId: 'lamp-hab-02',
+    lockerId: 'locker-hab-02',
+    tabletId: 'tablet-hab-02',
+    bedLabel: 'Litera de Observación Estelar (HAB-02)',
+    specialtyId: 'orrery-hab-02',
+    specialtyLabel: 'Esfera Armilar Estelar',
+    specialtyTag: 'ASTROMETRÍA',
+    accentHex: 0x6ce0ff,
+    pillowHex: 0x264653,
+    blanketHex: 0x2a6f82,
+  }),
+  Object.freeze({
+    bayIndex: 2,
+    code: 'HAB-03',
+    idSuffix: 'hab-03',
+    name: 'Módulo Médico y Recuperación',
+    crewRole: 'MED-BAY',
+    occupant: 'Enfermería Orbital',
+    bedId: 'bed-hab-03',
+    doorId: 'door-hab-03',
+    lampId: 'lamp-hab-03',
+    lockerId: 'locker-hab-03',
+    tabletId: 'tablet-hab-03',
+    bedLabel: 'Camilla de Descanso y Recuperación (HAB-03)',
+    specialtyId: 'med-bay-c02',
+    specialtyLabel: 'Escáner Biomédico Orbital',
+    specialtyTag: 'SALUD DE TRIPULACIÓN',
+    accentHex: 0x45e89e,
+    pillowHex: 0x1f4e45,
+    blanketHex: 0x2c6e60,
+  }),
+  Object.freeze({
+    bayIndex: 3,
+    code: 'HAB-04',
+    idSuffix: 'hab-04',
+    name: 'Camarote Científico SPHEREx',
+    crewRole: 'ESPECTROSCOPÍA',
+    occupant: 'Especialista IR',
+    bedId: 'bed-hab-04',
+    doorId: 'door-hab-04',
+    lampId: 'lamp-hab-04',
+    lockerId: 'locker-hab-04',
+    tabletId: 'tablet-hab-04',
+    bedLabel: 'Litera de Guardia Científica (HAB-04)',
+    specialtyId: 'spec-samples-c02',
+    specialtyLabel: 'Vitrina de Muestras Espectrales',
+    specialtyTag: 'CIENCIA SPHEREx',
+    accentHex: 0xb788ff,
+    pillowHex: 0x352b54,
+    blanketHex: 0x483878,
+  }),
+  Object.freeze({
+    bayIndex: 4,
+    code: 'HAB-05',
+    idSuffix: 'hab-05',
+    name: 'Módulo de Ejercicio Zero-G',
+    crewRole: 'ACONDICIONAMIENTO',
+    occupant: 'Zona Fitness y Descanso',
+    bedId: 'bed-hab-05',
+    doorId: 'door-hab-05',
+    lampId: 'lamp-hab-05',
+    lockerId: 'locker-hab-05',
+    tabletId: 'tablet-hab-05',
+    bedLabel: 'Litera de Recuperación Física (HAB-05)',
+    specialtyId: 'gym-c02',
+    specialtyLabel: 'Cicloergómetro Zero-G',
+    specialtyTag: 'ACONDICIONAMIENTO',
+    accentHex: 0xffb347,
+    pillowHex: 0x4a3520,
+    blanketHex: 0x7a4e21,
+  }),
+  Object.freeze({
+    bayIndex: 5,
+    code: 'HAB-06',
+    idSuffix: 'hab-06',
+    name: 'Módulo EVA y Operaciones',
+    crewRole: 'OPERACIONES EVA',
+    occupant: 'Especialista EVA',
+    bedId: 'bed-hab-06',
+    doorId: 'door-hab-06',
+    lampId: 'lamp-hab-06',
+    lockerId: 'locker-hab-06',
+    tabletId: 'tablet-hab-06',
+    bedLabel: 'Litera de Guardia EVA (HAB-06)',
+    specialtyId: 'eva-rack-c02',
+    specialtyLabel: 'Banco de Revisión EVA',
+    specialtyTag: 'PREPARACIÓN EVA',
+    accentHex: 0xf97316,
+    pillowHex: 0x4a2518,
+    blanketHex: 0x7c3a1d,
+  }),
+]);
+
 export const SHIP_INTERIOR_STATIONS = [
   // Cubierta 01 · Puente de mando (Y = +3.4)
   {
@@ -206,12 +357,38 @@ export const SHIP_INTERIOR_STATIONS = [
     tag: 'HABITABILIDAD',
     deckId: 'deck-02',
     deckLevel: 2,
-    position: { x: 3.9, y: 0.0, z: -2.2 },
-    consolePos: { x: 3.2, y: 1.35, z: -1.6 },
-    aiHoverPos: { x: 4.6, y: 1.75, z: -2.6 },
-    lookTarget: { x: 0.0, y: 0.85, z: 0.0 },
+    position: { x: 3.6, y: 0.0, z: -2.0 },
+    consolePos: { x: 2.68, y: 1.18, z: -1.52 },
+    aiHoverPos: { x: 4.35, y: 1.75, z: -2.35 },
+    lookTarget: { x: 2.5, y: 1.0, z: -1.35 },
     maxInteractDistance: 3.2,
     colorHex: 0xffc66d,
+  },
+  {
+    id: 'galley-synth',
+    label: 'Sintetizador de Café y Raciones C02',
+    tag: 'NUTRICIÓN',
+    deckId: 'deck-02',
+    deckLevel: 2,
+    position: { x: 3.6, y: 0.0, z: 2.0 },
+    consolePos: { x: 2.68, y: 1.18, z: 1.52 },
+    aiHoverPos: { x: 4.35, y: 1.75, z: 2.35 },
+    lookTarget: { x: 2.5, y: 1.0, z: 1.35 },
+    maxInteractDistance: 3.0,
+    colorHex: 0xfbbf24,
+  },
+  {
+    id: 'lounge-audio-c02',
+    label: 'Consola Ambiental Lounge C02',
+    tag: 'DESCANSO Y OCIO',
+    deckId: 'deck-02',
+    deckLevel: 2,
+    position: { x: -3.65, y: 0.0, z: 0.0 },
+    consolePos: { x: -2.85, y: 1.06, z: 0.0 },
+    aiHoverPos: { x: -4.2, y: 1.75, z: 0.6 },
+    lookTarget: { x: -2.85, y: 0.95, z: 0.0 },
+    maxInteractDistance: 3.0,
+    colorHex: 0xa78bfa,
   },
   {
     id: 'bioponics',
@@ -220,7 +397,7 @@ export const SHIP_INTERIOR_STATIONS = [
     deckId: 'deck-02',
     deckLevel: 2,
     position: { x: 0.0, y: 0.0, z: 10.6 },
-    consolePos: { x: 0.0, y: 1.35, z: 12.1 },
+    consolePos: { x: 0.0, y: 1.35, z: 12.6 },
     aiHoverPos: { x: 1.35, y: 1.75, z: 10.4 },
     lookTarget: { x: 0.0, y: 1.25, z: 14.5 },
     maxInteractDistance: 3.2,
@@ -232,10 +409,10 @@ export const SHIP_INTERIOR_STATIONS = [
     tag: 'ALMACENAMIENTO',
     deckId: 'deck-02',
     deckLevel: 2,
-    position: { x: -4.8, y: 0.0, z: -4.8 },
-    consolePos: { x: -5.85, y: 1.15, z: -5.85 },
-    aiHoverPos: { x: -3.9, y: 1.65, z: -4.2 },
-    lookTarget: { x: -7.5, y: 1.1, z: -7.5 },
+    position: { x: -5.35, y: 0.0, z: -2.85 },
+    consolePos: { x: -6.13, y: 1.25, z: -3.23 },
+    aiHoverPos: { x: -4.45, y: 1.65, z: -2.45 },
+    lookTarget: { x: -6.5, y: 1.2, z: -3.45 },
     maxInteractDistance: 2.9,
     colorHex: 0x67e8f9,
   },
@@ -252,6 +429,48 @@ export const SHIP_INTERIOR_STATIONS = [
     maxInteractDistance: 3.2,
     colorHex: 0x5be3aa,
   },
+  ...C02_HAB_SUITES.flatMap((suite) => {
+    const bay = C02_CABIN_BAYS[suite.bayIndex];
+    const bedStand = radialBayPoint(bay, 13.6, -1.05, 0.0);
+    const bedCenter = radialBayPoint(bay, 14.1, 0.0, 0.56);
+    const bedAi = radialBayPoint(bay, 12.6, 1.0, 1.65);
+    const specStand = radialBayPoint(bay, 11.4, -1.45, 0.0);
+    const specConsole = radialBayPoint(bay, 12.2, -2.35, 1.15);
+    const specAi = radialBayPoint(bay, 10.6, -0.85, 1.65);
+    return [
+      {
+        id: suite.bedId,
+        kind: 'bed-rest',
+        bayIndex: suite.bayIndex,
+        suiteCode: suite.code,
+        label: suite.bedLabel,
+        tag: `${suite.code} · DESCANSO`,
+        deckId: 'deck-02',
+        deckLevel: 2,
+        position: bedStand,
+        consolePos: bedCenter,
+        aiHoverPos: bedAi,
+        lookTarget: bedCenter,
+        maxInteractDistance: 2.35,
+        colorHex: suite.accentHex,
+      },
+      {
+        id: suite.specialtyId,
+        bayIndex: suite.bayIndex,
+        suiteCode: suite.code,
+        label: `${suite.specialtyLabel} (${suite.code})`,
+        tag: suite.specialtyTag,
+        deckId: 'deck-02',
+        deckLevel: 2,
+        position: specStand,
+        consolePos: specConsole,
+        aiHoverPos: specAi,
+        lookTarget: specConsole,
+        maxInteractDistance: 2.35,
+        colorHex: suite.accentHex,
+      },
+    ];
+  }),
 
   // Cubierta 03 · Ingeniería y Laboratorio SPHEREx (Y = -3.4)
   {
@@ -476,21 +695,6 @@ export const C02_DINING_ARCS = Object.freeze({
   stoolAnglesFromX: Object.freeze([-0.58, 0.0, 0.58]),
 });
 
-// 6 bahías de camarotes en C02 (omitiendo k=0 esclusa proa -Z y k=4 biopónica popa +Z)
-export const C02_CABIN_BAYS = Object.freeze(
-  [1, 2, 3, 5, 6, 7].map((k) => {
-    const angleRad = (k * Math.PI) / 4;
-    return Object.freeze({
-      index: k,
-      angleRad,
-      ux: Math.sin(angleRad),
-      uz: -Math.cos(angleRad),
-      px: Math.cos(angleRad),
-      pz: Math.sin(angleRad),
-    });
-  })
-);
-
 // Estaciones curvas de laboratorio C03 SPHEREx (babor, Math.PI) y Banco Óptico (estribor, 0)
 export const C03_LAB_ARCS = Object.freeze([
   ...Array.from({ length: 6 }, (_, i) => {
@@ -628,11 +832,11 @@ function pushOutOBB2D(pos, cx, cz, ux, uz, vx, vz, hx, hz) {
   }
 }
 
-function pushOutRadialOBB2D(pos, bay, rCenter, rHalf, tHalf) {
+function pushOutRadialOffsetOBB2D(pos, bay, rCenter, tCenter, rHalf, tHalf) {
   pushOutOBB2D(
     pos,
-    bay.ux * rCenter,
-    bay.uz * rCenter,
+    bay.ux * rCenter + bay.px * tCenter,
+    bay.uz * rCenter + bay.pz * tCenter,
     bay.ux,
     bay.uz,
     bay.px,
@@ -640,6 +844,10 @@ function pushOutRadialOBB2D(pos, bay, rCenter, rHalf, tHalf) {
     rHalf,
     tHalf
   );
+}
+
+function pushOutRadialOBB2D(pos, bay, rCenter, rHalf, tHalf) {
+  pushOutRadialOffsetOBB2D(pos, bay, rCenter, 0, rHalf, tHalf);
 }
 
 function pushOutDiningSector2D(pos, sideSign, rInner, rOuter, halfAngle, radius) {
@@ -864,6 +1072,11 @@ export function clampAstronautPosition(
     }
 
     if (zone.id === 'deck-02') {
+      const c02Mech = options?.mechanisms || null;
+      const ignoreBedBay = Number.isInteger(options?.ignoreBedRestCollider)
+        ? options.ignoreBedRestCollider
+        : -1;
+
       // Dos barras curvas del comedor en ±X, dejando pasillos ±Z totalmente transitables hacia el ascensor
       if (!isEyeOrProbe || pos.y < zone.floorY + 1.25) {
         pushOutDiningSector2D(
@@ -891,36 +1104,57 @@ export function clampAstronautPosition(
         }
       }
 
-      // 8 mamparos radiales sólidos (desfasados 22.5°) y mamparo de esclusa EVA a proa (0, -16.0)
+      // 8 mamparos radiales sólidos (desfasados 22.5°), cámara EVA de proa (0, -16.0) y vitrinas de traje
       for (let i = 0; i < C02_BULKHEAD_ANGLES.length; i++) {
         pushOutRadialWall2D(pos, C02_BULKHEAD_ANGLES[i], 6.85 - rCol * 0.35, 17.8, 0.14 + rCol);
       }
       pushOutAABB2D(pos, 0.0, -16.0, 1.45 + rCol, 0.32 + rCol);
+      pushOutAABB2D(pos, -2.35, -15.35, 0.46 + rCol, 0.44 + rCol);
+      pushOutAABB2D(pos, 2.35, -15.35, 0.46 + rCol, 0.44 + rCol);
 
-      // Taquilla EVA en camarote babor-proa (-5.95, -5.95) y armarios/literas de los 6 camarotes
-      pushOutOBB2D(
+      // Taquilla EVA en pasillo proa-babor (junto a HAB-06, sin obstruir ningún portal de entrada)
+      pushOutRadialOffsetOBB2D(
         pos,
-        -5.95,
-        -5.95,
-        Math.SQRT1_2,
-        Math.SQRT1_2,
-        -Math.SQRT1_2,
-        Math.SQRT1_2,
-        0.64 + rCol,
-        0.38 + rCol
+        C02_CABIN_BAYS[5],
+        6.62,
+        -2.05,
+        0.30 + rCol,
+        0.58 + rCol
       );
+
+      // 6 Suites / Módulos Habitables (HAB-01..HAB-06): muros frontales con portal amplio (2.32 m), puerta corrediza y mobiliario 1:1
       for (let b = 0; b < C02_CABIN_BAYS.length; b++) {
         const bay = C02_CABIN_BAYS[b];
-        pushOutRadialOBB2D(pos, bay, 16.6, 0.34 + rCol, 0.76 + rCol);
-        if (!isEyeOrProbe || pos.y < zone.floorY + 1.15) {
-          pushOutRadialOBB2D(pos, bay, 14.1, 1.24 + rCol, 0.59 + rCol);
-          pushOutRadialOBB2D(pos, bay, 13.0, 0.27 + rCol, 0.44 + rCol);
+        // Muro de acceso frontal a ambos lados del portal central (r = 7.0 m, p ∈ [-2.96,-1.16] y [+1.16,+2.96])
+        pushOutRadialOffsetOBB2D(pos, bay, 7.0, -2.06, 0.14 + rCol, 0.90 + rCol);
+        pushOutRadialOffsetOBB2D(pos, bay, 7.0, 2.06, 0.14 + rCol, 0.90 + rCol);
+        // Hoja corrediza sólida cuando la puerta privada de esa habitación está cerrada
+        if (c02Mech?.cabinDoorsOpen?.[b] === false) {
+          pushOutRadialOffsetOBB2D(pos, bay, 7.0, 0.0, 0.10 + rCol, 1.18 + rCol);
+        }
+        // Armario / Taquilla personal alta en pared lateral izquierda interior (r = 15.2, p = -2.45)
+        pushOutRadialOffsetOBB2D(pos, bay, 15.2, -2.45, 0.44 + rCol, 0.62 + rCol);
+
+        if (!isEyeOrProbe || pos.y < zone.floorY + 1.18) {
+          // Litera / Cama ergonómica centrada en la bahía (r = 14.1, p = 0)
+          if (ignoreBedBay !== b) {
+            pushOutRadialOBB2D(pos, bay, 14.1, 1.24 + rCol, 0.59 + rCol);
+          }
+          // Escritorio con tableta personal en zona derecha (r = 12.2, p = +2.35)
+          pushOutRadialOffsetOBB2D(pos, bay, 12.2, 2.35, 0.78 + rCol, 0.48 + rCol);
+          // Módulo habitable especializado en nicho izquierdo (r = 12.2, p = -2.35)
+          pushOutRadialOffsetOBB2D(pos, bay, 12.2, -2.35, 0.72 + rCol, 0.48 + rCol);
+          // Credenza baja bajo el ventanal estelar exterior (r = 16.75, p = 0)
+          pushOutRadialOffsetOBB2D(pos, bay, 16.75, 0.0, 0.28 + rCol, 1.05 + rCol);
         }
       }
 
-      // Bastidores biopónicos altos en bahía de popa (+Z)
+      // Bastidores biopónicos altos y consola central en bahía de popa (+Z)
       pushOutAABB2D(pos, -2.55, 11.4, 0.50 + rCol, 2.12 + rCol);
       pushOutAABB2D(pos, 2.55, 11.4, 0.50 + rCol, 2.12 + rCol);
+      if (!isEyeOrProbe || pos.y < zone.floorY + 1.25) {
+        pushOutAABB2D(pos, 0.0, 12.85, 0.42 + rCol, 0.42 + rCol);
+      }
     } else if (zone.id === 'deck-03') {
       // Reactor principal (0, +9.0), columnas refrigerantes (±4, +9) y tanques criogénicos (±6, -9)
       pushOutCylinder2D(pos, 0.0, 9.0, 2.58 + rCol);
@@ -1042,6 +1276,11 @@ export function findNearestInteractiveStation(position, overrideRange = null, op
         }
       }
       if (blockedByWall) continue;
+      if (Number.isInteger(st.bayIndex) && options?.mechanisms?.cabinDoorsOpen?.[st.bayIndex] === false) {
+        const bay = C02_CABIN_BAYS[st.bayIndex];
+        const playerRadial = bay ? position.x * bay.ux + position.z * bay.uz : Math.hypot(position.x, position.z);
+        if (playerRadial < 6.95) continue;
+      }
     }
 
     let gazeDot = 1.0;
@@ -1072,8 +1311,17 @@ export const DIRECT_INTERACTION_IDS = new Set([
   'storage-c02',
   'bioponics',
   'galley',
+  'galley-synth',
+  'lounge-audio-c02',
   'hydration',
   'airlock',
+  'med-bay-c02',
+  'gym-c02',
+  'orrery-hab-02',
+  'aurora-trophy-c02',
+  'spec-samples-c02',
+  'eva-rack-c02',
+  ...C02_HAB_SUITES.flatMap((s) => [s.doorId, s.lampId, s.lockerId, s.tabletId]),
   'hangar',
   'maintenance-c04',
   'maintenance-light-c04',
@@ -1083,6 +1331,12 @@ export const DIRECT_INTERACTION_IDS = new Set([
   'pickup-scanner',
 ]);
 
+function resolveSuiteFromSuffix(interactId, prefix) {
+  if (!interactId || !interactId.startsWith(prefix)) return null;
+  const suffix = interactId.slice(prefix.length);
+  return C02_HAB_SUITES.find((s) => s.idSuffix === suffix || s.code.toLowerCase() === suffix) || null;
+}
+
 /**
  * Devuelve etiqueta breve y clara de acción contextual para HUD diegético según el estado actual 3D.
  */
@@ -1090,6 +1344,90 @@ export function describeInteractablePrompt(interactId, ctx = {}) {
   if (!interactId) return null;
   const mech = ctx.mechanisms || {};
   const deckList = CABIN_DECKS;
+
+  const bedSuite = resolveSuiteFromSuffix(interactId, 'bed-');
+  if (bedSuite) {
+    const isRestingHere = Number(mech.restingBayIndex) === bedSuite.bayIndex;
+    return {
+      id: interactId,
+      direct: true,
+      label: isRestingHere ? `Litera ${bedSuite.code} · Levantarse` : `${bedSuite.bedLabel}`,
+      actionLabel: isRestingHere ? 'Levantarse' : 'Acostarse',
+    };
+  }
+  const doorSuite = resolveSuiteFromSuffix(interactId, 'door-');
+  if (doorSuite) {
+    const open = mech.cabinDoorsOpen?.[doorSuite.bayIndex] !== false;
+    return {
+      id: interactId,
+      direct: true,
+      label: `${open ? 'Cerrar' : 'Abrir'} puerta de ${doorSuite.code}`,
+      actionLabel: open ? 'Cerrar' : 'Abrir',
+    };
+  }
+  const lampSuite = resolveSuiteFromSuffix(interactId, 'lamp-');
+  if (lampSuite) {
+    const mode = mech.cabinLamps?.[lampSuite.bayIndex] || 'warm';
+    const nextLabel = mode === 'warm' ? 'Modo nocturno' : mode === 'night' ? 'Apagar luz' : 'Luz cálida';
+    return {
+      id: interactId,
+      direct: true,
+      label: `Lámpara ${lampSuite.code} (${mode === 'off' ? 'Apagada' : mode === 'night' ? 'Nocturna' : 'Cálida'})`,
+      actionLabel: nextLabel,
+    };
+  }
+  const lockerSuite = resolveSuiteFromSuffix(interactId, 'locker-');
+  if (lockerSuite) {
+    const open = Boolean(mech.cabinLockersOpen?.[lockerSuite.bayIndex]);
+    return {
+      id: interactId,
+      direct: true,
+      label: `${open ? 'Cerrar' : 'Abrir'} armario de ${lockerSuite.code}`,
+      actionLabel: open ? 'Cerrar' : 'Abrir',
+    };
+  }
+  const tabletSuite = resolveSuiteFromSuffix(interactId, 'tablet-');
+  if (tabletSuite) {
+    const page = Number(mech.cabinTabletPages?.[tabletSuite.bayIndex] || 0);
+    return {
+      id: interactId,
+      direct: true,
+      label: `Bitácora de ${tabletSuite.code} (${tabletSuite.occupant})`,
+      actionLabel: page % 2 === 0 ? 'Ver estado' : 'Ver registro',
+    };
+  }
+  if (interactId === 'galley-synth') {
+    const brewing = Boolean(mech.galleyCoffeeBrewing);
+    return { id: interactId, direct: true, label: brewing ? 'Detener sintetizador de café' : 'Preparar café y ración orbital', actionLabel: brewing ? 'Detener' : 'Preparar' };
+  }
+  if (interactId === 'lounge-audio-c02') {
+    const on = mech.loungeMusicActive !== false;
+    return { id: interactId, direct: true, label: on ? 'Silenciar ambientación Lounge' : 'Activar ambientación Lounge C02', actionLabel: on ? 'Pausar' : 'Activar' };
+  }
+  if (interactId === 'med-bay-c02') {
+    const scanning = Boolean(mech.medScanActive);
+    return { id: interactId, direct: true, label: scanning ? 'Detener escáner biomédico' : 'Iniciar chequeo biomédico (HAB-03)', actionLabel: scanning ? 'Detener' : 'Escanear' };
+  }
+  if (interactId === 'gym-c02') {
+    const active = Boolean(mech.gymWorkoutActive);
+    return { id: interactId, direct: true, label: active ? 'Frenar cicloergómetro Zero-G' : 'Activar rutina Zero-G (HAB-05)', actionLabel: active ? 'Detener' : 'Entrenar' };
+  }
+  if (interactId === 'orrery-hab-02') {
+    const fast = Boolean(mech.orrerySpinFast);
+    return { id: interactId, direct: true, label: 'Esfera armilar estelar (HAB-02)', actionLabel: fast ? 'Órbita lenta' : 'Acelerar' };
+  }
+  if (interactId === 'aurora-trophy-c02') {
+    const on = mech.auroraHoloActive !== false;
+    return { id: interactId, direct: true, label: 'Holograma Aurora-120 (HAB-01)', actionLabel: on ? 'Atenuar' : 'Proyectar' };
+  }
+  if (interactId === 'spec-samples-c02') {
+    const on = Boolean(mech.specSamplesActive);
+    return { id: interactId, direct: true, label: 'Espectrómetro de muestras (HAB-04)', actionLabel: on ? 'Apagar láser' : 'Analizar' };
+  }
+  if (interactId === 'eva-rack-c02') {
+    const on = Boolean(mech.evaCheckActive);
+    return { id: interactId, direct: true, label: 'Banco de comprobación de casco EVA (HAB-06)', actionLabel: on ? 'Finalizar test' : 'Probar sello' };
+  }
 
   if (interactId === 'storage-c02') {
     const open = Boolean(mech.storageC02Open);

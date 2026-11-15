@@ -143,7 +143,7 @@ test('KRONOX RECONSTRUCCIÓN INTEGRAL — Astronauta 3D Articulado y 8 Estados d
 
   // Verificar estados de animación
   const states = Object.keys(ASTRONAUT_ANIMATION_STATES);
-  assert.equal(states.length, 9, 'Debe implementar 9 estados de animación procedural (incluido SEATED_COMMAND)');
+  assert.equal(states.length, 10, 'Debe implementar 10 estados de animación procedural (incluido SEATED_COMMAND y RESTING_BED)');
   assert.ok(states.includes('IDLE_FLOAT'));
   assert.ok(states.includes('HAND_PUSH'));
   assert.ok(states.includes('THRUSTER_BURST'));
@@ -153,6 +153,7 @@ test('KRONOX RECONSTRUCCIÓN INTEGRAL — Astronauta 3D Articulado y 8 Estados d
   assert.ok(states.includes('REPAIR_INTERACT'));
   assert.ok(states.includes('CORRIDOR_SWIM'));
   assert.ok(states.includes('SEATED_COMMAND'));
+  assert.ok(states.includes('RESTING_BED'));
 
   // Aplicar animación
   astronaut.setState(ASTRONAUT_ANIMATION_STATES.THRUSTER_BURST);
@@ -162,6 +163,10 @@ test('KRONOX RECONSTRUCCIÓN INTEGRAL — Astronauta 3D Articulado y 8 Estados d
   astronaut.setState(ASTRONAUT_ANIMATION_STATES.REPAIR_INTERACT);
   astronaut.updateAnimation(0.016);
   assert.equal(astronaut.getState(), 'REPAIR_INTERACT');
+
+  astronaut.setState(ASTRONAUT_ANIMATION_STATES.RESTING_BED);
+  astronaut.updateAnimation(0.016);
+  assert.equal(astronaut.getState(), 'RESTING_BED');
 });
 
 test('KRONOX RECONSTRUCCIÓN INTEGRAL — Motor Físico 6-DOF de Microgravedad', () => {

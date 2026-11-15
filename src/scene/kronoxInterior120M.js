@@ -1,9 +1,7 @@
 import * as THREE from 'three';
 import {
   AURORA_SPHERE_RADIUS,
-  C02_BULKHEAD_ANGLES,
-  C02_CABIN_BAYS,
-  C02_DINING_ARCS,
+  C02_HAB_SUITES,
   C03_LAB_ARCS,
   C04_CARGO_CONTAINERS,
   CABIN_DECKS,
@@ -24,6 +22,7 @@ import {
   makeDiegeticScreenTexture,
 } from './shipPbrMaterials.js';
 import { buildBridgeCabina13D } from './bridgeCabina13D.js';
+import { buildDeck02Habitational3D } from './deck02Habitational3D.js';
 
 function smootherstep01(t) {
   const x = Math.max(0, Math.min(1, t));
@@ -991,6 +990,22 @@ export function buildKronoxInterior120M() {
     hydrationDispensing: false,
     airlockPressurized: true,
     storageC02Open: false,
+    cabinDoorsOpen: [true, true, true, true, true, true],
+    cabinLamps: ['warm', 'warm', 'warm', 'warm', 'warm', 'warm'],
+    cabinLockersOpen: [false, false, false, false, false, false],
+    cabinTabletPages: [0, 0, 0, 0, 0, 0],
+    restingBayIndex: null,
+    restingSleepActive: false,
+    crewRestPct: 82,
+    restCyclesCompleted: 0,
+    galleyCoffeeBrewing: false,
+    loungeMusicActive: true,
+    medScanActive: false,
+    gymWorkoutActive: false,
+    orrerySpinFast: false,
+    auroraHoloActive: true,
+    specSamplesActive: false,
+    evaCheckActive: false,
     reactorMode: 'nominal', // 'nominal' | 'overclock' | 'quiet'
     hangarCraneDeployed: false,
     maintDrawerOpen: false,
@@ -1000,11 +1015,13 @@ export function buildKronoxInterior120M() {
     benchClampLocked: false,
     partsTrayOpen: false,
   };
-  let storageDoorPivot = null;
-  let bioponicLightMat = uvVioletGlow;
-  let hydrationStreamMesh = null;
-  let airlockValvePivot = null;
-  let airlockBeaconMat = greenGlow;
+  const snapshotMechanisms = () => ({
+    ...interactiveMechanisms,
+    cabinDoorsOpen: [...interactiveMechanisms.cabinDoorsOpen],
+    cabinLamps: [...interactiveMechanisms.cabinLamps],
+    cabinLockersOpen: [...interactiveMechanisms.cabinLockersOpen],
+    cabinTabletPages: [...interactiveMechanisms.cabinTabletPages],
+  });
   let reactorPlasmaCore = null;
   let reactorPlasmaMat = null;
   let cryoValvePivot = null;
@@ -1089,544 +1106,20 @@ export function buildKronoxInterior120M() {
       : new THREE.MeshBasicMaterial({ color: 0x1d4ed8 }),
   );
 
-  {
-    const d2 = deckContainers['deck-02'];
-    const f = 0.0;
-
-    // Materiales especializados de ambiente habitacional
-    const foliageMat = trackExtraMat(new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.65 }));
-    const vegRedRomaineMat = trackExtraMat(new THREE.MeshStandardMaterial({ color: 0x831843, roughness: 0.72 }));
-    const foodPouchMat = trackExtraMat(new THREE.MeshStandardMaterial({ color: 0xd4d4d8, metalness: 0.88, roughness: 0.22 }));
-    const goldPouchMat = trackExtraMat(new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.82, roughness: 0.28 }));
-    const capillaryCupMat = trackExtraMat(new THREE.MeshStandardMaterial({ color: 0xe0f2fe, roughness: 0.18, transparent: true, opacity: 0.85 }));
-    const footStrapMat = trackExtraMat(new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.92 }));
-    const sleepingBagMat = trackExtraMat(new THREE.MeshStandardMaterial({ color: 0x1e3a5f, roughness: 0.82 }));
-    const freshAirGlow = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-    const heatWarningRed = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0xef4444 }));
-
-    // Anillo guía perimetral del corredor habitacional con luz cálida (r = 6.65 m)
-    const corrRing = add(d2, torus(6.65, 0.032, 6, 64), warmGlow, 0, f + 0.02, 0);
-    corrRing.rotation.x = Math.PI / 2;
-    const corrCeilRing = add(d2, torus(6.85, 0.07, 8, 64), slateM, 0, f + 2.88, 0);
-    corrCeilRing.rotation.x = Math.PI / 2;
-
-    // 8 mamparos radiales alineados 1:1 con C02_BULKHEAD_ANGLES (acolchado textil acústico + zócalo técnico + luminaria indirecta)
-    C02_BULKHEAD_ANGLES.forEach((a) => {
-      const g = new THREE.Group();
-      g.rotation.y = -a;
-      d2.add(g);
-      // Muro sólido desde r = 6.95 hasta la piel esférica interior
-      add(g, box(10.65, 2.95, 0.22), wallM, 12.25, f + 1.475, 0, 'wall');
-      add(g, box(8.8, 1.85, 0.24), quiltedM, 12.4, f + 1.48, 0);
-      add(g, box(8.8, 0.08, 0.27), warmHabM, 12.4, f + 0.54, 0);
-      add(g, box(8.8, 0.06, 0.26), steelM, 12.4, f + 2.42, 0);
-      add(g, box(8.2, 0.03, 0.26), warmGlow, 12.4, f + 2.48, 0);
-      add(g, box(10.65, 0.18, 0.28), slateM, 12.25, f + 0.09, 0);
-      add(g, box(10.65, 0.22, 0.28), steelM, 12.25, f + 2.85, 0);
-      add(g, box(0.36, 2.95, 0.36), slateM, 6.95, f + 1.475, 0, 'wall');
-      add(g, box(0.16, 2.65, 0.40), steelM, 6.95, f + 1.42, 0);
-      add(g, box(0.14, 1.65, 0.38), ventM, 8.2, f + 1.4, 0);
-    });
-
-    // Pantalla diegética de soporte vital y descanso de los camarotes
-    const habWallScr = makeDiegeticScreenTexture(
-      'hab-cabin',
-      'MÓDULO HABITACIONAL KRONOX',
-      [
-        'SOPORTE VITAL: 21.0% O2 · 101.3 kPa',
-        'TEMP CABINA: 21.8 °C · HUMEDAD: 48%',
-        'CICLO CIRCADIANO: DÍA SOLAR (16h/8h)',
-        'RUIDO AMBIENTAL: 42 dBA (CONFORME)',
-        'TELEMETRÍA MÉDICA: NOMINAL',
-      ],
-      '#38d8ff',
-      { activeScan: true },
-    );
-    liveStaticDisplays.hab = habWallScr;
-    trackExtraTex(habWallScr.tex);
-    const habWallScrMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: habWallScr.tex }));
-
-    const cabinRoles = [
-      { code: 'HAB-01', role: 'COMANDANCIA Y ASTROMETRÍA', accent: cyanGlow, note: 'Revisar alineación estelar C01' },
-      { code: 'HAB-02', role: 'ESPECTROMETRÍA IR SPHEREx', accent: amberGlow, note: 'Calibración criostato 42K a las 08:00' },
-      { code: 'HAB-03', role: 'EXOBIOLOGÍA Y SOPORTE VITAL', accent: greenGlow, note: 'Recolección brotes biopónicos D-14' },
-      { code: 'HAB-04', role: 'INGENIERÍA CRIOGÉNICA', accent: cyanGlow, note: 'Presión helio LHe nominal 1.2 bar' },
-      { code: 'HAB-05', role: 'NAVEGACIÓN ESTELAR', accent: amberGlow, note: 'Ruta cinturón de asteroides fijada' },
-      { code: 'HAB-06', role: 'OPERACIONES EVA Y MÉDICO', accent: greenGlow, note: 'Inspección sellos térmicos trajes EMU' },
-    ];
-
-    // Arcos esculpidos de entrada y cápsula de descanso
-    const cabinPortalArchGeo = cachedGeo('cabinPortalArch:4.22:2.90:0.26', () =>
-      buildSculptedArchRibGeo(4.22, 2.90, 0.26, 2.38, 2.38, 0.32),
-    );
-    const sleepingPodArchGeo = cachedGeo('sleepingPodArch:1.42:1.92:0.22', () =>
-      buildSculptedArchRibGeo(1.42, 1.92, 0.22, 1.18, 1.68, 0.22),
-    );
-
-    // =========================================================================
-    // 6 CAMAROTES CIENTÍFICOS HABITACIONALES (CON ENFASIS EN HAB-02 / SALA 2)
-    // =========================================================================
-    C02_CABIN_BAYS.forEach((bay, bIdx) => {
-      const c = new THREE.Group();
-      c.rotation.y = -bay.angleRad;
-      d2.add(c);
-      const roleMeta = cabinRoles[bIdx % cabinRoles.length];
-      const isHab02 = bIdx === 1; // Camarote 2: Sala de dormitorio del astronauta
-
-      // 1) Pórtico de entrada esculpido en r = 7.05 m con vano libre amplio (2.38 m)
-      const portalArch = add(c, cabinPortalArchGeo, slateM, 7.05, f, 0);
-      portalArch.rotation.y = Math.PI / 2;
-      [-1.66, 1.66].forEach((sideZ) => {
-        const signZ = sideZ > 0 ? 1 : -1;
-        add(c, box(0.22, 2.92, 0.96), compositeM, 7.05, f + 1.46, sideZ);
-        add(c, box(0.26, 0.22, 1.0), slateM, 7.05, f + 0.11, sideZ);
-        add(c, box(0.26, 2.42, 0.14), slateM, 7.05, f + 1.21, sideZ - signZ * 0.46);
-        add(c, box(0.06, 1.38, 0.42), glassM, 7.05, f + 1.48, sideZ);
-        add(c, box(0.24, 0.04, 0.46), steelM, 7.05, f + 0.78, sideZ);
-        add(c, box(0.24, 0.04, 0.46), steelM, 7.05, f + 2.18, sideZ);
-      });
-      // Dintel superior con luz cenital cálida e indicador de ocupación
-      add(c, box(0.28, 0.48, 4.25), slateM, 7.05, f + 2.68, 0);
-      add(c, box(0.32, 0.06, 2.38), steelM, 7.05, f + 2.42, 0);
-      add(c, box(0.18, 0.035, 2.15), warmGlow, 7.05, f + 2.39, 0);
-      // Panel biométrico táctil a la entrada del camarote (teclado numérico y luz verde)
-      add(c, box(0.05, 0.32, 0.18), darkM, 6.92, f + 1.38, 1.22);
-      add(c, box(0.02, 0.06, 0.06), isHab02 ? greenGlow : roleMeta.accent, 6.89, f + 1.46, 1.22);
-      mountDeckPlacard(c, 6.88, f + 2.66, 0, -Math.PI / 2, roleMeta.code, roleMeta.role, 'CUBIERTA 02 · HABITACIONAL', '#5ce6ff');
-
-      // 2) Suelo técnico acolchado con tiras de fijación de pies (Foot Restraints de microgravedad)
-      add(c, box(5.4, 0.018, 2.15), slateM, 10.6, f + 0.01, 0);
-      add(c, box(5.2, 0.022, 0.06), warmGlow, 10.6, f + 0.015, -1.02);
-      add(c, box(5.2, 0.022, 0.06), warmGlow, 10.6, f + 0.015, 1.02);
-      // Foot restraints frente al ropero y escritorio (correas para trabar pies en ingravidez)
-      [-0.45, 0.45].forEach((fz) => {
-        add(c, box(0.24, 0.025, 0.09), footStrapMat, 12.2, f + 0.022, fz);
-        add(c, box(0.04, 0.035, 0.11), steelM, 12.2, f + 0.026, fz - 0.05);
-        add(c, box(0.04, 0.035, 0.11), steelM, 12.2, f + 0.026, fz + 0.05);
-      });
-      // Plafón suspendido en techo con iluminación circadiana cálida
-      add(c, box(5.6, 0.08, 2.8), compositeM, 12.2, f + 2.82, 0);
-      add(c, box(5.2, 0.04, 2.4), slateM, 12.2, f + 2.77, 0);
-      add(c, box(4.8, 0.03, 0.14), warmGlow, 12.2, f + 2.75, -1.12);
-      add(c, box(4.8, 0.03, 0.14), warmGlow, 12.2, f + 2.75, 1.12);
-
-      // 3) Pared izquierda (z < 0): Taquillas modulares de polímero, botiquín de cabina y perchas
-      const lockerGroup = new THREE.Group();
-      lockerGroup.position.set(10.5, f, -2.18);
-      lockerGroup.rotation.y = 0.28;
-      c.add(lockerGroup);
-      add(lockerGroup, box(2.55, 2.24, 0.56), slateM, 0, 1.12, 0);
-      [-0.82, 0, 0.82].forEach((lx) => {
-        add(lockerGroup, box(0.76, 1.56, 0.05), compositeM, lx, 1.02, 0.28);
-        add(lockerGroup, box(0.62, 0.22, 0.06), ventM, lx, 0.42, 0.285);
-        add(lockerGroup, box(0.05, 0.36, 0.07), steelM, lx + 0.28, 1.02, 0.30);
-        add(lockerGroup, box(0.76, 0.42, 0.05), warmHabM, lx, 2.02, 0.28);
-        add(lockerGroup, box(0.24, 0.04, 0.07), steelM, lx, 1.94, 0.30);
-      });
-      // Botiquín médico de primeros auxilios con cruz luminosa
-      add(lockerGroup, box(0.32, 0.32, 0.09), compositeM, 1.06, 1.48, 0.28);
-      add(lockerGroup, box(0.16, 0.05, 0.10), greenGlow, 1.06, 1.48, 0.29);
-      add(lockerGroup, box(0.05, 0.16, 0.10), greenGlow, 1.06, 1.48, 0.29);
-      add(lockerGroup, box(2.42, 0.035, 0.06), warmGlow, 0, 2.26, 0.28);
-
-      // 4) Pared derecha (z > 0): Terminal mural panorámica, cuadro de la Tierra, notas y estante personal
-      const wallConsole = new THREE.Group();
-      wallConsole.position.set(10.5, f, 2.18);
-      wallConsole.rotation.y = -0.28;
-      c.add(wallConsole);
-      add(wallConsole, box(2.45, 0.84, 0.54), slateM, 0, 0.42, 0);
-      add(wallConsole, box(2.38, 0.06, 0.58), warmHabM, 0, 0.86, 0);
-      [-0.78, 0, 0.78].forEach((wx) => {
-        add(wallConsole, box(0.72, 0.32, 0.04), compositeM, wx, 0.58, -0.27);
-        add(wallConsole, box(0.26, 0.035, 0.06), steelM, wx, 0.62, -0.29);
-      });
-      // Monitor mural panorámico
-      const cabinStationIds = ['comms', 'science', 'archive', 'engineering', 'nav', 'missions'];
-      const cabinStationId = cabinStationIds[bIdx % cabinStationIds.length];
-      add(wallConsole, box(1.56, 0.88, 0.08), slateM, -0.2, 1.58, -0.16);
-      const wallScrMesh = add(wallConsole, box(1.44, 0.76, 0.03), habWallScrMat, -0.2, 1.58, -0.20);
-      registerInteractMesh(wallScrMesh, cabinStationId, 'panel', 'deck-02');
-      add(wallConsole, box(1.52, 0.03, 0.05), roleMeta.accent, -0.2, 2.04, -0.18);
-
-      // FOTOGRAFÍA ENMARCADA DE LA TIERRA (recuerdo del hogar para los astronautas)
-      const earthFrame = add(wallConsole, box(0.56, 0.56, 0.06), darkM, 0.86, 1.62, -0.16);
-      add(wallConsole, box(0.48, 0.48, 0.02), earthPhotoMat, 0.86, 1.62, -0.195);
-      add(wallConsole, box(0.52, 0.02, 0.08), steelM, 0.86, 1.91, -0.16);
-      // Post-it magnético personal con la tarea del día
-      const noteMesh = add(wallConsole, box(0.14, 0.14, 0.015), amberGlow, 0.86, 1.28, -0.18);
-      noteMesh.rotation.z = 0.08;
-
-      // Estante superior con libros técnicos y frascos de especímenes
-      add(wallConsole, box(2.35, 0.28, 0.38), compositeM, 0, 2.28, -0.06);
-      [-0.85, -0.76, -0.67, -0.58].forEach((bx, bi) => {
-        add(wallConsole, box(0.06, 0.24, 0.22), bi % 2 === 0 ? warmHabM : slateM, bx, 2.52, -0.06);
-      });
-      add(wallConsole, box(0.38, 0.32, 0.28), bIdx % 2 === 0 ? goldM : copperM, 0.72, 1.05, 0);
-      add(wallConsole, cyl(0.11, 0.11, 0.36, 12), roleMeta.accent, 0.28, 1.06, 0);
-      add(wallConsole, cyl(0.09, 0.09, 0.30, 12), glassM, 0.02, 1.03, 0.04);
-
-      // 5) Escritorio de investigación ergonómico con taza Capillary Cup NASA y tableta personal
-      add(c, box(0.56, 0.74, 0.96), slateM, 13.0, f + 0.37, 0);
-      add(c, box(0.62, 0.07, 1.08), warmHabM, 13.0, f + 0.75, 0);
-      add(c, box(0.54, 0.025, 0.88), steelM, 13.0, f + 0.79, 0);
-      // Doble monitor articulado en ángulo
-      const deskMonL = add(c, box(0.05, 0.30, 0.46), darkM, 13.14, f + 0.99, 0.24);
-      deskMonL.rotation.y = -0.22;
-      const deskScrL = add(c, box(0.03, 0.26, 0.42), habWallScrMat, 13.12, f + 0.99, 0.24);
-      deskScrL.rotation.y = -0.22;
-      registerInteractMesh(deskScrL, cabinStationId, 'panel', 'deck-02');
-      const deskMonR = add(c, box(0.05, 0.28, 0.40), darkM, 13.14, f + 0.98, -0.24);
-      deskMonR.rotation.y = 0.22;
-      const deskScrR = add(c, box(0.03, 0.24, 0.36), roleMeta.accent, 13.12, f + 0.98, -0.24);
-      deskScrR.rotation.y = 0.22;
-      registerInteractMesh(deskScrR, cabinStationId, 'panel', 'deck-02');
-      add(c, box(0.18, 0.018, 0.36), compositeM, 12.84, f + 0.805, 0.04);
-
-      // Taza espacial Capillary Cup NASA para café/té sin gravedad
-      const cupBase = add(c, cyl(0.038, 0.028, 0.09, 12), capillaryCupMat, 12.86, f + 0.845, -0.34);
-      add(c, torus(0.032, 0.008, 6, 14), capillaryCupMat, 12.86, f + 0.87, -0.34).rotation.x = Math.PI / 2;
-      add(c, cyl(0.048, 0.048, 0.012, 10), railAmberM, 12.86, f + 0.802, -0.34); // Base de calor magnética
-      // Pouch de bebida espacial con boquilla sellada
-      add(c, box(0.12, 0.02, 0.18), foodPouchMat, 12.86, f + 0.81, -0.16);
-      add(c, cyl(0.012, 0.012, 0.05, 6), cyanGlow, 12.92, f + 0.82, -0.16);
-      // Tableta PADD personal del astronauta
-      const personalPad = add(c, box(0.16, 0.016, 0.22), slateM, 12.85, f + 0.81, 0.34);
-      personalPad.rotation.y = 0.32;
-      add(c, box(0.13, 0.018, 0.19), cyanGlow, 12.85, f + 0.814, 0.34).rotation.y = 0.32;
-      // Bolígrafo espacial Fisher Space Pen sujeto por imán
-      add(c, cyl(0.006, 0.006, 0.14, 6), steelM, 12.85, f + 0.81, 0.16).rotation.z = Math.PI / 2;
-      // Taburete de flotación recogido frente al escritorio (r = 12.38, z = 0)
-      add(c, cyl(0.18, 0.22, 0.06, 12), steelM, 12.38, f + 0.03, 0);
-      add(c, cyl(0.06, 0.08, 0.42, 10), darkM, 12.38, f + 0.24, 0);
-      add(c, cyl(0.22, 0.22, 0.09, 14), bedM, 12.38, f + 0.47, 0);
-
-      // 6) CÁPSULA-ALCOBA DE DESCANSO EN MICROGRAVEDAD (r = 14.1, z = 0)
-      // Costillas arquitectónicas de arco biseladas
-      [13.18, 15.18].forEach((podX) => {
-        const podArch = add(c, sleepingPodArchGeo, slateM, podX, f, 0);
-        podArch.rotation.y = Math.PI / 2;
-      });
-      // Base estructural con cajones
-      add(c, box(2.42, 0.32, 1.18), slateM, 14.1, f + 0.16, 0);
-      [-0.72, 0, 0.72].forEach((dx) => {
-        add(c, box(0.66, 0.20, 0.04), compositeM, 14.1 + dx, f + 0.16, -0.59);
-        add(c, box(0.66, 0.20, 0.04), compositeM, 14.1 + dx, f + 0.16, 0.59);
-        add(c, box(0.24, 0.03, 0.06), steelM, 14.1 + dx, f + 0.18, -0.61);
-        add(c, box(0.24, 0.03, 0.06), steelM, 14.1 + dx, f + 0.18, 0.61);
-        add(c, box(0.10, 0.015, 0.05), roleMeta.accent, 14.1 + dx, f + 0.24, -0.60);
-        add(c, box(0.10, 0.015, 0.05), roleMeta.accent, 14.1 + dx, f + 0.24, 0.60);
-      });
-      // Marco perimetral y colchón viscoelástico
-      add(c, box(2.52, 0.10, 1.24), steelM, 14.1, f + 0.35, 0);
-      add(c, box(2.45, 0.26, 1.15), bedM, 14.1, f + 0.51, 0, 'console');
-      // BOLSA DE DORMIR DE MICROGRAVEDAD TÉRMICA ACOLCHADA
-      add(c, box(1.55, 0.24, 0.95), sleepingBagMat, 13.72, f + 0.63, 0);
-      // Cremallera central termosellada de la bolsa de dormir
-      add(c, box(1.48, 0.015, 0.04), steelM, 13.72, f + 0.76, 0);
-      // Correas de sujeción ajustables con hebillas de titanio sobre la bolsa
-      [13.4, 14.0, 14.45].forEach((sx) => {
-        add(c, box(0.09, 0.26, 0.99), warmHabM, sx, f + 0.64, 0);
-        add(c, box(0.12, 0.03, 0.16), steelM, sx, f + 0.78, 0);
-      });
-      // Doble almohada anatómica con soporte de sujeción para nuca
-      add(c, box(0.42, 0.16, 0.82), compositeM, 14.96, f + 0.70, 0);
-      add(c, box(0.24, 0.14, 0.76), warmHabM, 14.70, f + 0.68, 0);
-      // Cabecero acolchado con tela aislante acústica
-      add(c, box(0.18, 1.48, 1.28), quiltedM, 15.32, f + 1.06, 0);
-      add(c, box(0.22, 1.54, 1.34), slateM, 15.42, f + 1.08, 0);
-
-      // DIFUSOR DE AIRE FRESCO PERSONAL EN CABECERA (vital en microgravedad para evitar burbujas de CO2)
-      add(c, cyl(0.08, 0.08, 0.03, 16), steelM, 15.22, f + 1.62, 0).rotation.z = Math.PI / 2;
-      add(c, torus(0.06, 0.012, 6, 16), freshAirGlow, 15.20, f + 1.62, 0).rotation.y = Math.PI / 2;
-      // Minipantalla de cabecera (alarma de turno y selector de iluminación circadiana)
-      add(c, box(0.03, 0.18, 0.28), darkM, 15.22, f + 1.38, 0.42);
-      add(c, box(0.015, 0.14, 0.24), cyanGlow, 15.20, f + 1.38, 0.42);
-      // Lámpara de lectura orientable articulada
-      add(c, cyl(0.02, 0.02, 0.26, 8), steelM, 15.18, f + 1.32, -0.44).rotation.z = 0.65;
-      add(c, sphereGeo(0.05, 10, 8), warmGlow, 15.06, f + 1.24, -0.44);
-
-      // Mamparas laterales y pantalla corredera translúcida de privacidad
-      add(c, box(1.08, 1.42, 0.08), compositeM, 14.88, f + 1.05, -0.64);
-      add(c, box(1.08, 1.42, 0.08), compositeM, 14.88, f + 1.05, 0.64);
-      add(c, box(0.86, 1.28, 0.035), glassM, 13.86, f + 1.05, -0.63);
-      add(c, box(0.86, 1.28, 0.035), glassM, 13.86, f + 1.05, 0.63);
-      add(c, box(2.12, 0.14, 1.38), slateM, 14.32, f + 1.84, 0);
-      add(c, box(1.85, 0.035, 0.96), warmGlow, 14.32, f + 1.76, 0);
-
-      // 7) Ropero y vitrina de traje espacial personal en r = 16.6, z = 0
-      add(c, box(0.68, 2.38, 1.56), slateM, 16.6, f + 1.19, 0, 'wall');
-      add(c, box(0.06, 2.12, 0.68), compositeM, 16.25, f + 1.14, -0.38);
-      add(c, box(0.06, 2.12, 0.68), compositeM, 16.25, f + 1.14, 0.38);
-      add(c, box(0.08, 0.52, 0.04), steelM, 16.23, f + 1.14, -0.08);
-      add(c, box(0.08, 0.52, 0.04), steelM, 16.23, f + 1.14, 0.08);
-      add(c, box(0.05, 1.45, 0.36), glassM, 16.24, f + 1.28, -0.38);
-      // Casco espacial personal dorado visible tras la vitrina del ropero
-      add(c, sphereGeo(0.17, 14, 10), goldM, 16.42, f + 1.52, -0.38);
-      add(c, box(0.26, 0.06, 0.28), warmHabM, 16.42, f + 1.33, -0.38);
-      add(c, box(0.04, 1.55, 0.06), roleMeta.accent, 16.25, f + 1.24, 0.0);
-    });
-
-    // =========================================================================
-    // COMEDOR DE TRIPULACIÓN Y ÁREA COMÚN (CREW MESS / WARDROOM)
-    // =========================================================================
-    const barBodyGeo = buildHollowArcCounterGeo(C02_DINING_ARCS.rInner, C02_DINING_ARCS.rOuter, C02_DINING_ARCS.halfAngleRad, 0.78, 22);
-    const barTopGeo = buildHollowArcCounterGeo(C02_DINING_ARCS.rInner - 0.05, C02_DINING_ARCS.rOuter + 0.05, C02_DINING_ARCS.halfAngleRad, 0.055, 22);
-    const barFootGeo = buildHollowArcCounterGeo(C02_DINING_ARCS.rOuter + 0.12, C02_DINING_ARCS.rOuter + 0.22, C02_DINING_ARCS.halfAngleRad * 0.95, 0.05, 20);
-    const barCanopyGeo = buildHollowArcCounterGeo(C02_DINING_ARCS.rInner - 0.08, C02_DINING_ARCS.rOuter + 0.08, C02_DINING_ARCS.halfAngleRad, 0.12, 22);
-
-    [-Math.PI / 2, Math.PI / 2].forEach((rotY, barIdx) => {
-      const barGroup = new THREE.Group();
-      barGroup.rotation.y = rotY;
-      d2.add(barGroup);
-      add(barGroup, barBodyGeo, slateM, 0, f, 0, 'console');
-      add(barGroup, barTopGeo, compositeM, 0, f + 0.78, 0);
-      add(barGroup, barFootGeo, railAmberM, 0, f + 0.14, 0);
-      // Dosel curvo suspendido sobre cada barra de comedor con luz cálida indirecta
-      add(barGroup, barCanopyGeo, slateM, 0, f + 2.48, 0);
-      const rMidBar = (C02_DINING_ARCS.rInner + C02_DINING_ARCS.rOuter) * 0.5;
-      add(barGroup, box(0.88, 0.03, 0.06), amberGlow, rMidBar, f + 0.84, 0);
-      // Bandejas individuales, recipientes térmicos y dosificadores magnéticos de condimentos líquidos
-      [-0.65, 0, 0.65].forEach((bAng) => {
-        const bx = rMidBar * Math.cos(bAng);
-        const bz = rMidBar * Math.sin(bAng);
-        const tray = add(barGroup, box(0.36, 0.02, 0.48), warmHabM, bx, f + 0.845, bz);
-        tray.rotation.y = -bAng;
-        // Taza térmica espacial fijada por imán
-        add(barGroup, cyl(0.045, 0.038, 0.11, 10), steelM, bx + 0.08, f + 0.90, bz);
-        // Frascos dosificadores de sal líquida y pimienta (usados en la ISS para no soltar polvo)
-        add(barGroup, cyl(0.018, 0.018, 0.065, 8), amberGlow, bx - 0.09, f + 0.88, bz - 0.12);
-        add(barGroup, cyl(0.018, 0.018, 0.065, 8), darkM, bx - 0.09, f + 0.88, bz + 0.12);
-      });
-    });
-
-    // Taburetes ergonómicos con pedestal de acero, aro reposapiés y asiento tapizado
-    [1, -1].forEach((sideX) => {
-      C02_DINING_ARCS.stoolAnglesFromX.forEach((ang) => {
-        const kx = sideX * C02_DINING_ARCS.stoolRadius * Math.cos(ang);
-        const kz = C02_DINING_ARCS.stoolRadius * Math.sin(ang);
-        const ax = -kz;
-        const az = kx;
-        const stG = new THREE.Group();
-        stG.position.set(ax, f, az);
-        stG.rotation.y = Math.atan2(-ax, -az);
-        d2.add(stG);
-        add(stG, cyl(0.22, 0.26, 0.04, 14), steelM, 0, 0.02, 0);
-        add(stG, cyl(0.055, 0.07, 0.46, 12), slateM, 0, 0.25, 0);
-        const footRing = add(stG, torus(0.18, 0.018, 6, 18), steelM, 0, 0.22, 0);
-        footRing.rotation.x = Math.PI / 2;
-        add(stG, cyl(0.28, 0.26, 0.10, 16), bedM, 0, 0.50, 0);
-        add(stG, box(0.38, 0.22, 0.07), warmHabM, 0, 0.64, -0.22);
-      });
-    });
-
-    // =========================================================================
-    // COCINA ESPACIAL DE TRIPULACIÓN (SPACE GALLEY & FOOD PREP)
-    // Rehidratador de comida caliente/fría, calentador de pouches, alacenas y dispensador
-    // =========================================================================
-    const galleyMenuTex = makeDiegeticScreenTexture(
-      'galley',
-      'COCINA ESPACIAL · GALLEY KRONOX',
-      [
-        'AGUA REHIDRATACION: 82°C CALIENTE / 10°C FRIA',
-        'ALACENA: POUCHES DE POLLO, TORTILLAS Y FRUTA',
-        'CALENTADOR CONDUCCION: LISTO (4 SLOTS)',
-        'RECICLADO ECLSS: 99.8% PUREZA H2O',
-        'PULSA [E] PARA ACCIONAR DISPENSADOR',
-      ],
-      '#ffb347',
-      { activeScan: true },
-    );
-    trackExtraTex(galleyMenuTex.tex);
-    const galleyMenuMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: galleyMenuTex.tex }));
-
-    const hydGroup = new THREE.Group();
-    hydGroup.position.set(1.5, f + 0.82, 2.95);
-    d2.add(hydGroup);
-
-    // Módulo principal del Galley
-    const hydBody = add(hydGroup, box(0.72, 0.94, 0.62), slateM, 0, 0.47, 0);
-    add(hydGroup, box(0.66, 0.52, 0.12), steelM, 0, 0.36, -0.26);
-    // Pantalla diegética de menú del Galley
-    const galleyScreenMesh = add(hydGroup, box(0.58, 0.28, 0.02), galleyMenuMat, 0, 0.74, 0.315);
-    registerInteractMesh(galleyScreenMesh, 'galley', 'direct');
-
-    // Boquillas de inyección presurizada de agua caliente y fría
-    const hotSpout = add(hydGroup, cyl(0.035, 0.035, 0.18, 10), heatWarningRed, -0.12, 0.18, 0.12);
-    const coldSpout = add(hydGroup, cyl(0.035, 0.035, 0.18, 10), freshAirGlow, 0.12, 0.18, 0.12);
-    add(hydGroup, box(0.38, 0.04, 0.28), steelM, 0, 0.02, 0.12); // Bandeja recolectora con drenaje
-
-    // Horno/calentador de comida espacial por conducción con 4 ranuras para paquetes
-    add(hydGroup, box(0.64, 0.28, 0.46), darkM, 0, 0.24, -0.06);
-    [-0.18, -0.06, 0.06, 0.18].forEach((slotX) => {
-      add(hydGroup, box(0.08, 0.20, 0.02), steelM, slotX, 0.24, 0.18);
-      // Paquete de ración de comida deslizado en la ranura
-      add(hydGroup, box(0.06, 0.16, 0.08), foodPouchMat, slotX, 0.24, 0.12);
-    });
-
-    // Alacena superior de raciones liofilizadas de la NASA (pouches de comida en estantes)
-    const pantryShelf = add(hydGroup, box(0.68, 0.38, 0.34), compositeM, 0, 1.14, -0.08);
-    [-0.22, 0, 0.22].forEach((px, pIdx) => {
-      const pMat = pIdx === 0 ? foodPouchMat : pIdx === 1 ? goldPouchMat : foodPouchMat;
-      add(hydGroup, box(0.12, 0.24, 0.18), pMat, px, 1.14, 0.02);
-    });
-
-    // Tiras magnéticas en la encimera para fijar cubiertos espaciales
-    add(hydGroup, box(0.42, 0.015, 0.04), steelM, 0, 0.48, 0.24);
-    [-0.12, 0, 0.12].forEach((cx) => {
-      add(hydGroup, box(0.015, 0.008, 0.14), steelM, cx, 0.49, 0.24);
-    });
-
-    registerInteractMesh(hydBody, 'galley', 'direct');
-    registerInteractMesh(hotSpout, 'galley', 'direct');
-    registerInteractMesh(coldSpout, 'galley', 'direct');
-
-    // Chorro de agua animado al dispensar
-    hydrationStreamMesh = add(hydGroup, cyl(0.025, 0.025, 0.22, 8), trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x38bdf8 })), 0, 0.42, 0);
-    hydrationStreamMesh.visible = false;
-
-    // Placa de señalización del Galley
-    mountDeckPlacard(d2, 1.5, f + 2.58, 3.2, Math.PI, 'C02', 'COCINA ESPACIAL · GALLEY', 'REHIDRATACIÓN ECLSS Y ALIMENTACIÓN', '#ffb347');
-
-    // =========================================================================
-    // BAHÍA BIOPÓNICA Y DE SOPORTE VITAL EN POPA (ECLSS BIOPONICS GREENERY)
-    // Racks hidropónicos con lechuga espacial Outredgeous, albahaca y LED hortícola
-    // =========================================================================
-    const bioScreenTex = makeDiegeticScreenTexture(
-      'bioponics',
-      'INVERNADERO BIOPÓNICO · ECLSS',
-      [
-        'CULTIVO: LECHUGA OUTREDGEOUS Y ALBAHACA',
-        'O2 GENERADO: +4.82 kg/d (SOPORTE VITAL)',
-        'CO2 ABSORBIDO: -5.38 kg/d (LOOP CERRADO)',
-        'FOTO-CICLO: 16h LUZ HORTÍCOLA / 8h NOCHE',
-        'PULSA [E] PARA ALTERNAR MODO DE CULTIVO',
-      ],
-      '#45e89e',
-      { activeScan: true },
-    );
-    trackExtraTex(bioScreenTex.tex);
-    const bioScreenMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: bioScreenTex.tex }));
-
-    const bioBay = new THREE.Group();
-    bioBay.name = 'BioponicsBayAssembly';
-    d2.add(bioBay);
-    bioponicLightMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x7effb2 }));
-
-    [-2.55, 2.55].forEach((bz) => {
-      const bioCab = add(bioBay, box(4.2, 2.35, 0.96), slateM, -11.4, f + 1.175, bz, 'console');
-      add(bioBay, box(4.0, 0.16, 0.82), steelM, -11.4, f + 2.36, bz);
-      // 3 niveles de cultivo hidropónico con lechugas verdes y rojas
-      [0.62, 1.22, 1.82].forEach((tierY, tIdx) => {
-        add(bioBay, box(3.76, 0.08, 0.68), steelM, -11.4, f + tierY - 0.18, bz);
-        // Hileras de plantas vivas
-        const plantMat = tIdx === 1 ? vegRedRomaineMat : foliageMat;
-        add(bioBay, box(3.62, 0.24, 0.56), plantMat, -11.4, f + tierY, bz);
-        // Maceteros individuales con brotes
-        for (let p = -1.5; p <= 1.5; p += 0.5) {
-          add(bioBay, sphereGeo(0.08, 8, 6), plantMat, -11.4 + p * 0.9, f + tierY + 0.14, bz);
-        }
-        // Lámparas LED hortícolas
-        const lamp = add(bioBay, box(3.68, 0.045, 0.46), bioponicLightMat, -11.4, f + tierY + 0.22, bz);
-        registerInteractMesh(lamp, 'bioponics', 'direct');
-      });
-      // Cubierta protectora de policarbonato transparente
-      const bioGlass = add(bioBay, box(3.82, 1.86, 0.72), glassM, -11.4, f + 1.24, bz);
-      // Columnas y conductos de circulación de nutrientes
-      add(bioBay, cyl(0.07, 0.07, 2.35, 10), steelM, -9.35, f + 1.18, bz);
-      add(bioBay, cyl(0.07, 0.07, 2.35, 10), steelM, -13.45, f + 1.18, bz);
-      add(bioBay, cyl(0.035, 0.035, 2.1, 8), cyanGlow, -11.4, f + 1.18, bz + (bz > 0 ? -0.42 : 0.42));
-      registerInteractMesh(bioCab, 'bioponics', 'direct');
-      registerInteractMesh(bioGlass, 'bioponics', 'direct');
-    });
-
-    // Columna central de telemetría ambiental biopónica en (-12.8, f, 0)
-    add(bioBay, box(0.58, 2.35, 1.25), slateM, -12.8, f + 1.175, 0);
-    const bioScreenMesh = add(bioBay, box(0.04, 0.68, 0.96), bioScreenMat, -12.49, f + 1.52, 0);
-    registerInteractMesh(bioScreenMesh, 'bioponics', 'direct');
-    mountDeckPlacard(d2, -13.8, f + 2.54, 0, Math.PI / 2, 'BIO', 'MÓDULO BIOPÓNICO', 'HIDROPONÍA Y RECICLADO H2O/O2', '#45e89e');
-
-    // =========================================================================
-    // ESCLUSA EVA A PROA (AIRLOCK PREP BAY & EVA SUITS)
-    // Nichos de trajes espaciales EMU, panel de presurización y herramientas
-    // =========================================================================
-    const airlockScreenTex = makeDiegeticScreenTexture(
-      'airlock',
-      'ESCLUSA RADIAL EVA · CUBIERTA 02',
-      [
-        'ESTADO CÁMARA: PRESURIZADA (101.3 kPa)',
-        'INTERBLOQUEO PUERTA EXTERIOR: ACTIVO',
-        'TRAJES EMU 1 Y 2: OXÍGENO 100% · BATERÍA 100%',
-        'LÍNEA DE VIDA TETHER: ANCLADA',
-        'PULSA [E] PARA CICLO DE PRESURIZACIÓN',
-      ],
-      '#5be3aa',
-      { activeScan: false },
-    );
-    trackExtraTex(airlockScreenTex.tex);
-    const airlockScreenMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: airlockScreenTex.tex }));
-
-    airlockBeaconMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: 0x45e89e }));
-    add(d2, box(0.62, 2.88, 3.35), slateM, 16.08, f + 1.44, 0, 'wall');
-    const airlockDoor = add(d2, box(0.45, 2.56, 2.65), doorM, 15.96, f + 1.28, 0, 'door');
-    const airlockBeacon = add(d2, box(0.1, 2.08, 1.82), airlockBeaconMat, 15.70, f + 1.25, 0);
-    registerInteractMesh(airlockDoor, 'airlock', 'direct');
-    registerInteractMesh(airlockBeacon, 'airlock', 'direct');
-
-    // Nichos de trajes espaciales EMU (casco dorado, mochila PLSS y tanque de O2)
-    [-2.35, 2.35].forEach((az) => {
-      add(d2, box(0.76, 2.28, 1.18), slateM, 15.55, f + 1.14, az);
-      // Torso del traje espacial colgado en la bahía
-      add(d2, box(0.44, 0.72, 0.58), compositeM, 15.38, f + 1.25, az);
-      // Mochila de soporte vital PLSS con tanques
-      add(d2, box(0.24, 0.65, 0.48), steelM, 15.54, f + 1.25, az);
-      add(d2, cyl(0.08, 0.08, 0.52, 10), goldM, 15.54, f + 1.25, az - 0.16);
-      add(d2, cyl(0.08, 0.08, 0.52, 10), goldM, 15.54, f + 1.25, az + 0.16);
-      // Casco con visera reflectante dorada
-      add(d2, sphereGeo(0.21, 14, 10), goldM, 15.36, f + 1.78, az);
-      add(d2, box(0.06, 1.92, 0.06), cyanGlow, 15.20, f + 1.14, az + (az > 0 ? -0.52 : 0.52));
-      // Botas magnéticas en el soporte inferior
-      add(d2, box(0.22, 0.14, 0.18), darkM, 15.36, f + 0.22, az - 0.14);
-      add(d2, box(0.22, 0.14, 0.18), darkM, 15.36, f + 0.22, az + 0.14);
-    });
-
-    // Panel y pantalla de despresurización de la esclusa
-    add(d2, box(0.06, 0.64, 0.88), darkM, 15.72, f + 1.85, -1.1);
-    const airlockScrMesh = add(d2, box(0.03, 0.56, 0.80), airlockScreenMat, 15.69, f + 1.85, -1.1);
-    registerInteractMesh(airlockScrMesh, 'airlock', 'direct');
-
-    airlockValvePivot = new THREE.Group();
-    airlockValvePivot.position.set(15.65, f + 1.35, -0.58);
-    d2.add(airlockValvePivot);
-    const wheel = add(airlockValvePivot, torus(0.18, 0.032, 8, 20), railAmberM, 0, 0, 0);
-    wheel.rotation.y = Math.PI / 2;
-    registerInteractMesh(wheel, 'airlock', 'direct');
-    mountDeckPlacard(d2, 15.5, f + 2.62, 0, -Math.PI / 2, 'EVA', 'ESCLUSA RADIAL EVA', 'PRESURIZACIÓN Y TRAJES', '#5be3aa');
-
-    // =========================================================================
-    // COMPARTIMENTO ABRIBLE 3D (`storage-c02` en (-5.95, 0, -5.95))
-    // Suministros de reserva, kits de primeros auxilios y raciones de contingencia
-    // =========================================================================
-    const storageGroup = new THREE.Group();
-    storageGroup.name = 'StorageLockerC02';
-    storageGroup.position.set(-5.95, f, -5.95);
-    storageGroup.rotation.y = Math.PI / 4;
-    deckOverlayGroups['deck-02'].add(storageGroup);
-    add(storageGroup, box(1.28, 2.02, 0.72), slateM, 0, 1.01, -0.1, 'console');
-    add(storageGroup, box(1.12, 1.78, 0.56), steelM, 0, 1.02, -0.06);
-    add(storageGroup, box(1.06, 0.04, 0.48), darkM, 0, 1.12, -0.02);
-    // Suministros EVA y raciones visibles en el interior al abrirse
-    add(storageGroup, cyl(0.12, 0.12, 0.75, 12), railAmberM, -0.28, 0.65, 0.05);
-    add(storageGroup, cyl(0.12, 0.12, 0.75, 12), cyanGlow, 0.02, 0.65, 0.05);
-    add(storageGroup, box(0.36, 0.28, 0.34), greenGlow, 0.28, 1.38, 0.02);
-    add(storageGroup, box(0.32, 0.18, 0.22), foodPouchMat, 0.28, 0.72, 0.04);
-    storageDoorPivot = new THREE.Group();
-    storageDoorPivot.position.set(-0.56, 1.01, 0.25);
-    storageGroup.add(storageDoorPivot);
-    const storageLeaf = add(storageDoorPivot, box(1.12, 1.82, 0.08), doorM, 0.56, 0, 0);
-    const storageHandle = add(storageDoorPivot, box(0.18, 0.42, 0.12), cyanGlow, 0.96, 0.08, 0.02);
-    registerInteractMesh(storageLeaf, 'storage-c02', 'direct');
-    registerInteractMesh(storageHandle, 'storage-c02', 'direct');
-  }
+  const deck02Result = buildDeck02Habitational3D({
+    parentGroup: deckOverlayGroups['deck-02'],
+    floorY: 0.0,
+    materials: {
+      wallM, darkM, steelM, slateM, goldM, copperM, doorM, bedM, compositeM,
+      warmHabM, glassM, quiltedM, railAmberM, cyanGlow, amberGlow, greenGlow, warmGlow, uvVioletGlow,
+    },
+    earthPhotoMat,
+    mountDeckPlacard,
+    registerColliderMesh,
+    registerInteractMesh,
+    staticFreezeCandidates,
+  });
+  disposableExtras.push(deck02Result);
 
   // ==================== CUBIERTA 3 · INGENIERÍA, REACTOR Y SPHEREx (Y = -3.4) ====================
   {
@@ -2436,19 +1929,30 @@ export function buildKronoxInterior120M() {
 
     const trimBarMat = trackExtraMat(new THREE.MeshBasicMaterial({ color: st.colorHex }));
     const isC01Station = st.deckId === 'deck-01';
+    const isC02Handled = st.deckId === 'deck-02' && deck02Result?.handledStationIds?.has(st.id);
     const beaconInner = isC01Station ? (st.id === 'missions' ? 1.78 : 0.56) : 0.68;
     const beaconOuter = isC01Station ? (st.id === 'missions' ? 1.88 : 0.66) : 0.82;
-    const floorBeacon = add(stGroup, ringGeo(beaconInner, beaconOuter, 36), trimBarMat, 0, isC01Station ? 0.068 : 0.04, 0);
-    floorBeacon.rotation.x = -Math.PI / 2;
-    floorBeacon.userData.dynamicTransform = true;
+    const floorBeacon = !isC02Handled
+      ? add(stGroup, ringGeo(beaconInner, beaconOuter, 36), trimBarMat, 0, isC01Station ? 0.068 : 0.04, 0)
+      : null;
+    if (floorBeacon) {
+      floorBeacon.rotation.x = -Math.PI / 2;
+      floorBeacon.userData.dynamicTransform = true;
+    }
     const scrMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: screenData.tex }));
 
     let screenMesh;
     const integratedBridgeMesh =
       st.deckId === 'deck-01' ? bridgeCabina1Result?.stationScreenMeshes?.[st.id] : null;
+    const integratedDeck02Mesh =
+      st.deckId === 'deck-02' ? deck02Result?.stationScreenMeshes?.[st.id] : null;
     if (integratedBridgeMesh) {
       integratedBridgeMesh.material = scrMat;
       screenMesh = integratedBridgeMesh;
+    } else if (integratedDeck02Mesh) {
+      screenMesh = integratedDeck02Mesh;
+    } else if (isC02Handled) {
+      screenMesh = null;
     } else if (st.id === 'engineering') {
       add(stGroup, box(0.92, 0.84, 0.46), darkM, 1.35, 0.42, 0.65);
       add(stGroup, box(0.84, 0.04, 0.38), trimBarMat, 1.35, 0.86, 0.65);
@@ -2465,9 +1969,30 @@ export function buildKronoxInterior120M() {
       screenMesh = add(stGroup, box(0.92, 0.5, 0.05), scrMat, offsetScreenX, 1.26, 0.74);
       screenMesh.rotation.x = -0.32;
     }
-    screenMesh.userData.stationId = st.id;
-    const isDirectStation = ['storage-c02', 'bioponics', 'galley', 'airlock', 'hangar', 'maintenance-c04'].includes(st.id);
-    registerInteractMesh(screenMesh, st.id, isDirectStation ? 'direct' : 'panel');
+    if (screenMesh) {
+      screenMesh.userData.stationId = st.id;
+      const isDirectStation =
+        st.id.startsWith('bed-hab-') ||
+        [
+          'storage-c02',
+          'bioponics',
+          'galley',
+          'galley-synth',
+          'lounge-audio-c02',
+          'airlock',
+          'med-bay-c02',
+          'gym-c02',
+          'orrery-hab-02',
+          'aurora-trophy-c02',
+          'spec-samples-c02',
+          'eva-rack-c02',
+          'hangar',
+          'maintenance-c04',
+        ].includes(st.id);
+      if (!isC02Handled) {
+        registerInteractMesh(screenMesh, st.id, isDirectStation ? 'direct' : 'panel');
+      }
+    }
 
     if (st.id === 'sensor-calibration') {
       const benchGroup = new THREE.Group();
@@ -2508,7 +2033,15 @@ export function buildKronoxInterior120M() {
       screenMesh,
       trimBarMat,
       floorBeacon,
-      updateScreen: (title, lines, meta = {}) => screenData.redraw(title, lines, accentStr, meta),
+      updateScreen: (title, lines, meta = {}) => {
+        if (st.id.startsWith('bed-hab-')) return;
+        const deck2Updater = st.deckId === 'deck-02' ? deck02Result?.screenUpdates?.[st.id] : null;
+        if (deck2Updater) {
+          deck2Updater(title, lines, meta);
+        } else {
+          screenData.redraw(title, lines, accentStr, meta);
+        }
+      },
     });
   });
 
@@ -2845,6 +2378,46 @@ export function buildKronoxInterior120M() {
           ],
           meta: systemMeta,
         };
+      case 'galley-synth':
+        return {
+          title: 'SINTETIZADOR CULINARIO · C02',
+          lines: [
+            `PREPARACIÓN: ${mechanisms.galleyCoffeeBrewing ? 'SIRVIENDO CAFÉ / RACIÓN' : 'EN ESPERA'}`,
+            `HIDRATACIÓN: ${mechanisms.hydrationDispensing ? 'ACTIVA' : 'LISTA'}`,
+            'TEMPERATURA BEBIDA: 68.5°C',
+          ],
+          meta: systemMeta,
+        };
+      case 'lounge-audio-c02':
+        return {
+          title: 'LOUNGE AMBIENTAL · C02',
+          lines: [
+            `SONIDO CIRCADIANO: ${mechanisms.loungeMusicActive === false ? 'PAUSADO' : 'REPRODUCIENDO'}`,
+            `ENERGÍA TRIPULACIÓN: ${Math.round(mechanisms.crewRestPct ?? 82)}%`,
+            'PULSA [E] PARA ALTERNAR',
+          ],
+          meta: systemMeta,
+        };
+      case 'med-bay-c02':
+        return {
+          title: 'MED-BAY · ESCÁNER BIOMÉTRICO',
+          lines: [
+            `CHEQUEO: ${mechanisms.medScanActive ? 'ESCANEANDO SIGNOS' : 'EN ESPERA'}`,
+            `ENERGÍA / DESCANSO: ${Math.round(mechanisms.crewRestPct ?? 82)}%`,
+            'FC: 64 BPM · SpO₂: 99% · RAD NOMINAL',
+          ],
+          meta: systemMeta,
+        };
+      case 'gym-c02':
+        return {
+          title: 'CICLOERGÓMETRO ZERO-G · HAB-05',
+          lines: [
+            `ENTRENAMIENTO: ${mechanisms.gymWorkoutActive ? 'RUTINA ACTIVA (180W)' : 'EN REPOSO'}`,
+            'RESISTENCIA MAGNÉTICA NOMINAL',
+            'PULSA [E] PARA ACTIVAR',
+          ],
+          meta: systemMeta,
+        };
       case 'sensor-calibration':
         return {
           title: 'BANCO ÓPTICO · CALIBRACIÓN',
@@ -3034,24 +2607,7 @@ export function buildKronoxInterior120M() {
       cryoValvePivot.rotation.x += (targetAngle - cryoValvePivot.rotation.x) * 0.12;
     }
 
-    if (storageDoorPivot) {
-      const targetOpen = interactiveMechanisms.storageC02Open ? -Math.PI * 0.58 : 0;
-      storageDoorPivot.rotation.y += (targetOpen - storageDoorPivot.rotation.y) * 0.14;
-    }
-
-    if (hydrationStreamMesh) {
-      hydrationStreamMesh.visible = Boolean(interactiveMechanisms.hydrationDispensing);
-    }
-
-    if (bioponicLightMat) {
-      bioponicLightMat.color.setHex(interactiveMechanisms.bioponicsActive ? 0x7effb2 : 0xa855f7);
-    }
-
-    if (airlockValvePivot && airlockBeaconMat) {
-      const targetVal = interactiveMechanisms.airlockPressurized ? 0 : Math.PI * 1.4;
-      airlockValvePivot.rotation.x += (targetVal - airlockValvePivot.rotation.x) * 0.12;
-      airlockBeaconMat.color.setHex(interactiveMechanisms.airlockPressurized ? 0x45e89e : 0xf59e0b);
-    }
+    deck02Result?.update?.(elapsedTime, interactiveMechanisms, _astronautPos);
 
     if (craneTrolleyGroup) {
       const targetX = interactiveMechanisms.hangarCraneDeployed ? 11.4 : 7.5;
@@ -3127,19 +2683,102 @@ export function buildKronoxInterior120M() {
   function triggerMechanism(actionId, value = null) {
     if (actionId === 'bioponics') {
       interactiveMechanisms.bioponicsActive = value != null ? Boolean(value) : !interactiveMechanisms.bioponicsActive;
-      return { ok: true, state: { ...interactiveMechanisms } };
+      return { ok: true, state: snapshotMechanisms() };
     }
     if (actionId === 'hydration' || actionId === 'galley') {
       interactiveMechanisms.hydrationDispensing = value != null ? Boolean(value) : !interactiveMechanisms.hydrationDispensing;
-      return { ok: true, state: { ...interactiveMechanisms } };
+      return { ok: true, state: snapshotMechanisms() };
+    }
+    if (actionId === 'galley-synth') {
+      interactiveMechanisms.galleyCoffeeBrewing = value != null ? Boolean(value) : !interactiveMechanisms.galleyCoffeeBrewing;
+      return { ok: true, state: snapshotMechanisms() };
+    }
+    if (actionId === 'lounge-audio-c02') {
+      interactiveMechanisms.loungeMusicActive = value != null ? Boolean(value) : !interactiveMechanisms.loungeMusicActive;
+      return { ok: true, state: snapshotMechanisms() };
+    }
+    if (actionId === 'med-bay-c02') {
+      interactiveMechanisms.medScanActive = value != null ? Boolean(value) : !interactiveMechanisms.medScanActive;
+      if (interactiveMechanisms.medScanActive) {
+        interactiveMechanisms.crewRestPct = Math.min(100, Math.max(interactiveMechanisms.crewRestPct, 92));
+      }
+      return { ok: true, state: snapshotMechanisms() };
+    }
+    if (actionId === 'gym-c02') {
+      interactiveMechanisms.gymWorkoutActive = value != null ? Boolean(value) : !interactiveMechanisms.gymWorkoutActive;
+      return { ok: true, state: snapshotMechanisms() };
+    }
+    if (actionId === 'orrery-hab-02') {
+      interactiveMechanisms.orrerySpinFast = value != null ? Boolean(value) : !interactiveMechanisms.orrerySpinFast;
+      return { ok: true, state: snapshotMechanisms() };
+    }
+    if (actionId === 'aurora-trophy-c02') {
+      interactiveMechanisms.auroraHoloActive = value != null ? Boolean(value) : !interactiveMechanisms.auroraHoloActive;
+      return { ok: true, state: snapshotMechanisms() };
+    }
+    if (actionId === 'spec-samples-c02') {
+      interactiveMechanisms.specSamplesActive = value != null ? Boolean(value) : !interactiveMechanisms.specSamplesActive;
+      return { ok: true, state: snapshotMechanisms() };
+    }
+    if (actionId === 'eva-rack-c02') {
+      interactiveMechanisms.evaCheckActive = value != null ? Boolean(value) : !interactiveMechanisms.evaCheckActive;
+      return { ok: true, state: snapshotMechanisms() };
+    }
+    if (actionId === 'rest-set') {
+      const bayIdx = value && Number.isInteger(value.bayIndex) ? value.bayIndex : null;
+      interactiveMechanisms.restingBayIndex = bayIdx;
+      interactiveMechanisms.restingSleepActive = Boolean(value?.sleeping && bayIdx !== null);
+      if (bayIdx !== null) {
+        interactiveMechanisms.crewRestPct = Math.min(100, Math.max(interactiveMechanisms.crewRestPct, 88));
+      }
+      return { ok: true, state: snapshotMechanisms() };
+    }
+    if (actionId === 'rest-nap') {
+      interactiveMechanisms.crewRestPct = 100;
+      interactiveMechanisms.restCyclesCompleted += 1;
+      interactiveMechanisms.restingSleepActive = Boolean(interactiveMechanisms.restingBayIndex !== null);
+      return { ok: true, state: snapshotMechanisms() };
+    }
+    const doorSuite = C02_HAB_SUITES.find((s) => s.doorId === actionId);
+    if (doorSuite) {
+      const idx = doorSuite.bayIndex;
+      interactiveMechanisms.cabinDoorsOpen[idx] =
+        value != null ? Boolean(value) : !interactiveMechanisms.cabinDoorsOpen[idx];
+      return { ok: true, suite: doorSuite, state: snapshotMechanisms() };
+    }
+    const lampSuite = C02_HAB_SUITES.find((s) => s.lampId === actionId);
+    if (lampSuite) {
+      const idx = lampSuite.bayIndex;
+      const order = ['warm', 'night', 'off'];
+      interactiveMechanisms.cabinLamps[idx] =
+        typeof value === 'string' && order.includes(value)
+          ? value
+          : order[(order.indexOf(interactiveMechanisms.cabinLamps[idx]) + 1) % order.length];
+      return { ok: true, suite: lampSuite, state: snapshotMechanisms() };
+    }
+    const lockerSuite = C02_HAB_SUITES.find((s) => s.lockerId === actionId);
+    if (lockerSuite) {
+      const idx = lockerSuite.bayIndex;
+      interactiveMechanisms.cabinLockersOpen[idx] =
+        value != null ? Boolean(value) : !interactiveMechanisms.cabinLockersOpen[idx];
+      return { ok: true, suite: lockerSuite, state: snapshotMechanisms() };
+    }
+    const tabletSuite = C02_HAB_SUITES.find((s) => s.tabletId === actionId);
+    if (tabletSuite) {
+      const idx = tabletSuite.bayIndex;
+      interactiveMechanisms.cabinTabletPages[idx] =
+        Number.isFinite(Number(value)) && value !== null
+          ? Number(value)
+          : (interactiveMechanisms.cabinTabletPages[idx] + 1) % 2;
+      return { ok: true, suite: tabletSuite, state: snapshotMechanisms() };
     }
     if (actionId === 'storage-c02') {
       interactiveMechanisms.storageC02Open = value != null ? Boolean(value) : !interactiveMechanisms.storageC02Open;
-      return { ok: true, state: { ...interactiveMechanisms } };
+      return { ok: true, state: snapshotMechanisms() };
     }
     if (actionId === 'airlock') {
       interactiveMechanisms.airlockPressurized = value != null ? Boolean(value) : !interactiveMechanisms.airlockPressurized;
-      return { ok: true, state: { ...interactiveMechanisms } };
+      return { ok: true, state: snapshotMechanisms() };
     }
     if (actionId === 'engineering') {
       const order = ['nominal', 'overclock', 'quiet'];
@@ -3220,8 +2859,16 @@ export function buildKronoxInterior120M() {
       state: interactiveMechanisms,
       trigger: triggerMechanism,
     },
-    clampAstronautPosition,
-    findNearestInteractiveStation,
+    clampAstronautPosition: (pos, radius, clearance, elevatorStateParam, options = null) =>
+      clampAstronautPosition(pos, radius, clearance, elevatorStateParam, {
+        mechanisms: interactiveMechanisms,
+        ...(options || {}),
+      }),
+    findNearestInteractiveStation: (position, overrideRange = null, options = null) =>
+      findNearestInteractiveStation(position, overrideRange, {
+        mechanisms: interactiveMechanisms,
+        ...(options || {}),
+      }),
     resolveCurrentDeck,
     setTutorialWaypoint,
     tutorialWaypointGroup,

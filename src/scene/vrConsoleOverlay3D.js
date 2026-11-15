@@ -837,6 +837,64 @@ export function createVrConsoleOverlay3D() {
       return { tag, title, accent, infoLines, buttons };
     }
 
+    if (stationId === 'bed-rest') {
+      const bayIdx = Number.isInteger(mech.restingBayIndex) ? mech.restingBayIndex : 0;
+      const suiteCode = `HAB-0${bayIdx + 1}`;
+      const restPct = Math.round(Number(mech.crewRestPct ?? 82));
+      const lampMode = mech.cabinLamps?.[bayIdx] || 'warm';
+      accent = '#818cf8';
+      tag = `CUBIERTA 02 · ${suiteCode} · REPOSO`;
+      title = `LITERA DE DESCANSO · ${suiteCode}`;
+      infoLines.push(
+        `ENERGÍA TRIPULACIÓN: ${restPct}%  |  CICLOS COMPLETADOS: ${Number(mech.restCyclesCompleted || 0)}  |  LÁMPARA: ${lampMode.toUpperCase()}`,
+      );
+      infoLines.push('Descansa en gravedad simulada o empuja el stick izquierdo para levantarte.');
+      buttons.push({
+        key: 'bed-rest-nap',
+        x: 42,
+        y: 250,
+        w: 460,
+        h: 112,
+        label: '☾ Tomar Siesta Orbital (+4h)',
+        sublabel: 'Restaurar energía al 100% · Luz nocturna suave',
+        action: 'bed-rest-nap',
+        tone: 'emerald',
+      });
+      buttons.push({
+        key: 'bed-rest-lamp',
+        x: 518,
+        y: 250,
+        w: 460,
+        h: 112,
+        label: `☼ Lámpara Cabecera (${lampMode.toUpperCase()})`,
+        sublabel: 'Alternar cálida / nocturna / apagada',
+        action: 'bed-rest-lamp',
+        tone: 'amber',
+      });
+      buttons.push({
+        key: 'bed-rest-stand',
+        x: 42,
+        y: 410,
+        w: 936,
+        h: 94,
+        label: '↑ Levantarse de la litera',
+        sublabel: 'Salir de la cama junto al pasillo del camarote',
+        action: 'bed-rest-stand',
+        tone: 'emerald',
+      });
+      buttons.push({
+        key: 'foot-close',
+        x: CANVAS_W - 242,
+        y: 556,
+        w: 200,
+        h: 56,
+        label: '× Salir [B]',
+        action: 'bed-rest-stand',
+        tone: 'danger',
+      });
+      return { tag, title, accent, infoLines, buttons };
+    }
+
     // Fallback genérico para cualquier consola adicional
     infoLines.push(`Módulo listo para operación en ${stationMeta?.deckId?.toUpperCase() || 'NAVE'}.`);
     pushFooter();

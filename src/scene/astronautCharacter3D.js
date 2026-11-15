@@ -255,6 +255,7 @@ export const ASTRONAUT_ANIMATION_STATES = Object.freeze({
   REPAIR_INTERACT: 'REPAIR_INTERACT',
   CORRIDOR_SWIM: 'CORRIDOR_SWIM',
   SEATED_COMMAND: 'SEATED_COMMAND',
+  RESTING_BED: 'RESTING_BED',
 });
 
 /**
@@ -843,6 +844,8 @@ export function createAstronautCharacter3D() {
     const isWalking = speed > 0.08;
     const isSeatedCommand =
       Boolean(motionMeta?.isSeatedCommand) || currentState === ASTRONAUT_ANIMATION_STATES.SEATED_COMMAND;
+    const isRestingBed =
+      Boolean(motionMeta?.isRestingBed) || currentState === ASTRONAUT_ANIMATION_STATES.RESTING_BED;
     const isElevatorRide = Boolean(motionMeta?.isElevatorRide);
     const bankRoll = Math.max(-0.15, Math.min(0.15, Number(motionMeta?.bankRoll ?? 0)));
     const headPitch = Math.max(-0.4, Math.min(0.4, Number(motionMeta?.headPitch ?? 0)));
@@ -867,7 +870,23 @@ export function createAstronautCharacter3D() {
       rkX = 0.06;
     let rcsOpacity = 0.0;
 
-    if (isSeatedCommand) {
+    if (isRestingBed) {
+      // Pose supina relajada sobre la litera de Cubierta 02 (respiración tranquila)
+      const breath = Math.sin(clockT * 1.15);
+      bobY = -0.34 + breath * 0.004;
+      bodyPitch = Math.PI * 0.43;
+      torsoPitch = -0.06 + breath * 0.015;
+      laX = 0.08 + breath * 0.02;
+      raX = 0.08 - breath * 0.02;
+      laZ = 0.14;
+      raZ = -0.14;
+      leX = 0.22;
+      reX = 0.22;
+      llX = 0.08;
+      rlX = 0.06;
+      lkX = -0.16;
+      rkX = -0.14;
+    } else if (isSeatedCommand) {
       // Ergonomic bridge seated pose
       bobY = -0.34;
       bodyPitch = -0.04;

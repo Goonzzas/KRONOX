@@ -165,6 +165,7 @@ export default function App() {
     [cabinFirstPerson, setCabinFirstPerson] = useState(true),
     [elevatorState, setElevatorState] = useState(null),
     [mechanismsState, setMechanismsState] = useState(null),
+    [restingState, setRestingState] = useState(null),
     [astronautCoords, setAstronautCoords] = useState({ x: 0, z: -44.2 }),
     [astronautSectorState, setAstronautSectorState] = useState({
       deckId: 'deck-01',
@@ -1309,6 +1310,7 @@ export default function App() {
       },
       onElevatorStateChange: (elState) => setElevatorState(elState || null),
       onMechanismsChange: (mechState) => setMechanismsState(mechState || null),
+      onRestStateChange: (nextRest) => setRestingState(nextRest || null),
       onViewChange: (v) => setPv(v),
       onIntroStageChange: (stageKey, captionText, stageOpts = {}) => {
         setCinematicStage(stageKey);
@@ -3609,10 +3611,17 @@ export default function App() {
       activeStation: activeCockpitStation,
       elevatorState,
       mechanismsState,
+      restingState,
       onSelectElevatorFloor: (deckId) => A().selectElevatorFloor?.(deckId),
       onTriggerMechanism: (actionId, value = null) => A().interactStationMechanism?.(actionId, value),
       onActivateNearestStation: () => A().activateNearestStation?.(),
       onSitInCommandSeat: () => A().sitInCommandSeat?.(),
+      onTriggerOrbitalNap: () => A().triggerOrbitalNap?.(),
+      onStandUpFromRestBed: () => A().standUpFromRestBed?.(),
+      onToggleRestLamp: (bayIdx) => {
+        const idx = Math.max(0, Math.min(5, Math.floor(Number(bayIdx) || 0)));
+        A().interactStationMechanism?.(`lamp-hab-0${idx + 1}`);
+      },
       freeHelmMode,
       onToggleFreeHelm: (enabled) => {
         setFreeHelmMode(Boolean(enabled));

@@ -73,9 +73,13 @@ export default function SpaceshipCockpit({
   activeMissionId = 'barnard',
   onOpenMissionFromObjective,
   mechanismsState = null,
+  restingState = null,
   onTriggerMechanism,
   onActivateNearestStation,
   onSitInCommandSeat,
+  onTriggerOrbitalNap,
+  onStandUpFromRestBed,
+  onToggleRestLamp,
   interactionFeedback = null,
   heldToolId = null,
   pointerLockState = null,
@@ -708,32 +712,89 @@ export default function SpaceshipCockpit({
         </div>
       )}
 
-      {/* DISCRETE MINIMAL CONTEXTUAL PROMPT WHEN ASTRONAUT IS NEAR A PHYSICAL 3D CONSOLE */}
-      {cockpitVisible && nearestStation && nearestStation.id !== 'elevator-panel' && !activeStation && (
-        <div className="kronoxProximityPrompt" role="status" aria-live="polite">
-          <div className="kronoxProximityKey">[E]</div>
-          <div className="kronoxProximityInfo">
-            <strong>{nearestStation.title || nearestStation.label}</strong>
+      {/* COMPACT DECK-02 BED RESTING BAR */}
+      {cockpitVisible && restingState?.active && !activeStation && (
+        <div
+          className="kronoxProximityPrompt kronoxRestBar"
+          role="region"
+          aria-label="Descanso en camarote"
+          style={{ gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}
+        >
+          <div className="kronoxProximityKey">[R]</div>
+          <div className="kronoxProximityInfo" style={{ gap: '6px' }}>
+            <strong>
+              {restingState.suiteCode || 'HAB'} ·{' '}
+              {restingState.sleeping ? 'Ciclo orbital en curso…' : 'En reposo'} · Energía{' '}
+              {Math.round(Number(restingState.crewRestPct ?? 100))}%
+            </strong>
           </div>
           <button
             type="button"
             className="kronoxProximityActivateBtn"
-            onClick={() => {
-              if (onActivateNearestStation?.()) return;
-              onSelectStation(nearestStation.id);
-              if (nearestStation.id === 'comms') onOpenAiConsole?.();
-            }}
+            disabled={Boolean(restingState.sleeping)}
+            onClick={() => onTriggerOrbitalNap?.()}
+            title="Completar siesta orbital (+4h) y restaurar energía al 100% [R]"
           >
-            {nearestStation.actionLabel
-              ? nearestStation.actionLabel
-              : String(nearestStation.id || '').startsWith('elevator-call-')
-                ? 'Llamar'
-                : nearestStation.id === 'elevator-panel'
-                  ? 'Planta'
-                  : 'Operar'}
+            {restingState.sleeping ? '☾ Descansando…' : '☾ Siesta Orbital (+4h)'}
+          </button>
+          <button
+            type="button"
+            className="kronoxProximityActivateBtn"
+            style={{
+              background: 'rgba(15, 23, 42, 0.85)',
+              borderColor: 'rgba(250, 204, 21, 0.55)',
+              color: '#fde68a',
+            }}
+            onClick={() => onToggleRestLamp?.(restingState.bayIndex)}
+            title="Alternar lámpara circadiana del camarote"
+          >
+            ☼ Lámpara
+          </button>
+          <button
+            type="button"
+            className="kronoxProximityActivateBtn"
+            style={{
+              background: 'rgba(15, 118, 110, 0.88)',
+              borderColor: 'rgba(45, 212, 191, 0.72)',
+            }}
+            onClick={() => onStandUpFromRestBed?.()}
+            title="Incorporarse de la litera [E / WASD]"
+          >
+            ↑ Levantarse [E]
           </button>
         </div>
       )}
+
+      {/* DISCRETE MINIMAL CONTEXTUAL PROMPT WHEN ASTRONAUT IS NEAR A PHYSICAL 3D CONSOLE */}
+      {cockpitVisible &&
+        !restingState?.active &&
+        nearestStation &&
+        nearestStation.id !== 'elevator-panel' &&
+        !activeStation && (
+          <div className="kronoxProximityPrompt" role="status" aria-live="polite">
+            <div className="kronoxProximityKey">[E]</div>
+            <div className="kronoxProximityInfo">
+              <strong>{nearestStation.title || nearestStation.label}</strong>
+            </div>
+            <button
+              type="button"
+              className="kronoxProximityActivateBtn"
+              onClick={() => {
+                if (onActivateNearestStation?.()) return;
+                onSelectStation(nearestStation.id);
+                if (nearestStation.id === 'comms') onOpenAiConsole?.();
+              }}
+            >
+              {nearestStation.actionLabel
+                ? nearestStation.actionLabel
+                : String(nearestStation.id || '').startsWith('elevator-call-')
+                  ? 'Llamar'
+                  : nearestStation.id === 'elevator-panel'
+                    ? 'Planta'
+                    : 'Operar'}
+            </button>
+          </div>
+        )}
 
       {/* CONTEXTUAL 3D ASTRONOMICAL OBJECT INSPECTOR */}
       {objectCard && (

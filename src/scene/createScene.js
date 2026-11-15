@@ -84,8 +84,11 @@ import {
 } from './fourDecksInterior3D.js';
 import {
   CABIN_DECKS,
+  C02_CABIN_BAYS,
+  C02_HAB_SUITES,
   describeInteractablePrompt,
   DIRECT_INTERACTION_IDS,
+  radialBayPoint,
 } from './kronoxInteriorSpatialModel.js';
 import {
   createAstronautCharacter3D,
@@ -2543,6 +2546,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (astronautSeatedInBridge) {
         astronautSeatedInBridge = false;
       }
+      if (astronautRestingInBed) {
+        standUpFromRestBed(true);
+      }
       freeHelmBlend = 1;
       pv = 3;
       S.onViewChange?.(3);
@@ -2711,6 +2717,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (astronautSeatedInBridge) {
       astronautSeatedInBridge = false;
       S.onSeatedStateChange?.(false);
+    }
+    if (astronautRestingInBed) {
+      standUpFromRestBed(true);
     }
     if (!guidedTourState || guidedTourState.step === 'free') {
       fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
@@ -3103,6 +3112,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const BRIDGE_SPAWN_POS = new THREE.Vector3(0.0, 3.4, -10.4);
   const BRIDGE_COMMAND_SEAT_POS = new THREE.Vector3(0.0, 3.4, -9.85);
   let astronautSeatedInBridge = false;
+  let astronautRestingInBed = null;
   let activeRepairStage = 0;
 
   // Cabina y 4 cubiertas unificadas estrictamente dentro del casco de 120m (cero cajas superpuestas):
@@ -3489,7 +3499,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     },
     'deck-02': {
       stationId: 'galley',
-      text: 'Cubierta 02 — Habitacional y Esclusa EVA. Ocho camarotes radiales, comedor circular alrededor del núcleo central y esclusa de proa.',
+      text: 'Cubierta 02 — Habitacional y Esclusa EVA. Seis suites habitacionales con cama descansable, comedor circular central, invernadero biopónico a popa y esclusa EVA a proa.',
     },
     'deck-03': {
       stationId: 'science',
@@ -4280,6 +4290,164 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     return true;
   }
 
+  function getRestStateSnapshot() {
+    if (!astronautRestingInBed) return null;
+    const mech = fourDecksInterior?.mechanisms?.state || {};
+    return {
+      active: true,
+      bayIndex: astronautRestingInBed.bayIndex,
+      suiteCode: astronautRestingInBed.suite.code,
+      suiteName: astronautRestingInBed.suite.name,
+      sleeping: Boolean(astronautRestingInBed.sleeping),
+      crewRestPct: Math.round(Number(mech.crewRestPct ?? 82)),
+      restCyclesCompleted: Number(mech.restCyclesCompleted || 0),
+      lampMode: mech.cabinLamps?.[astronautRestingInBed.bayIndex] || 'warm',
+    };
+  }
+
+  function restInCabinBed(bayIndex = 0) {
+    const idx = Math.max(0, Math.min(C02_CABIN_BAYS.length - 1, Number(bayIndex) || 0));
+    const bay = C02_CABIN_BAYS[idx];
+    const suite = C02_HAB_SUITES[idx];
+    if (!bay || !suite) return false;
+
+    if (astronautSeatedInBridge) {
+      standUpFromBridgeSeat();
+    }
+    if (!free) {
+      setFree(true, false);
+      S.fr?.(true);
+    }
+    if (freeHelmMode) {
+      freeHelmMode = false;
+      freeHelmBlend = 0;
+      S.onFreeHelmChange?.(false);
+    }
+    if (exteriorCameraMode || pv !== 1) {
+      applyCameraView(1);
+      S.onViewChange?.(1);
+    }
+
+    currentLockedDeckId = 'deck-02';
+    fourDecksInterior?.elevatorSystem?.snapToDeck?.('deck-02');
+    ship.visible = false;
+    localCabinWorld.visible = true;
+
+    const restCenter = radialBayPoint(bay, 14.1, 0.0, 0.0);
+    const pillowPt = radialBayPoint(bay, 14.78, 0.0, 0.0);
+    const standRaw = radialBayPoint(bay, 13.7, -1.18, 0.0);
+    const standVec = new THREE.Vector3(standRaw.x, 0.0, standRaw.z);
+    fourDecksInterior?.clampAstronautPosition?.(standVec, undefined, undefined, null, {
+      lockedDeckId: 'deck-02',
+    });
+
+    const inwardYaw = Math.PI - bay.angleRad;
+    astronautRestingInBed = {
+      bayIndex: idx,
+      bay,
+      suite,
+      sleeping: false,
+      napTimer: 0,
+      restPos: new THREE.Vector3(restCenter.x, 0.0, restCenter.z),
+      pillowPos: new THREE.Vector3(pillowPt.x, 0.0, pillowPt.z),
+      standPos: standVec,
+      bedYaw: inwardYaw,
+    };
+
+    astronautPos.copy(astronautRestingInBed.restPos);
+    astronautVel.set(0, 0, 0);
+    microgravityController.setPosition(astronautPos);
+    astronautYaw = inwardYaw;
+    targetYaw = inwardYaw;
+    astronautBodyYaw = inwardYaw;
+    prevAstronautYaw = inwardYaw;
+    if (!vrManager?.isPresenting?.()) {
+      astronautPitch = 0.24;
+      targetPitch = 0.24;
+    }
+
+    const res = fourDecksInterior?.mechanisms?.trigger('rest-set', {
+      bayIndex: idx,
+      sleeping: false,
+    });
+    if (res?.state) S.onMechanismsChange?.({ ...res.state });
+    S.onRestStateChange?.(getRestStateSnapshot());
+
+    if (vrManager?.isPresenting?.()) {
+      const panelAnchor = radialBayPoint(bay, 12.6, 0.0, 1.45);
+      activeCabinStation = 'bed-rest';
+      activeCabinStationAnchorPos = new V(panelAnchor.x, panelAnchor.y, panelAnchor.z);
+      S.onStationInteract?.('bed-rest');
+    } else {
+      activeCabinStation = null;
+      S.onStationInteract?.(null);
+    }
+
+    S.onSfxCue?.('tap');
+    S.onInteractionFeedback?.({
+      id: suite.bedId,
+      text: `Descansando en ${suite.code} (${suite.name}). Pulsa [R] para siesta orbital o [E / WASD] para levantarte.`,
+      ts: Date.now(),
+    });
+    emitPointerLockState();
+    return true;
+  }
+
+  function triggerBedOrbitalNap() {
+    if (!astronautRestingInBed) return false;
+    astronautRestingInBed.sleeping = true;
+    astronautRestingInBed.napTimer = 1.6;
+    const res = fourDecksInterior?.mechanisms?.trigger('rest-set', {
+      bayIndex: astronautRestingInBed.bayIndex,
+      sleeping: true,
+    });
+    if (res?.state) S.onMechanismsChange?.({ ...res.state });
+    S.onRestStateChange?.(getRestStateSnapshot());
+    S.onSfxCue?.('tap');
+    S.onInteractionFeedback?.({
+      id: 'bed-rest-nap',
+      text: `Iniciando ciclo de descanso circadiano en ${astronautRestingInBed.suite.code}...`,
+      ts: Date.now(),
+    });
+    return true;
+  }
+
+  function standUpFromRestBed(silent = false) {
+    if (!astronautRestingInBed) return false;
+    const prevRest = astronautRestingInBed;
+    astronautRestingInBed = null;
+    astronautPos.copy(prevRest.standPos);
+    astronautVel.set(0, 0, 0);
+    fourDecksInterior?.clampAstronautPosition?.(astronautPos, undefined, undefined, null, {
+      lockedDeckId: 'deck-02',
+    });
+    microgravityController.setPosition(astronautPos);
+    if (!vrManager?.isPresenting?.()) {
+      astronautPitch = -0.04;
+      targetPitch = -0.04;
+    }
+    if (activeCabinStation === 'bed-rest') {
+      activeCabinStation = null;
+      activeCabinStationAnchorPos = null;
+      S.onStationInteract?.(null);
+    }
+    const res = fourDecksInterior?.mechanisms?.trigger('rest-set', {
+      bayIndex: null,
+      sleeping: false,
+    });
+    if (res?.state) S.onMechanismsChange?.({ ...res.state });
+    S.onRestStateChange?.(null);
+    if (!silent) {
+      S.onSfxCue?.('grab');
+      S.onInteractionFeedback?.({
+        id: 'bed-rest-stand',
+        text: `De pie junto a la litera de ${prevRest.suite.code}.`,
+        ts: Date.now(),
+      });
+    }
+    return true;
+  }
+
   function onGuidedStationInteraction(stationId) {
     if (!stationId) {
       // Al cerrar la estación activa, retirar la señalización persistente salvo si sigue pendiente un paso guiado distinto
@@ -4839,6 +5007,47 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       text = state.bioponicsActive ? 'Iluminación biopónica en crecimiento óptimo.' : 'Espectro biopónico en espera.';
     } else if (stId === 'galley' || stId === 'hydration') {
       text = state.hydrationDispensing ? 'Dispensador H₂O mineral activado.' : 'Dispensador H₂O detenido.';
+    } else if (stId === 'galley-synth') {
+      text = state.galleyCoffeeBrewing ? 'Sintetizador preparando café orbital y ración.' : 'Sintetizador culinario en espera.';
+    } else if (stId === 'lounge-audio-c02') {
+      text = state.loungeMusicActive ? 'Sonido ambiental circadiano activado en Lounge C02.' : 'Sonido del Lounge C02 silenciado.';
+    } else if (stId === 'med-bay-c02') {
+      text = state.medScanActive
+        ? `Chequeo biomédico completo (HAB-03): energía ${Math.round(state.crewRestPct ?? 82)}%.`
+        : 'Unidad biomédica en espera.';
+    } else if (stId === 'gym-c02') {
+      text = state.gymWorkoutActive ? 'Cicloergómetro Zero-G en marcha (180 W).' : 'Cicloergómetro detenido.';
+    } else if (stId === 'orrery-hab-02') {
+      text = state.orrerySpinFast ? 'Esfera armilar en modo órbita acelerada.' : 'Esfera armilar en giro nominal.';
+    } else if (stId === 'aurora-trophy-c02') {
+      text = state.auroraHoloActive ? 'Proyección holográfica Aurora-120 activa (HAB-01).' : 'Proyección holográfica atenuada.';
+    } else if (stId === 'spec-samples-c02') {
+      text = state.specSamplesActive ? 'Espectrómetro IR analizando muestras minerales.' : 'Vitrina de muestras en reposo.';
+    } else if (stId === 'eva-rack-c02') {
+      text = state.evaCheckActive ? 'Prueba de estanqueidad del casco EVA: sello 100% nominal.' : 'Banco de revisión EVA listo.';
+    } else if (stId.startsWith('door-')) {
+      const sDoor = C02_HAB_SUITES.find((s) => s.doorId === stId);
+      const isOpen = sDoor ? state.cabinDoorsOpen?.[sDoor.bayIndex] !== false : true;
+      text = sDoor ? `Puerta privada de ${sDoor.code} ${isOpen ? 'abierta' : 'cerrada'}.` : 'Puerta privada accionada.';
+      cue = 'door';
+    } else if (stId.startsWith('lamp-')) {
+      const sLamp = C02_HAB_SUITES.find((s) => s.lampId === stId);
+      const mode = sLamp ? state.cabinLamps?.[sLamp.bayIndex] || 'warm' : 'warm';
+      const label = mode === 'off' ? 'apagada' : mode === 'night' ? 'modo nocturno' : 'luz cálida';
+      text = sLamp ? `Lámpara de ${sLamp.code}: ${label}.` : `Lámpara: ${label}.`;
+    } else if (stId.startsWith('locker-')) {
+      const sLock = C02_HAB_SUITES.find((s) => s.lockerId === stId);
+      const isOpen = sLock ? Boolean(state.cabinLockersOpen?.[sLock.bayIndex]) : false;
+      text = sLock ? `Armario personal de ${sLock.code} ${isOpen ? 'abierto' : 'cerrado'}.` : 'Armario accionado.';
+      cue = 'door';
+    } else if (stId.startsWith('tablet-')) {
+      const sTab = C02_HAB_SUITES.find((s) => s.tabletId === stId);
+      const pg = sTab ? Number(state.cabinTabletPages?.[sTab.bayIndex] || 0) : 0;
+      text = sTab
+        ? pg % 2 === 0
+          ? `Bitácora ${sTab.code}: ambiente 21.4°C · energía ${Math.round(state.crewRestPct ?? 82)}%.`
+          : `Bitácora ${sTab.code}: ${sTab.occupant} (${sTab.specialtyTag}).`
+        : 'Bitácora de camarote actualizada.';
     } else if (stId === 'airlock') {
       text = state.airlockPressurized ? 'Esclusa EVA presurizada (101.3 kPa).' : 'Esclusa EVA despresurizada (modo vacío).';
       cue = 'door';
@@ -4926,6 +5135,20 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.onInteractionFeedback?.({ id: stId, text: msg, ts: Date.now() });
       if (isVrActive) vrConsoleOverlay.showDirectToast({ text: msg, anchorPos: anchorVec });
       return;
+    }
+
+    // 2b. Camas / Literas interactivas en Cubierta 02 (`bed-hab-01..06`)
+    if (stId.startsWith('bed-')) {
+      const bedSuite = C02_HAB_SUITES.find((s) => s.bedId === stId);
+      if (bedSuite) {
+        if (astronautRestingInBed && astronautRestingInBed.bayIndex === bedSuite.bayIndex) {
+          standUpFromRestBed();
+        } else {
+          restInCabinBed(bedSuite.bayIndex);
+        }
+        onGuidedStationInteraction(stId);
+        return;
+      }
     }
 
     // 3. Llamada exterior de ascensor o selector interior
@@ -5022,8 +5245,30 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return true;
     }
     if (action === 'close-console') {
-      closeActiveCabinStation();
+      if (activeCabinStation === 'bed-rest' || astronautRestingInBed) {
+        standUpFromRestBed();
+      } else {
+        closeActiveCabinStation();
+      }
       return true;
+    }
+    if (action === 'bed-rest-nap') {
+      return triggerBedOrbitalNap();
+    }
+    if (action === 'bed-rest-lamp') {
+      const idx = astronautRestingInBed?.bayIndex ?? 0;
+      const suite = C02_HAB_SUITES[idx];
+      if (!suite) return false;
+      const res = fourDecksInterior?.mechanisms?.trigger(suite.lampId);
+      if (res?.state) {
+        S.onMechanismsChange?.({ ...res.state });
+        S.onRestStateChange?.(getRestStateSnapshot());
+      }
+      S.onSfxCue?.('switch');
+      return true;
+    }
+    if (action === 'bed-rest-stand') {
+      return standUpFromRestBed();
     }
     if (action === 'stand-up-seat') {
       closeActiveCabinStation();
@@ -5660,10 +5905,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       startPhysicalElevatorRide(`deck-0${k}`);
       return;
     }
-    // Tecla contextual [E] para levantarse del sillón de mando, salir de consola activa, operar objeto apuntado o pasamanos
+    // Tecla contextual [R] para tomar siesta orbital estando acostado en litera de C02
+    if (k === 'r' && free && pv == 1 && !realTimeIntro && astronautRestingInBed) {
+      triggerBedOrbitalNap();
+      return;
+    }
+    // Tecla contextual [E] para levantarse del sillón de mando o litera, salir de consola activa, operar objeto apuntado o pasamanos
     if (k === 'e' && free && pv == 1 && !realTimeIntro) {
       if (astronautSeatedInBridge) {
         standUpFromBridgeSeat();
+        return;
+      }
+      if (astronautRestingInBed) {
+        standUpFromRestBed();
         return;
       }
       if (activeCabinStation) {
@@ -5678,13 +5932,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           standUpFromBridgeSeat();
           return;
         }
+        if (nearestCabinStation.station?.id === 'stand-up-bed') {
+          standUpFromRestBed();
+          return;
+        }
         triggerCabinStationInteraction(nearestCabinStation.station.id, nearestCabinStation.station);
         return;
       }
       toggleNearestGrabRail(2.4, true);
       return;
     }
-    // Tecla contextual [Escape] para salir de cualquier estación/consola activa
+    // Tecla contextual [Escape] para salir de cualquier estación/consola activa o levantarse
     if (k === 'escape' && free && pv == 1) {
       if (activeCabinStation) {
         activeCabinStation = null;
@@ -5694,6 +5952,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
       if (astronautSeatedInBridge) {
         standUpFromBridgeSeat();
+        return;
+      }
+      if (astronautRestingInBed) {
+        standUpFromRestBed();
         return;
       }
     }
@@ -5830,7 +6092,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           if (pv === 3 || exteriorCameraMode) {
             applyFreeHelmMode(!freeHelmMode);
           } else if (pv === 1 && !exteriorCameraMode) {
-            if (activeCabinStation) {
+            if (astronautRestingInBed) {
+              standUpFromRestBed();
+            } else if (activeCabinStation) {
               closeActiveCabinStation();
             } else if (astronautSeatedInBridge) {
               standUpFromBridgeSeat();
@@ -5872,9 +6136,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         ) {
           if (astronautSeatedInBridge && !activeCabinStation) {
             standUpFromBridgeSeat();
+          } else if (astronautRestingInBed && !activeCabinStation) {
+            standUpFromRestBed();
           } else if (!activeCabinStation && nearestCabinStation?.station) {
             if (nearestCabinStation.station.id === 'stand-up-seat') {
               standUpFromBridgeSeat();
+            } else if (nearestCabinStation.station.id === 'stand-up-bed') {
+              standUpFromRestBed();
             } else {
               triggerCabinStationInteraction(nearestCabinStation.station.id, nearestCabinStation.station);
             }
@@ -7074,6 +7342,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           if (astronautSeatedInBridge && hasManualThrustInput) {
             standUpFromBridgeSeat();
           }
+          if (astronautRestingInBed && hasManualThrustInput) {
+            standUpFromRestBed();
+          }
           const xrStageOffsetNow = xrActiveNow ? vrManager?.getViewerStageOffset?.() : null;
           if (
             astronautSeatedInBridge &&
@@ -7081,6 +7352,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             Math.hypot(xrStageOffsetNow.x, xrStageOffsetNow.z) > 0.55
           ) {
             standUpFromBridgeSeat();
+          }
+          if (
+            astronautRestingInBed &&
+            xrStageOffsetNow &&
+            Math.hypot(xrStageOffsetNow.x, xrStageOffsetNow.z) > 0.55
+          ) {
+            standUpFromRestBed();
           }
           if (
             microgravityController.isAnchored?.() &&
@@ -7096,9 +7374,44 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             });
           }
 
+          if (astronautRestingInBed?.sleeping) {
+            astronautRestingInBed.napTimer = Math.max(0, astronautRestingInBed.napTimer - dt);
+            ti += dt * 0.18;
+            if (astronautRestingInBed.napTimer <= 0) {
+              astronautRestingInBed.sleeping = false;
+              const napDoneRes = fourDecksInterior?.mechanisms?.trigger('rest-nap');
+              if (napDoneRes?.state) S.onMechanismsChange?.({ ...napDoneRes.state });
+              const finSetRes = fourDecksInterior?.mechanisms?.trigger('rest-set', {
+                bayIndex: astronautRestingInBed.bayIndex,
+                sleeping: false,
+              });
+              if (finSetRes?.state) S.onMechanismsChange?.({ ...finSetRes.state });
+              S.onRestStateChange?.(getRestStateSnapshot());
+              S.onSfxCue?.('pickup');
+              S.onInteractionFeedback?.({
+                id: 'bed-rest-nap',
+                text: `Siesta orbital completada en ${astronautRestingInBed.suite.code} (+4h). Energía restaurada al 100%.`,
+                ts: Date.now(),
+              });
+            }
+          }
+
           let mgResult;
           if (astronautSeatedInBridge) {
             astronautPos.copy(BRIDGE_COMMAND_SEAT_POS);
+            astronautVel.set(0, 0, 0);
+            microgravityController.setPosition(astronautPos);
+            mgResult = {
+              position: astronautPos,
+              velocity: astronautVel,
+              speed: 0,
+              mode: microgravityController.getMode(),
+              anchoredRailId: null,
+              isStabilizing: false,
+              isBoosting: false,
+            };
+          } else if (astronautRestingInBed) {
+            astronautPos.copy(astronautRestingInBed.restPos);
             astronautVel.set(0, 0, 0);
             microgravityController.setPosition(astronautPos);
             mgResult = {
@@ -7198,6 +7511,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             pv === 1 &&
             !exteriorCameraMode &&
             !astronautSeatedInBridge &&
+            !astronautRestingInBed &&
             !isElevatorTransitLocked &&
             !deckTransitState?.active &&
             vrManager?.syncRoomscaleAvatarStep
@@ -7248,7 +7562,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
           if (articulatedAstronaut) {
             let animState = ASTRONAUT_ANIMATION_STATES.IDLE_FLOAT;
-            if (astronautSeatedInBridge) {
+            if (astronautRestingInBed) {
+              animState = ASTRONAUT_ANIMATION_STATES.RESTING_BED;
+            } else if (astronautSeatedInBridge) {
               animState = ASTRONAUT_ANIMATION_STATES.SEATED_COMMAND;
             } else if (isElevatorTransitLocked) {
               animState = ASTRONAUT_ANIMATION_STATES.GRAB_RAIL;
@@ -7268,14 +7584,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               animState = ASTRONAUT_ANIMATION_STATES.HAND_PUSH;
             }
             articulatedAstronaut.root.position.copy(astronautPos);
-            articulatedAstronaut.root.rotation.y = astronautSeatedInBridge ? 0 : astronautBodyYaw;
+            articulatedAstronaut.root.rotation.y = astronautRestingInBed
+              ? astronautRestingInBed.bedYaw
+              : astronautSeatedInBridge
+                ? 0
+                : astronautBodyYaw;
             articulatedAstronaut.root.visible = !cabinFirstPerson || camViewBlend > 0.25 || pv === 3 || exteriorCameraMode;
             articulatedAstronaut.updateAnimation(dt, animState, {
               speed: currentSpeed,
-              bankRoll: astronautSeatedInBridge ? 0 : bankRoll,
+              bankRoll: astronautSeatedInBridge || astronautRestingInBed ? 0 : bankRoll,
               headPitch: astronautPitch,
               isElevatorRide: isElevatorTransitLocked,
               isSeatedCommand: astronautSeatedInBridge,
+              isRestingBed: Boolean(astronautRestingInBed),
             });
           }
 
@@ -7305,12 +7626,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           camViewBlend += (blendTarget - camViewBlend) * Math.min(1, dt * 10);
 
           const headBob =
-            !vrManager?.isPresenting?.() && isWalking
+            !vrManager?.isPresenting?.() && isWalking && !astronautRestingInBed
               ? Math.sin(clk.elapsedTime * (keys.shift ? 11.5 : 8.2)) * (0.009 * Math.min(1.2, currentSpeed / 1.4))
               : 0;
-          const eyeX = astronautPos.x;
-          const eyeY = astronautPos.y + SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + headBob + freeHelmBlend * 0.18;
-          const eyeZ = astronautPos.z + (-13.2 - astronautPos.z) * freeHelmBlend;
+          const restingEyeY = vrManager?.isPresenting?.() ? 0.88 : 0.74;
+          const eyeX = astronautRestingInBed ? astronautRestingInBed.pillowPos.x : astronautPos.x;
+          const eyeY = astronautRestingInBed
+            ? astronautRestingInBed.pillowPos.y + restingEyeY
+            : astronautPos.y + SHIP_WORLD_UNITS.ASTRONAUT_EYE_METERS + headBob + freeHelmBlend * 0.18;
+          const eyeZ = astronautRestingInBed
+            ? astronautRestingInBed.pillowPos.z
+            : astronautPos.z + (-13.2 - astronautPos.z) * freeHelmBlend;
 
           // Posición ideal en 3ª persona configurable en Ajustes (compacta dentro del ascensor)
           const inNarrowShaft = isElevatorTransitLocked || Math.hypot(astronautPos.x, astronautPos.z) < 1.5;
@@ -7361,8 +7687,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           _camTarget.copy(_camPivot)
             .addScaledVector(_camDir, smooth3PDist)
             .addScaledVector(_camSide, shoulderOffset * ratio3P);
+          const ignoreBedRestIdx = astronautRestingInBed ? astronautRestingInBed.bayIndex : -1;
           fourDecksInterior.clampAstronautPosition(_camTarget, 0.24, 0.24, elSys?.state || null, {
             lockedDeckId: currentLockedDeckId,
+            ignoreBedRestCollider: ignoreBedRestIdx,
           });
 
           const localCamPos = new V(
@@ -7374,9 +7702,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           if (camViewBlend < 0.08) {
             fourDecksInterior.clampAstronautPosition(localCamPos, 0.28, 0.26, elSys?.state || null, {
               lockedDeckId: currentLockedDeckId,
+              ignoreBedRestCollider: ignoreBedRestIdx,
             });
             // Escudo anti-clipping en 1ª persona contra consolas y mamparos cercanos (escritorio; en VR el HMD tiene tracking real)
-            if (!xrActiveFrame && _armRaycaster && activeCollisionMeshes?.length) {
+            if (!xrActiveFrame && !astronautRestingInBed && _armRaycaster && activeCollisionMeshes?.length) {
               _forwardEyeScratch.set(0, 0, -1).applyQuaternion(localLookQuat).normalize();
               _camClipOrigin.copy(localCamPos).applyQuaternion(q);
               _camClipDir.copy(_forwardEyeScratch).applyQuaternion(q).normalize();
@@ -7387,6 +7716,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                 localCamPos.addScaledVector(_forwardEyeScratch, -(0.18 - frontHits[0].distance));
                 fourDecksInterior.clampAstronautPosition(localCamPos, 0.28, 0.26, elSys?.state || null, {
                   lockedDeckId: currentLockedDeckId,
+                  ignoreBedRestCollider: ignoreBedRestIdx,
                 });
               }
             }
@@ -7497,6 +7827,36 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                 aiHoverPos: { x: 1.35, y: 5.05, z: -10.25 },
               },
               distance: 0.4,
+            };
+          } else if (astronautRestingInBed) {
+            const suiteNow = astronautRestingInBed.suite;
+            nearestCabinStation = {
+              station: {
+                id: 'stand-up-bed',
+                kind: 'direct',
+                deckId: 'deck-02',
+                label: `${suiteNow.bedLabel} · Descansando`,
+                title: `${suiteNow.code} · En reposo`,
+                actionLabel: 'Levantarse [E / WASD]',
+                directAction: true,
+                tag: `${suiteNow.code} · REPOSO`,
+                position: {
+                  x: astronautRestingInBed.restPos.x,
+                  y: 0.0,
+                  z: astronautRestingInBed.restPos.z,
+                },
+                consolePos: {
+                  x: astronautRestingInBed.restPos.x,
+                  y: 0.72,
+                  z: astronautRestingInBed.restPos.z,
+                },
+                aiHoverPos: {
+                  x: astronautRestingInBed.standPos.x,
+                  y: 1.65,
+                  z: astronautRestingInBed.standPos.z,
+                },
+              },
+              distance: 0.25,
             };
           } else {
             let rayMatched = null;
@@ -9475,9 +9835,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (astronautSeatedInBridge) {
         return standUpFromBridgeSeat();
       }
+      if (astronautRestingInBed) {
+        return standUpFromRestBed();
+      }
       if (!nearestCabinStation?.station) return false;
       if (nearestCabinStation.station.id === 'stand-up-seat') {
         return standUpFromBridgeSeat();
+      }
+      if (nearestCabinStation.station.id === 'stand-up-bed') {
+        return standUpFromRestBed();
       }
       triggerCabinStationInteraction(nearestCabinStation.station.id, nearestCabinStation.station);
       return true;
@@ -9485,6 +9851,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     standUpFromBridgeSeat,
     sitInCommandSeat: sitInBridgeCommandSeat,
     isAstronautSeated: () => astronautSeatedInBridge,
+    restInBed: restInCabinBed,
+    standUpFromRestBed,
+    triggerOrbitalNap: triggerBedOrbitalNap,
+    getRestState: getRestStateSnapshot,
+    isAstronautResting: () => Boolean(astronautRestingInBed),
     setRepairMissionStage: (stage) => {
       activeRepairStage = Math.max(0, Math.min(4, Number(stage) || 0));
       return activeRepairStage;
