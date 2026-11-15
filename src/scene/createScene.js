@@ -464,7 +464,7 @@ export function setupScene(el, S) {
   ct.dampingFactor = 0.07;
   ct.maxDistance = 3e5;
   ct.minDistance = 0.0005;
-  sc.add(new THREE.AmbientLight(0xffffff, 0.055));
+  sc.add(new THREE.AmbientLight(0xffffff, 0.13));
   sc.add(new THREE.PointLight(0xfff7ec, 1.85, 0, 0));
   const planetaryBeaconMap = createPlanetaryPointBeaconTexture(globalThis.document);
   const starBudgetTargets = [];
@@ -5622,7 +5622,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       observerHeliocentricAu = { ...earth.heliocentricAu };
     }
     if (free || spectator) {
-      if (isPhysicalObservationActive() && shipPoseKnown && sp.length() < 8000) {
+      if (isPhysicalObservationActive() && shipPoseKnown && sp.length() < 25000) {
         observerHeliocentricAu = {
           x: sp.x / PHYSICAL_CONSTANTS.AU_ASTRO_SCENE_UNITS,
           y: sp.y / PHYSICAL_CONSTANTS.AU_ASTRO_SCENE_UNITS,

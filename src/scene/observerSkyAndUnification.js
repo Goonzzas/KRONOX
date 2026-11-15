@@ -630,14 +630,19 @@ export function updateCrossScaleContinuity({
     !nearbyMapState &&
     (navigationContextId === 'stellar' || navigationContextId === 'regional');
 
+  const inSolarWorld =
+    navigationContextId === 'solar' && !contextOverview && !nearbyMapState;
+
   const solarRevealBlend =
     nearbyMapState || navigationContextId === 'milkyway'
       ? 0
       : inAtlasScale
         ? 1 - THREE.MathUtils.smoothstep(camDistToOrigin, 180, 2400)
-        : !contextOverview
-          ? 1 - THREE.MathUtils.smoothstep(camDistToOrigin, 450, 2800)
-          : 0;
+        : inSolarWorld
+          ? 1 - THREE.MathUtils.smoothstep(camDistToOrigin, 45000, 75000)
+          : !contextOverview
+            ? 1 - THREE.MathUtils.smoothstep(camDistToOrigin, 18000, 28000)
+            : 0;
 
   const showDetailedSolarSystem = solarRevealBlend > 0.02;
 

@@ -3750,6 +3750,11 @@ small {
   font-size: clamp(19px, 2.2vw, 24px);
 }
 
+.kronoxFilmSpeakerTag {
+  color: #bae6fd;
+  font-weight: 600;
+}
+
 @keyframes kronoxSubtitleFade {
   from { opacity: 0; transform: translate(-50%, 6px); }
   to { opacity: 1; transform: translate(-50%, 0); }

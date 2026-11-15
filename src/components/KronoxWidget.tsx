@@ -88,7 +88,7 @@ function resolveDialogueCategory(
   };
 }
 
-const splitIntervention = (text: string, maxLength = 104) => {
+const splitIntervention = (text: string, maxLength = 140) => {
   const pieces: string[] = [];
   let remaining = text.trim();
   while (remaining.length > maxLength) {
@@ -147,7 +147,6 @@ export default function KronoxWidget({
   const [inputQuery, setInputQuery] = useState('');
   const [textPaused, setTextPaused] = useState(false);
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
-  const [dismissedMessageId, setDismissedMessageId] = useState<string | null>(null);
   const [partIndex, setPartIndex] = useState(0);
   const [consultMode, setConsultMode] = useState<'chat' | 'voice'>('chat');
   const [listeningMic, setListeningMic] = useState(false);
@@ -182,7 +181,6 @@ export default function KronoxWidget({
     setTyped('');
     setTextPaused(false);
     setPartIndex(0);
-    setDismissedMessageId(null);
   }, [narrative?.id]);
 
   useEffect(() => {
@@ -380,7 +378,7 @@ export default function KronoxWidget({
     !dialogueHidden &&
     showSubtitles &&
     subtitlesEnabled &&
-    Boolean(narrative && narrative.id !== dismissedMessageId && (typed || intervention));
+    Boolean(narrative && (typed || intervention));
   const showFloatingMicPill = Boolean((listeningMic || processingMic || micStatus) && !panelOpen);
 
   if (!showCornerOrb && !showSubtitleBar && !panelOpen && !showFloatingMicPill) {
@@ -455,44 +453,18 @@ export default function KronoxWidget({
         </button>
       )}
 
-      {/* SUBTÍTULO DISCRETO DE VIDEOJUEGO INFERIOR CENTRADO (Compacto y no intrusivo) */}
+      {/* SUBTÍTULO CINEMATOGRÁFICO INFERIOR CENTRADO (Idéntico al formato de escenas) */}
       {showSubtitleBar && narrative && (
         <section
-          className={`kronoxCinematicSubtitleBar ${categoryMeta.accentClass} ${speaking ? 'is-speaking' : ''} ${subtitleSize === 'large' ? 'is-large' : ''}`}
+          className={`kronoxCinematicSubtitleBar kronoxFilmSubtitleDock ${speaking ? 'is-speaking' : ''} ${subtitleSize === 'large' ? 'is-large' : ''}`}
           role="status"
           aria-live="polite"
           aria-label={t('Subtítulo de KRONOX IA', language)}
         >
-          <div className="kronoxSubtitleCompactSpeaker">
-            <span className="kronoxSubtitleSpeakerTag">KRONOX IA</span>
-            {speaking && (
-              <span className="kronoxSubtitleVoiceWave" aria-hidden="true">
-                {Array.from({ length: 4 }, (_, idx) => (
-                  <i
-                    key={idx}
-                    style={
-                      {
-                        '--bar-level': audioLevels?.[idx * 6] ?? 0.35,
-                      } as React.CSSProperties
-                    }
-                  />
-                ))}
-              </span>
-            )}
-            <button
-              type="button"
-              className="kronoxSubtitleDismissBtn"
-              onClick={() => {
-                setDismissedMessageId(narrative.id);
-                onMessageComplete?.(narrative.id);
-              }}
-              title={t('Ocultar subtítulo', language)}
-              aria-label={t('Ocultar subtítulo', language)}
-            >
-              ×
-            </button>
-          </div>
-          <p className="kronoxSubtitleText">{typed || intervention}</p>
+          <p className="kronoxFilmSubtitleText">
+            <span className="kronoxFilmSpeakerTag">KRONOX IA:</span>{' '}
+            {typed || intervention}
+          </p>
         </section>
       )}
 
