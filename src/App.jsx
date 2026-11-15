@@ -29,6 +29,7 @@ import SpherexMissionSelector from './components/SpherexMissionSelector.jsx';
 import SpaceshipCockpit from './components/SpaceshipCockpit.jsx';
 import PauseMenu from './components/PauseMenu.jsx';
 import MainMenu from './components/MainMenu.jsx';
+import LocalizedDom from './components/LocalizedDom.jsx';
 import LoadingScreen from './components/LoadingScreen.jsx';
 import RepairMissionModal from './components/RepairMissionModal.jsx';
 import GameInventoryModal from './components/GameInventoryModal.jsx';
@@ -1582,14 +1583,14 @@ export default function App() {
           !realTimeIntroActiveRef.current
         )
           notify(
-            'Nos acercamos a ' +
-            n +
+            t('Nos acercamos a ', language) +
+            t(n, language) +
             '. ' +
-            INFO[n].intro +
+            t(INFO[n].intro, language) +
             ' ' +
-            INFO[n].temperatura +
-            ' Si quieres saber más, pulsa el botón.',
-            'Información del planeta',
+            t(INFO[n].temperatura, language) +
+            ' ' + t('Si quieres saber más, pulsa el botón.', language),
+            t('Información del planeta', language),
             n,
           );
       },
@@ -2583,7 +2584,9 @@ export default function App() {
       if (voiceRef.current) speak(msg, { interrupt: true });
     },
   };
-  return h(
+  return (
+    <LocalizedDom language={language}>
+      {h(
     'div',
     {
       className: `app ${deviceMode === 'mobile' ? 'mobileMode' : ''} ${fr ? 'flightMode' : ''} ${nearbyMapActive ? 'nearbyMapMode' : ''} ${realTimeIntroActive || navigation || guideState?.cinematic ? 'cinematicActive' : ''}`,
@@ -4495,14 +4498,19 @@ export default function App() {
       'div',
       { className: 'hud' },
       h('b', null, fv.toFixed(fv < 1 ? 2 : 0) + ' u/s'),
-      (fv >= 300 ? ' · ≈ ' + Math.round(fv * 1.156) + ' años luz/s' : '') +
-      ' · Exterior Nave 120m' +
-      (fo.au ? ' · piloto auto.' : ''),
+      t(
+        (fv >= 300 ? ' · ≈ ' + Math.round(fv * 1.156) + ' años luz/s' : '') +
+          ' · Exterior Nave 120m' +
+          (fo.au ? ' · piloto auto.' : ''),
+        language,
+      ),
     ),
     !initialLoadingComplete &&
     h(LoadingScreen, {
       isReady: sceneReady,
       onComplete: () => setInitialLoadingComplete(true),
     })
+      )}
+    </LocalizedDom>
   );
 }

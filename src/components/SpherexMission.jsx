@@ -2056,8 +2056,9 @@ export default function SpherexMission({
                 <div className="kronoxTimelineBar">
                   <div className="kronoxTimelineHeaderRow">
                     <span className="kronoxTimelineLabel">
-                      Archivo SPHEREx ({filteredRecordEntries.length} de {records.length} productos
-                      reales; {productStats.exposures} exposiciones):
+                      Archivo SPHEREx ({filteredRecordEntries.length}{' '}
+                      {language === 'en' ? 'of' : 'de'} {records.length} productos reales;{' '}
+                      {productStats.exposures} exposiciones):
                     </span>
                     <div className="kronoxArchiveFilters">
                       <label className="kronoxArchiveFilterLabel">
@@ -2067,7 +2068,7 @@ export default function SpherexMission({
                           onChange={(e) => setFilterYear(e.target.value)}
                           aria-label="Filtrar observaciones por año"
                         >
-                          <option value="ALL">Todos ({records.length})</option>
+                          <option value="ALL">{language === 'en' ? 'All' : 'Todos'} ({records.length})</option>
                           {availableYears.map((yr) => (
                             <option key={yr} value={yr}>
                               {yr}
@@ -2082,7 +2083,7 @@ export default function SpherexMission({
                           onChange={(e) => setFilterBand(e.target.value)}
                           aria-label="Filtrar observaciones por banda infrarroja"
                         >
-                          <option value="ALL">Todas ({availableBands.length})</option>
+                          <option value="ALL">{language === 'en' ? 'All' : 'Todas'} ({availableBands.length})</option>
                           {availableBands.map((bd) => (
                             <option key={bd} value={bd}>
                               {bd}
@@ -2307,7 +2308,7 @@ export default function SpherexMission({
                     <h3>¿Por qué parpadean o se mueven los objetos?</h3>
                     <p>
                       Las estrellas más cercanas al Sistema Solar, como la{' '}
-                      <strong>Estrella de Barnard</strong> o <strong>Epsilon Indi</strong>, poseen
+                      <strong>Estrella de Barnard</strong> {language === 'en' ? 'or' : 'o'} <strong>Epsilon Indi</strong>, poseen
                       una velocidad tangencial apreciable en la esfera celeste. Al comparar
                       observaciones separadas por uno o dos años, su posición cambia varios píxeles
                       respecto a las estrellas de fondo, que están a miles de años luz.
@@ -2320,7 +2321,7 @@ export default function SpherexMission({
                   <div className="kronoxNoteContent">
                     <h3>¿Qué revelan los cambios de brillo?</h3>
                     <p>
-                      Estrellas como <strong>RW Aurigae</strong> (T Tauri joven) o{' '}
+                      Estrellas como <strong>RW Aurigae</strong> (T Tauri joven) {language === 'en' ? 'or' : 'o'}{' '}
                       <strong>R Draconis</strong> (variable pulsante Mira) cambian de temperatura y
                       tamaño periódicamente. En el infrarrojo de SPHEREx, la cantidad de fotones
                       captados por el detector varía notablemente, permitiendo rastrear su ciclo de
