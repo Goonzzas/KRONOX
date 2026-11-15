@@ -137,6 +137,7 @@ export function buildKronoxInterior120M() {
   const rnd = createSeededRng(17);
   const pbrSuite = createShipPbrSuite(23);
   const disposableExtras = [];
+  const liveStaticDisplays = { hab: null, science: null, optical: null };
   const geoCache = new Map();
   const trackedGeos = new Set();
   const trackExtraGeo = (g) => {
@@ -673,6 +674,7 @@ export function buildKronoxInterior120M() {
     lastChimeAt: 0,
     lastEvent: 'Cabina estacionada en C01 Puente de Mando.',
   };
+  let lastCabScreenProgress = -1;
 
   function syncElevatorDoorsAndCabVisuals() {
     elevatorCab.position.y = elevatorState.cabY;
@@ -750,7 +752,12 @@ export function buildKronoxInterior120M() {
         'PULSA [E] O [1-4] PARA VIAJAR',
       ],
       '#38d8ff',
-      { currentFloor: floorIdx, targetFloor: targetIdx }
+      {
+        currentFloor: floorIdx,
+        targetFloor: targetIdx,
+        rideProgress: elevatorState.progress,
+        elevatorSpeed: elevatorState.speed,
+      }
     );
   }
 
@@ -845,6 +852,10 @@ export function buildKronoxInterior120M() {
         elevatorState.rideStartY + (targetDeck.elevationY - elevatorState.rideStartY) * eased;
       elevatorState.speed = safeDt > 1e-4 ? Math.abs(elevatorState.cabY - prevY) / safeDt : 0;
       elevatorState.progress = eased;
+      if (Math.abs(elevatorState.progress - lastCabScreenProgress) >= 0.04) {
+        redrawCabScreen();
+        lastCabScreenProgress = elevatorState.progress;
+      }
 
       const midDeck = resolveCurrentDeck({ y: elevatorState.cabY });
       if (midDeck.id !== elevatorState.currentDeckId) {
@@ -1017,6 +1028,7 @@ export function buildKronoxInterior120M() {
       ['SOPORTE VITAL: 21.0% O2 · 101.3 kPa', 'TEMPERATURA CABINA: 21.8 °C', 'CICLO CIRCADIANO: DÍA SOLAR', 'TELEMETRÍA MÉDICA: NOMINAL'],
       '#38d8ff'
     );
+    liveStaticDisplays.hab = habWallScr;
     trackExtraTex(habWallScr.tex);
     const habWallScrMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: habWallScr.tex }));
 
@@ -1392,10 +1404,12 @@ export function buildKronoxInterior120M() {
 
     // Pantallas diferenciadas para Laboratorio Espectral SPHEREx (Babor) vs Banco Óptico Láser (Estribor)
     const spherexLabTex = makeDiegeticScreenTexture('science', 'ESPECTROMETRÍA IR SPHEREx', ['BANDAS: 0.75 - 5.0 µm (102 CANALES)', 'CRIOSTATO DETECTOR: 42.0 K', 'CALIBRACIÓN FOTOMÉTRICA: ACTIVA'], '#ffbe55', { activeScan: true });
+    liveStaticDisplays.science = spherexLabTex;
     trackExtraTex(spherexLabTex.tex);
     const spherexLabMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: spherexLabTex.tex }));
 
     const opticsLabTex = makeDiegeticScreenTexture('sensor-calibration', 'METROLOGÍA LÁSER Y ÓPTICA', ['INTERFERÓMETRO HE-NE: EN FASE', 'ERROR FRENTE DE ONDA: < 12 nm', 'COLIMADOR PRIMARIO: ALINEADO'], '#45e8ff', { activeScan: false });
+    liveStaticDisplays.optical = opticsLabTex;
     trackExtraTex(opticsLabTex.tex);
     const opticsLabMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: opticsLabTex.tex }));
 
@@ -1599,6 +1613,7 @@ export function buildKronoxInterior120M() {
 
   // 4. Estaciones Interactivas Diegéticas con pantallas PBR específicas por rol + Banco Óptico animado
   const stationMeshes = [];
+  let lastStationScreenUpdateAt = -Infinity;
   let calibrationBenchParts = null;
 
   SHIP_INTERIOR_STATIONS.forEach((st) => {
@@ -1860,6 +1875,207 @@ export function buildKronoxInterior120M() {
     }
   }
 
+  function getStationScreenReadout(stationId, telemetry = {}, repairStage = 0) {
+    const target = telemetry.target || null;
+    const mechanisms = telemetry.mechanisms || {};
+    const records = Array.isArray(target?.localRecords) ? target.localRecords : [];
+    const bandCounts = records.reduce((counts, record) => {
+      const band = String(record?.band || '').match(/D[1-6]$/)?.[0];
+      if (band) counts[band] = (counts[band] || 0) + 1;
+      return counts;
+    }, {});
+    const targetName = String(target?.name || telemetry.destination || 'Sistema Solar');
+    const coords = target && Number.isFinite(target.ra) && Number.isFinite(target.dec)
+      ? `RA ${target.ra.toFixed(3)}° DEC ${target.dec.toFixed(3)}°`
+      : 'COORDENADAS: ICRS / J2000';
+    const bandLabel = String(target?.preferredBand || 'SIN OBJETIVO');
+    const recordLabel = `REGISTROS IRSA: ${records.length}`;
+    const reactor = mechanisms.reactorMode === 'overclock'
+      ? 'POTENCIA (SIM.)'
+      : mechanisms.reactorMode === 'quiet'
+        ? 'SILENCIOSO (SIM.)'
+        : 'NOMINAL (SIM.)';
+    const mode = String(telemetry.flightMode || 'ESPERA').toUpperCase();
+    const systemMeta = {
+      targetRa: target?.ra,
+      targetDec: target?.dec,
+      bandCounts,
+      aiSpeaking: Boolean(telemetry.aiSpeaking),
+      aiAudioLevel: telemetry.aiAudioLevel,
+      tick: telemetry.elapsedTime || 0,
+      observationRecords: records.slice(0, 96).map((record) => ({
+        band: record?.band,
+        date: Number(record?.date),
+        id: record?.id,
+      })),
+      reactorMode: mechanisms.reactorMode || 'nominal',
+      bioponicsActive: Boolean(mechanisms.bioponicsActive),
+      hydrationDispensing: Boolean(mechanisms.hydrationDispensing),
+      airlockPressurized: Boolean(mechanisms.airlockPressurized),
+      storageC02Open: Boolean(mechanisms.storageC02Open),
+      scannerCollected: Boolean(mechanisms.scannerCollected),
+      multitoolCollected: Boolean(mechanisms.multitoolCollected),
+      hangarCraneDeployed: Boolean(mechanisms.hangarCraneDeployed),
+      maintDrawerOpen: Boolean(mechanisms.maintDrawerOpen),
+      elevatorProgress: telemetry.elevator?.progress,
+    };
+
+    switch (stationId) {
+      case 'windows':
+        return {
+          title: 'OBSERVATORIO · CATÁLOGO ICRS',
+          lines: [
+            `${telemetry.hasActiveMission ? 'OBJETIVO' : 'REFERENCIA'}: ${targetName}`,
+            coords,
+            `ÉPOCA: Gaia DR3 ${target?.referenceEpoch || 2016}`,
+            `DISTANCIA: ${Number.isFinite(target?.distanceLy) ? `${target.distanceLy.toFixed(2)} a.l.` : 'N/D'}`,
+            target?.astrometry?.source || target?.identifier || 'SOLAR SYSTEM DATA',
+          ],
+          meta: systemMeta,
+        };
+      case 'nav':
+        return {
+          title: 'NAVEGACIÓN · TELEMETRÍA LOCAL',
+          lines: [
+            `MODO: ${mode}`,
+            `DESTINO: ${targetName}`,
+            `VELOCIDAD: ${(telemetry.speed || 0).toFixed(2)} u/s`,
+            `RUMBO: ${(telemetry.heading || 0).toFixed(0)}° · PITCH ${(telemetry.pitch || 0).toFixed(0)}°`,
+            `FASE: ${telemetry.navigationPhase || 'ESTACIONARIA'}`,
+          ],
+          meta: systemMeta,
+        };
+      case 'comms':
+        return {
+          title: 'ENLACE KRONOX · COMUNICACIONES',
+          lines: [
+            'NÚCLEO IA: ENLACE LOCAL',
+            `CANAL VOZ: ${telemetry.aiSpeaking ? 'TRANSMITIENDO' : 'EN ESPERA'}`,
+            `AUDIO: ${telemetry.voiceEnabled === false ? 'SILENCIADO' : 'HABILITADO'}`,
+            `OBJETIVO: ${targetName}`,
+            'ESTADO: TELEMETRÍA LOCAL',
+          ],
+          meta: systemMeta,
+        };
+      case 'missions':
+      case 'science':
+      case 'archive':
+        return {
+          title: stationId === 'archive' ? 'NASA/IPAC · ARCHIVO SPHEREx QR2' : 'SPHEREx · DATOS DE MISIÓN',
+          lines: [
+            `OBJETIVO: ${targetName}`,
+            coords,
+            `BANDA: ${bandLabel}`,
+            recordLabel,
+            records.length ? (records[0]?.id || target?.identifier || 'QR2 · LOCAL') : 'SIN PRODUCTOS LOCALES',
+          ],
+          meta: systemMeta,
+        };
+      case 'galley':
+        return {
+          title: 'HABITABILIDAD · C02',
+          lines: [
+            `TRIPULACIÓN: ${telemetry.crewCount ?? 1} · SIMULACIÓN`,
+            `HIDRATACIÓN: ${mechanisms.hydrationDispensing ? 'DISPENSANDO' : 'EN ESPERA'}`,
+            'COMEDOR: DISPONIBLE',
+            'ECLS: ESTADO NO INSTRUMENTADO',
+            'LECTURAS: SIMULACIÓN DE NAVE',
+          ],
+          meta: systemMeta,
+        };
+      case 'bioponics':
+        return {
+          title: 'SOPORTE VITAL · C02',
+          lines: [
+            `MÓDULO: ${mechanisms.bioponicsActive ? 'ACTIVO' : 'PAUSADO'}`,
+            'CICLO: BIOPÓNICA · SIMULACIÓN',
+            'O₂ / H₂O: SIN SENSOR FÍSICO',
+            `TRIPULACIÓN: ${telemetry.crewCount ?? 1}`,
+            'ESTADO: TELEMETRÍA LOCAL',
+          ],
+          meta: systemMeta,
+        };
+      case 'storage-c02':
+        return {
+          title: 'ALMACÉN EVA · INVENTARIO',
+          lines: [
+            `COMPARTIMENTO: ${mechanisms.storageC02Open ? 'ABIERTO' : 'CERRADO'}`,
+            `ESCÁNER EVA: ${mechanisms.scannerCollected ? 'ASIGNADO' : 'EN SOPORTE'}`,
+            `MULTIHERRAMIENTA: ${mechanisms.multitoolCollected ? 'ASIGNADA' : 'EN SOPORTE'}`,
+            'CUBIERTA: C02 · HABITACIONAL',
+            'ESTADO: INVENTARIO DE PARTIDA',
+          ],
+          meta: systemMeta,
+        };
+      case 'airlock':
+        return {
+          title: 'ESCLUSA EVA · C02',
+          lines: [
+            `CÁMARA: ${mechanisms.airlockPressurized ? 'PRESURIZADA' : 'CICLO DESPRESURIZADO'}`,
+            `INTERBLOQUEO: ${mechanisms.airlockPressurized ? 'BLOQUEADO' : 'CICLO EVA'}`,
+            'PRESIÓN: LECTURA NO DISPONIBLE',
+            'TRAJE EVA: REVISIÓN MANUAL',
+            'ESTADO: MECANISMO SIMULADO',
+          ],
+          meta: systemMeta,
+        };
+      case 'sensor-calibration':
+        return {
+          title: 'BANCO ÓPTICO · CALIBRACIÓN',
+          lines: [
+            `REPARACIÓN: ${Math.max(0, Math.min(4, repairStage))}/4 PASOS`,
+            `BANCO: ${repairStage >= 4 ? 'CALIBRADO' : 'EN PROCESO'}`,
+            'SPHEREx: 102 BANDAS (MISIÓN)',
+            'FUENTE: NASA · DOCUMENTACIÓN',
+            'PSF: MEDICIÓN NO DISPONIBLE',
+          ],
+          meta: { ...systemMeta, repairStage },
+        };
+      case 'engineering':
+        return {
+          title: 'REACTOR AURORA · INGENIERÍA',
+          lines: [
+            `MODO: ${reactor}`,
+            `VELOCIDAD NAVE: ${(telemetry.speed || 0).toFixed(2)} u/s`,
+            `NAVEGACIÓN: ${mode}`,
+            'FUSIÓN: MODELO NARRATIVO',
+            'POTENCIA: SIN SENSOR FÍSICO',
+          ],
+          meta: systemMeta,
+        };
+      case 'hangar':
+        return {
+          title: 'HANGAR · TRANSBORDADOR',
+          lines: [
+            `GRÚA: ${mechanisms.hangarCraneDeployed ? 'DESPLEGADA' : 'REPLEGADA'}`,
+            `COMPUERTA: ${mechanisms.hangarCraneDeployed ? 'CICLO ABIERTO' : 'CERRADA'}`,
+            'TRANSBORDADOR: ESTACIONADO',
+            `CUBIERTA: ${telemetry.deckCode || 'C04'}`,
+            'ESTADO: MECANISMO SIMULADO',
+          ],
+          meta: systemMeta,
+        };
+      case 'maintenance-c04':
+        return {
+          title: 'MANTENIMIENTO · C04',
+          lines: [
+            `CAJÓN: ${mechanisms.maintDrawerOpen ? 'ABIERTO' : 'CERRADO'}`,
+            `REPARACIÓN ÓPTICA: ${Math.max(0, Math.min(4, repairStage))}/4`,
+            `ESCÁNER EVA: ${mechanisms.scannerCollected ? 'ASIGNADO' : 'DISPONIBLE'}`,
+            `MULTIHERRAMIENTA: ${mechanisms.multitoolCollected ? 'ASIGNADA' : 'DISPONIBLE'}`,
+            'ESTADO: INVENTARIO DE PARTIDA',
+          ],
+          meta: systemMeta,
+        };
+      default:
+        return {
+          title: 'KRONOX · ESTADO DE ESTACIÓN',
+          lines: ['TELEMETRÍA LOCAL', `OBJETIVO: ${targetName}`, `MODO: ${mode}`],
+          meta: systemMeta,
+        };
+    }
+  }
+
   function updateStations(
     elapsedTime = 0,
     nearestId = null,
@@ -1867,8 +2083,29 @@ export function buildKronoxInterior120M() {
     focusedId = null,
     _freeHelm = false,
     _astronautPos = null,
-    repairStage = 0
+    repairStage = 0,
+    telemetry = null
   ) {
+    if (elapsedTime - lastStationScreenUpdateAt >= 0.8) {
+      lastStationScreenUpdateAt = elapsedTime;
+      const liveTelemetry = { ...(telemetry || {}), elapsedTime };
+      bridgeCabina1Result?.updateScreens?.(liveTelemetry);
+      stationMeshes.forEach((station) => {
+        const readout = getStationScreenReadout(station.id, liveTelemetry, repairStage);
+        station.updateScreen?.(readout.title, readout.lines, readout.meta);
+      });
+      const habitat = getStationScreenReadout('galley', liveTelemetry, repairStage);
+      liveStaticDisplays.hab?.redraw(
+        'MÓDULO HABITACIONAL · ESTADO',
+        habitat.lines,
+        '#38d8ff',
+        habitat.meta,
+      );
+      const science = getStationScreenReadout('science', liveTelemetry, repairStage);
+      liveStaticDisplays.science?.redraw(science.title, science.lines, '#ffbe55', science.meta);
+      const optical = getStationScreenReadout('sensor-calibration', liveTelemetry, repairStage);
+      liveStaticDisplays.optical?.redraw(optical.title, optical.lines, '#45e8ff', optical.meta);
+    }
     const pulse = 0.75 + 0.25 * Math.sin(elapsedTime * 3.2);
     for (let idx = 0; idx < stationMeshes.length; idx += 1) {
       const st = stationMeshes[idx];

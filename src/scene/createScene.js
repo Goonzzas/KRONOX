@@ -2105,6 +2105,38 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     navigationContext = scaleContext(id, target);
     S.onNavigationScale?.(navigationContext);
   }
+  function getCockpitDisplayTelemetry() {
+    const target =
+      SPHEREX_TARGETS.find((item) => item.key === (activeMissionKey || nav?.objectKey)) ||
+      SPHEREX_TARGETS.find((item) => item.key === 'barnard') ||
+      null;
+    const speed = vel.length();
+    const heading = (((vel.lengthSq() > 1e-8 ? Math.atan2(vel.x, -vel.z) * 57.2958 : -fy * 57.2958) % 360) + 360) % 360;
+    const pitch = vel.lengthSq() > 1e-8
+      ? Math.atan2(vel.y, Math.hypot(vel.x, vel.z)) * 57.2958
+      : -fp * 57.2958;
+    const mechanisms = fourDecksInterior?.mechanisms?.state || {};
+    const deck = resolveCurrentDeck(astronautPos);
+    return {
+      target,
+      hasActiveMission: Boolean(activeMissionKey || nav?.objectKey),
+      destination: nav?.name || arrivalTarget?.name || (activeMissionKey ? target?.name : 'Sistema Solar'),
+      navigationPhase: nav?.phase || (nav ? 'EN RUTA' : 'ESTACIONARIA'),
+      flightMode: nav ? 'AUTOPILOTO' : freeHelmMode ? 'TIMÓN LIBRE' : speed > 0.02 ? 'MANUAL' : 'ESPERA',
+      speed,
+      heading,
+      pitch,
+      aiSpeaking: aiSpeakingState,
+      aiAudioLevel: aiAudioLevelState,
+      voiceEnabled: Boolean(S.voiceEnabled?.()),
+      elapsedTime: clk.elapsedTime,
+      crewCount: 1,
+      deckCode: deck?.code || 'C01',
+      elevator: fourDecksInterior?.elevatorSystem?.state || null,
+      mechanisms: { ...mechanisms },
+      repairStage: activeRepairStage,
+    };
+  }
   function setNavigationScale(id) {
     if (realTimeIntro || launchSequence || launchCameraBlend || cabinReentryBlend || nav)
       return false;
@@ -6446,6 +6478,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           false,
           astronautPos,
           activeRepairStage,
+          getCockpitDisplayTelemetry(),
         );
 
         if (u >= 1) {
@@ -7208,6 +7241,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             freeHelmMode,
             astronautPos,
             activeRepairStage,
+            getCockpitDisplayTelemetry(),
           );
 
           if (guidedTourState?.step === 'free') {

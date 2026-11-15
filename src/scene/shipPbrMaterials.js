@@ -1059,46 +1059,61 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
       g.moveTo(wx + 8, cy); g.lineTo(wx + ww - 8, cy);
       g.moveTo(cx, wy + 8); g.lineTo(cx, wy + wh - 24);
       g.stroke();
-      // Trajectory transfer arc
+      // Coordenada real del objetivo ICRS; si no hay objetivo, el centro marca el campo actual.
+      const ra = Number(meta?.targetRa);
+      const dec = Number(meta?.targetDec);
+      const markerX = Number.isFinite(ra) ? wx + 10 + (ra / 360) * (ww - 20) : cx;
+      const markerY = Number.isFinite(dec) ? wy + 12 + ((90 - dec) / 180) * (wh - 30) : cy;
       g.strokeStyle = '#ffcf5c';
       g.lineWidth = 2;
-      g.beginPath();
-      g.arc(cx - 10, cy + 8, 38, -Math.PI * 0.75, -Math.PI * 0.12);
-      g.stroke();
+      g.beginPath(); g.arc(markerX, markerY, 7, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.moveTo(markerX - 12, markerY); g.lineTo(markerX + 12, markerY); g.stroke();
+      g.beginPath(); g.moveTo(markerX, markerY - 12); g.lineTo(markerX, markerY + 12); g.stroke();
       g.fillStyle = curAccent;
-      g.beginPath(); g.arc(cx, cy, 5, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#ffcf5c';
-      g.beginPath(); g.arc(cx + 32, cy - 20, 4.5, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(cx, cy, 2.5, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#93c5fd';
       g.font = 'bold 11px monospace';
       g.fillText('ICRS J2000 · NAV', wx + 12, wy + wh - 8);
     } else if (stationId === 'science') {
-      // SPHEREx 0.75-5.0 um spectrophotometric curve + absorption bands
+      // Cobertura registrada por banda en los productos SPHEREx QR2 cargados para el objetivo.
       g.fillStyle = 'rgba(8, 28, 48, 0.85)';
       g.fillRect(wx + 8, wy + 10, ww - 16, wh - 42);
-      g.strokeStyle = curAccent;
-      g.lineWidth = 2.2;
-      g.beginPath();
-      const pts = [0.62, 0.74, 0.68, 0.32, 0.78, 0.85, 0.41, 0.89, 0.76, 0.64];
-      pts.forEach((v, idx) => {
-        const px = wx + 14 + (idx / (pts.length - 1)) * (ww - 28);
-        const py = wy + wh - 40 - v * (wh - 64);
-        if (idx === 0) g.moveTo(px, py);
-        else g.lineTo(px, py);
-      });
-      g.stroke();
-      // Spectral band markers (H2O 3.05um, CO2 4.27um)
-      g.strokeStyle = 'rgba(251, 191, 36, 0.55)';
-      g.lineWidth = 1;
-      [0.33, 0.66].forEach((f) => {
-        const bx = wx + 14 + f * (ww - 28);
-        g.beginPath(); g.moveTo(bx, wy + 14); g.lineTo(bx, wy + wh - 34); g.stroke();
+      const counts = meta?.bandCounts || {};
+      const maxCount = Math.max(1, ...Object.values(counts).map((value) => Number(value) || 0));
+      ['D1', 'D2', 'D3', 'D4', 'D5', 'D6'].forEach((band, idx) => {
+        const count = Number(counts[band]) || 0;
+        const barX = wx + 13 + idx * 20;
+        const barH = count ? Math.max(4, (count / maxCount) * (wh - 68)) : 2;
+        g.fillStyle = count ? curAccent : 'rgba(125, 211, 252, 0.18)';
+        g.fillRect(barX, wy + wh - 34 - barH, 13, barH);
+        g.fillStyle = '#bae6fd';
+        g.font = 'bold 8px monospace';
+        g.fillText(String(idx + 1), barX + 4, wy + wh - 20);
       });
       g.fillStyle = '#fde68a';
-      g.font = 'bold 11px monospace';
-      g.fillText('0.75–5.0μm LVF', wx + 12, wy + wh - 10);
+      g.font = 'bold 10px monospace';
+      g.fillText('QR2 · D1–D6', wx + 12, wy + wh - 8);
+    } else if (stationId === 'archive') {
+      const records = Array.isArray(meta?.observationRecords) ? meta.observationRecords : [];
+      const dates = records.map((record) => record.date).filter(Number.isFinite);
+      const minDate = dates.length ? Math.min(...dates) : 0;
+      const maxDate = dates.length ? Math.max(...dates) : 1;
+      const bandY = { D1: 20, D2: 42, D3: 64, D4: 86, D5: 108, D6: 130 };
+      g.strokeStyle = 'rgba(125,211,252,.3)';
+      g.beginPath(); g.moveTo(wx + 12, wy + 16); g.lineTo(wx + 12, wy + wh - 26); g.stroke();
+      records.forEach((record) => {
+        if (!Number.isFinite(record.date)) return;
+        const band = String(record.band || '').match(/D[1-6]$/)?.[0];
+        const x = wx + 14 + ((record.date - minDate) / Math.max(1, maxDate - minDate)) * (ww - 30);
+        const y = wy + 16 + (bandY[band] || 70);
+        g.fillStyle = band ? curAccent : '#bfe8ff';
+        g.fillRect(x, y, 3, 3);
+      });
+      g.fillStyle = '#fde68a';
+      g.font = 'bold 10px monospace';
+      g.fillText(`${records.length} PRODUCTOS QR2`, wx + 12, wy + wh - 8);
     } else if (stationId === 'optical-bench' || stationId === 'sensor-calibration') {
-      // Hartmann-Shack interferometric PSF wavefront rings
+      // Retícula de calibración; el avance reportado viene del estado real del minijuego.
       const cx = wx + ww / 2;
       const cy = wy + wh / 2 - 8;
       [14, 28, 42, 54].forEach((r, idx) => {
@@ -1110,43 +1125,56 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
       g.beginPath(); g.arc(cx, cy, 4, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#bae6fd';
       g.font = 'bold 11px monospace';
-      g.fillText('PSF λ/40 · COLIMADO', wx + 10, wy + wh - 10);
-    } else if (stationId === 'engineering') {
-      const lvl = Number(meta?.powerRatio ?? 0.78);
-      g.fillStyle = '#0c2238';
-      g.fillRect(wx + 16, wy + 18, 28, wh - 46);
-      g.fillStyle = lvl > 0.88 ? '#ff7b47' : curAccent;
-      const barH = Math.round((wh - 50) * Math.max(0.15, Math.min(1, lvl)));
-      g.fillRect(wx + 18, wy + wh - 30 - barH, 24, barH);
-      // Tokamak magnetic torus cross-section
-      g.strokeStyle = '#fb923c';
+      const stage = Math.max(0, Math.min(4, Number(meta?.repairStage) || 0));
+      g.fillText(`REPARACIÓN ${stage}/4`, wx + 10, wy + wh - 10);
+    } else if (stationId === 'comms') {
+      const speaking = Boolean(meta?.aiSpeaking);
+      const level = speaking ? Math.max(0.12, Math.min(1, Number(meta?.aiAudioLevel) || 0.2)) : 0;
+      g.strokeStyle = speaking ? curAccent : 'rgba(125, 211, 252, 0.32)';
       g.lineWidth = 2.5;
       g.beginPath();
-      g.arc(wx + 98, wy + 76, 32, 0, Math.PI * 2);
+      for (let x = 0; x <= ww - 16; x += 6) {
+        const py = wy + wh * 0.5 + Math.sin(x * 0.12 + (meta?.tick || 0) * 3) * (speaking ? 30 * level : 2);
+        if (x === 0) g.moveTo(wx + 8 + x, py); else g.lineTo(wx + 8 + x, py);
+      }
       g.stroke();
-      g.strokeStyle = '#38bdf8';
-      g.lineWidth = 1.5;
-      g.beginPath();
-      g.arc(wx + 98, wy + 76, 18, 0, Math.PI * 2);
-      g.stroke();
-      g.fillStyle = '#fed7aa';
+      g.fillStyle = '#bae6fd';
+      g.font = 'bold 10px monospace';
+      g.fillText(speaking ? 'KRONOX · TX' : 'KRONOX · RX', wx + 42, wy + wh - 10);
+    } else if (stationId === 'engineering') {
+      const mode = meta?.reactorMode || 'nominal';
+      const modeLabel = mode === 'overclock' ? 'POTENCIA' : mode === 'quiet' ? 'SILENCIO' : 'NOMINAL';
+      const color = mode === 'overclock' ? '#fb923c' : mode === 'quiet' ? '#a78bfa' : '#58e2a4';
+      g.strokeStyle = color;
+      g.lineWidth = 3;
+      g.beginPath(); g.arc(wx + ww / 2, wy + 68, 35, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.arc(wx + ww / 2, wy + 68, 22, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = color;
+      g.beginPath(); g.arc(wx + ww / 2, wy + 68, 7, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#dffcf0';
       g.font = 'bold 11px monospace';
-      g.fillText('D-He³ TOKAMAK', wx + 54, wy + wh - 10);
+      g.fillText(`MODO ${modeLabel}`, wx + 38, wy + wh - 10);
     } else if (stationId === 'bioponics' || stationId === 'galley') {
-      // Closed-loop ECLS & Hydroponic PAR / O2-H2O balance
-      g.fillStyle = '#38bdf8';
-      g.fillRect(wx + 18, wy + 38, 26, wh - 62);
-      g.fillStyle = '#34d399';
-      g.fillRect(wx + 60, wy + 24, 26, wh - 48);
-      g.fillStyle = '#a78bfa';
-      g.fillRect(wx + 102, wy + 46, 26, wh - 70);
-      g.fillStyle = '#dff5ff';
-      g.font = 'bold 11px monospace';
-      g.fillText('H2O', wx + 19, wy + 22);
-      g.fillText('O2', wx + 65, wy + 18);
-      g.fillText('PAR', wx + 103, wy + 30);
-      g.fillStyle = '#6ee7b7';
-      g.fillText('ECLS 99.4% NOM', wx + 18, wy + wh - 8);
+      const states = [
+        ['BIO', Boolean(meta?.bioponicsActive)],
+        ['H2O', Boolean(meta?.hydrationDispensing)],
+        ['ECLS', null],
+      ];
+      states.forEach(([label, active], idx) => {
+        const x = wx + 12 + idx * 44;
+        const statusColor = active === null ? '#fbbf24' : active ? '#34d399' : '#64748b';
+        g.fillStyle = 'rgba(8, 28, 48, 0.85)';
+        g.fillRect(x, wy + 28, 37, 76);
+        g.strokeStyle = statusColor;
+        g.lineWidth = 2;
+        g.strokeRect(x, wy + 28, 37, 76);
+        g.fillStyle = statusColor;
+        g.beginPath(); g.arc(x + 18, wy + 54, 7, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#dff5ff'; g.font = 'bold 9px monospace';
+        g.fillText(label, x + 4, wy + 92);
+        g.fillStyle = '#b9d3e4'; g.font = '8px monospace';
+        g.fillText(active === null ? 'N/D' : active ? 'ON' : 'OFF', x + 6, wy + wh - 8);
+      });
     } else if (stationId === 'elevator') {
       // Deck tower diagram C01..C04 with active & target deck indicators
       const deckNames = ['PUENTE', 'HABIT.', 'LABOR.', 'HANGAR'];
@@ -1163,6 +1191,30 @@ export function makeDiegeticScreenTexture(stationId, title, lines, accentHex = '
         g.font = 'bold 16px monospace';
         g.fillText(`${lbl} ${deckNames[idx]}`, wx + 20, fy + 21);
       });
+      g.fillStyle = 'rgba(8,28,48,.92)';
+      g.fillRect(wx + 12, wy + 165, 124, 13);
+      g.fillStyle = curAccent;
+      g.fillRect(wx + 12, wy + 165, 124 * Math.max(0, Math.min(1, Number(meta?.rideProgress) || 0)), 13);
+      g.fillStyle = '#bfe8ff';
+      g.font = 'bold 9px monospace';
+      g.fillText(`V ${Number(meta?.elevatorSpeed || 0).toFixed(2)} m/s`, wx + 12, wy + 160);
+    } else if (['hab-cabin', 'storage-c02', 'airlock', 'hangar', 'maintenance-c04'].includes(stationId)) {
+      const stateText = stationId === 'hab-cabin'
+        ? 'TRIPULACIÓN ACTIVA'
+        : stationId === 'storage-c02'
+          ? meta?.storageC02Open ? 'COMPARTIMENTO ABIERTO' : 'COMPARTIMENTO CERRADO'
+          : stationId === 'airlock'
+            ? meta?.airlockPressurized ? 'ESCLUSA PRESURIZADA' : 'CICLO EVA'
+            : stationId === 'hangar'
+              ? meta?.hangarCraneDeployed ? 'GRÚA DESPLEGADA' : 'GRÚA REPLEGADA'
+              : `REPARACIÓN ${Math.max(0, Math.min(4, Number(meta?.repairStage) || 0))}/4`;
+      const stateColor = stationId === 'airlock' && !meta?.airlockPressurized ? '#fbbf24' : curAccent;
+      g.strokeStyle = 'rgba(180,230,255,.22)';
+      g.beginPath(); g.arc(wx + ww / 2, wy + 70, 44, 0, Math.PI * 2); g.stroke();
+      g.strokeStyle = stateColor; g.lineWidth = 3;
+      g.beginPath(); g.arc(wx + ww / 2, wy + 70, 32, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (stationId === 'maintenance-c04' ? Math.max(0, Math.min(1, Number(meta?.repairStage) / 4 || 0)) : 0.72)); g.stroke();
+      g.fillStyle = '#dff4ff'; g.font = 'bold 9px monospace';
+      g.fillText(stateText.slice(0, 22), wx + 10, wy + wh - 8);
     } else {
       g.strokeStyle = curAccent;
       g.lineWidth = 2.5;

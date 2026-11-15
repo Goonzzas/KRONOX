@@ -1072,6 +1072,7 @@ export function buildBridgeCabina13D({
       missions: missionsScreenMesh,
     },
     setAnisotropy: (v) => localSuite.setAnisotropy(v),
+    updateScreens: (telemetry) => localSuite.updateScreens?.(telemetry),
     dispose: () => {
       extraDisposables.forEach((d) => d?.dispose?.());
       localSuite.dispose();
