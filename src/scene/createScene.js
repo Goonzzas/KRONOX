@@ -5012,17 +5012,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           -(navStation.consolePos.x - navStation.position.x),
           -(navStation.consolePos.z - navStation.position.z),
         ),
-        // A short scenic loop makes the bridge and the target console legible
-        // on camera instead of moving the astronaut only a few centimetres.
-        waypoints: [
-          new V(-2.5, DECK_SPAWNS['deck-01'].pos.y, -8.0),
-          new V(-3.2, DECK_SPAWNS['deck-01'].pos.y, -3.6),
-          new V(3.0, DECK_SPAWNS['deck-01'].pos.y, -3.6),
-          new V(2.4, DECK_SPAWNS['deck-01'].pos.y, -8.0),
-          navStation.position.clone(),
-        ],
+        // Keep the opening bridge walk direct so it finishes close to KRONOX's
+        // narration instead of leaving a long silent gap before the next beat.
+        waypoints: [navStation.position.clone()],
         index: 0,
-        speed: 1.35,
+        speed: 1.7,
       };
     } else {
       guidedTourState.walkFinished = true;
