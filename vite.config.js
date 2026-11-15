@@ -103,6 +103,10 @@ export default defineConfig(({ mode }) => {
     'KRONOX_FISH_AUDIO_KEY',
     'FISH_AUDIO_MODEL',
     'GEMINI_API_KEY',
+    'GEMINI_API_KEY_1',
+    'GEMINI_API_KEY_2',
+    'GEMINI_API_KEY_3',
+    'GEMINI_API_KEY_4',
     'GEMINI_API_KEY_SECONDARY',
     'GEMINI_API_KEY_TERTIARY',
     'GEMINI_API_KEY_QUATERNARY',
@@ -110,6 +114,14 @@ export default defineConfig(({ mode }) => {
     'GEMINI_API_KEY_6',
     'GEMINI_API_KEY_7',
     'GEMINI_API_KEY_8',
+    'GEMINI_API_KEY1',
+    'GEMINI_API_KEY2',
+    'GEMINI_API_KEY3',
+    'GEMINI_API_KEY4',
+    'GEMINI_API_KEY5',
+    'GEMINI_API_KEY6',
+    'GEMINI_API_KEY7',
+    'GEMINI_API_KEY8',
   ]) {
     if (fishEnv[key] && !process.env[key]) process.env[key] = fishEnv[key];
   }

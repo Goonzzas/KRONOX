@@ -332,6 +332,7 @@ export default function App() {
     voiceStartWatchdogRef = useRef(null),
     voiceMaxWatchdogRef = useRef(null),
     voiceAudioBlobCacheRef = useRef(new Map()),
+    officialVoiceUnavailableRef = useRef(false),
     interactionFeedbackTimerRef = useRef(null),
     prevSettingMgRef = useRef(null),
     gameSettingsRef = useRef(gameSettings),
@@ -834,6 +835,7 @@ export default function App() {
         fallbackUrl,
         cacheKey,
         text: textSegment,
+        allowBrowserFallback: Boolean(options.allowBrowserFallback),
         retriedFetch: false,
       };
     };
@@ -855,9 +857,12 @@ export default function App() {
       let fallbackStarted = false;
       const handleSegmentFailure = async (entry) => {
         if (fallbackStarted || token !== voiceToken.current) return;
-        // Reintentar únicamente con los endpoints de la voz oficial (Charon) y almacenar en caché Blob.
-        // JAMÁS cambiar automáticamente a window.speechSynthesis ni a otra voz robótica.
-        if (!entry.retriedFetch && typeof fetch === 'function') {
+        // Reintentar primero con los endpoints oficiales (Charon) y almacenar en caché Blob.
+        if (
+          !entry.retriedFetch &&
+          !officialVoiceUnavailableRef.current &&
+          typeof fetch === 'function'
+        ) {
           entry.retriedFetch = true;
           const candidateUrls = [
             entry.audioUrl,
@@ -903,6 +908,7 @@ export default function App() {
                     fallbackUrl: entry.fallbackUrl,
                     cacheKey: entry.cacheKey,
                     text: entry.text,
+                    allowBrowserFallback: entry.allowBrowserFallback,
                     retriedFetch: true,
                   });
                   return;
@@ -913,6 +919,52 @@ export default function App() {
             }
           }
         }
+        // The Novatos tour is a narrated cinematic. Keep it audible when both
+        // hosted TTS providers fail (for example, Gemini quota 429): use the
+        // browser's installed Spanish voice instead of subtitles-only playback.
+        if (
+          entry.allowBrowserFallback &&
+          typeof window !== 'undefined' &&
+          window.speechSynthesis &&
+          window.SpeechSynthesisUtterance
+        ) {
+          const utterance = new window.SpeechSynthesisUtterance(entry.text);
+          const availableVoices = window.speechSynthesis.getVoices?.() || [];
+          const spanishVoice = availableVoices.find((item) => /^es([_-]|$)/i.test(item.lang || ''));
+          if (spanishVoice) utterance.voice = spanishVoice;
+          utterance.lang = voiceAccentRef.current || 'es-US';
+          utterance.rate = 0.94;
+          utterance.pitch = 0.9;
+          utterance.volume = Math.max(
+            0,
+            Math.min(
+              1,
+              Number(gameSettingsRef.current?.masterVolume ?? 0.85) *
+                Number(gameSettingsRef.current?.voiceVolume ?? 0.95),
+            ),
+          );
+          const finishBrowserSegment = () => {
+            browserVoiceActiveRef.current = false;
+            speakingRef.current = false;
+            setSpeaking(false);
+            playNext();
+          };
+          utterance.onend = finishBrowserSegment;
+          utterance.onerror = finishBrowserSegment;
+          voiceAudio.current = null;
+          browserVoiceActiveRef.current = true;
+          speakingRef.current = true;
+          setSpeaking(true);
+          try {
+            window.speechSynthesis.speak(utterance);
+            return;
+          } catch {
+            browserVoiceActiveRef.current = false;
+            speakingRef.current = false;
+            setSpeaking(false);
+          }
+        }
+        officialVoiceUnavailableRef.current = true;
         fallbackStarted = true;
         voiceAudio.current = null;
         speakingRef.current = false;
@@ -949,6 +1001,7 @@ export default function App() {
           .play()
           .then(() => {
             if (token === voiceToken.current) {
+              officialVoiceUnavailableRef.current = false;
               voiceBlockedByAutoplayRef.current = false;
               setVoiceBlockedByAutoplay(false);
               setVoiceFailed(false);
@@ -998,12 +1051,14 @@ export default function App() {
         fallbackUrl,
         cacheKey,
         text,
+        allowBrowserFallback: Boolean(options.allowBrowserFallback),
         retriedFetch: false,
       });
     };
     playNext();
   },
     handleRetryVoice = () => {
+      officialVoiceUnavailableRef.current = false;
       setVoiceFailed(false);
       setVoiceError('');
       voiceRef.current = true;

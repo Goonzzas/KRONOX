@@ -14,14 +14,14 @@ import path from 'path';
 
 const ENV_KEY_NAMES = [
   'GEMINI_API_KEY',
+  ...Array.from({ length: 8 }, (_, index) => `GEMINI_API_KEY_${index + 1}`),
+  ...Array.from({ length: 8 }, (_, index) => `GEMINI_API_KEY${index + 1}`),
   'GEMINI_API_KEY_SECONDARY',
   'GEMINI_API_KEY_TERTIARY',
   'GEMINI_API_KEY_QUATERNARY',
-  'GEMINI_API_KEY_5',
-  'GEMINI_API_KEY_6',
-  'GEMINI_API_KEY_7',
-  'GEMINI_API_KEY_8',
 ];
+const isGeminiApiKeyName = (name) =>
+  /^GEMINI_API_KEY(?:_\d+|\d+|_(?:SECONDARY|TERTIARY|QUATERNARY))?$/i.test(name);
 
 const ALLOWED_ACTION_TYPES = new Set([
   'ENTER_COCKPIT',
@@ -85,7 +85,7 @@ function ensureLocalEnvLoaded() {
         if (eqIdx <= 0) continue;
         const key = line.slice(0, eqIdx).trim();
         const val = line.slice(eqIdx + 1).trim().replace(/^['"]|['"]$/g, '');
-        if (ENV_KEY_NAMES.includes(key) && val && !process.env[key]) {
+        if (isGeminiApiKeyName(key) && val && !process.env[key]) {
           process.env[key] = val;
         }
       }
@@ -97,8 +97,19 @@ function ensureLocalEnvLoaded() {
 
 export function getConfiguredGeminiKeys() {
   ensureLocalEnvLoaded();
+  const orderedNames = [
+    'GEMINI_API_KEY',
+    ...Array.from({ length: 8 }, (_, index) => `GEMINI_API_KEY_${index + 1}`),
+    ...Array.from({ length: 8 }, (_, index) => `GEMINI_API_KEY${index + 1}`),
+    'GEMINI_API_KEY_SECONDARY',
+    'GEMINI_API_KEY_TERTIARY',
+    'GEMINI_API_KEY_QUATERNARY',
+    ...Object.keys(process.env)
+      .filter(isGeminiApiKeyName)
+      .sort((a, b) => a.localeCompare(b)),
+  ];
   const keys = [];
-  for (const envName of ENV_KEY_NAMES) {
+  for (const envName of [...new Set(orderedNames)]) {
     const val = (process.env[envName] || '').trim();
     if (val && !keys.includes(val)) {
       keys.push(val);

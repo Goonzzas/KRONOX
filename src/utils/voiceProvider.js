@@ -14,6 +14,14 @@ export const PREDEFINED_VOICE_CLIPS = Object.freeze({
     '/audio/voice/intro_03_conocimiento.wav',
   'Para descifrar esa historia escrita entre anillos planetarios y brazos galácticos, la humanidad puso en marcha el Proyecto Horizonte.':
     '/audio/voice/intro_04_galaxia.wav',
+  'Destino fijado: Estrella de Barnard. Iniciamos el salto hacia Estrella de Barnard; al llegar, el astronauta volverá a la cabina y caminará al laboratorio SPHEREx para comenzar la misión.':
+    '/audio/voice/novice_destination.wav',
+  'Ya llegamos a Estrella de Barnard. El astronauta volverá a bordo y cruzará hasta el Ascensor Central para bajar a la cubierta científica, donde iniciaremos la misión SPHEREx.':
+    '/audio/voice/novice_arrival_elevator.wav',
+  'Llegamos a la Cubierta Científica. El astronauta caminará hasta la consola SPHEREx para iniciar el análisis de Estrella de Barnard.':
+    '/audio/voice/novice_science_walk.wav',
+  'Cubierta 03 — Ingeniería y Laboratorio SPHEREx. Aquí operan el reactor principal, tanques criogénicos, estación SPHEREx y el banco óptico de calibración.':
+    '/audio/voice/novice_science_station.wav',
   'El Proyecto Horizonte construyó KRONOX Aurora-120: un crucero científico modular de ciento veinte metros diseñado para explorar desde la órbita hasta el espacio profundo.':
     '/audio/voice/intro_05_nave.wav',
   'En el puente de mando coordinamos la astrometría J2000, el rumbo interestelar y los sistemas de observación de toda la expedición.':
