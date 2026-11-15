@@ -1341,6 +1341,7 @@ export default function App() {
         return message.id;
       },
       onGuideObjective: (objective) => setGuideObjective(objective || ''),
+      onGuidedMissionSelectorOpen: () => setMissionSelectorOpen(true),
       onGuideStateChange: (st) => {
         setGuideState(st || { active: false, step: 'free', completed: false });
         if (!st?.active || st?.step === 'free') setGuideObjective('');
@@ -1900,6 +1901,7 @@ export default function App() {
       clearMissionOffer();
       setMissionArrivalName(target.name);
       setMissionTargetKey(target.key);
+      A().onGuidedDestinationSelected?.(target);
       const destMsg =
         'Destino fijado: ' +
         t(target.name, language) +
@@ -1919,6 +1921,7 @@ export default function App() {
           setMissionTraveling(false);
           setMissionArrival(true);
           A().setArrivedTarget?.(target);
+          A().onGuidedDestinationArrival?.(target);
           const arrivalNotice =
             'Hemos llegado a ' +
             t(target.name, language) +
@@ -1956,6 +1959,8 @@ export default function App() {
         language,
       );
       const instruction = t(`Tu misión: ${objective}`, language);
+      missionGuideSyncRef.current = null;
+      A().onGuidedMissionStarted?.();
       setMissionLaunchTarget(null);
       if (!api.current?.getVrState?.()?.presenting) {
         setMissionOpen(true);
@@ -3429,7 +3434,7 @@ export default function App() {
             (previousGuideSync.stage !== nextGuideSync.stage ||
               previousGuideSync.findingCount < nextGuideSync.findingCount)
           ) {
-            A().onGuidedScienceAction?.();
+            A().onGuidedScienceAction?.(nextGuideSync);
           }
           try {
             const prog = {
@@ -3957,7 +3962,10 @@ export default function App() {
           setPv(1);
           setMissionTargetKey('barnard');
           setAiAvatarState('Bienvenida');
-        }, { guidedTour: explorationMode === 'novice' });
+        }, {
+          guidedTour: explorationMode === 'novice',
+          guidedTourMode: explorationMode === 'novice' ? 'mission-walkthrough' : null,
+        });
       },
       onContinueExpedition: (saveData) => {
         ensureGameplayAudioStarted();
