@@ -3008,6 +3008,38 @@ small {
   animation: kronoxFadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.kronox-language-picker {
+  position: absolute;
+  top: clamp(14px, 2.4vh, 28px);
+  left: clamp(14px, 2.4vw, 30px);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  border-radius: 8px;
+  background: rgba(3, 12, 27, 0.82);
+  color: #bae6fd;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+}
+
+.kronox-language-picker select {
+  min-width: 102px;
+  padding: 5px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 5px;
+  background: #0b1728;
+  color: #f1f5f9;
+  font: inherit;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
 .kronox-menu-atmosphere {
   position: absolute;
   inset: 0;

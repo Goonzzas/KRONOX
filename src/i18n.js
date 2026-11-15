@@ -3,33 +3,9 @@ export const LANGUAGES = [
   { code: 'en', name: 'English', native: 'English', voice: 'en-US' },
 ];
 
-const spanishCountries = new Set([
-  'AR',
-  'BO',
-  'CL',
-  'CO',
-  'CR',
-  'CU',
-  'DO',
-  'EC',
-  'ES',
-  'GQ',
-  'GT',
-  'HN',
-  'MX',
-  'NI',
-  'PA',
-  'PE',
-  'PR',
-  'PY',
-  'SV',
-  'UY',
-  'VE',
-]);
-
 export function hasSavedLanguage() {
   try {
-    return LANGUAGES.some((language) => language.code === localStorage.getItem('kronox-language'));
+    return LANGUAGES.some((language) => language.code === localStorage.getItem('kronox-language-v2'));
   } catch {
     return false;
   }
@@ -37,22 +13,10 @@ export function hasSavedLanguage() {
 
 export function detectLanguage() {
   try {
-    const stored = localStorage.getItem('kronox-language');
+    const stored = localStorage.getItem('kronox-language-v2');
     if (LANGUAGES.some((language) => language.code === stored)) return stored;
   } catch {
-    /* Use the browser's locale when storage is unavailable. */
-  }
-  const locales = navigator.languages?.length
-    ? navigator.languages
-    : [navigator.language || 'en-US'];
-  for (const locale of locales) {
-    try {
-      const parsed = new Intl.Locale(locale);
-      if (parsed.language === 'es' || spanishCountries.has(parsed.region)) return 'es';
-      if (parsed.language === 'en') return 'en';
-    } catch {
-      /* Ignore malformed browser locale values. */
-    }
+    /* Fall back to the default language when storage is unavailable. */
   }
   return 'en';
 }
@@ -560,9 +524,105 @@ const en = {
   'Píxeles de referencia': 'Reference pixels',
   'Correlación r': 'Correlation r',
   'Incertidumbre de escala': 'Scale uncertainty',
+
+  // Main title screen and exploration setup.
+  'Menú principal de KRONOX': 'KRONOX main menu',
+  'PROYECTO HORIZONTE · CRUCERO CIENTÍFICO 120 M': 'HORIZON PROJECT · 120 M SCIENCE CRUISER',
+  'Exploración espacial en microgravedad e instrumentación espectroscópica en el Sistema Solar.': 'Space exploration in microgravity and spectroscopic instrumentation across the Solar System.',
+  'Opciones principales': 'Main options',
+  'NUEVA PARTIDA': 'NEW GAME',
+  'Elige entre exploración libre o un recorrido guiado': 'Choose between free exploration and a guided tour',
+  CONTINUAR: 'CONTINUE',
+  'HISTORIA DE LA MISIÓN': 'MISSION STORY',
+  'Lore del Proyecto Horizonte, NASA SPHEREx y objetivos del cosmos': 'The Horizon Project, NASA SPHEREx, and the mission’s goals',
+  CONFIGURACIÓN: 'SETTINGS',
+  'Audio, subtítulos, gráficos, controles y experiencia': 'Audio, subtitles, graphics, controls, and experience',
+  CRÉDITOS: 'CREDITS',
+  'Proyecto Horizonte, NASA SPHEREx e inspiración científica': 'Horizon Project, NASA SPHEREx, and scientific inspiration',
+  'ÉPOCA DE REFERENCIA J2000.0': 'REFERENCE EPOCH J2000.0',
+  'ESCENARIO 3D EN TIEMPO REAL': 'REAL-TIME 3D ENVIRONMENT',
+  'UNIDAD KRONOX-1 · 120 METROS': 'KRONOX-1 UNIT · 120 METERS',
+  'ÓRBITA TERRESTRE · LISTO PARA ABORDAJE': 'EARTH ORBIT · READY FOR BOARDING',
+  'NUEVA EXPEDICIÓN · ELIGE TU RUTA': 'NEW EXPEDITION · CHOOSE YOUR ROUTE',
+  '¿Cómo quieres explorar KRONOX?': 'How would you like to explore KRONOX?',
+  'La introducción cinematográfica presenta la misión. Después, elige cuánta guía quieres durante la exploración.': 'The cinematic introduction presents the mission. Then choose how much guidance you want during the expedition.',
+  '← Volver': '← Back',
+  'Elegir modo de exploración': 'Choose an exploration mode',
+  'Tipos de exploración': 'Exploration modes',
+  'EXPLORACIÓN PARA EXPERTOS': 'EXPERT EXPLORATION',
+  'Tras la introducción, toma el mando sin tutorial. Las cuatro cubiertas, los sistemas y los destinos quedan disponibles para explorar por tu cuenta.': 'After the introduction, take command without a tutorial. All four decks, systems, and destinations are yours to explore freely.',
+  'RUTA LIBRE · ELEGIR EXPLORACIÓN ↗': 'FREE ROAM · START EXPLORING ↗',
+  'EXPLORACIÓN PARA NOVATOS': 'BEGINNER EXPLORATION',
+  'Mira una cinemática: el astronauta recorrerá la nave por sí solo, KRONOX explicará cada parada y verás una misión completa sin abrir menús ni usar controles.': 'Watch a cinematic tour: the astronaut will walk through the ship while KRONOX explains each stop and guides you through a full mission. No menus or controls needed.',
+  'CINEMÁTICA GUIADA · VER RECORRIDO ↗': 'GUIDED CINEMATIC · START THE TOUR ↗',
+  'Aviso de partida guardada': 'Saved game notice',
+  'DIARIO DE EXPEDICIÓN': 'EXPEDITION LOG',
+  'No hay partida guardada': 'No saved game',
+  Volver: 'Back',
+  'Todavía no existe un punto de guardado registrado en esta sesión o navegador. Puedes iniciar una nueva partida para embarcar en KRONOX desde la secuencia de introducción o guardar en cualquier momento desde el menú de pausa (`ESC`).': 'There is no save point in this session or browser yet. Start a new game to board KRONOX from the opening sequence, or save at any time from the pause menu (`ESC`).',
+  'Indicativo de comandante (opcional)': 'Commander callsign (optional)',
+  'Ej. Comandante Horizonte': 'e.g. Commander Horizon',
+  'Volver al menú': 'Back to menu',
+  'Iniciar Nueva Partida →': 'Start New Game →',
+  'Configuración del juego': 'Game settings',
+  'SISTEMAS Y PREFERENCIAS': 'SYSTEMS AND PREFERENCES',
+  Configuración: 'Settings',
+  '← Volver al Menú': '← Back to Menu',
+  'Audio y Mezcla': 'Audio & Mix',
+  Subtítulos: 'Subtitles',
+  'Gráficos y Escala': 'Graphics & Scale',
+  Controles: 'Controls',
+  'Calidad de renderizado WebGL': 'WebGL rendering quality',
+  'Equilibra densidad estelar, iluminación PBR y fluidez de cuadros.': 'Balance star density, PBR lighting, and frame rate.',
+  'PROYECTO HORIZONTE · CIENCIA ABIERTA': 'HORIZON PROJECT · OPEN SCIENCE',
+  'Créditos y Agradecimientos': 'Credits & Acknowledgments',
+  'Proyecto Horizonte & KRONOX': 'Horizon Project & KRONOX',
+  'Experiencia interactiva de exploración espacial en 3D diseñada para unir navegación en tiempo real, física de microgravedad y análisis de datos astronómicos reales sin barreras.': 'An interactive 3D space exploration experience combining real-time navigation, microgravity physics, and accessible analysis of real astronomical data.',
+  'Inspiración Científica: Misión NASA SPHEREx': 'Scientific Inspiration: NASA SPHEREx Mission',
+  'Inspirado en el observatorio espacial infrarrojo SPHEREx (0.75–5.0 μm) de NASA y Caltech, dedicado al cartografiado espectral de todo el cielo para estudiar la historia cósmica, hielos interestelares y poblaciones estelares.': 'Inspired by NASA and Caltech’s SPHEREx infrared space observatory (0.75–5.0 μm), which maps the entire sky spectrally to study cosmic history, interstellar ice, and stellar populations.',
+  'Archivos y Catálogos Astronómicos': 'Astronomical Archives & Catalogs',
+  'Trazabilidad observacional basada en documentación de NASA/IPAC IRSA, astrometría de ESA Gaia DR3, fotometría infrarroja de CatWISE2020 y morfología galáctica Spitzer GLIMPSE.': 'Observational traceability based on NASA/IPAC IRSA documentation, ESA Gaia DR3 astrometry, CatWISE2020 infrared photometry, and Spitzer GLIMPSE galactic morphology.',
+  'Arquitectura Técnica y Audio': 'Technical Architecture & Audio',
+  'Motor 3D en tiempo real sobre Three.js y React, doblaje neuronal e inteligencia auxiliar KRONOX IA con síntesis vocal híbrida y paisaje sonoro original.': 'Real-time 3D powered by Three.js and React, neural voice acting, KRONOX AI, hybrid voice synthesis, and an original soundscape.',
+
+  // Opening and guided-tour voice lines: English mode must synthesize English speech.
+  'Durante siglos, contemplamos el universo desde un pequeño mundo azul, buscando respuestas sobre nuestro origen entre millones de estrellas.': 'For centuries, we have gazed at the universe from a small blue world, searching among millions of stars for answers about our origins.',
+  'Misiones reales como el telescopio espacial NASA SPHEREx abrieron una nueva ventana infrarroja al cosmos, revelando luces ocultas al ojo humano.': 'Real missions such as NASA’s SPHEREx space telescope have opened a new infrared window onto the cosmos, revealing light invisible to the human eye.',
+  'En cada longitud de onda infrarroja detectamos hielos primordiales, viveros de estrellas y enigmas gravitacionales más allá de los gigantes gaseosos.': 'Across the infrared spectrum, we detect primordial ice, stellar nurseries, and gravitational mysteries beyond the gas giants.',
+  'Para descifrar esa historia escrita entre anillos planetarios y brazos galácticos, la humanidad puso en marcha el Proyecto Horizonte.': 'To decipher that story, written among planetary rings and galactic arms, humanity launched the Horizon Project.',
+  'El Proyecto Horizonte construyó KRONOX Aurora-120: un crucero científico modular de ciento veinte metros diseñado para explorar desde la órbita hasta el espacio profundo.': 'The Horizon Project built KRONOX Aurora-120: a 120-meter modular science cruiser designed to explore from orbit to deep space.',
+  'En el puente de mando coordinamos la astrometría J2000, el rumbo interestelar y los sistemas de observación de toda la expedición.': 'From the command bridge, we coordinate J2000 astrometry, our interstellar course, and observation systems across the expedition.',
+  'La cubierta científica combina espectroscopía inspirada en NASA SPHEREx y bancos ópticos de calibración para investigar cada archivo real sin conjeturas.': 'The science deck combines spectroscopy inspired by NASA SPHEREx with optical calibration benches to investigate real archives without guesswork.',
+  'El módulo de habitabilidad mantiene a la tripulación en microgravedad durante largas travesías con soporte vital de ciclo cerrado y gravedad anular asistida.': 'The habitation module sustains the crew in microgravity on long voyages with closed-loop life support and assisted ring gravity.',
+  'En ingeniería, el reactor toroidal de fusión y sus propulsores magnetoplasmadinámicos suministran la energía limpia que impulsa a KRONOX entre mundos.': 'In engineering, a toroidal fusion reactor and magnetoplasmadynamic thrusters provide the clean power that carries KRONOX between worlds.',
+  'Soy KRONOX IA, tu inteligencia de a bordo. El puente es tuyo, comandante: calibra tus instrumentos y comienza tu primera investigación espacial.': 'I am KRONOX AI, your onboard intelligence. The bridge is yours, Commander. Calibrate your instruments and begin your first space investigation.',
+  'Destino fijado: Estrella de Barnard. Iniciamos el salto hacia Estrella de Barnard; al llegar, el astronauta volverá a la cabina y caminará al laboratorio SPHEREx para comenzar la misión.': 'Destination locked: Barnard’s Star. We are beginning the jump. Upon arrival, the astronaut will return to the cabin and walk to the SPHEREx lab to begin the mission.',
+  'Ya llegamos a Estrella de Barnard. El astronauta volverá a bordo y cruzará hasta el Ascensor Central para bajar a la cubierta científica, donde iniciaremos la misión SPHEREx.': 'We have arrived at Barnard’s Star. The astronaut will come aboard and cross to the central elevator, then descend to the science deck to begin the SPHEREx mission.',
+  'Llegamos a la Cubierta Científica. El astronauta caminará hasta la consola SPHEREx para iniciar el análisis de Estrella de Barnard.': 'We have reached the science deck. The astronaut will walk to the SPHEREx console to begin analyzing Barnard’s Star.',
+  'Cubierta 03 — Ingeniería y Laboratorio SPHEREx. Aquí operan el reactor principal, tanques criogénicos, estación SPHEREx y el banco óptico de calibración.': 'Deck 03 — Engineering and SPHEREx Laboratory. The main reactor, cryogenic tanks, SPHEREx station, and optical calibration bench are all here.',
+  'Bienvenido al puente de mando de KRONOX-1, Comandante. Todos los sistemas orbitales están en línea. Pulsa WASD o la tecla E para levantarte del sillón de mando.': 'Welcome to the KRONOX-1 command bridge, Commander. All orbital systems are online. Press WASD or E to stand up from the command chair.',
+  'Mueve el ratón para orientar tu mirada y desplázate con WASD. Pulsa la tecla V o los botones superiores para alternar entre primera y tercera persona, o ESC para liberar el cursor.': 'Move the mouse to look around and use WASD to move. Press V or the top buttons to switch between first and third person, or press ESC to release the cursor.',
+  'Dirígete a la consola de control y navegación iluminada en el Puente de Mando y pulsa E para inspeccionar los sistemas de vuelo.': 'Go to the illuminated control and navigation console on the Command Bridge, then press E to inspect the flight systems.',
+  'Desde el puente puedes activar el Telescopio Óptico con la tecla T, inspeccionar el casco en vista Exterior o elegir un planeta o estrella para viajar hacia él.': 'From the bridge, press T to activate the optical telescope, inspect the hull in Exterior view, or choose a planet or star to travel to.',
+  'Excelente. Ahora entra al Ascensor Central en el eje del puente y pulsa el botón C02 o la tecla 2 para descender a la Cubierta Habitacional e inspeccionar los camarotes y el comedor.': 'Excellent. Now enter the central elevator in the bridge’s central passage and press C02 or 2 to descend to the Habitation Deck and inspect the cabins and dining area.',
+  'Módulo habitacional verificado. Usa el Ascensor Central y pulsa la tecla 3 para bajar a la Cubierta Científica e Ingeniería, donde operan el reactor Tokamak y el Laboratorio SPHEREx.': 'Habitation module verified. Use the central elevator and press 3 to reach the Science and Engineering Deck, home to the Tokamak reactor and SPHEREx Laboratory.',
+  'Has llegado a la Cubierta Científica. Sigue la baliza luminosa hacia babor hasta el Laboratorio Espectral SPHEREx y pulsa E para iniciar el análisis.': 'You have reached the Science Deck. Follow the illuminated beacon to port to the SPHEREx Spectral Laboratory, then press E to begin the analysis.',
+  'Entrenamiento operativo completado. Tienes acceso libre a las cuatro cubiertas, a la Bitácora Personal y a la navegación interestelar.': 'Operational training complete. You now have free access to all four decks, your personal logbook, and interstellar navigation.',
+  'Entrenamiento operativo completado. Tienes acceso libre a las cuatro cubiertas, al Mapa Galáctico y a la navegación interestelar.': 'Operational training complete. You now have free access to all four decks, the Galactic Map, and interstellar navigation.',
+  'Análisis científico registrado. En el nivel inferior cuentas además con la Bodega y el Hangar. Pulsa la tecla J para abrir tu Bitácora y Manual Operativo y completar el entrenamiento.': 'Scientific analysis recorded. The lower deck also contains the Cargo Bay and Hangar. Press J to open your Logbook and Operations Manual and complete your training.',
+  'Análisis científico registrado. Abre «Mapa · Guía» en la barra superior para revisar el Manual operativo y completar el tutorial.': 'Scientific analysis recorded. Open “Map · Guide” in the top bar to review the Operations Manual and complete the tutorial.',
+  'Cubierta 01 — Puente de Mando. Desde este recinto en punta de flecha gobiernas los ventanales panorámicos, el chevrón de navegación y la mesa holográfica.': 'Deck 01 — Command Bridge. From this arrowhead-shaped room, you command the panoramic windows, navigation chevron, and holographic table.',
+  'Cubierta 02 — Habitacional y Esclusa EVA. Ocho camarotes radiales, comedor circular alrededor del núcleo central y esclusa de proa.': 'Deck 02 — Habitation and EVA Airlock. Eight radial cabins, a circular dining area around the central core, and a forward airlock.',
+  'Cubierta 04 — Bodega y Hangar. Contenedores modulares presurizados y el transbordador auxiliar de servicio en proa.': 'Deck 04 — Cargo Bay and Hangar. Modular pressurized containers and the auxiliary service shuttle are located forward.',
+  'Soy KRONOX IA. Todos los sistemas científicos y de navegación están en línea bajo tu mando.': 'I am KRONOX AI. All scientific and navigation systems are online and under your command.',
+  'Hola Comandante, sistemas en línea.': 'Hello, Commander. All systems are online.',
+  'Voz de KRONOX IA reactivada.': 'KRONOX AI voice re-enabled.',
+  'Hola, soy Kronox, tu guía astral. Mi voz está activada.': 'Hello, I am Kronox, your astral guide. My voice is on.',
+  'Soy KRONOX IA. Todos los sistemas científicos y de navegación están en línea bajo tu mando.': 'I am KRONOX AI. All scientific and navigation systems are online and under your command.',
 };
 
 const patterns = [
+  [/^Retomar en (.+) · (.+)$/, 'Resume at $1 · $2'],
   [/^Información sobre (.+)$/, 'Information about $1'],
   [/^ · ≈ (.+) años luz\/s$/, ' · ≈ $1 light-years/s'],
   [

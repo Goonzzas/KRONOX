@@ -1,9 +1,28 @@
 import React from 'react';
 import { GEMINI_TTS_VOICES } from '../utils/voiceProvider.js';
+import { t } from '../i18n.js';
 
-function VolumeSliderRow({ id, label, description, value, onChange }) {
+function localize(node, language) {
+  if (language !== 'en' || !React.isValidElement(node)) return node;
+  const props = { ...node.props };
+  for (const key of ['aria-label', 'title', 'placeholder', 'alt']) {
+    if (typeof props[key] === 'string') props[key] = t(props[key], language);
+  }
+  if (props.children !== undefined) {
+    props.children = React.Children.map(props.children, (child) => {
+      if (typeof child === 'string') {
+        const trimmed = child.trim();
+        return trimmed ? child.replace(trimmed, t(trimmed, language)) : child;
+      }
+      return localize(child, language);
+    });
+  }
+  return React.cloneElement(node, props);
+}
+
+function VolumeSliderRow({ id, label, description, value, onChange, language = 'en' }) {
   const pct = Math.round((Number.isFinite(value) ? value : 0.8) * 100);
-  return (
+  return localize((
     <div className="kronox-setting-row">
       <div>
         <label htmlFor={id}>
@@ -25,7 +44,7 @@ function VolumeSliderRow({ id, label, description, value, onChange }) {
         <span className="kronox-volume-pct">{pct}%</span>
       </div>
     </div>
-  );
+  ), language);
 }
 
 /**
@@ -38,15 +57,17 @@ export function AudioSettingsGroup({
   voiceMuted = false,
   onToggleVoiceMute,
   onTestVoice,
+  language = 'en',
 }) {
   const canonicalVoice = GEMINI_TTS_VOICES[0] || {
     id: 'Charon',
     label: 'Charon · Voz Oficial KRONOX IA',
   };
-  return (
+  return localize((
     <div className="kronox-settings-group">
       <VolumeSliderRow
         id="kronox-vol-master"
+        language={language}
         label="Volumen general"
         description="Controla la salida maestra de música, ambiente de cabina, efectos y voz."
         value={gameSettings.masterVolume ?? 0.85}
@@ -54,6 +75,7 @@ export function AudioSettingsGroup({
       />
       <VolumeSliderRow
         id="kronox-vol-music"
+        language={language}
         label="Volumen de música"
         description="Ajusta la banda sonora cinematográfica inicial y la música espacial adaptativa."
         value={gameSettings.musicVolume ?? 0.38}
@@ -61,6 +83,7 @@ export function AudioSettingsGroup({
       />
       <VolumeSliderRow
         id="kronox-vol-sfx"
+        language={language}
         label="Volumen de efectos y ambiente"
         description="Controla el zumbido del reactor, ambiente por cubiertas, ascensor, propulsores y respuesta táctil."
         value={gameSettings.sfxVolume ?? 0.65}
@@ -68,6 +91,7 @@ export function AudioSettingsGroup({
       />
       <VolumeSliderRow
         id="kronox-vol-voice"
+        language={language}
         label="Volumen de voz"
         description="Ajusta el nivel de locución de KRONOX IA durante la introducción y la misión."
         value={gameSettings.voiceVolume ?? 0.95}
@@ -110,13 +134,13 @@ export function AudioSettingsGroup({
         </div>
       </div>
     </div>
-  );
+  ), language);
 }
 
-export function SubtitleSettingsGroup({ gameSettings = {}, onUpdateSetting }) {
+export function SubtitleSettingsGroup({ gameSettings = {}, onUpdateSetting, language = 'en' }) {
   const enabled = gameSettings.showSubtitles !== false;
   const size = gameSettings.subtitleSize || 'normal';
-  return (
+  return localize((
     <div className="kronox-settings-group">
       <div className="kronox-setting-row">
         <div>
@@ -147,6 +171,6 @@ export function SubtitleSettingsGroup({ gameSettings = {}, onUpdateSetting }) {
         </select>
       </div>
     </div>
-  );
+  ), language);
 }
 

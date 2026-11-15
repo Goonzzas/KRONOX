@@ -49,7 +49,7 @@ import {
   loadRecordedAiMessages,
   recordAiMessageToLog,
 } from './utils/astronautInventory.js';
-import { detectLanguage, hasSavedLanguage, LANGUAGES, t, voiceLanguage } from './i18n.js';
+import { detectLanguage, LANGUAGES, t, voiceLanguage } from './i18n.js';
 import { createGameAudio } from './utils/gameAudio.js';
 import { createCinematicSoundtrack } from './utils/cinematicSoundtrack.js';
 import { installFloatingOverlayLayout } from './utils/floatingOverlayLayout.js';
@@ -382,8 +382,6 @@ export default function App() {
       };
     }
   }, [setActiveCockpitStation]);
-  const languageManuallyChosen = useRef(false);
-  const languagePreferenceExists = useRef(hasSavedLanguage());
   const missionGuideSyncRef = useRef(null);
   const noviceCinematicActiveRef = useRef(false);
   const guide = useSyncExternalStore(
@@ -443,7 +441,7 @@ export default function App() {
           ? 'Explore the solar system in 3D with Kronox, your astral guide.'
           : 'Explora el sistema solar en 3D con Kronox, tu guía astral.';
     try {
-      localStorage.setItem('kronox-language', language);
+      localStorage.setItem('kronox-language-v2', language);
     } catch {
       /* Preference stays in memory. */
     }
@@ -580,31 +578,14 @@ export default function App() {
     };
   }, []);
   const chooseLanguage = (nextLanguage) => {
-    languageManuallyChosen.current = true;
     setLanguageState(nextLanguage);
     setVoiceAccent(voiceLanguage(nextLanguage, 'es-US'));
     try {
-      localStorage.setItem('kronox-language', nextLanguage);
+      localStorage.setItem('kronox-language-v2', nextLanguage);
     } catch {
       /* Preference stays in memory. */
     }
   };
-  useEffect(() => {
-    if (languagePreferenceExists.current) return;
-    fetch('/api/locale')
-      .then((response) => (response.ok ? response.json() : null))
-      .then((result) => {
-        if (
-          !languageManuallyChosen.current &&
-          result?.language &&
-          LANGUAGES.some((item) => item.code === result.language)
-        ) {
-          setLanguageState(result.language);
-          setVoiceAccent(voiceLanguage(result.language, 'es-US'));
-        }
-      })
-      .catch(() => { });
-  }, []);
   const speakingRef = useRef(false),
     kronoxCloseTimer = useRef(null),
     kronoxDialogHiddenRef = useRef(false),
@@ -833,9 +814,12 @@ export default function App() {
     if (canUseLocalNoviceVoice) {
       const utterance = new window.SpeechSynthesisUtterance(cleanMsg);
       const availableVoices = window.speechSynthesis.getVoices?.() || [];
-      const spanishVoice = availableVoices.find((item) => /^es([_-]|$)/i.test(item.lang || ''));
-      if (spanishVoice) utterance.voice = spanishVoice;
-      utterance.lang = voiceAccentRef.current || 'es-US';
+      const voiceLanguagePrefix = (voiceAccentRef.current || 'en-US').split(/[-_]/)[0];
+      const matchingVoice = availableVoices.find((item) =>
+        new RegExp(`^${voiceLanguagePrefix}([_-]|$)`, 'i').test(item.lang || ''),
+      );
+      if (matchingVoice) utterance.voice = matchingVoice;
+      utterance.lang = voiceAccentRef.current || 'en-US';
       utterance.rate = 0.94;
       utterance.pitch = 0.9;
       utterance.volume = voiceGain;
@@ -992,9 +976,12 @@ export default function App() {
         ) {
           const utterance = new window.SpeechSynthesisUtterance(entry.text);
           const availableVoices = window.speechSynthesis.getVoices?.() || [];
-          const spanishVoice = availableVoices.find((item) => /^es([_-]|$)/i.test(item.lang || ''));
-          if (spanishVoice) utterance.voice = spanishVoice;
-          utterance.lang = voiceAccentRef.current || 'es-US';
+          const voiceLanguagePrefix = (voiceAccentRef.current || 'en-US').split(/[-_]/)[0];
+          const matchingVoice = availableVoices.find((item) =>
+            new RegExp(`^${voiceLanguagePrefix}([_-]|$)`, 'i').test(item.lang || ''),
+          );
+          if (matchingVoice) utterance.voice = matchingVoice;
+          utterance.lang = voiceAccentRef.current || 'en-US';
           utterance.rate = 0.94;
           utterance.pitch = 0.9;
           utterance.volume = Math.max(
@@ -1716,7 +1703,7 @@ export default function App() {
           'El módulo de habitabilidad mantiene a la tripulación en microgravedad durante largas travesías con soporte vital de ciclo cerrado y gravedad anular asistida.',
           'En ingeniería, el reactor toroidal de fusión y sus propulsores magnetoplasmadinámicos suministran la energía limpia que impulsa a KRONOX entre mundos.',
           'Soy KRONOX IA, tu inteligencia de a bordo. El puente es tuyo, comandante: calibra tus instrumentos y comienza tu primera investigación espacial.',
-        ];
+        ].map((text) => t(text, language));
         const selectedVoice = 'Charon';
         (async () => {
           for (let idx = 0; idx < introTexts.length; idx += 3) {
@@ -4177,6 +4164,8 @@ export default function App() {
     (showFullMainMenu || welcomeOpen) &&
     h(MainMenu, {
       open: true,
+      language,
+      onChangeLanguage: chooseLanguage,
       hasSavedGame: Boolean(savedGameSnapshot?.savedAt || savedGameSnapshot?.currentBody),
       savedGameSummary: savedGameSnapshot,
       gameSettings,

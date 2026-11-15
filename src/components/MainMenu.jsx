@@ -9,6 +9,25 @@ import {
   SubtitleSettingsGroup,
 } from './AudioSubtitleSettingsControls.jsx';
 import MissionLoreCodex from './MissionLoreCodex.jsx';
+import { t } from '../i18n.js';
+
+function localizeTree(node, language) {
+  if (language !== 'en' || !React.isValidElement(node)) return node;
+  const props = { ...node.props };
+  for (const key of ['aria-label', 'title', 'placeholder', 'alt']) {
+    if (typeof props[key] === 'string') props[key] = t(props[key], language);
+  }
+  if (props.children !== undefined) {
+    props.children = React.Children.map(props.children, (child) => {
+      if (typeof child === 'string') {
+        const trimmed = child.trim();
+        return trimmed ? child.replace(trimmed, t(trimmed, language)) : child;
+      }
+      return localizeTree(child, language);
+    });
+  }
+  return React.cloneElement(node, props);
+}
 
 /**
  * Pantalla de Título / Menú Principal Cinematográfico de KRONOX.
@@ -34,7 +53,8 @@ export default function MainMenu({
   realScale = true,
   onToggleScaleMode,
   onPlayUiCue,
-  language = 'es',
+  language = 'en',
+  onChangeLanguage,
 }) {
   const [activeView, setActiveView] = useState('home'); // 'home' | 'exploration-mode' | 'no-save' | 'settings' | 'credits'
   const [settingsTab, setSettingsTab] = useState('audio'); // 'audio' | 'subtitles' | 'graphics' | 'controls'
@@ -85,13 +105,25 @@ export default function MainMenu({
     }
   };
 
-  return (
+  return localizeTree((
     <div
       className="kronox-main-menu-overlay"
       role="dialog"
       aria-modal="true"
       aria-label="Menú principal de KRONOX"
     >
+      <label className="kronox-language-picker" htmlFor="kronox-main-language">
+        <span>{language === 'en' ? 'LANGUAGE' : 'IDIOMA'}</span>
+        <select
+          id="kronox-main-language"
+          value={language}
+          onChange={(event) => onChangeLanguage?.(event.target.value)}
+          aria-label={language === 'en' ? 'Choose language' : 'Elegir idioma'}
+        >
+          <option value="en">English</option>
+          <option value="es">Español</option>
+        </select>
+      </label>
       {/* Capa sutil de atmósfera y estrellas sin tapar la nave 3D */}
       <div className="kronox-menu-atmosphere" aria-hidden="true">
         <div className="kronox-menu-vignette" />
@@ -342,6 +374,7 @@ export default function MainMenu({
               voiceMuted={voiceMuted}
               onToggleVoiceMute={onToggleVoiceMute}
               onTestVoice={onTestVoice}
+              language={language}
             />
           )}
 
@@ -349,6 +382,7 @@ export default function MainMenu({
             <SubtitleSettingsGroup
               gameSettings={gameSettings}
               onUpdateSetting={updateSetting}
+              language={language}
             />
           )}
 
@@ -447,6 +481,7 @@ export default function MainMenu({
 
       {activeView === 'lore' && (
         <MissionLoreCodex
+          language={language}
           onBack={() => setActiveView('home')}
           onStartExpedition={openExplorationMode}
           onPlayUiCue={onPlayUiCue}
@@ -498,5 +533,5 @@ export default function MainMenu({
         </section>
       )}
     </div>
-  );
+  ), language);
 }
