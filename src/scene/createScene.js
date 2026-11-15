@@ -3317,7 +3317,38 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.onViewChange?.(pv);
     },
     onToggleFreeHelm: () => {
-      applyFreeHelmMode(!freeHelmMode);
+      if (pv === 3 || exteriorCameraMode) {
+        applyFreeHelmMode(!freeHelmMode);
+      } else {
+        S.onInteractionFeedback?.({
+          id: 'vr-helm-tip',
+          text: 'Cambia a Vista Exterior para pilotar con Timón Libre 6-DOF.',
+          ts: Date.now(),
+        });
+      }
+    },
+    onInteractNearest: () => {
+      if (simulationPaused || pv !== 1 || exteriorCameraMode) return;
+      if (astronautSeatedInBridge) {
+        standUpFromBridgeSeat();
+      } else if (nearestCabinStation?.station) {
+        if (nearestCabinStation.station.id === 'stand-up-seat') {
+          standUpFromBridgeSeat();
+        } else {
+          triggerCabinStationInteraction(nearestCabinStation.station.id, nearestCabinStation.station);
+        }
+      } else {
+        S.onInteractionFeedback?.({
+          id: 'vr-station-tip',
+          text: 'Acércate o apunta el puntero láser a una consola, ascensor o asiento.',
+          ts: Date.now(),
+        });
+      }
+    },
+    onGrabRail: () => {
+      if (simulationPaused || pv !== 1 || exteriorCameraMode) return;
+      const railHit = fourDecksInterior.getNearestHandrail?.(astronautPos, 1.85);
+      microgravityController.toggleGrabRail?.(railHit ? railHit.id : null);
     },
     onToggleOptics: () => {
       const enable = !opticalTelescopeState.enabled;
@@ -3368,9 +3399,17 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         luminousAI.setTargetPosition(snap, 'Comunicación');
         luminousAI.resetWake?.(snap);
       } else {
-        extAiForwardScratch.set(0, 0, -1).applyQuaternion(localCam.quaternion).normalize();
-        const snap = localCam.position.clone().addScaledVector(extAiForwardScratch, 1.55);
-        snap.y -= 0.1;
+        const activeQuat =
+          vrManager?.getState?.()?.presenting && hasXrHudHeadPose
+            ? xrHudHeadQuatScratch
+            : localCam.quaternion;
+        const activeOrigin =
+          vrManager?.getState?.()?.presenting && hasXrHudHeadPose
+            ? xrHudEyeWorldScratch
+            : localCam.position;
+        extAiForwardScratch.set(0, 0, -1).applyQuaternion(activeQuat).normalize();
+        const snap = activeOrigin.clone().addScaledVector(extAiForwardScratch, 1.55);
+        snap.y -= 0.08;
         luminousAI.group.position.copy(snap);
         luminousAI.setTargetPosition(snap, 'Comunicación');
         luminousAI.resetWake?.(snap);
@@ -4921,6 +4960,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (!stId) return;
     fpHandPulse = 1.0;
 
+    if (stId === 'stand-up-seat') {
+      standUpFromBridgeSeat();
+      return;
+    }
+
     // 1. Pasamanos EVA 3D -> anclaje o liberación directa con audio y respuesta táctil
     if (stId.startsWith('rail-')) {
       microgravityController.toggleAnchor(stId);
@@ -5704,8 +5748,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           applyCameraView(pv === 1 ? 3 : 1);
           S.onViewChange?.(pv);
         }
-        if (vrFrame.actions?.toggleFreeHelm && (pv === 3 || exteriorCameraMode)) {
-          applyFreeHelmMode(!freeHelmMode);
+        if (vrFrame.actions?.toggleFreeHelm) {
+          if (pv === 3 || exteriorCameraMode) {
+            applyFreeHelmMode(!freeHelmMode);
+          } else if (vrManager?.getState?.()?.presenting) {
+            vrHudPanel?.toggleTablet();
+          }
         }
         if (vrFrame.actions?.toggleTelescope) {
           const enableScope = !opticalTelescopeState?.enabled;
@@ -8250,6 +8298,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       opticalEnabled: Boolean(opticalTelescopeState.enabled),
       opticalMag: opticalTelescopeState.magnification || 1,
       activeDeckId: hudDeckLabel,
+      nearestStationId: nearestCabinStation?.station?.id || null,
+      nearestStationLabel:
+        nearestCabinStation?.station?.title || nearestCabinStation?.station?.label || '',
+      seatedInBridge: Boolean(astronautSeatedInBridge),
+      railAnchored: Boolean(microgravityController?.isAnchored?.()),
     });
     vrHudPanel?.syncToObserver({
       eyeWorldPos: vrHudEye,
@@ -8445,6 +8498,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         return;
       }
       if (simulationPaused) return;
+      if (interactId === 'stand-up-seat') {
+        standUpFromBridgeSeat();
+        return;
+      }
       triggerCabinStationInteraction(interactId);
     },
     onStatusMessage: (msg) => {

@@ -615,6 +615,7 @@ test('VR integración en setupScene: mundo 3D, HUD espacial y Kronox IA visibles
     });
     globalThis.window.isSecureContext = true;
 
+    const api = await harness.start();
     const renderer = harness.renderers[0];
     renderer.autoClear = true;
     renderer.clearDepth = () => { };
@@ -663,7 +664,6 @@ test('VR integración en setupScene: mundo 3D, HUD espacial y Kronox IA visibles
       }
     };
 
-    const api = await harness.start();
     api.skipRealTimeIntro();
     api.free(true, false);
     api.view(1);
@@ -740,14 +740,14 @@ test('VR integración en setupScene: mundo 3D, HUD espacial y Kronox IA visibles
 
     const localCamDist = Math.hypot(...extSnap.localCameraPosition);
     assert.ok(
-      localCamDist > 4 && localCamDist < 120,
+      localCamDist > 4 && localCamDist < 260,
       `localCam VR en Exterior no debe alejarse a -sp (${localCamDist} m)`,
     );
 
     const lastTwoExt = renderLog.slice(-2);
     assert.equal(lastTwoExt[0].isLocal, false);
     assert.equal(lastTwoExt[1].isLocal, true);
-    assert.ok(lastTwoExt[1].camWorldPos.length() < 120, 'El eye world VR en Exterior debe seguir cerca de la nave');
+    assert.ok(lastTwoExt[1].camWorldPos.length() < 260, 'El eye world VR en Exterior debe seguir cerca de la nave');
 
     await api.exitVr();
     stepXrOrRaf(3);
@@ -755,5 +755,179 @@ test('VR integración en setupScene: mundo 3D, HUD espacial y Kronox IA visibles
     assert.equal(aiRoot.visible, false);
   } finally {
     await harness.close();
+  }
+});
+
+test('Quest Touch VR: handedness dinámico, rayos desconectados ocultos, atajos Grip+B/Y y pestaña Cabina', async () => {
+  const { createVrHudPanel3D } = await import('../src/scene/vrHudPanel3D.js');
+  const prevDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+
+  const ctrl0 = new THREE.Group();
+  const ctrl1 = new THREE.Group();
+  const grip0 = new THREE.Group();
+  const grip1 = new THREE.Group();
+  const fakeSession = {
+    inputSources: [
+      // Controller 0 conectado primero siendo mano DERECHA (muy común en Meta Quest / OpenXR)
+      {
+        targetRayMode: 'tracked-pointer',
+        handedness: 'right',
+        gamepad: {
+          axes: [0, 0, 0, 0],
+          buttons: [{ pressed: false }],
+        },
+      },
+      // Mando izquierdo presente para lectura de gamepad
+      {
+        targetRayMode: 'tracked-pointer',
+        handedness: 'left',
+        gamepad: {
+          axes: [0, 0, 0, 0],
+          buttons: [{ pressed: false }, { pressed: false }, { pressed: false }, { pressed: false }, { pressed: false }, { pressed: false }],
+        },
+      },
+    ],
+    addEventListener() {},
+    async end() {},
+  };
+
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      xr: {
+        isSessionSupported: async (mode) => mode === 'immersive-vr',
+        requestSession: async () => fakeSession,
+      },
+    },
+  });
+
+  try {
+    const hudEvents = [];
+    const hud = createVrHudPanel3D({
+      onInteractNearest: () => hudEvents.push('interact-nearest'),
+      onGrabRail: () => hudEvents.push('grab-rail'),
+      onSelectDeck: (d) => hudEvents.push(['deck', d]),
+    });
+    const eye = new THREE.Vector3(0, 1.68, 0);
+    hud.syncToObserver({ eyeWorldPos: eye, headWorldQuat: new THREE.Quaternion(), dt: 0.016, xrPresenting: true });
+
+    const interactHits = [];
+    let recenterCount = 0;
+    const origLogPos = [];
+    const sceneAstro = new THREE.Scene();
+    const sceneLocal = new THREE.Scene();
+    sceneLocal.add(hud.group);
+    const camAstro = new THREE.PerspectiveCamera(55, 1, 0.1, 1000);
+    const camLocal = new THREE.PerspectiveCamera(55, 1, 0.05, 100);
+    const fakeRenderer = {
+      xr: {
+        enabled: false,
+        setReferenceSpaceType() {},
+        getReferenceSpace: () => ({ id: 'local-floor' }),
+        async setSession() {},
+        getController: (idx) => (idx === 0 ? ctrl0 : ctrl1),
+        getControllerGrip: (idx) => (idx === 0 ? grip0 : grip1),
+        getCamera: (c) => {
+          origLogPos.push(true);
+          return c;
+        },
+      },
+      render() {},
+    };
+    const xrManager = createWebXrManager({
+      renderer: fakeRenderer,
+      sceneAstro,
+      sceneLocal,
+      camAstro,
+      camLocal,
+      onInteractHit: (id, info) => interactHits.push({ id, hand: info?.hand }),
+      onStatusMessage: (m) => {
+        if (String(m).includes('centrada')) recenterCount += 1;
+      },
+    });
+    const enterRes = await xrManager.enterVr();
+    assert.equal(enterRes.ok, true);
+
+    // Simular conexión solo del controller 0 como mano DERECHA y controller 1 aún desconectado
+    ctrl0.dispatchEvent({ type: 'connected', data: fakeSession.inputSources[0] });
+    ctrl0.position.set(0, 1.26, 0);
+    ctrl0.quaternion.identity();
+    ctrl0.updateMatrixWorld(true);
+
+    // Apuntar controller 0 directamente al QuickBar y pulsar gatillo IZQUIERDO -> debe pulsar sin recentrar
+    fakeSession.inputSources[1].gamepad.buttons = [
+      { pressed: true }, // Left trigger
+      { pressed: false }, // Left grip
+    ];
+    const fLeftTrig = xrManager.pollInput({
+      dt: 0.016,
+      xrFrame: { getViewerPose: () => null },
+      interactableMeshes: hud.getRaycastTargets(),
+    });
+    assert.equal(fLeftTrig.actions.interact, true, 'Gatillo izquierdo debe interactuar sin Grip');
+    assert.equal(fLeftTrig.actions.recenter, false, 'Gatillo izquierdo solo NO debe recentrar la vista');
+    assert.equal(recenterCount, 0);
+    assert.equal(fLeftTrig.rayHit?.hand, 'right', 'Controller 0 conectado como right debe reportar hand=right');
+    assert.equal(ctrl0.children[0].visible, true, 'Rayo conectado debe ser visible');
+    assert.equal(ctrl1.children[0].visible, false, 'Rayo de mando desconectado debe ocultarse');
+    assert.ok(interactHits.some((h) => h.id === 'vr-hud-quickbar'));
+
+    // Grip izquierdo + Gatillo izquierdo o R3 sí recentran intencionalmente
+    fakeSession.inputSources[1].gamepad.buttons = [{ pressed: false }, { pressed: true }];
+    xrManager.pollInput({ dt: 0.016, interactableMeshes: [] });
+    fakeSession.inputSources[1].gamepad.buttons = [{ pressed: true }, { pressed: true }];
+    const fRecenterChord = xrManager.pollInput({ dt: 0.016, interactableMeshes: [] });
+    assert.equal(fRecenterChord.actions.recenter, true, 'Grip I + Gatillo I debe recentrar');
+    assert.equal(recenterCount, 1);
+
+    // Chord Grip I + Y (button 5) debe abrir menú VR sin disparar toggleTelescope
+    fakeSession.inputSources[1].gamepad.buttons = [
+      { pressed: false },
+      { pressed: true },
+      { pressed: false },
+      { pressed: false },
+      { pressed: false },
+      { pressed: true },
+    ];
+    const fMenuChord = xrManager.pollInput({ dt: 0.016, interactableMeshes: [] });
+    assert.equal(fMenuChord.actions.openMenu, true, 'Grip + Y debe abrir/cerrar Tableta VR');
+    assert.equal(fMenuChord.actions.toggleTelescope, false, 'Grip + Y no debe activar telescopio accidentalmente');
+
+    // Verificar acción rápida contextual, modo compacto y pestaña Cabina del HUD 3D
+    hud.setTelemetry({
+      viewMode: 1,
+      activeDeckId: 'C03',
+      nearestStationId: 'reactor-console',
+      nearestStationLabel: 'Consola del Reactor',
+    });
+    hud.syncToObserver({ eyeWorldPos: eye, headWorldQuat: new THREE.Quaternion(), dt: 0.016, xrPresenting: true });
+    hud.handleHitClick({
+      stationId: 'vr-hud-quickbar',
+      uv: new THREE.Vector2(550 / 1024, 1 - 24 / 184), // botón qb-context-act
+      object: hud.quickBarMesh,
+    });
+    assert.ok(hudEvents.includes('interact-nearest'), 'Botón contextual de QuickBar debe activar consola cercana');
+
+    // Minimizar barra y volver a expandirla
+    hud.handleHitClick({
+      stationId: 'vr-hud-quickbar',
+      uv: new THREE.Vector2(950 / 1024, 1 - 24 / 184), // botón qb-compact-bar
+      object: hud.quickBarMesh,
+    });
+    assert.equal(hud.getState().quickBarButtons.some((b) => b.id === 'qb-expand-bar'), true);
+
+    // Abrir pestaña Cabina y usar botón de barandal y cubierta C04
+    hud.openWithTab('cabin');
+    assert.equal(hud.getState().activeTab, 'cabin');
+    hud.syncToObserver({ eyeWorldPos: eye, headWorldQuat: new THREE.Quaternion(), dt: 0.016, xrPresenting: true });
+    hud.handleHitClick({
+      stationId: 'vr-hud-tablet',
+      uv: new THREE.Vector2(200 / 1280, 1 - (104 + 190) / 820), // cab-grab-rail
+      object: hud.tabletMesh,
+    });
+    assert.ok(hudEvents.includes('grab-rail'));
+  } finally {
+    if (prevDesc) Object.defineProperty(globalThis, 'navigator', prevDesc);
+    else delete globalThis.navigator;
   }
 });

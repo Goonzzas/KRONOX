@@ -42,15 +42,22 @@ export const VR_CONTROL_BINDINGS = Object.freeze([
   {
     id: 'vr-interact',
     category: 'interaction',
-    hand: 'Derecho',
-    control: 'Gatillo derecho (Trigger)',
-    action: 'Operar consola apuntada, ascensor o seleccionar objeto celeste ([E] / Clic)',
+    hand: 'Derecho / Izq.',
+    control: 'Gatillo derecho o izquierdo (Trigger)',
+    action: 'Pulsar menú VR o activar consola, pasamanos o ascensor ([E] / Clic)',
+  },
+  {
+    id: 'vr-menu',
+    category: 'systems',
+    hand: 'Ambos',
+    control: 'Grip + B / Y o Botón B (Cabina)',
+    action: 'Abrir / cerrar Tableta VR de apoyo (Viajar, SPHEREx, KRONOS IA y Cabina)',
   },
   {
     id: 'vr-recenter',
     category: 'interaction',
-    hand: 'Izquierdo',
-    control: 'Gatillo izquierdo / Pulsar Stick der. (R3)',
+    hand: 'Derecho / Izq.',
+    control: 'Pulsar Stick der. (R3) / Grip I + Gatillo I',
     action: 'Centrar vista VR y horizonte espacial del visor HMD',
   },
   {
@@ -70,9 +77,16 @@ export const VR_CONTROL_BINDINGS = Object.freeze([
   {
     id: 'vr-telescope',
     category: 'systems',
-    hand: 'Derecho / Izq.',
-    control: 'Botón B / Y',
-    action: 'Alternar Telescopio Óptico ([T]) o Timón libre en vista Exterior',
+    hand: 'Izquierdo',
+    control: 'Botón Y (o botón en Tableta VR)',
+    action: 'Alternar Telescopio Óptico ([T])',
+  },
+  {
+    id: 'vr-helm',
+    category: 'systems',
+    hand: 'Derecho',
+    control: 'Botón B (en vista Exterior)',
+    action: 'Alternar Timón libre 6-DOF ([L]) · En Cabina abre Tableta VR',
   },
 ]);
 
@@ -260,17 +274,25 @@ export function createVrInputStateTracker(initialSettings = DEFAULT_VR_SETTINGS)
       const boostHeld = leftBtn(3) || Boolean(ext?.boost);
       const stabilizeHeld = gripLeftHeld || gripRightHeld || Boolean(ext?.stabilize);
 
+      const gripAnyHeld = Boolean(gripLeftHeld || gripRightHeld);
       const triggerLeftPressed = risingEdge('leftTrigger', triggerLeftHeld);
       const triggerRightPressed = risingEdge('rightTrigger', triggerRightHeld || ext?.interact);
       const gripLeftPressed = risingEdge('leftGrip', gripLeftHeld);
       const gripRightPressed = risingEdge('rightGrip', gripRightHeld);
       const rightStickPressed = risingEdge('rightStickClick', rightBtn(3));
       const aPressed = risingEdge('buttonA', rightBtn(4) || ext?.toggleView);
-      const bPressed = risingEdge('buttonB', rightBtn(5));
+      const bPressed = risingEdge('buttonB', rightBtn(5) && !gripAnyHeld);
       const xPressed = risingEdge('buttonX', leftBtn(4));
-      const yPressed = risingEdge('buttonY', leftBtn(5));
-      const menuPressed = risingEdge('menu', Boolean(ext?.openMenu || leftBtn(2) || rightBtn(2)));
-      const recenterEdge = Boolean(ext?.recenter) || triggerLeftPressed || rightStickPressed;
+      const yPressed = risingEdge('buttonY', leftBtn(5) && !gripAnyHeld);
+      // Meta Quest Touch carece de touchpad físico (buttons[2]); Grip + B/Y ofrece atajo cómodo y fiable
+      const menuChordHeld = (gripLeftHeld && leftBtn(5)) || (gripRightHeld && rightBtn(5));
+      const menuPressed = risingEdge(
+        'menu',
+        Boolean(ext?.openMenu || leftBtn(2) || rightBtn(2) || menuChordHeld),
+      );
+      const recenterEdge =
+        Boolean(ext?.recenter) || rightStickPressed || Boolean(gripLeftHeld && triggerLeftPressed);
+      const interactEdge = triggerRightPressed || (triggerLeftPressed && !gripLeftHeld);
 
       return {
         moveFwd,
@@ -292,7 +314,7 @@ export function createVrInputStateTracker(initialSettings = DEFAULT_VR_SETTINGS)
         rightStickX: rightStickRaw.x,
         rightStickY: rightStickRaw.y,
         actions: {
-          interact: triggerRightPressed,
+          interact: interactEdge,
           grabRail: gripLeftPressed || gripRightPressed || Boolean(ext?.grabRail),
           toggleView: aPressed || xPressed,
           toggleTelescope: yPressed || Boolean(ext?.toggleTelescope),
@@ -460,6 +482,9 @@ export function createWebXrManager({
   let visual1 = null;
   let ray0 = null;
   let ray1 = null;
+  let gazeReticle = null;
+  let lastHitByHand = { left: null, right: null };
+  let pendingGazeSelect = false;
   let rigInitialized = false;
 
   const vrAstroRig = new THREE.Group();
@@ -537,6 +562,18 @@ export function createWebXrManager({
     ray1 = buildVrPointerBeam();
     visual0 = buildVrControllerVisual('left');
     visual1 = buildVrControllerVisual('right');
+    gazeReticle = new THREE.Mesh(
+      new THREE.RingGeometry(0.009, 0.016, 18),
+      new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.9,
+        depthTest: false,
+      }),
+    );
+    gazeReticle.renderOrder = 122;
+    gazeReticle.visible = false;
 
     controller0.add(ray0.line);
     controller0.add(ray0.reticle);
@@ -549,10 +586,16 @@ export function createWebXrManager({
     controller0.userData.handedness = 'unknown';
     controller1.userData.handedness = 'unknown';
 
-    const onConnected = (ctrl) => (ev) => {
+    const syncControllerVisualTint = (visual, handedness) => {
+      if (!visual?.trimMat) return;
+      visual.trimMat.color.setHex(handedness === 'right' ? 0xa78bfa : 0x38bdf8);
+    };
+
+    const onConnected = (ctrl, visual) => (ev) => {
       const src = ev?.data;
       ctrl.userData.xrInputSource = src || null;
       ctrl.userData.handedness = src?.handedness || 'unknown';
+      syncControllerVisualTint(visual, ctrl.userData.handedness);
       lastHandCount = Math.min(
         2,
         [controller0, controller1].filter((c) => Boolean(c?.userData?.xrInputSource)).length,
@@ -565,13 +608,23 @@ export function createWebXrManager({
       lastHandCount = [controller0, controller1].filter((c) => Boolean(c?.userData?.xrInputSource)).length;
       emitState();
     };
+    const onSelect = (ctrl) => () => {
+      const src = ctrl?.userData?.xrInputSource;
+      // Los mandos Quest Touch usan gamepad.buttons[0] (risingEdge en pollInput);
+      // select sirve de respaldo para gaze o hand-tracking sin gamepad estándar.
+      if (!src?.gamepad?.buttons?.length) {
+        pendingGazeSelect = true;
+      }
+    };
 
-    controller0.addEventListener('connected', onConnected(controller0));
+    controller0.addEventListener('connected', onConnected(controller0, visual0));
     controller0.addEventListener('disconnected', onDisconnected(controller0));
-    controller1.addEventListener('connected', onConnected(controller1));
+    controller0.addEventListener('select', onSelect(controller0));
+    controller1.addEventListener('connected', onConnected(controller1, visual1));
     controller1.addEventListener('disconnected', onDisconnected(controller1));
+    controller1.addEventListener('select', onSelect(controller1));
 
-    vrLocalRig.add(controller0, controller1, controllerGrip0, controllerGrip1);
+    vrLocalRig.add(controller0, controller1, controllerGrip0, controllerGrip1, gazeReticle);
   }
 
   function attachRigs() {
@@ -711,6 +764,9 @@ export function createWebXrManager({
     calibrationSamples = 0;
     hasSampledPose = false;
     lastSampledPoseYaw = 0;
+    lastHitByHand = { left: null, right: null };
+    pendingGazeSelect = false;
+    if (gazeReticle) gazeReticle.visible = false;
     recenterOffset.set(0, 0, 0);
     recenterYawRad = 0;
     tracker.reset();
@@ -863,18 +919,68 @@ export function createWebXrManager({
 
   function updateControllerRays({ interactableMeshes = [] } = {}) {
     activeHoveredStation = null;
+    lastHitByHand = { left: null, right: null };
     if (!xrPresenting || !rigInitialized) return null;
+
+    const filterVisibleHits = (rawHits) =>
+      rawHits.filter((h) => {
+        let vis = h.object;
+        while (vis) {
+          if (vis.visible === false) return false;
+          vis = vis.parent;
+        }
+        return true;
+      });
+
+    const resolveHitMeta = (hit, hand) => {
+      if (!hit) return null;
+      let isHud = false;
+      let curHud = hit.object;
+      while (curHud) {
+        if (curHud.userData?.isVrHud) {
+          isHud = true;
+          break;
+        }
+        curHud = curHud.parent;
+      }
+      let cur = hit.object;
+      while (cur && !(cur.userData?.interactId || cur.userData?.stationId) && cur.parent) {
+        cur = cur.parent;
+      }
+      const hitId = cur?.userData?.interactId || cur?.userData?.stationId;
+      if (!hitId) return null;
+      return {
+        stationId: hitId,
+        interactId: hitId,
+        isHud,
+        hand,
+        distance: Math.max(0.12, hit.distance),
+        point: hit.point.clone(),
+        uv: hit.uv ? hit.uv.clone() : null,
+        object: cur,
+      };
+    };
 
     const pairs = [
       { ctrl: controller1, ray: ray1 },
       { ctrl: controller0, ray: ray0 },
     ];
+    const anyConnectedCtrl = Boolean(
+      controller0?.userData?.xrInputSource || controller1?.userData?.xrInputSource,
+    );
     let primaryHit = null;
     const showRays = settings.showControllerRays !== false;
+    if (gazeReticle) gazeReticle.visible = false;
 
     for (let i = 0; i < pairs.length; i++) {
       const { ctrl, ray } = pairs[i];
       if (!ctrl || !ray) continue;
+      const hasInputSource = Boolean(ctrl.userData?.xrInputSource);
+      if (!hasInputSource) {
+        ray.line.visible = false;
+        ray.reticle.visible = false;
+        continue;
+      }
       ray.line.visible = showRays;
       ray.reticle.visible = false;
       if (!showRays) continue;
@@ -883,19 +989,18 @@ export function createWebXrManager({
       rayOrigin.setFromMatrixPosition(ctrl.matrixWorld);
       rayDir.set(0, 0, -1).applyMatrix4(rayRotMatrix).normalize();
 
-      let hitIsHud = false;
+      const resolvedHand =
+        ctrl.userData?.handedness === 'left' || ctrl.userData?.handedness === 'right'
+          ? ctrl.userData.handedness
+          : ray === ray0
+            ? 'left'
+            : 'right';
+
       if (Array.isArray(interactableMeshes) && interactableMeshes.length > 0) {
         raycaster.set(rayOrigin, rayDir);
         raycaster.near = 0.05;
-        raycaster.far = 6.0;
-        const visibleHits = raycaster.intersectObjects(interactableMeshes, true).filter((h) => {
-          let vis = h.object;
-          while (vis) {
-            if (vis.visible === false) return false;
-            vis = vis.parent;
-          }
-          return true;
-        });
+        raycaster.far = 8.0;
+        const visibleHits = filterVisibleHits(raycaster.intersectObjects(interactableMeshes, true));
         const hudHit = visibleHits.find((h) => {
           let cur = h.object;
           while (cur) {
@@ -906,7 +1011,7 @@ export function createWebXrManager({
         });
         const hit = hudHit || visibleHits[0];
         if (hit) {
-          hitIsHud = Boolean(hudHit);
+          const hitIsHud = Boolean(hudHit);
           const dist = Math.max(0.12, hit.distance);
           const posAttr = ray.beamGeo.attributes?.position;
           if (posAttr && typeof posAttr.setXYZ === 'function') {
@@ -920,22 +1025,12 @@ export function createWebXrManager({
             ray.reticle.material.depthTest = !hitIsHud;
           }
           ray.beamMat.color.setHex(hitIsHud ? 0x38bdf8 : 0x34d399);
-          if (!primaryHit) {
-            let cur = hit.object;
-            while (cur && !(cur.userData?.interactId || cur.userData?.stationId) && cur.parent) cur = cur.parent;
-            const hitId = cur?.userData?.interactId || cur?.userData?.stationId;
-            if (hitId) {
-              activeHoveredStation = cur;
-              primaryHit = {
-                stationId: hitId,
-                interactId: hitId,
-                isHud: hitIsHud,
-                hand: ray === ray0 ? 'left' : 'right',
-                distance: dist,
-                point: hit.point.clone(),
-                uv: hit.uv ? hit.uv.clone() : null,
-                object: cur,
-              };
+          const meta = resolveHitMeta(hit, resolvedHand);
+          if (meta) {
+            if (!lastHitByHand[resolvedHand]) lastHitByHand[resolvedHand] = meta;
+            if (!primaryHit) {
+              activeHoveredStation = meta.object;
+              primaryHit = meta;
             }
           }
           continue;
@@ -950,6 +1045,45 @@ export function createWebXrManager({
         posAttr.needsUpdate = true;
       }
       ray.beamMat.color.setHex(0x38bdf8);
+    }
+
+    // Respaldo por mirada de cabeza (HMD gaze) cuando no hay mandos conectados todavía
+    if (!anyConnectedCtrl && camLocal && Array.isArray(interactableMeshes) && interactableMeshes.length > 0) {
+      let gazeCam = camLocal;
+      if (typeof renderer?.xr?.getCamera === 'function') {
+        savedCamPosScratch.copy(camLocal.position);
+        savedCamQuatScratch.copy(camLocal.quaternion);
+        savedCamScaleScratch.copy(camLocal.scale);
+        try {
+          const xrCam = renderer.xr.getCamera(camLocal);
+          if (xrCam?.matrixWorld) gazeCam = xrCam;
+        } catch {
+          gazeCam = camLocal;
+        } finally {
+          camLocal.position.copy(savedCamPosScratch);
+          camLocal.quaternion.copy(savedCamQuatScratch);
+          camLocal.scale.copy(savedCamScaleScratch);
+        }
+      }
+      rayRotMatrix.identity().extractRotation(gazeCam.matrixWorld);
+      rayOrigin.setFromMatrixPosition(gazeCam.matrixWorld);
+      rayDir.set(0, 0, -1).applyMatrix4(rayRotMatrix).normalize();
+      raycaster.set(rayOrigin, rayDir);
+      raycaster.near = 0.05;
+      raycaster.far = 8.0;
+      const gazeHits = filterVisibleHits(raycaster.intersectObjects(interactableMeshes, true));
+      const gazeHit = gazeHits[0];
+      const meta = resolveHitMeta(gazeHit, 'gaze');
+      if (meta) {
+        activeHoveredStation = meta.object;
+        primaryHit = meta;
+        if (gazeReticle && showRays) {
+          vrLocalRig.worldToLocal(tmpVec.copy(meta.point));
+          gazeReticle.position.copy(tmpVec);
+          gazeReticle.lookAt(rayOrigin);
+          gazeReticle.visible = true;
+        }
+      }
     }
 
     emitState();
@@ -992,17 +1126,28 @@ export function createWebXrManager({
       delete ext.recenter;
       delete ext.openMenu;
     }
-    const hudLeftClick =
-      Boolean(rayHit?.isHud || rayHit?.interactId === 'kronox-ai') &&
-      rayHit?.hand === 'left' &&
-      Boolean(frame.actions.recenter);
-    if ((frame.actions.interact || hudLeftClick) && rayHit?.stationId) {
-      onInteractHit?.(rayHit.stationId, rayHit);
+    const gazeTriggered = pendingGazeSelect;
+    pendingGazeSelect = false;
+    const effectiveInteract = Boolean(frame.actions.interact || gazeTriggered);
+    const activeInteractHit = frame.triggerRightPressed
+      ? lastHitByHand.right || rayHit
+      : frame.triggerLeftPressed && !frame.gripLeftHeld
+        ? lastHitByHand.left || rayHit
+        : rayHit;
+    if (effectiveInteract && activeInteractHit?.stationId) {
+      onInteractHit?.(activeInteractHit.stationId, activeInteractHit);
     }
-    if (frame.actions.recenter && !hudLeftClick) {
+    if (frame.actions.recenter) {
       recenterVr(xrFrame);
     }
-    return { ...frame, rayHit };
+    if (gazeTriggered && !frame.actions.interact) {
+      return {
+        ...frame,
+        actions: { ...frame.actions, interact: true },
+        rayHit: activeInteractHit || rayHit,
+      };
+    }
+    return { ...frame, rayHit: activeInteractHit || rayHit };
   }
 
   /**
