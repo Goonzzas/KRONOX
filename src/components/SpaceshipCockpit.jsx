@@ -1480,6 +1480,26 @@ export default function SpaceshipCockpit({
               </button>
             ))}
           </div>
+          <div style={{ marginTop: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11px', opacity: 0.65, color: '#94a3b8' }}>Pulsa [E] o [WASD] para levantarte</span>
+            <button
+              type="button"
+              className="kronoxStationExitBtn"
+              style={{
+                background: 'rgba(108, 224, 255, 0.12)',
+                border: '1px solid rgba(108, 224, 255, 0.5)',
+                color: '#6ce0ff',
+                padding: '6px 14px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: '600',
+              }}
+              onClick={() => onSelectStation(null)}
+            >
+              ← Levantarse / Salir [E]
+            </button>
+          </div>
         </div>
       )}
 

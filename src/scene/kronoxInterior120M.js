@@ -1553,15 +1553,16 @@ export function buildKronoxInterior120M() {
     ], '#6ce0ff', { activeScan: true });
     trackExtraTex(reactorTelTex.tex);
     const reactorTelMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: reactorTelTex.tex }));
-    // Soporte del monitor principal
+    // Soporte del monitor principal (orientado de frente al operador en +X_local)
     const monitorGroup = new THREE.Group();
-    monitorGroup.position.set(-4.5, f + 1.45, 0);
-    monitorGroup.rotation.y = -Math.PI / 2;
+    monitorGroup.position.set(-5.8, f + 1.48, 0);
+    monitorGroup.rotation.y = Math.PI / 2;
     d3.add(monitorGroup);
     add(monitorGroup, box(1.5, 1.0, 0.08), darkM, 0, 0, 0);
     add(monitorGroup, box(1.42, 0.92, 0.03), reactorTelMat, 0, 0, 0.045);
     add(monitorGroup, box(1.54, 0.04, 0.12), steelM, 0, 0.52, 0);
     add(monitorGroup, box(1.54, 0.04, 0.12), steelM, 0, -0.52, 0);
+    add(monitorGroup, cyl(0.045, 0.045, 0.62, 8), steelM, 0, -0.62, 0);
     registerInteractMesh(monitorGroup.children[1], 'engineering', 'panel');
 
     // --- SEGUNDA PANTALLA: SISTEMA DE REFRIGERACIÓN CRIOGÉNICA ---
@@ -1578,11 +1579,12 @@ export function buildKronoxInterior120M() {
     trackExtraTex(cryoScreenTex.tex);
     const cryoScreenMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: cryoScreenTex.tex }));
     const cryoMonitor = new THREE.Group();
-    cryoMonitor.position.set(-5.5, f + 1.45, 3.2);
-    cryoMonitor.rotation.y = -Math.PI / 3;
+    cryoMonitor.position.set(-5.6, f + 1.45, 1.45);
+    cryoMonitor.rotation.y = Math.PI / 2 - 0.28;
     d3.add(cryoMonitor);
     add(cryoMonitor, box(1.3, 0.85, 0.07), darkM, 0, 0, 0);
     add(cryoMonitor, box(1.22, 0.77, 0.03), cryoScreenMat, 0, 0, 0.04);
+    add(cryoMonitor, cyl(0.035, 0.035, 0.58, 8), steelM, 0, -0.58, 0);
 
     // --- TERCERA PANTALLA: CONTROL DE PROPULSIÓN ---
     const propScreenTex = makeDiegeticScreenTexture('engineering', 'PROPULSIÓN IÓNICA — EMPUJE VECTORIAL', [
@@ -1598,20 +1600,21 @@ export function buildKronoxInterior120M() {
     trackExtraTex(propScreenTex.tex);
     const propScreenMat = trackExtraMat(new THREE.MeshBasicMaterial({ map: propScreenTex.tex }));
     const propMonitor = new THREE.Group();
-    propMonitor.position.set(-5.5, f + 1.45, -3.2);
-    propMonitor.rotation.y = Math.PI / 3;
+    propMonitor.position.set(-5.6, f + 1.45, -1.45);
+    propMonitor.rotation.y = Math.PI / 2 + 0.28;
     d3.add(propMonitor);
     add(propMonitor, box(1.3, 0.85, 0.07), darkM, 0, 0, 0);
     add(propMonitor, box(1.22, 0.77, 0.03), propScreenMat, 0, 0, 0.04);
+    add(propMonitor, cyl(0.035, 0.035, 0.58, 8), steelM, 0, -0.58, 0);
 
     // --- CONSOLA DE CONTROL PRINCIPAL frente al reactor ---
     const ctrlConsole = new THREE.Group();
-    ctrlConsole.position.set(-5.2, f, 0);
+    ctrlConsole.position.set(-5.3, f, 0);
     ctrlConsole.rotation.y = Math.PI / 2;
     d3.add(ctrlConsole);
-    // Mesa inclinada de la consola
-    add(ctrlConsole, box(3.2, 0.08, 0.85), slateM, 0, 0.88, 0);
-    const consoleFace = add(ctrlConsole, box(3.2, 0.72, 0.06), darkM, 0, 0.54, -0.42, 'console');
+    // Mesa de la consola ergonómica
+    add(ctrlConsole, box(3.2, 0.08, 0.75), slateM, 0, 0.88, 0);
+    const consoleFace = add(ctrlConsole, box(3.2, 0.72, 0.06), darkM, 0, 0.54, -0.36);
     consoleFace.rotation.x = 0.15;
     // Teclado/touchpad empotrado
     add(ctrlConsole, box(0.82, 0.03, 0.28), compositeM, 0.6, 0.91, 0.18);
@@ -1626,8 +1629,8 @@ export function buildKronoxInterior120M() {
     // Interruptor de emergencia SCRAM (botón rojo grande)
     add(ctrlConsole, cyl(0.065, 0.065, 0.04, 12), reactorRedGlow, -1.4, 0.93, 0.22);
     add(ctrlConsole, cyl(0.08, 0.08, 0.02, 12), hazardM, -1.4, 0.905, 0.22);
-    // Silla del ingeniero de reactor
-    chair(d3, -4.2, 0, f, -Math.PI / 2);
+    // Silla del ingeniero de reactor con holgura para entrar y salir caminando
+    chair(d3, -4.3, 0, f, -Math.PI / 2);
 
     // --- COLUMNAS AUXILIARES de soporte con conductos de refrigerante visibles ---
     [-4.5, 4.5].forEach((cz) => {
@@ -1799,7 +1802,8 @@ export function buildKronoxInterior120M() {
           add(g, cyl(0.11, 0.11, 0.44, 12), steelM, -0.32, 1.24, 0.18).rotation.z = Math.PI / 2;
           add(g, torus(0.14, 0.025, 8, 20), cyanGlow, 0.22, 1.26, 0.18).rotation.y = Math.PI / 2;
           add(g, box(0.46, 0.38, 0.32), slateM, 0.76, 1.26, 0.18);
-          add(g, box(0.38, 0.24, 0.02), scrMat, 0.76, 1.28, 0.35);
+          const oscScr = add(g, box(0.38, 0.24, 0.02), scrMat, 0.76, 1.28, 0.01);
+          oscScr.rotation.y = Math.PI;
         }
       });
       mountDeckPlacard(d3, 0, f + 2.55, zPlacard, rotPlacard, 'LAB', placardTitle, placardSub, placardHex);
@@ -2174,7 +2178,8 @@ export function buildKronoxInterior120M() {
       add(stGroup, box(0.92, 0.84, 0.46), darkM, 1.35, 0.42, 0.65);
       add(stGroup, box(0.84, 0.04, 0.38), trimBarMat, 1.35, 0.86, 0.65);
       screenMesh = add(stGroup, box(0.82, 0.46, 0.05), scrMat, 1.35, 1.22, 0.54);
-      screenMesh.rotation.x = -0.32;
+      screenMesh.rotation.y = Math.PI;
+      screenMesh.rotation.x = 0.28;
     } else if (st.id === 'storage-c02' || st.id === 'maintenance-c04') {
       screenMesh = add(stGroup, box(0.76, 0.42, 0.05), scrMat, 0.72, 1.24, 0.92);
       screenMesh.rotation.x = -0.25;
