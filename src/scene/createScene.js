@@ -3185,7 +3185,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         : effectiveGraphics.preset === 'high'
           ? 'quality'
           : 'balanced';
-    if (!vrManager?.isPresenting?.()) {
+    if (!vrManager?.isPresenting?.() && !R.xr?.isPresenting) {
       R.setPixelRatio(pixelRatioFor());
       R.setSize(innerWidth, innerHeight);
     }
@@ -3366,6 +3366,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (normalizedDeck) startPhysicalElevatorRide(normalizedDeck);
     },
     onPauseMenuRequest: () => {
+      if (vrManager?.isPresenting?.()) {
+        vrManager.exitVr?.().catch(() => {}).finally(() => {
+          S.onVrPauseRequest?.();
+        });
+        return;
+      }
       S.onVrPauseRequest?.();
     },
     onRecenterVr: () => {
@@ -5631,7 +5637,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     delete keys[e.key.toLowerCase()];
   };
   const onResize = () => {
-    if (!vrManager?.isPresenting?.()) {
+    if (!vrManager?.isPresenting?.() && !R.xr?.isPresenting) {
       R.setPixelRatio(pixelRatioFor());
       R.setSize(innerWidth, innerHeight);
     }
@@ -5680,6 +5686,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const _forwardEyeScratch = new V();
   function tick(rafTimestamp, xrFrame = null) {
     if (disposed) return;
+    const xrPresentingNow = Boolean(vrManager?.isPresenting?.() || R.xr?.isPresenting);
+    // Three.js WebGLRenderer.setAnimationLoop también activa window.rAF sin xrFrame: ignorarlo en XR real para no dibujar ni consumir mandos fuera de XRSession.requestAnimationFrame
+    if (!IS_NODE_SCENE_HARNESS && xrPresentingNow && !xrFrame) {
+      return;
+    }
     const xrActiveNow = Boolean(vrManager?.isPresenting?.());
     if (!xrActiveNow) {
       rafId = requestAnimationFrame(tick);
@@ -5691,6 +5702,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return;
     }
     lastRenderedFrameAt = frameNow;
+    const prevAutoClearOnFrame = R.autoClear;
+    try {
     if (frameTiming.active && frameTiming.last !== null) { frameTiming.values.push(frameNow - frameTiming.last); if (frameTiming.values.length >= 600) frameTiming.active = false; }
     frameTiming.last = frameNow;
     const rawDelta = clk.getDelta();
@@ -5777,12 +5790,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
           }
         }
-        if (vrFrame.actions?.openMenu) {
-          if (vrManager?.getState?.()?.presenting) {
-            vrHudPanel?.toggleTablet();
-          } else {
-            S.onVrPauseRequest?.();
-          }
+      }
+      if (vrFrame.actions?.openMenu) {
+        if (vrManager?.getState?.()?.presenting) {
+          if (simulationPaused) simulationPaused = false;
+          vrHudPanel?.toggleTablet();
+        } else if (!simulationPaused) {
+          S.onVrPauseRequest?.();
         }
       }
     } else {
@@ -8333,6 +8347,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         xrSavedLocalScaleScratch.copy(localCam.scale);
       }
       try {
+        if (xrActiveNow) {
+          localCam.position.set(0, 0, 0);
+          localCam.quaternion.identity();
+          localCam.scale.set(1, 1, 1);
+          vrManager?.vrLocalRig?.updateMatrixWorld?.(true);
+        }
         R.autoClear = false;
         R.clearDepth?.();
         R.render(localShipScene, localCam);
@@ -8372,6 +8392,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       warmLocalShipShaders();
       initialSceneReadyFired = true;
       S.onSceneReady?.();
+    }
+    } catch (tickErr) {
+      if (typeof console !== 'undefined' && console.error) {
+        console.error('[KRONOX] Error recuperado en tick:', tickErr);
+      }
+    } finally {
+      R.autoClear = prevAutoClearOnFrame;
     }
   }
   function applyCameraView(v) {
@@ -8463,16 +8490,70 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         cancelAnimationFrame(rafId);
         rafId = 0;
       }
-      if (free && (pv !== 1 || exteriorCameraMode || !cabinFirstPerson || camViewBlend > 0.05)) {
-        applyCameraView(1);
+      // Garantizar cabina 1P interactiva y sin pausa al iniciar sesión VR aunque se entre desde menú, mapa, pausa o asiento
+      simulationPaused = false;
+      realTimeIntroPaused = false;
+      clk.getDelta();
+      releaseInputs();
+      vel.set(0, 0, 0);
+      astronautVel.set(0, 0, 0);
+      if (realTimeIntro) {
+        skipRealTimeIntroSequence();
+      }
+      if (mainMenuOrbitActive) {
+        mainMenuOrbitActive = false;
+      }
+      if (nearbyMapState) {
+        returnFromNearbyMap();
+      }
+      contextOverview = false;
+      spectator = false;
+      if (exteriorCameraMode) {
+        leaveExteriorCamera(false);
+      }
+      if (!free) {
+        setFree(true, false);
+        S.fr?.(true);
+      }
+      if (astronautSeatedInBridge) {
+        standUpFromBridgeSeat();
+      }
+      if (!applyCameraView(1)) {
+        pv = 1;
+        cabinFirstPerson = true;
+        camViewBlend = 0;
+        freeHelmMode = false;
+        vrChaseYaw = 0;
+        vrChasePitch = 0;
+        hasXrHudHeadPose = false;
+        ship.visible = false;
+        localCabinWorld.visible = true;
+        astronaut3D.root.visible = false;
+        astronaut3D.firstPersonHands.visible = false;
+        if (articulatedAstronaut) articulatedAstronaut.root.visible = false;
+        fourDecksInterior?.setActiveVisibleDeck?.(resolveCurrentDeck(astronautPos)?.id || currentLockedDeckId, {
+          showAll: false,
+        });
+        S.onViewChange?.(1);
+        S.onCabinFirstPersonChange?.(true);
+        S.onFreeHelmChange?.(false);
+      } else {
         S.onViewChange?.(1);
       }
-      if (typeof R.setAnimationLoop === 'function') {
+      vrHudPanel?.closeTablet?.();
+      emitPointerLockState();
+      // Usar xr.setAnimationLoop cuando exista para no relanzar window.rAF en paralelo con XRSession
+      if (typeof R.xr?.setAnimationLoop === 'function') {
+        R.xr.setAnimationLoop(tick);
+      } else if (typeof R.setAnimationLoop === 'function') {
         R.setAnimationLoop(tick);
       }
     },
     onSessionEndCallback: () => {
       hasXrHudHeadPose = false;
+      if (typeof R.xr?.setAnimationLoop === 'function') {
+        R.xr.setAnimationLoop(null);
+      }
       if (typeof R.setAnimationLoop === 'function') {
         R.setAnimationLoop(null);
       }

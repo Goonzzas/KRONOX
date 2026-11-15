@@ -503,6 +503,10 @@ export function createWebXrManager({
   let savedAstroFar = camAstro?.far ?? 4e5;
   let savedLocalNear = camLocal?.near ?? 0.05;
   let savedLocalFar = camLocal?.far ?? 4000;
+  const preVrAstroPos = new THREE.Vector3();
+  const preVrAstroQuat = new THREE.Quaternion();
+  const preVrLocalPos = new THREE.Vector3();
+  const preVrLocalQuat = new THREE.Quaternion();
 
   const raycaster = new THREE.Raycaster();
   const rayOrigin = new THREE.Vector3();
@@ -631,16 +635,35 @@ export function createWebXrManager({
     if (camAstro && camAstro.parent !== vrAstroRig) {
       savedAstroNear = camAstro.near;
       savedAstroFar = camAstro.far;
+      preVrAstroPos.copy(camAstro.position);
+      preVrAstroQuat.copy(camAstro.quaternion);
+      vrAstroRig.position.copy(camAstro.position);
+      vrAstroRig.quaternion.copy(camAstro.quaternion);
       vrAstroRig.add(camAstro);
+      // Cero local en el hijo del rig VR para no duplicar traslación/rotación en el frame 0 sin pose
+      camAstro.position.set(0, 0, 0);
+      camAstro.quaternion.identity();
+      camAstro.scale.set(1, 1, 1);
+      camAstro.updateMatrix();
+      vrAstroRig.updateMatrixWorld(true);
     }
     if (camLocal && sceneLocal) {
       savedLocalNear = camLocal.near;
       savedLocalFar = camLocal.far;
+      preVrLocalPos.copy(camLocal.position);
+      preVrLocalQuat.copy(camLocal.quaternion);
       if (vrLocalRig.parent !== sceneLocal) {
         sceneLocal.add(vrLocalRig);
       }
       if (camLocal.parent !== vrLocalRig) {
+        vrLocalRig.position.copy(camLocal.position);
+        vrLocalRig.quaternion.copy(camLocal.quaternion);
         vrLocalRig.add(camLocal);
+        camLocal.position.set(0, 0, 0);
+        camLocal.quaternion.identity();
+        camLocal.scale.set(1, 1, 1);
+        camLocal.updateMatrix();
+        vrLocalRig.updateMatrixWorld(true);
       }
     }
     // Unifica near/far mientras dura WebXR para evitar reconfiguración de renderState 2 veces por frame
@@ -661,12 +684,18 @@ export function createWebXrManager({
   function detachRigs() {
     if (camAstro && camAstro.parent === vrAstroRig) {
       vrAstroRig.remove(camAstro);
+      camAstro.position.copy(preVrAstroPos);
+      camAstro.quaternion.copy(preVrAstroQuat);
+      camAstro.scale.set(1, 1, 1);
       camAstro.near = savedAstroNear;
       camAstro.far = savedAstroFar;
       camAstro.updateProjectionMatrix();
     }
     if (camLocal && camLocal.parent === vrLocalRig) {
       vrLocalRig.remove(camLocal);
+      camLocal.position.copy(preVrLocalPos);
+      camLocal.quaternion.copy(preVrLocalQuat);
+      camLocal.scale.set(1, 1, 1);
       camLocal.near = savedLocalNear;
       camLocal.far = savedLocalFar;
       camLocal.updateProjectionMatrix();
@@ -711,6 +740,10 @@ export function createWebXrManager({
         savedCamQuatScratch.copy(camLocal.quaternion);
         savedCamScaleScratch.copy(camLocal.scale);
         try {
+          camLocal.position.set(0, 0, 0);
+          camLocal.quaternion.identity();
+          camLocal.scale.set(1, 1, 1);
+          vrLocalRig.updateMatrixWorld(true);
           const xrCam = renderer.xr.getCamera(camLocal);
           if (xrCam?.matrix && typeof xrCam.matrix.decompose === 'function') {
             // Three.js WebXRManager copia la matriz de vista en xrCam.matrix sin actualizar xrCam.quaternion
@@ -1055,6 +1088,10 @@ export function createWebXrManager({
         savedCamQuatScratch.copy(camLocal.quaternion);
         savedCamScaleScratch.copy(camLocal.scale);
         try {
+          camLocal.position.set(0, 0, 0);
+          camLocal.quaternion.identity();
+          camLocal.scale.set(1, 1, 1);
+          vrLocalRig.updateMatrixWorld(true);
           const xrCam = renderer.xr.getCamera(camLocal);
           if (xrCam?.matrixWorld) gazeCam = xrCam;
         } catch {
@@ -1199,6 +1236,10 @@ export function createWebXrManager({
     const savedScenePos = dist >= threshold ? sceneAstro.position.clone() : null;
     const savedRigPos = dist >= threshold ? vrAstroRig.position.clone() : null;
     try {
+      // camAstro es hijo de vrAstroRig: asegurar transform local identidad antes de pasarla a WebXRManager
+      camAstro.position.set(0, 0, 0);
+      camAstro.quaternion.identity();
+      camAstro.scale.set(1, 1, 1);
       if (dist < threshold) {
         vrAstroRig.updateMatrixWorld(true);
         renderer.render(sceneAstro, camAstro);

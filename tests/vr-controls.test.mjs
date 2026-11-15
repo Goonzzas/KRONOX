@@ -931,3 +931,227 @@ test('Quest Touch VR: handedness dinámico, rayos desconectados ocultos, atajos 
     else delete globalThis.navigator;
   }
 });
+
+test('createWebXrManager reinicia transformaciones locales de camAstro/camLocal al acoplar rigs y las restaura al salir', async () => {
+  const prevDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const endListeners = [];
+  const fakeSession = {
+    addEventListener: (ev, cb) => {
+      if (ev === 'end') endListeners.push(cb);
+    },
+    end: async () => {
+      for (const cb of endListeners.splice(0)) cb();
+    },
+  };
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    writable: true,
+    value: {
+      xr: {
+        isSessionSupported: async () => true,
+        requestSession: async () => fakeSession,
+      },
+    },
+  });
+
+  try {
+    const sceneAstro = new THREE.Scene();
+    const sceneLocal = new THREE.Scene();
+    const camAstro = new THREE.PerspectiveCamera(60, 1.5, 0.01, 4e5);
+    camAstro.position.set(180, 12, -40);
+    camAstro.rotation.set(0.1, -0.4, 0);
+    const camLocal = new THREE.PerspectiveCamera(60, 1.5, 0.05, 4000);
+    camLocal.position.set(0, 1.72, 11.4);
+    camLocal.rotation.set(0.05, 0.35, 0);
+
+    const renderedAstroCamPositions = [];
+    const mockRenderer = {
+      xr: {
+        enabled: false,
+        isPresenting: false,
+        setReferenceSpaceType: () => {},
+        setSession: async () => {
+          mockRenderer.xr.isPresenting = true;
+        },
+        getController: () => new THREE.Group(),
+        getControllerGrip: () => new THREE.Group(),
+        getReferenceSpace: () => ({}),
+        getCamera: (cam) => cam,
+      },
+      render: (sc, cam) => {
+        if (sc === sceneAstro) {
+          renderedAstroCamPositions.push(cam.position.toArray());
+        }
+      },
+    };
+
+    const vrManager = createWebXrManager({
+      renderer: mockRenderer,
+      sceneAstro,
+      sceneLocal,
+      camAstro,
+      camLocal,
+      isNodeHarness: false,
+    });
+
+    const res = await vrManager.enterVr();
+    assert.equal(res.ok, true);
+    assert.deepEqual(camAstro.position.toArray(), [0, 0, 0]);
+    assert.deepEqual(camLocal.position.toArray(), [0, 0, 0]);
+    assert.ok(Math.abs(vrManager.vrLocalRig.position.z - 11.4) < 1e-5);
+
+    vrManager.syncRigsBeforeRender({
+      astroCamPos: new THREE.Vector3(180, 12, -40),
+      astroCamQuat: new THREE.Quaternion(),
+      localEyePos: new THREE.Vector3(0, 1.72, 11.4),
+      localYawQuat: new THREE.Quaternion(),
+      inCabin: true,
+    });
+    vrManager.renderAstroInVr({ threshold: 10000, cellSize: 1024 });
+    assert.deepEqual(renderedAstroCamPositions[0], [0, 0, 0]);
+
+    await vrManager.exitVr();
+    assert.ok(Math.abs(camAstro.position.x - 180) < 1e-5);
+    assert.ok(Math.abs(camLocal.position.z - 11.4) < 1e-5);
+  } finally {
+    if (prevDesc) Object.defineProperty(globalThis, 'navigator', prevDesc);
+    else delete globalThis.navigator;
+  }
+});
+
+test('VR entrada desde pausa/menú/órbita fuerza Cabina 1P visible sin bloqueo por menú 2D y prefiere xr.setAnimationLoop', async () => {
+  const prevDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const endListeners = [];
+  const fakeSession = {
+    inputSources: [],
+    addEventListener: (ev, cb) => {
+      if (ev === 'end') endListeners.push(cb);
+    },
+    end: async () => {
+      for (const cb of endListeners.splice(0)) cb();
+    },
+  };
+  let pauseReqCount = 0;
+  let xrLoopCb = null;
+  const rendererSetLoopCalls = [];
+
+  const harness = await createSceneHarness({
+    stateOverrides: {
+      onVrPauseRequest: () => {
+        pauseReqCount += 1;
+      },
+    },
+  });
+
+  try {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: {
+        xr: {
+          isSessionSupported: async () => true,
+          requestSession: async () => fakeSession,
+        },
+      },
+    });
+
+    const api = await harness.start();
+    const R = harness.renderers[0];
+    R.autoClear = true;
+    R.clearDepth = () => {};
+    R.xr = {
+      enabled: false,
+      isPresenting: false,
+      setReferenceSpaceType: () => {},
+      setSession: async () => {
+        R.xr.isPresenting = true;
+      },
+      setAnimationLoop: (cb) => {
+        xrLoopCb = cb;
+      },
+      getController: () => new THREE.Group(),
+      getControllerGrip: () => new THREE.Group(),
+      getReferenceSpace: () => ({}),
+      getCamera: (cam) => cam,
+    };
+    R.setAnimationLoop = (cb) => {
+      rendererSetLoopCalls.push(cb);
+    };
+
+    // Simular estado problemático previo: órbita de menú, sentado en puente y simulación en pausa
+    api.setMainMenuOrbit(true);
+    api.sitInCommandSeat();
+    api.setSimulationPaused(true);
+
+    const enterRes = await api.enterVr();
+    assert.equal(enterRes.ok, true, 'enterVr debe entrar desde órbita/pausa/asiento');
+    assert.equal(typeof xrLoopCb, 'function', 'debe registrar el bucle en renderer.xr.setAnimationLoop');
+    assert.equal(
+      rendererSetLoopCalls.length,
+      0,
+      'no debe relanzar renderer.setAnimationLoop cuando existe xr.setAnimationLoop',
+    );
+
+    const fakeXrFrame = {
+      getViewerPose: () => ({
+        transform: {
+          position: { x: 0, y: 1.65, z: 0 },
+          orientation: { x: 0, y: 0, z: 0, w: 1 },
+        },
+      }),
+    };
+    xrLoopCb(performance.now(), fakeXrFrame);
+    await new Promise((r) => setTimeout(r, 20));
+    xrLoopCb(performance.now(), fakeXrFrame);
+
+    const snap = api.navigationSnapshot();
+    assert.equal(api.isSimulationPaused(), false, 'al entrar en VR se limpia simulationPaused');
+    assert.equal(api.isAstronautSeated(), false, 'al entrar en VR se levanta al astronauta para poder caminar');
+    assert.equal(snap.view, 1, 'VR debe abrirse en Cabina 1P');
+    assert.equal(snap.cabinVisible, true, 'el interior habitable de la cabina debe ser visible');
+    assert.equal(snap.shipVisible, false, 'la malla exterior 120m no debe tapar la vista 1P');
+
+    // Verificar desplazamiento y giro en VR (mundo no congelado)
+    const beforePos = api.getAstronautPosition();
+    api.applyVrControllerInput({ leftAxes: [0, 0, 0, -0.95], rightAxes: [0, 0, 0.85, 0] });
+    for (let i = 0; i < 8; i += 1) {
+      await new Promise((r) => setTimeout(r, 20));
+      xrLoopCb(performance.now(), fakeXrFrame);
+    }
+    api.applyVrControllerInput(null);
+    await new Promise((r) => setTimeout(r, 20));
+    xrLoopCb(performance.now(), fakeXrFrame);
+    const afterPos = api.getAstronautPosition();
+    const movedDist = Math.hypot(afterPos.x - beforePos.x, afterPos.z - beforePos.z);
+    assert.ok(movedDist > 0.05, `el joystick izquierdo debe desplazar en cabina (moved=${movedDist})`);
+    assert.ok(
+      Math.abs(afterPos.yaw - beforePos.yaw) > 0.05,
+      'el joystick derecho debe girar la orientación en cabina',
+    );
+
+    // Si simulationPaused quedara activo en VR, openMenu lo desbloquea y abre tableta
+    api.setSimulationPaused(true);
+    api.applyVrControllerInput({ openMenu: true, oneShot: true });
+    await new Promise((r) => setTimeout(r, 20));
+    xrLoopCb(performance.now(), fakeXrFrame);
+    assert.equal(api.isSimulationPaused(), false, 'openMenu en VR debe recuperar la simulación si estaba pausada');
+    assert.equal(api.getVrHudState().tabletOpen, true, 'openMenu debe abrir la tableta 3D VR');
+
+    // Pulsar Ajustes/Pausa en la tableta VR debe salir de VR antes de abrir PauseMenu 2D
+    api.openVrHudTab('travel');
+    await new Promise((r) => setTimeout(r, 20));
+    xrLoopCb(performance.now(), fakeXrFrame);
+    const pauseClick = api.clickVrHudHit({
+      stationId: 'vr-hud-tablet',
+      uv: new THREE.Vector2((986 + 64) / 1280, 1 - (104 + 38) / 820),
+    });
+    assert.equal(pauseClick.handled, true, 'debe reconocer botón de pausa/ajustes en tableta VR');
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(api.getVrState().presenting, false, 'debe cerrar WebXR antes de mostrar menú 2D');
+    assert.ok(pauseReqCount >= 1, 'debe disparar onVrPauseRequest tras salir de WebXR');
+  } finally {
+    await harness.close();
+    if (prevDesc) Object.defineProperty(globalThis, 'navigator', prevDesc);
+    else delete globalThis.navigator;
+  }
+});
