@@ -690,8 +690,8 @@
     <div class="modal-window">
       <div class="modal-header">
         <div>
-          <h2 style="font-size:1.05rem; color:#fff;">🌌 Catálogo Real SPHEREx (server.py · FITS DR1/QR3 &amp; Multi-Época NASA IRSA)</h2>
-          <p style="font-size:0.74rem; color:var(--muted);">Solo datos reales servidos por <code>server.py</code> (cero generación sintética). Filtra datasets locales en disco o descarga cualquier objeto real desde NASA IRSA.</p>
+          <h2 style="font-size:1.05rem; color:#fff;">🌌 Catálogo Real SPHEREx (FITS DR1/QR3 &amp; Multi-Época NASA IRSA)</h2>
+          <p style="font-size:0.74rem; color:var(--muted);">Datos reales de archivo servidos vía <code>/api</code> (cero generación sintética). Filtra datasets preprocesados o descarga cualquier objeto real desde NASA IRSA.</p>
         </div>
         <button class="btn" id="btnCloseCatalog">✖ Cerrar</button>
       </div>
@@ -710,7 +710,7 @@
               <input type="text" class="input-box" id="irsaFetchQueryInput" placeholder="Ej: M42, Cas A, NGC 1068, 3C 273..." style="flex:1;" />
               <button class="btn btn-primary" id="btnFetchRealTarget">⬇ Descargar</button>
             </div>
-            <div id="irsaFetchStatus" style="margin-top:5px; color:var(--muted); font-size:0.68rem;">Consulta <code>POST /api/spherex/fetch_target</code> en <code>server.py</code>.</div>
+            <div id="irsaFetchStatus" style="margin-top:5px; color:var(--muted); font-size:0.68rem;">Consulta <code>POST /api/spherex/fetch_target</code> en el motor científico.</div>
           </div>
         </div>
 
@@ -728,7 +728,7 @@
           </div>
           <div class="tiles-virtual-grid" id="modalTilesGrid"></div>
           <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.72rem; color:var(--muted);">
-            <span id="modalCatalogCountLabel">Conectando con server.py...</span>
+            <span id="modalCatalogCountLabel">Cargando catálogo SPHEREx...</span>
             <button class="btn btn-primary" id="btnLoadMoreCatalog">Mostrar +120 más</button>
           </div>
         </div>
@@ -738,10 +738,10 @@
 
   <header>
     <div class="brand">
-      <span class="brand-badge">SPHEREx · REAL SERVER</span>
+      <span class="brand-badge">SPHEREx · DR1 &amp; IRSA</span>
       <div>
-        <h1 id="headerObjectTitle">Conectando con server.py...</h1>
-        <p id="headerObjectMeta">Cargando catálogo real de SPHEREx</p>
+        <h1 id="headerObjectTitle">Cargando catálogo SPHEREx...</h1>
+        <p id="headerObjectMeta">Inicializando motor científico SPHEREx</p>
       </div>
     </div>
 
@@ -759,9 +759,11 @@
       <button class="btn" id="btnNextTile" title="Siguiente dataset real">▶</button>
       <button class="btn" id="btnRandomTile" title="Dataset real aleatorio">🎲</button>
       <button class="btn btn-amber" id="btnOpenCatalog">🔭 Catálogo Real</button>
-      <button class="btn btn-primary" id="btnOpenImmersiveSky" title="Abrir Observatorio Inmersivo 360° centrado en esta región (AllWISE, 2MASS, DSS2, Gaia DR3, SPHEREx DR1)">🌌 VER ESTA REGIÓN EN EL CIELO INMERSIVO</button>
+      <button class="btn btn-primary" id="btnOpenImmersiveSky" title="Alternar vista panorámica de Todo el Cielo DR1 360° (Mollweide RGB + Embeddings)">🌌 VISTA PANORÁMICA 360°</button>
       <button class="btn" id="btnAnnotateMode" title="Al activar, haz clic en la imagen para añadir una anotación">📝 Anotar</button>
       <span class="status-pill" id="cursorCoordPill" style="font-variant-numeric:tabular-nums; color:#38bdf8;" title="Coordenadas en tiempo real bajo el cursor">Cursor: —</span>
+      <label class="btn" for="fitsUploadInput" title="Cargar archivo FITS real (.fits / .fits.gz)">📂 FITS</label>
+      <input type="file" id="fitsUploadInput" accept=".fits,.fit,.fts,.gz" style="display: none;" />
       <label class="btn" for="bundleInput">📥 JSON</label>
       <input type="file" id="bundleInput" accept=".json" style="display: none;" />
       <span class="status-pill" id="modelStatus">Conectando...</span>
@@ -1342,9 +1344,7 @@
       kmeans: null,
       simMap: null
     };
-    let SERVER_BASE = (typeof window !== 'undefined' && (window.location.protocol === 'http:' || window.location.protocol === 'https:'))
-      ? window.location.origin
-      : 'http://127.0.0.1:8766';
+    let SERVER_BASE = '';
     let pendingAtlasRegion = null;
 
     const FLAG_DEFINITIONS = [
@@ -1512,20 +1512,18 @@
     }
 
     async function resolveServerAndFetchCatalog() {
-      const candidates = (typeof window !== 'undefined' && (window.location.protocol === 'http:' || window.location.protocol === 'https:'))
-        ? [window.location.origin]
-        : ['http://127.0.0.1:8766', 'http://127.0.0.1:8765'];
-      let lastErr = new Error('Servidor no disponible');
+      const candidates = [''];
+      let lastErr = new Error('Endpoint /api/datasets no disponible');
       for (const base of candidates) {
         try {
           const resp = await fetch(`${base}/api/datasets`);
-          if (!resp.ok) { lastErr = new Error(`HTTP ${resp.status} en ${base}`); continue; }
+          if (!resp.ok) { lastErr = new Error(`HTTP ${resp.status} en ${base || '/'}/api/datasets`); continue; }
           const data = await resp.json();
           if (data && data.ok && Array.isArray(data.datasets) && data.datasets.length > 0) {
             SERVER_BASE = base;
             return data;
           }
-          lastErr = new Error('Catálogo vacío en server.py');
+          lastErr = new Error('Catálogo vacío en /api/datasets');
         } catch (err) {
           lastErr = err;
         }
@@ -1534,7 +1532,7 @@
     }
 
     async function loadRealCatalogFromServer() {
-      setOfflineOrErrorState('Conectando con server.py...', `Buscando servidor local (8766 / 8765)...`, 'Conectando...');
+      setOfflineOrErrorState('Cargando catálogo SPHEREx...', 'Consultando /api/datasets...', 'Cargando...');
       try {
         const data = await resolveServerAndFetchCatalog();
         state.catalog = data.datasets;
@@ -1551,10 +1549,10 @@
           await loadRealDataset(preferred.id);
         }
       } catch (err) {
-        console.error('Error conectando con server.py:', err);
+        console.error('Error cargando /api/datasets:', err);
         setOfflineOrErrorState(
-          'Sin conexión con server.py',
-          `Abre http://127.0.0.1:8766/spherex_embeddings_explorer.html o inicia server.py (${err.message})`,
+          'Sin respuesta de /api/datasets',
+          `No se pudo cargar el catálogo SPHEREx (${err.message})`,
           'Offline'
         );
       }
@@ -1611,7 +1609,7 @@
       if (!datasetBundleCache.has(datasetId)) {
         setOfflineOrErrorState(
           dsInfo ? dsInfo.name : datasetId,
-          isOnDemand ? 'Descargando exposiciones reales desde NASA IRSA vía server.py...' : 'Cargando planos FITS reales desde server.py...',
+          isOnDemand ? 'Descargando exposiciones reales desde NASA IRSA vía /api...' : 'Cargando planos FITS reales vía /api...',
           isOnDemand ? 'Descargando IRSA...' : 'Cargando FITS...'
         );
       }
