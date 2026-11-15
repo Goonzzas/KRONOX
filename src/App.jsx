@@ -1135,6 +1135,19 @@ export default function App() {
       window.removeEventListener('click', handleGestureUnlock);
     };
   }, [realTimeIntroActive, introMusicBlocked, voiceBlockedByAutoplay]);
+  const vrHandlersRef = useRef({});
+  const vrSpeechRecRef = useRef(null);
+  const lastNonEmptyGuideTextRef = useRef('');
+  useEffect(() => {
+    if (guide?.text) lastNonEmptyGuideTextRef.current = guide.text;
+    api.current?.syncVrContext?.({
+      findingsCount: missionFindingsSync.length,
+      lastKronoxReply: guide?.text || lastNonEmptyGuideTextRef.current || '',
+      voiceEnabled: voice,
+      activeTargetKey: missionTargetKey,
+      visualProfile,
+    });
+  }, [guide?.text, missionFindingsSync.length, voice, missionTargetKey, visualProfile]);
   useEffect(() => {
     api.current = setupScene(el.current, {
       quality,
@@ -1144,7 +1157,14 @@ export default function App() {
       onGraphicsStateChange: (info) => setGraphicsRuntime(info),
       onVrStateChange: (nextVr) => {
         if (nextVr) setVrState(nextVr);
+        if (nextVr && !nextVr.presenting && vrSpeechRecRef.current) {
+          try {
+            vrSpeechRecRef.current.stop();
+          } catch { }
+          vrSpeechRecRef.current = null;
+        }
       },
+      onVrAction: (action, payload) => vrHandlersRef.current?.[action]?.(payload),
       onVrPauseRequest: () => {
         if (
           !pauseMenuOpenRef.current &&
@@ -1213,19 +1233,22 @@ export default function App() {
       onStationInteract: (stationId) => {
         setActiveCockpitStation(stationId);
         if (!stationId && !A()?.isFreeHelmActive?.()) setFreeHelmMode(false);
+        const vrPresenting = Boolean(api.current?.getVrState?.()?.presenting);
         const awardInventoryItem = (id) => {
           const res = grantInventoryItem(id);
           if (res?.inventory) setInventoryState(res.inventory);
         };
         if (stationId === 'comms') {
-          kronoxDialogHiddenRef.current = false;
-          setKronoxDialogHidden(false);
-          setKronoxOpen(true);
+          if (!vrPresenting) {
+            kronoxDialogHiddenRef.current = false;
+            setKronoxDialogHidden(false);
+            setKronoxOpen(true);
+          }
         } else if (stationId === 'science') {
           awardInventoryItem('data-spherex-calibration');
-          setMissionOpen(true);
+          if (!vrPresenting) setMissionOpen(true);
         } else if (stationId === 'missions') {
-          setMissionSelectorOpen(true);
+          if (!vrPresenting) setMissionSelectorOpen(true);
         } else if (stationId === 'bioponics') {
           awardInventoryItem('sample-bioponic-flora');
         } else if (stationId === 'engineering') {
@@ -1865,10 +1888,12 @@ export default function App() {
       );
       const instruction = t(`Tu misión: ${objective}`, language);
       setMissionLaunchTarget(null);
-      setMissionOpen(true);
+      if (!api.current?.getVrState?.()?.presenting) {
+        setMissionOpen(true);
+        openKronox();
+      }
       setMissionTargetKey(target.key);
       say(instruction);
-      openKronox();
       speak(instruction);
     },
     handleKronoxCommand = (query) => {
@@ -2017,13 +2042,13 @@ export default function App() {
           setMissionTargetKey(act.targetKey);
           setMissionInitialStage('arrival');
           A().moveAiToStation?.('science', 'Explicación');
-          setMissionOpen(true);
+          if (!api.current?.getVrState?.()?.presenting) setMissionOpen(true);
         } else if (act.type === 'OPEN_MISSION_STAGE') {
           actionLabel = `Etapa activa: ${act.stage}`;
           setMissionTargetKey(act.targetKey);
           setMissionInitialStage(act.stage);
           A().moveAiToStation?.('science', 'Explicación');
-          setMissionOpen(true);
+          if (!api.current?.getVrState?.()?.presenting) setMissionOpen(true);
         } else if (act.type === 'SELECT_OBJECT') {
           actionLabel = `Señalando en cosmos 3D: ${act.key}`;
           setSelectedObject({ kind: act.kind, key: act.key });
@@ -2085,6 +2110,147 @@ export default function App() {
         nm[k],
       ),
     pi = f && P.find((x) => x.n == f);
+  vrHandlersRef.current = {
+    'travel-planet': (payload) => {
+      const planetName = payload?.planetName;
+      if (!planetName) return;
+      setSelectedObject(null);
+      startTravel(() => {
+        if (spec) {
+          A()?.board?.();
+          setSpec(false);
+          setFr(true);
+        } else if (!fr) {
+          setFr(true);
+          A()?.free?.(true);
+        }
+        A()?.focus?.(planetName);
+      }, planetName);
+    },
+    'travel-spherex': (payload) => {
+      const key = payload?.targetKey;
+      const target = SPHEREX_TARGETS.find((tgt) => tgt.key === key) || SPHEREX_TARGETS[0];
+      if (!target) return;
+      setSelectedObject(null);
+      chooseSpherexTarget(target);
+    },
+    'quick-travel': (payload) => {
+      if (!payload?.key) return;
+      startTravel(() => A()?.quick?.(payload.key), payload.label || payload.key);
+    },
+    'kronox-query': (payload) => {
+      const query = String(payload?.query || '').trim();
+      if (query) handleKronoxCommand(query);
+    },
+    'start-tour': () => {
+      A()?.startGuidedTour?.();
+    },
+    'repeat-voice': () => {
+      setSpeechPaused(false);
+      const lastMessage = narrativeQueue.repeat();
+      if (lastMessage) {
+        if (voiceRef.current) speak(lastMessage.text, { interrupt: true });
+        api.current?.syncVrContext?.({ lastKronoxReply: lastMessage.text });
+      }
+    },
+    'toggle-voice': () => {
+      const next = !voiceRef.current;
+      voiceRef.current = next;
+      setVoice(next);
+      if (!next) {
+        stopVoiceAndClearQueue();
+        say('Voz silenciada. Mis mensajes seguirán activos en consola VR.');
+      } else {
+        say('Voz de KRONOX IA reactivada.');
+        speak('Voz de KRONOX IA reactivada.', { interrupt: true });
+      }
+    },
+    'toggle-mic': async () => {
+      if (vrSpeechRecRef.current) {
+        try {
+          vrSpeechRecRef.current.stop();
+        } catch { }
+        vrSpeechRecRef.current = null;
+        api.current?.syncVrContext?.({ lastKronoxReply: 'Escucha de micrófono detenida.' });
+        return;
+      }
+      const SpeechRecognitionCtor =
+        typeof window !== 'undefined'
+          ? window.SpeechRecognition || window.webkitSpeechRecognition
+          : null;
+      if (!SpeechRecognitionCtor) {
+        const msg = 'Reconocimiento de voz no disponible en este navegador VR.';
+        say(msg);
+        api.current?.syncVrContext?.({ lastKronoxReply: msg });
+        return;
+      }
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach((tr) => tr.stop());
+        } catch {
+          const msg = 'Permiso de micrófono denegado en el visor VR.';
+          say(msg);
+          api.current?.syncVrContext?.({ lastKronoxReply: msg });
+          return;
+        }
+      }
+      try {
+        const recognition = new SpeechRecognitionCtor();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = language === 'en' ? 'en-US' : 'es-ES';
+        vrSpeechRecRef.current = recognition;
+        let finalTranscript = '';
+        recognition.onstart = () => {
+          api.current?.syncVrContext?.({
+            lastKronoxReply: '🎙️ Escuchando a través del micrófono... Habla ahora con KRONOX IA.',
+          });
+        };
+        recognition.onresult = (event) => {
+          let interim = '';
+          for (let i = event.resultIndex; i < event.results.length; i += 1) {
+            const textChunk = event.results[i]?.[0]?.transcript || '';
+            if (event.results[i].isFinal) finalTranscript += `${textChunk} `;
+            else interim += textChunk;
+          }
+          const preview = (finalTranscript || interim).trim();
+          if (preview) {
+            api.current?.syncVrContext?.({ lastKronoxReply: `🎙️ "${preview}"` });
+          }
+        };
+        recognition.onerror = () => {
+          vrSpeechRecRef.current = null;
+          api.current?.syncVrContext?.({
+            lastKronoxReply: 'No se pudo capturar audio. Intenta hablar de nuevo.',
+          });
+        };
+        recognition.onend = () => {
+          vrSpeechRecRef.current = null;
+          const clean = finalTranscript.trim();
+          if (clean) handleKronoxCommand(clean);
+        };
+        recognition.start();
+      } catch {
+        vrSpeechRecRef.current = null;
+      }
+    },
+    'toggle-visual-profile': (payload) => {
+      const next = payload?.profile || (visualProfile === 'scientific' ? 'cinematic' : 'scientific');
+      setVisualProfile(next);
+      A()?.setVisualProfile?.(next);
+    },
+    'scientific-scan': (payload) => {
+      const targetKey = payload?.targetKey || missionTargetKey || 'barnard';
+      const tgt = SPHEREX_TARGETS.find((item) => item.key === targetKey) || SPHEREX_TARGETS[0];
+      setMissionTargetKey(targetKey);
+      const res = grantInventoryItem('data-spherex-calibration');
+      if (res?.inventory) setInventoryState(res.inventory);
+      const msg = `Escaneo espectral infrarrojo SPHEREx iniciado sobre ${tgt?.name || targetKey} (${tgt?.preferredBand || 'SPHEREx'}).`;
+      say(msg);
+      if (voiceRef.current) speak(msg, { interrupt: true });
+    },
+  };
   return h(
     'div',
     {

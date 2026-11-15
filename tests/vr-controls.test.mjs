@@ -440,3 +440,384 @@ test('createWebXrManager auto-calibrates seated/standing HMD eye height and filt
     else delete globalThis.navigator;
   }
 });
+
+test('vrControls controller raycasting skips hidden deck trees, prioritizes VR panel buttons, and supports left-trigger ray click', async () => {
+  const prevDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const dummyRefSpace = { id: 'local-floor-ref' };
+  const ctrl0 = new THREE.Group();
+  const ctrl1 = new THREE.Group();
+  const grip0 = new THREE.Group();
+  const grip1 = new THREE.Group();
+  const leftGamepad = { axes: [0, 0, 0, 0], buttons: [{ pressed: false }] };
+  const rightGamepad = { axes: [0, 0, 0, 0], buttons: [{ pressed: false }] };
+
+  const fakeSession = {
+    inputSources: [
+      { targetRayMode: 'tracked-pointer', handedness: 'left', gamepad: leftGamepad },
+      { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: rightGamepad },
+    ],
+    addEventListener() {},
+    async end() {},
+  };
+
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      xr: {
+        isSessionSupported: async (mode) => mode === 'immersive-vr',
+        requestSession: async () => fakeSession,
+      },
+    },
+  });
+
+  try {
+    const sceneAstro = new THREE.Scene();
+    const sceneLocal = new THREE.Scene();
+    const camAstro = new THREE.PerspectiveCamera();
+    const camLocal = new THREE.PerspectiveCamera();
+    const fakeRenderer = {
+      xr: {
+        enabled: false,
+        setReferenceSpaceType() {},
+        getReferenceSpace: () => dummyRefSpace,
+        async setSession() {},
+        getCamera: () => camLocal,
+        getController: (idx) => (idx === 0 ? ctrl0 : ctrl1),
+        getControllerGrip: (idx) => (idx === 0 ? grip0 : grip1),
+      },
+      render() {},
+    };
+
+    const hitsTriggered = [];
+    const xrManager = createWebXrManager({
+      renderer: fakeRenderer,
+      sceneAstro,
+      sceneLocal,
+      camAstro,
+      camLocal,
+      onInteractHit: (stationId, rayHit) => hitsTriggered.push({ stationId, rayHit }),
+    });
+
+    const enterRes = await xrManager.enterVr();
+    assert.equal(enterRes.ok, true);
+
+    ctrl0.dispatchEvent({ type: 'connected', data: fakeSession.inputSources[0] });
+    ctrl1.dispatchEvent({ type: 'connected', data: fakeSession.inputSources[1] });
+    assert.equal(xrManager.getState().connectedHands, 2);
+
+    const hiddenParent = new THREE.Group();
+    hiddenParent.visible = false;
+    const hiddenMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 0.2), new THREE.MeshBasicMaterial());
+    hiddenMesh.position.set(0, 1.5, -1.2);
+    hiddenMesh.userData.interactId = 'comms';
+    hiddenParent.add(hiddenMesh);
+    sceneLocal.add(hiddenParent);
+
+    const visibleNavMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 0.2), new THREE.MeshBasicMaterial());
+    visibleNavMesh.position.set(0, 1.5, -2.4);
+    visibleNavMesh.userData.interactId = 'nav';
+    visibleNavMesh.userData.actionLabel = 'Puente de mando';
+    sceneLocal.add(visibleNavMesh);
+
+    const priorityBtnMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial());
+    priorityBtnMesh.position.set(0, 1.5, -1.8);
+    priorityBtnMesh.userData.vrConsoleAction = 'travel-planet';
+    priorityBtnMesh.userData.vrConsolePayload = { planetName: 'Marte' };
+    priorityBtnMesh.userData.vrConsoleLabel = 'Viajar a Marte';
+    sceneLocal.add(priorityBtnMesh);
+
+    const frame = {
+      getViewerPose: () => ({
+        transform: {
+          position: { x: 0, y: 1.65, z: 0 },
+          orientation: { x: 0, y: 0, z: 0, w: 1 },
+        },
+      }),
+    };
+
+    ctrl0.position.set(2, 1.5, 0);
+    ctrl0.rotation.set(0, Math.PI, 0);
+    ctrl1.position.set(0, 1.5, 0);
+    ctrl1.rotation.set(0, 0, 0);
+    sceneLocal.updateMatrixWorld(true);
+    ctrl0.updateMatrixWorld(true);
+    ctrl1.updateMatrixWorld(true);
+
+    // 1. Ancestor visibility culling: skips closer invisible group and hits visible nav mesh
+    const passVisible = xrManager.pollInput({
+      dt: 0.016,
+      xrFrame: frame,
+      interactableMeshes: [hiddenMesh, visibleNavMesh],
+      priorityMeshes: [],
+    });
+    assert.equal(passVisible.rayHit?.stationId, 'nav');
+    assert.equal(passVisible.rayHit?.controllerHand, 'right');
+
+    // 2. Priority panel button overrides background console and fires on right trigger
+    rightGamepad.buttons[0].pressed = true;
+    const passBtn = xrManager.pollInput({
+      dt: 0.016,
+      xrFrame: frame,
+      interactableMeshes: [hiddenMesh, visibleNavMesh],
+      priorityMeshes: [priorityBtnMesh],
+    });
+    assert.equal(passBtn.rayHit?.vrAction, 'travel-planet');
+    assert.equal(passBtn.rayHit?.vrPayload?.planetName, 'Marte');
+    assert.equal(hitsTriggered.length, 1);
+    assert.equal(hitsTriggered[0].rayHit?.vrAction, 'travel-planet');
+    rightGamepad.buttons[0].pressed = false;
+
+    // 3. Left controller ray aims at console: left trigger clicks console without triggering recenter
+    const initialRecenterOffset = xrManager.recenterVr(frame).offset[1];
+    assert.ok(Math.abs(initialRecenterOffset - 1.65) < 1e-4);
+    ctrl1.rotation.set(0, Math.PI, 0);
+    ctrl0.position.set(0, 1.5, 0);
+    ctrl0.rotation.set(0, 0, 0);
+    ctrl0.updateMatrixWorld(true);
+    ctrl1.updateMatrixWorld(true);
+
+    const standingLaterFrame = {
+      getViewerPose: () => ({
+        transform: {
+          position: { x: 0, y: 1.92, z: 0 },
+          orientation: { x: 0, y: 0, z: 0, w: 1 },
+        },
+      }),
+    };
+    leftGamepad.buttons[0].pressed = true;
+    const leftClickPass = xrManager.pollInput({
+      dt: 0.016,
+      xrFrame: standingLaterFrame,
+      interactableMeshes: [visibleNavMesh],
+      priorityMeshes: [],
+    });
+    assert.equal(leftClickPass.rayHit?.stationId, 'nav');
+    assert.equal(leftClickPass.rayHit?.controllerHand, 'left');
+    assert.equal(hitsTriggered.length, 2);
+    assert.equal(hitsTriggered[1].stationId, 'nav');
+    // Recenter was NOT fired when clicking a targeted console
+    assert.ok(Math.abs(xrManager.getState().recenterOffset[1] - 1.65) < 1e-4);
+
+    // 4. Release & aim into open space: left trigger performs normal HMD recenter
+    leftGamepad.buttons[0].pressed = false;
+    xrManager.pollInput({ dt: 0.016, xrFrame: standingLaterFrame, interactableMeshes: [visibleNavMesh] });
+    ctrl0.rotation.set(0, Math.PI, 0);
+    ctrl0.updateMatrixWorld(true);
+    leftGamepad.buttons[0].pressed = true;
+    const openSpacePass = xrManager.pollInput({
+      dt: 0.016,
+      xrFrame: standingLaterFrame,
+      interactableMeshes: [visibleNavMesh],
+    });
+    assert.equal(openSpacePass.rayHit, null);
+    assert.ok(Math.abs(xrManager.getState().recenterOffset[1] - 1.92) < 1e-4);
+  } finally {
+    if (prevDesc) Object.defineProperty(globalThis, 'navigator', prevDesc);
+    else delete globalThis.navigator;
+  }
+});
+
+test('VR diegetic console screens and contextual 3D panels operate every C01-C04 station without floating idle HUD', async () => {
+  const vrActions = [];
+  const stationEvents = [];
+  const freeHelmEvents = [];
+  const harness = await createSceneHarness({
+    stateOverrides: {
+      onVrAction: (action, payload) => vrActions.push({ action, payload }),
+      onStationInteract: (stationId) => stationEvents.push(stationId),
+      onFreeHelmChange: (enabled) => freeHelmEvents.push(enabled),
+    },
+  });
+
+  try {
+    const api = await harness.start();
+    api.skipRealTimeIntro();
+    api.view(1);
+    harness.stepFrames(4);
+
+    const { createKronoxInterior120M } = await harness.server.ssrLoadModule('/src/scene/kronoxInterior120M.js');
+    const { createVrConsoleOverlay3D } = await harness.server.ssrLoadModule('/src/scene/vrConsoleOverlay3D.js');
+
+    // 1. Verify interactive consoles across Decks C01-C03 are registered as raycastable meshes
+    const interior = createKronoxInterior120M();
+    const deck01Ids = interior.getInteractMeshesForDeck('deck-01').map((m) => m.userData?.interactId);
+    const deck02Ids = interior.getInteractMeshesForDeck('deck-02').map((m) => m.userData?.interactId);
+    const deck03Ids = interior.getInteractMeshesForDeck('deck-03').map((m) => m.userData?.interactId);
+
+    for (const id of ['nav', 'missions', 'comms', 'windows', 'elevator-panel']) {
+      assert.ok(deck01Ids.includes(id), `Expected C01 deck-01 interactable meshes to include ${id}`);
+    }
+    assert.ok(deck01Ids.filter((id) => id === 'windows').length >= 2, 'Expected C01 wing/wall displays registered');
+    for (const id of ['comms', 'science', 'archive', 'engineering', 'nav', 'missions', 'elevator-panel']) {
+      assert.ok(deck02Ids.includes(id), `Expected C02 deck-02 interactable meshes to include ${id}`);
+    }
+    for (const id of ['engineering', 'science', 'sensor-calibration', 'elevator-panel']) {
+      assert.ok(deck03Ids.includes(id), `Expected C03 deck-03 interactable meshes to include ${id}`);
+    }
+
+    // 2. Verify contextual vrConsoleOverlay3D stays hidden when exploring freely, shows tooltip on aim, and opens buttons per station
+    const overlay = createVrConsoleOverlay3D();
+    const eyePos = new THREE.Vector3(0, 5.05, -8.5);
+    const baseCtx = {
+      targetName: 'Estrella de Barnard',
+      activeTargetKey: 'barnard',
+      findingsCount: 2,
+      lastKronoxReply: 'Listo para explorar.',
+      voiceEnabled: true,
+      visualProfile: 'cinematic',
+      opticalMagnification: 1,
+      speed: 0,
+      flightMode: 'MANUAL',
+      freeHelmMode: false,
+      seated: false,
+      repairStage: 0,
+      currentDeckId: 'deck-01',
+      mechanisms: { reactorMode: 'nominal' },
+    };
+
+    overlay.update({
+      presenting: true,
+      inCabin: true,
+      activeStationId: null,
+      eyePos,
+      deckFloorY: 3.4,
+      hoveredHit: null,
+      context: baseCtx,
+    });
+    assert.equal(overlay.root.visible, false, 'No permanent floating HUD should appear during free exploration');
+    assert.equal(overlay.getInteractiveButtonMeshes().length, 0);
+
+    overlay.update({
+      presenting: true,
+      inCabin: true,
+      activeStationId: null,
+      eyePos,
+      deckFloorY: 3.4,
+      hoveredHit: { stationId: 'comms', actionLabel: 'KRONOX IA' },
+      context: baseCtx,
+    });
+    assert.equal(overlay.root.visible, true, 'Aiming at a console should surface compact aim tooltip');
+    assert.equal(overlay.getInteractiveButtonMeshes().length, 0, 'Hover tooltip should not spawn panel buttons');
+
+    overlay.showDirectToast({ text: 'Ascensor en marcha hacia C03' });
+    overlay.update({
+      presenting: true,
+      inCabin: true,
+      activeStationId: null,
+      eyePos,
+      deckFloorY: 3.4,
+      hoveredHit: null,
+      context: baseCtx,
+    });
+    assert.equal(overlay.root.visible, true, 'Direct mechanisms should show brief 3D toast in VR');
+
+    const getActions = () => overlay.getInteractiveButtonMeshes().map((m) => m.userData?.vrConsoleAction);
+    const stationChecks = [
+      { id: 'nav', expectAction: 'travel-planet' },
+      { id: 'missions', expectAction: 'travel-spherex' },
+      { id: 'comms', expectAction: 'kronox-query' },
+      { id: 'windows', expectAction: 'set-telescope' },
+      { id: 'science', expectAction: 'scientific-scan' },
+      { id: 'archive', expectAction: 'scientific-scan' },
+      { id: 'sensor-calibration', expectAction: 'repair-next-stage' },
+      { id: 'engineering', expectAction: 'mech-engineering' },
+      { id: 'elevator-panel', expectAction: 'elevator-floor' },
+    ];
+    for (const check of stationChecks) {
+      overlay.update({
+        presenting: true,
+        inCabin: true,
+        activeStationId: check.id,
+        stationAnchorPos: new THREE.Vector3(0, 4.9, -11.4),
+        eyePos,
+        deckFloorY: 3.4,
+        hoveredHit: null,
+        context: baseCtx,
+      });
+      const actions = getActions();
+      assert.ok(actions.includes(check.expectAction), `Expected VR console ${check.id} to expose action ${check.expectAction}`);
+      assert.ok(actions.includes('close-console'), `Expected VR console ${check.id} to expose close button`);
+    }
+
+    overlay.setNavTab('spherex');
+    overlay.update({
+      presenting: true,
+      inCabin: true,
+      activeStationId: 'nav',
+      stationAnchorPos: new THREE.Vector3(0, 4.9, -11.4),
+      eyePos,
+      deckFloorY: 3.4,
+      hoveredHit: null,
+      context: baseCtx,
+    });
+    assert.ok(getActions().includes('travel-spherex'));
+    overlay.setNavTab('pilot');
+    overlay.update({
+      presenting: true,
+      inCabin: true,
+      activeStationId: 'nav',
+      stationAnchorPos: new THREE.Vector3(0, 4.9, -11.4),
+      eyePos,
+      deckFloorY: 3.4,
+      hoveredHit: null,
+      context: baseCtx,
+    });
+    assert.ok(getActions().includes('toggle-free-helm'));
+    overlay.dispose();
+
+    // 3. Verify createScene handles console actions, syncVrContext, and Button B close cleanly
+    assert.equal(api.getVrConsoleButtonMeshes().length, 0);
+
+    api.setActiveCabinStation('sensor-calibration');
+    assert.ok(stationEvents.includes('sensor-calibration'));
+    api.handleVrConsoleAction('repair-next-stage');
+    assert.equal(api.getRepairMissionStage(), 1);
+    api.handleVrConsoleAction('repair-set-stage', { stage: 4 });
+    assert.equal(api.getRepairMissionStage(), 4);
+    api.handleVrConsoleAction('repair-reset');
+    assert.equal(api.getRepairMissionStage(), 0);
+
+    api.handleVrConsoleAction('mech-engineering', { mode: 'overclock' });
+    assert.equal(api.getMechanismsState()?.reactorMode, 'overclock');
+
+    api.handleVrConsoleAction('elevator-floor', { deckId: 'deck-03' });
+    assert.equal(api.getElevatorState()?.targetDeckId, 'deck-03');
+
+    api.setActiveCabinStation('nav');
+    api.handleVrConsoleAction('toggle-free-helm');
+    assert.equal(api.isFreeHelmActive(), true);
+    assert.equal(freeHelmEvents[freeHelmEvents.length - 1], true);
+
+    // Button B disables Free Helm first, then second press closes the console
+    api.applyVrControllerInput({ buttons: { toggleFreeHelm: true } });
+    harness.stepFrames(2);
+    assert.equal(api.isFreeHelmActive(), false);
+
+    api.applyVrControllerInput({ buttons: { toggleFreeHelm: true } });
+    harness.stepFrames(2);
+    assert.equal(stationEvents[stationEvents.length - 1], null);
+
+    api.handleVrConsoleAction('travel-planet', { planetName: 'Saturno' });
+    api.handleVrConsoleAction('travel-spherex', { targetKey: 'barnard' });
+    api.handleVrConsoleAction('kronox-query', { query: '¿Qué es SPHEREx?' });
+    api.handleVrConsoleAction('start-tour');
+    api.handleVrConsoleAction('scientific-scan', { targetKey: 'wise-0855' });
+    const firedNames = vrActions.map((entry) => entry.action);
+    assert.deepEqual(
+      firedNames,
+      ['travel-planet', 'travel-spherex', 'kronox-query', 'start-tour', 'scientific-scan'],
+    );
+    assert.equal(vrActions[0].payload?.planetName, 'Saturno');
+
+    const ctxSnapshot = api.syncVrContext({
+      findingsCount: 3,
+      lastKronoxReply: 'Telemetría SPHEREx lista.',
+      voiceEnabled: false,
+    });
+    assert.equal(ctxSnapshot.findingsCount, 3);
+    assert.equal(ctxSnapshot.lastKronoxReply, 'Telemetría SPHEREx lista.');
+    assert.equal(ctxSnapshot.voiceEnabled, false);
+  } finally {
+    await harness.close();
+  }
+});

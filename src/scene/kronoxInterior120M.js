@@ -977,6 +977,12 @@ export function buildKronoxInterior120M() {
     registerColliderMesh,
     staticFreezeCandidates,
   });
+  bridgeCabina1Result?.extraConsoleScreens?.forEach(({ mesh, stationId }) => {
+    if (mesh && stationId) {
+      mesh.userData.stationId = stationId;
+      registerInteractMesh(mesh, stationId, 'panel', 'deck-01');
+    }
+  });
   disposableExtras.push(bridgeCabina1Result);
 
   // ==================== CUBIERTA 2 · HABITACIONAL, BIOPÓNICA Y ESCLUSA (Y = 0.0) ====================
@@ -1139,8 +1145,11 @@ export function buildKronoxInterior120M() {
         add(wallConsole, box(0.26, 0.035, 0.06), steelM, wx, 0.62, -0.29);
       });
       // Pantalla mural panorámica integrada en la pared del camarote + placa de parche de misión enmarcada
+      const cabinStationIds = ['comms', 'science', 'archive', 'engineering', 'nav', 'missions'];
+      const cabinStationId = cabinStationIds[bIdx % cabinStationIds.length];
       add(wallConsole, box(1.56, 0.88, 0.08), slateM, -0.2, 1.58, -0.16);
-      add(wallConsole, box(1.44, 0.76, 0.03), habWallScrMat, -0.2, 1.58, -0.20);
+      const wallScrMesh = add(wallConsole, box(1.44, 0.76, 0.03), habWallScrMat, -0.2, 1.58, -0.20);
+      registerInteractMesh(wallScrMesh, cabinStationId, 'panel', 'deck-02');
       add(wallConsole, box(1.52, 0.03, 0.05), roleMeta.accent, -0.2, 2.04, -0.18);
       // Cuadro/insignia conmemorativa de la expedición Horizonte junto al monitor mural
       add(wallConsole, box(0.46, 0.54, 0.05), darkM, 0.86, 1.62, -0.16);
@@ -1163,10 +1172,12 @@ export function buildKronoxInterior120M() {
       deskMonL.rotation.y = -0.22;
       const deskScrL = add(c, box(0.03, 0.26, 0.42), habWallScrMat, 13.12, f + 0.99, 0.24);
       deskScrL.rotation.y = -0.22;
+      registerInteractMesh(deskScrL, cabinStationId, 'panel', 'deck-02');
       const deskMonR = add(c, box(0.05, 0.28, 0.40), darkM, 13.14, f + 0.98, -0.24);
       deskMonR.rotation.y = 0.22;
       const deskScrR = add(c, box(0.03, 0.24, 0.36), roleMeta.accent, 13.12, f + 0.98, -0.24);
       deskScrR.rotation.y = 0.22;
+      registerInteractMesh(deskScrR, cabinStationId, 'panel', 'deck-02');
       add(c, box(0.18, 0.018, 0.36), compositeM, 12.84, f + 0.805, 0.04);
       // Objetos personales sobre el escritorio: taza térmica magnética sobre base calefactora y tableta de datos personal
       add(c, cyl(0.055, 0.055, 0.012, 12), railAmberM, 12.86, f + 0.802, -0.34);
@@ -1583,8 +1594,9 @@ export function buildKronoxInterior120M() {
     cryoMonitor.rotation.y = Math.PI / 2 - 0.28;
     d3.add(cryoMonitor);
     add(cryoMonitor, box(1.3, 0.85, 0.07), darkM, 0, 0, 0);
-    add(cryoMonitor, box(1.22, 0.77, 0.03), cryoScreenMat, 0, 0, 0.04);
+    const cryoScrMesh = add(cryoMonitor, box(1.22, 0.77, 0.03), cryoScreenMat, 0, 0, 0.04);
     add(cryoMonitor, cyl(0.035, 0.035, 0.58, 8), steelM, 0, -0.58, 0);
+    registerInteractMesh(cryoScrMesh, 'engineering', 'panel', 'deck-03');
 
     // --- TERCERA PANTALLA: CONTROL DE PROPULSIÓN ---
     const propScreenTex = makeDiegeticScreenTexture('engineering', 'PROPULSIÓN IÓNICA — EMPUJE VECTORIAL', [
@@ -1604,8 +1616,9 @@ export function buildKronoxInterior120M() {
     propMonitor.rotation.y = Math.PI / 2 + 0.28;
     d3.add(propMonitor);
     add(propMonitor, box(1.3, 0.85, 0.07), darkM, 0, 0, 0);
-    add(propMonitor, box(1.22, 0.77, 0.03), propScreenMat, 0, 0, 0.04);
+    const propScrMesh = add(propMonitor, box(1.22, 0.77, 0.03), propScreenMat, 0, 0, 0.04);
     add(propMonitor, cyl(0.035, 0.035, 0.58, 8), steelM, 0, -0.58, 0);
+    registerInteractMesh(propScrMesh, 'engineering', 'panel', 'deck-03');
 
     // --- CONSOLA DE CONTROL PRINCIPAL frente al reactor ---
     const ctrlConsole = new THREE.Group();
@@ -1618,7 +1631,8 @@ export function buildKronoxInterior120M() {
     consoleFace.rotation.x = 0.15;
     // Teclado/touchpad empotrado
     add(ctrlConsole, box(0.82, 0.03, 0.28), compositeM, 0.6, 0.91, 0.18);
-    add(ctrlConsole, box(0.74, 0.02, 0.22), cyanGlow, 0.6, 0.925, 0.18);
+    const reactorPad = add(ctrlConsole, box(0.74, 0.02, 0.22), cyanGlow, 0.6, 0.925, 0.18);
+    registerInteractMesh(reactorPad, 'engineering', 'panel', 'deck-03');
     // Trackball de control de vectorización
     add(ctrlConsole, sphereGeo(0.065, 10, 8), steelM, -0.8, 0.96, 0.22);
     add(ctrlConsole, cyl(0.08, 0.08, 0.04, 12), darkM, -0.8, 0.895, 0.22);
@@ -1778,7 +1792,13 @@ export function buildKronoxInterior120M() {
         add(g, box(2.05, 0.04, 0.88), accentMat, 0, 1.07, 0);
         add(g, box(1.88, 0.28, 0.12), ventM, 0, 0.22, -0.62);
         add(g, box(1.74, 0.64, 0.07), darkM, 0, 1.48, -0.36);
-        add(g, box(1.66, 0.56, 0.03), scrMat, 0, 1.48, -0.32);
+        const labMonitorMesh = add(g, box(1.66, 0.56, 0.03), scrMat, 0, 1.48, -0.32);
+        registerInteractMesh(
+          labMonitorMesh,
+          isPortSpherex ? 'science' : 'sensor-calibration',
+          'panel',
+          'deck-03',
+        );
         // Marquesina superior de instrumentos sobre cada estación del laboratorio
         add(g, box(2.28, 0.16, 1.15), slateM, 0, 2.58, -0.1);
         add(g, box(1.95, 0.035, 0.28), isPortSpherex ? warmGlow : cyanGlow, 0, 2.49, -0.1);

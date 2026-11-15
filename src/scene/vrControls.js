@@ -858,14 +858,58 @@ export function createWebXrManager({
     return { leftGamepad, rightGamepad };
   }
 
-  function updateControllerRays({ interactableMeshes = [] } = {}) {
+  function isObjectChainVisible(node) {
+    let cur = node;
+    while (cur) {
+      if (cur.visible === false) return false;
+      cur = cur.parent;
+    }
+    return true;
+  }
+
+  function findFirstVisibleInteractHit(meshes, farDist = 6.0) {
+    if (!Array.isArray(meshes) || meshes.length === 0) return null;
+    raycaster.near = 0.05;
+    raycaster.far = farDist;
+    const hits = raycaster.intersectObjects(meshes, true);
+    for (let hi = 0; hi < hits.length; hi += 1) {
+      const hit = hits[hi];
+      if (!isObjectChainVisible(hit.object)) continue;
+      let cur = hit.object;
+      while (
+        cur &&
+        !cur.userData?.vrConsoleAction &&
+        !cur.userData?.interactId &&
+        !cur.userData?.stationId &&
+        cur.parent
+      ) {
+        cur = cur.parent;
+      }
+      const vrAction = cur?.userData?.vrConsoleAction || null;
+      const hitId = cur?.userData?.interactId || cur?.userData?.stationId || null;
+      if (vrAction || hitId) {
+        return { hit, node: cur, vrAction, hitId };
+      }
+    }
+    return null;
+  }
+
+  function updateControllerRays({ interactableMeshes = [], priorityMeshes = [] } = {}) {
     activeHoveredStation = null;
     if (!xrPresenting || !rigInitialized) return null;
 
-    const pairs = [
+    const rawPairs = [
       { ctrl: controller1, ray: ray1 },
       { ctrl: controller0, ray: ray0 },
     ];
+    const rankHand = (ctrl) => {
+      const h = ctrl?.userData?.handedness;
+      if (h === 'right') return 0;
+      if (h === 'unknown') return 1;
+      return 2;
+    };
+    const pairs = rawPairs.sort((a, b) => rankHand(a.ctrl) - rankHand(b.ctrl));
+
     let primaryHit = null;
     const showRays = settings.showControllerRays !== false;
 
@@ -874,43 +918,44 @@ export function createWebXrManager({
       if (!ctrl || !ray) continue;
       ray.line.visible = showRays;
       ray.reticle.visible = false;
+      ray.reticle.scale.setScalar(1);
       if (!showRays) continue;
 
       rayRotMatrix.identity().extractRotation(ctrl.matrixWorld);
       rayOrigin.setFromMatrixPosition(ctrl.matrixWorld);
       rayDir.set(0, 0, -1).applyMatrix4(rayRotMatrix).normalize();
+      raycaster.set(rayOrigin, rayDir);
 
-      if (Array.isArray(interactableMeshes) && interactableMeshes.length > 0) {
-        raycaster.set(rayOrigin, rayDir);
-        raycaster.near = 0.05;
-        raycaster.far = 6.0;
-        const hits = raycaster.intersectObjects(interactableMeshes, true);
-        if (hits.length > 0) {
-          const hit = hits[0];
-          const dist = Math.max(0.12, hit.distance);
-          const posAttr = ray.beamGeo.attributes?.position;
-          if (posAttr && typeof posAttr.setXYZ === 'function') {
-            posAttr.setXYZ(1, 0, 0, -dist);
-            posAttr.needsUpdate = true;
-          }
-          ray.reticle.position.set(0, 0, -dist);
-          ray.reticle.visible = true;
-          ray.beamMat.color.setHex(0x34d399);
-          if (!primaryHit) {
-            let cur = hit.object;
-            while (cur && !(cur.userData?.interactId || cur.userData?.stationId) && cur.parent) cur = cur.parent;
-            const hitId = cur?.userData?.interactId || cur?.userData?.stationId;
-            if (hitId) {
-              activeHoveredStation = cur;
-              primaryHit = {
-                stationId: hitId,
-                distance: dist,
-                point: hit.point.clone(),
-              };
-            }
-          }
-          continue;
+      const matched =
+        findFirstVisibleInteractHit(priorityMeshes, 5.5) ||
+        findFirstVisibleInteractHit(interactableMeshes, 6.0);
+
+      if (matched) {
+        const { hit, node, vrAction, hitId } = matched;
+        const dist = Math.max(0.12, hit.distance);
+        const posAttr = ray.beamGeo.attributes?.position;
+        if (posAttr && typeof posAttr.setXYZ === 'function') {
+          posAttr.setXYZ(1, 0, 0, -dist);
+          posAttr.needsUpdate = true;
         }
+        ray.reticle.position.set(0, 0, -dist);
+        ray.reticle.visible = true;
+        ray.reticle.scale.setScalar(vrAction ? 1.35 : 1.15);
+        ray.beamMat.color.setHex(vrAction ? 0x22d3ee : 0x34d399);
+        if (!primaryHit) {
+          if (hitId) activeHoveredStation = node;
+          primaryHit = {
+            stationId: hitId,
+            vrAction,
+            vrPayload: node?.userData?.vrConsolePayload ?? null,
+            actionLabel: node?.userData?.vrConsoleLabel || null,
+            distance: dist,
+            point: hit.point.clone(),
+            hitObject: node,
+            controllerHand: ctrl.userData?.handedness || 'unknown',
+          };
+        }
+        continue;
       }
 
       const posAttr = ray.beamGeo.attributes?.position;
@@ -925,7 +970,7 @@ export function createWebXrManager({
     return primaryHit;
   }
 
-  function pollInput({ dt = 0.016, xrFrame = null, interactableMeshes = [] } = {}) {
+  function pollInput({ dt = 0.016, xrFrame = null, interactableMeshes = [], priorityMeshes = [] } = {}) {
     if (xrPresenting && xrFrame) {
       if (pendingInitialCalibration) {
         tryAutoCalibrate(xrFrame);
@@ -942,7 +987,7 @@ export function createWebXrManager({
     if (!hasAnything) {
       return null;
     }
-    const rayHit = updateControllerRays({ interactableMeshes });
+    const rayHit = updateControllerRays({ interactableMeshes, priorityMeshes });
     const frame = tracker.stepFrame({
       dt,
       leftGamepad,
@@ -961,10 +1006,14 @@ export function createWebXrManager({
       delete ext.recenter;
       delete ext.openMenu;
     }
-    if (frame.actions.interact && rayHit?.stationId) {
-      onInteractHit?.(rayHit.stationId, rayHit);
+    const leftRayClick = Boolean(
+      frame.triggerLeftPressed && rayHit?.controllerHand === 'left' && (rayHit?.vrAction || rayHit?.stationId),
+    );
+    const shouldInteract = Boolean((frame.actions.interact || leftRayClick) && (rayHit?.vrAction || rayHit?.stationId));
+    if (shouldInteract) {
+      onInteractHit?.(rayHit.stationId || null, rayHit);
     }
-    if (frame.actions.recenter) {
+    if (frame.actions.recenter && !leftRayClick) {
       recenterVr(xrFrame);
     }
     return { ...frame, rayHit };

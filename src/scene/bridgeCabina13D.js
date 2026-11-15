@@ -704,6 +704,7 @@ export function buildBridgeCabina13D({
   };
 
   // Consolas delanteras en chevrón diferenciadas por ala (Babor Astrogación vs Estribor Propulsión)
+  const extraConsoleScreens = [];
   [[5, 3], [6, 1], [0, 1], [1, 3]].forEach(([ei, count]) => {
     const e = E[ei];
     const isPortWing = ei === 5 || ei === 6;
@@ -755,6 +756,10 @@ export function buildBridgeCabina13D({
       scrL.rotation.x = -0.48;
       const scrR = place(chevDisplayGrp, rbox(0.80, 0.46, 0.02, 0.008), isPortWing ? M.mfdNeuralMat : M.mfdEngMat, 0.43, 0, 0.024);
       scrR.rotation.x = -0.48;
+      extraConsoleScreens.push(
+        { mesh: scrL, stationId: isPortWing ? 'windows' : 'nav' },
+        { mesh: scrR, stationId: isPortWing ? 'missions' : 'comms' },
+      );
       place(chevDisplayGrp, rbox(1.82, 0.036, 0.16, 0.014), M.bridgeRibMat, 0, 0.27, 0.02);
 
       // Butaca de puesto
@@ -804,6 +809,10 @@ export function buildBridgeCabina13D({
       scrHood.rotation.x = -0.22;
       const scrPanel = place(g, rbox(1.62, 0.48, 0.02, 0.008), matScreen, 0, 1.34, -0.228);
       scrPanel.rotation.x = -0.22;
+      extraConsoleScreens.push({
+        mesh: scrPanel,
+        stationId: isPort ? (k < 2 ? 'comms' : 'missions') : (k < 2 ? 'nav' : 'science'),
+      });
       place(g, rbox(1.78, 0.036, 0.14, 0.012), M.bridgeChampagneMat, 0, 1.64, -0.20);
     }
   });
@@ -1071,6 +1080,7 @@ export function buildBridgeCabina13D({
       comms: commsScreenMesh,
       missions: missionsScreenMesh,
     },
+    extraConsoleScreens,
     setAnisotropy: (v) => localSuite.setAnisotropy(v),
     updateScreens: (telemetry) => localSuite.updateScreens?.(telemetry),
     dispose: () => {
