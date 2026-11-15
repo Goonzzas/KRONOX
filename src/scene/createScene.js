@@ -1534,6 +1534,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       // Illustrative, visually compressed orbital planes: the satellites are
       // intentionally small and are not positional/ephemeris data.
       const system = new THREE.Group();
+      system.userData.ignorePlanetClick = true;
       pivot.add(system);
       b.satelliteSystem = system;
       b.satellites = [];
@@ -2466,8 +2467,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       exteriorLastShipPosition.copy(sp);
     }
     layout();
+    pv = 3;
     localCabinWorld.visible = false;
     ship.visible = true;
+    S.onViewChange?.(3);
     ship.position.set(0, 0, 0);
     ship.scale.setScalar(SHIP_METRIC_SCALE);
     if (!alreadyExterior) {
@@ -5028,6 +5031,33 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         }
       }
       if (!blockedByInterior) {
+        const isNodeHierarchyVisible = (node) => {
+          let cur = node;
+          while (cur) {
+            if (cur.visible === false) return false;
+            cur = cur.parent;
+          }
+          return true;
+        };
+        if (!wasPointerLockedOnDown && spacePlanetLabelHits.length) {
+          const rect = dom.getBoundingClientRect();
+          const px = e.clientX - rect.left;
+          const py = e.clientY - rect.top;
+          let matchedLabel = null;
+          for (const hit of spacePlanetLabelHits) {
+            const box = hit.labelBox;
+            const insideLabel =
+              box && px >= box.left - 5 && px <= box.right + 5 && py >= box.top - 5 && py <= box.bottom + 5;
+            if (insideLabel && (!matchedLabel || hit.depth < matchedLabel.depth)) {
+              matchedLabel = hit;
+            }
+          }
+          if (matchedLabel?.name) {
+            promotePlanetTexture(matchedLabel.name);
+            S.onObjectSelect?.({ kind: 'planet', key: matchedLabel.name });
+            return;
+          }
+        }
         nearbyRaycaster.setFromCamera(nearbyPointer, cam);
         const starNodes = [...missionMarkers.values()].map((m) => m.marker);
         const planetNodes = B.map((b) => b.pivot);
@@ -5036,26 +5066,53 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           [...starNodes, ...planetNodes, ...planetLabelNodes],
           true,
         );
+        const camForwardForPick = new V();
+        cam.getWorldDirection(camForwardForPick);
         for (const hit of hits) {
+          if (!isNodeHierarchyVisible(hit.object)) continue;
           let node = hit.object;
+          let selectedFromHit = null;
+          let ignoredForPlanet = Boolean(hit.object.isLine || hit.object.isLineSegments);
           while (node) {
             if (node.userData?.spherexTargetKey) {
-              const key = node.userData.spherexTargetKey;
-              const found = missionMarkers.get(key);
-              if (found) found.label.visible = true;
-              S.onObjectSelect?.({ kind: 'spherex', key });
-              return;
+              selectedFromHit = { kind: 'spherex', key: node.userData.spherexTargetKey };
+              break;
             }
-            if (node.userData?.planetName) {
-              const name = node.userData.planetName;
-              promotePlanetTexture(name);
-              S.onObjectSelect?.({ kind: 'planet', key: name });
-              return;
+            if (node.userData?.ignorePlanetClick) {
+              ignoredForPlanet = true;
+            }
+            if (node.userData?.planetName && !ignoredForPlanet) {
+              selectedFromHit = {
+                kind: 'planet',
+                key: node.userData.planetName,
+                isSprite: Boolean(hit.object.isSprite),
+              };
+              break;
             }
             node = node.parent;
           }
+          if (selectedFromHit?.kind === 'spherex') {
+            const found = missionMarkers.get(selectedFromHit.key);
+            if (found) found.label.visible = true;
+            S.onObjectSelect?.({ kind: 'spherex', key: selectedFromHit.key });
+            return;
+          }
+          if (selectedFromHit?.kind === 'planet') {
+            const bodyEntry = B.find((item) => item.p?.n === selectedFromHit.key);
+            if (bodyEntry?.pivot) {
+              const bodyPos = bodyEntry.pivot.getWorldPosition(new V());
+              const toBody = bodyPos.sub(cam.position);
+              if (toBody.dot(camForwardForPick) <= 0 && (selectedFromHit.isSprite || hit.distance < (bodyEntry.r || 0) * 1.1)) {
+                continue;
+              }
+            }
+            const name = selectedFromHit.key;
+            promotePlanetTexture(name);
+            S.onObjectSelect?.({ kind: 'planet', key: name });
+            return;
+          }
         }
-        // Respaldo de clic sobre cápsula de etiqueta visible o esfera planetaria lejana
+        // Respaldo de clic sobre esfera o baliza planetaria lejana
         if (!wasPointerLockedOnDown && spacePlanetLabelHits.length) {
           const rect = dom.getBoundingClientRect();
           const px = e.clientX - rect.left;
@@ -5585,6 +5642,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             }
           } else {
             b.pointBeacon.visible = false;
+            b.pointBeacon.scale.setScalar(1e-5);
           }
         }
       }
@@ -5678,7 +5736,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       if (ti > 3.6 && ti - dt <= 3.6) S.intro(false);
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(fp, fy, 0, 'YXZ'));
       const routeForFrame = nav;
-      const inHabitableCabin = pv == 1 && !realTimeIntro && !launchSequence && !launchCameraBlend;
+      const inHabitableCabin =
+        pv == 1 &&
+        !exteriorCameraMode &&
+        !spectator &&
+        !realTimeIntro &&
+        !launchSequence &&
+        !launchCameraBlend;
       const pilotingFromCabin = inHabitableCabin && activeCabinStation === 'nav';
       const pilotingFromExterior =
         freeHelmMode && (exteriorCameraMode || pv === 3) && !realTimeIntro && !launchSequence && !launchCameraBlend;
@@ -6426,8 +6490,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           // 2. Toma exterior amplia acompañando la aceleración real del modelo en el cosmos
           // 3. Regreso fluido a la cabina habitable 3D donde Kronox IA continúa la conversación
           const u = directorSeq.progress;
-          ship.visible = directorSeq.showExteriorShip;
-          localCabinWorld.visible = directorSeq.showInteriorCabin;
+          const inInteriorPhase = u >= 0.78;
+          ship.visible = !inInteriorPhase && Boolean(directorSeq.showExteriorShip);
+          localCabinWorld.visible = !ship.visible && inInteriorPhase && Boolean(directorSeq.showInteriorCabin);
           localCabinWorld.position.set(0, 0, 0);
           localCabinWorld.scale.set(1, 1, 1);
           localCabinWorld.quaternion.copy(q);
@@ -7367,10 +7432,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               : Math.min(1.6, vel.length() / fs) + 0.15;
       th += (tt - th) * Math.min(1, dt * 6);
       if (!realTimeIntro && !sceneDirector.getState().activeSequence) {
-        ship.visible =
-          !!launchSequence ||
-          (!!launchCameraBlend && pv == 1) ||
-          pv == 3;
+        ship.visible = Boolean(
+          launchSequence ||
+            exteriorCameraMode ||
+            spectator ||
+            pv == 3 ||
+            (launchCameraBlend && !localCabinWorld.visible),
+        );
+        if (ship.visible) {
+          localCabinWorld.visible = false;
+        }
       }
       // En el Mundo Local Métrico (`localShipScene`, 1 u = 1 m), la nave está anclada en (0,0,0) con sus 120.0 m:
       ship.position.set(0, 0, 0);
@@ -7758,6 +7829,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
     // PASO 2 DE RENDERIZADO: Mundo Local Métrico (`localShipScene`, `1 u = 1 m`) con limpieza de profundidad
     if (localCabinWorld.visible || ship.visible) {
+      if (localCabinWorld.visible && ship.visible) {
+        const preferExterior = Boolean(
+          mainMenuOrbitActive || exteriorCameraMode || spectator || pv == 3 || launchSequence,
+        );
+        ship.visible = preferExterior;
+        localCabinWorld.visible = !preferExterior;
+      }
       const inInteriorLighting = Boolean(localCabinWorld.visible && !exteriorCameraMode && !spectator);
       const inBridgeLighting = inInteriorLighting && resolveCurrentDeck(astronautPos)?.id === 'deck-01';
       localShipAmbient.intensity = inBridgeLighting ? 0.11 : inInteriorLighting ? 0.24 : 0.52;
