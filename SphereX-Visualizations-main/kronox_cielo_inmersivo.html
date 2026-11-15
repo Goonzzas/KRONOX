@@ -471,9 +471,7 @@
   <script>
     (function () {
       let A = window.A || null;
-      const SERVER_BASE = (window.location.protocol === 'http:' || window.location.protocol === 'https:')
-        ? window.location.origin
-        : 'http://127.0.0.1:8765';
+      const SERVER_BASE = '';
 
       const params = new URLSearchParams(window.location.search);
       const initRa = parseFloat(params.get('ra'));
