@@ -2,10 +2,101 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { pathToFileURL } from 'url';
+import { spawn } from 'child_process';
+import readline from 'readline';
+
+const SPHEREX_VIZ_ROUTE_RE =
+  /^(?:\/KRONOX)?(\/api\/(?:health|datasets|bundle|resolve|upload|embeddings_bundle|spherex_viz|irsa\/[a-zA-Z0-9_-]+|spherex\/[a-zA-Z0-9_-]+|hips\/[a-zA-Z0-9_-]+|catalog\/[a-zA-Z0-9_-]+|cube\/[a-zA-Z0-9_-]+)|\/spherex_(?:temporal|v2_interactive)_bundle\.json)(?:\?.*)?$/;
+
+let pyWorker = null;
+let pyReqSeq = 0;
+const pyPending = new Map();
+
+function invokePythonServerless(method, url, headers, bodyBuffer) {
+  return new Promise((resolve, reject) => {
+    if (!pyWorker || pyWorker.killed || pyWorker.exitCode !== null) {
+      const scriptPath = path.resolve(process.cwd(), 'api', 'spherex_viz.py');
+      const pyCmd = process.platform === 'win32' ? 'python' : 'python3';
+      pyWorker = spawn(pyCmd, [scriptPath, '--stdio-worker'], {
+        cwd: process.cwd(),
+        stdio: ['pipe', 'pipe', 'inherit'],
+      });
+      if (typeof pyWorker.unref === 'function') pyWorker.unref();
+      const rl = readline.createInterface({ input: pyWorker.stdout });
+      rl.on('line', (line) => {
+        try {
+          const msg = JSON.parse(line);
+          const pending = pyPending.get(msg.id);
+          if (pending) {
+            pyPending.delete(msg.id);
+            pending.resolve(msg);
+          }
+        } catch {
+          // Ignore non-JSON lines
+        }
+      });
+      pyWorker.on('error', (err) => {
+        for (const [, p] of pyPending) p.reject(err);
+        pyPending.clear();
+        pyWorker = null;
+      });
+      pyWorker.on('exit', () => {
+        for (const [, p] of pyPending) p.reject(new Error('Python serverless worker exited'));
+        pyPending.clear();
+        pyWorker = null;
+      });
+    }
+
+    const id = ++pyReqSeq;
+    pyPending.set(id, { resolve, reject });
+    const payload = JSON.stringify({
+      id,
+      method,
+      url,
+      headers: headers || {},
+      body_b64: bodyBuffer && bodyBuffer.length ? bodyBuffer.toString('base64') : '',
+    });
+    pyWorker.stdin.write(payload + '\n');
+  });
+}
 
 function apiDevServerPlugin() {
   const handleApi = async (req, res, next, loadModule) => {
     const rawUrl = req.url || '';
+    const vizMatch = rawUrl.match(SPHEREX_VIZ_ROUTE_RE);
+    if (vizMatch) {
+      try {
+        let bodyBuf = Buffer.alloc(0);
+        if (req.method === 'POST' && typeof req.on === 'function') {
+          bodyBuf = await new Promise((resolve) => {
+            const chunks = [];
+            let total = 0;
+            req.on('data', (chunk) => {
+              const b = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+              if (total + b.length <= 25 * 1024 * 1024) {
+                chunks.push(b);
+                total += b.length;
+              }
+            });
+            req.on('end', () => resolve(Buffer.concat(chunks)));
+            req.on('error', () => resolve(Buffer.alloc(0)));
+          });
+        }
+        const pyRes = await invokePythonServerless(req.method || 'GET', rawUrl, req.headers, bodyBuf);
+        res.statusCode = pyRes.status || 200;
+        for (const [k, v] of Object.entries(pyRes.headers || {})) {
+          res.setHeader(k, v);
+        }
+        res.end(Buffer.from(pyRes.body_b64 || '', 'base64'));
+      } catch (err) {
+        console.error(`Local Python serverless error in ${rawUrl}:`, err);
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: false, error: err.message || 'Internal serverless error' }));
+      }
+      return;
+    }
+
     const match = rawUrl.match(/(?:\/KRONOX)?\/api\/([a-zA-Z0-9_-]+)(?:\?.*)?$/);
     if (!match) return next();
 
