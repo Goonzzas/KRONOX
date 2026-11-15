@@ -798,20 +798,17 @@ export default function App() {
       closeKronoxLater();
     };
 
-    // New Novatos narration remains audible locally even when the hosted TTS keys are absent.
     const voiceStatusNow = fishVoiceStatusRef.current;
     const officialVoiceUnavailable =
-      !voiceStatusNow ||
-      (voiceStatusNow.configured === false && !voiceStatusNow.geminiTts?.configured);
-    const canUseLocalNoviceVoice =
-      options.allowBrowserFallback &&
+      voiceStatusNow?.configured === false && !voiceStatusNow.geminiTts?.configured;
+    const canUseLocalSpeech =
       !voiceProvider.staticAudioUrl?.({ text: cleanMsg }) &&
       officialVoiceUnavailable &&
       typeof window !== 'undefined' &&
       window.speechSynthesis &&
       window.SpeechSynthesisUtterance;
 
-    if (canUseLocalNoviceVoice) {
+    if (canUseLocalSpeech) {
       const utterance = new window.SpeechSynthesisUtterance(cleanMsg);
       const availableVoices = window.speechSynthesis.getVoices?.() || [];
       const voiceLanguagePrefix = (voiceAccentRef.current || 'en-US').split(/[-_]/)[0];
@@ -834,6 +831,8 @@ export default function App() {
       browserVoiceActiveRef.current = true;
       speakingRef.current = true;
       setSpeaking(true);
+      setVoiceFailed(false);
+      setVoiceError('');
       try {
         window.speechSynthesis.speak(utterance);
       } catch {
@@ -965,11 +964,8 @@ export default function App() {
             }
           }
         }
-        // The Novatos tour is a narrated cinematic. Keep it audible when both
-        // hosted TTS providers fail (for example, Gemini quota 429): use the
-        // browser's installed Spanish voice instead of subtitles-only playback.
+        // Keep narration audible if hosted TTS fails. The browser voice uses the selected language.
         if (
-          entry.allowBrowserFallback &&
           typeof window !== 'undefined' &&
           window.speechSynthesis &&
           window.SpeechSynthesisUtterance
@@ -1004,6 +1000,8 @@ export default function App() {
           browserVoiceActiveRef.current = true;
           speakingRef.current = true;
           setSpeaking(true);
+          setVoiceFailed(false);
+          setVoiceError('');
           try {
             window.speechSynthesis.speak(utterance);
             return;
