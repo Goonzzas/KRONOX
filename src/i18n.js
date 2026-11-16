@@ -1539,6 +1539,29 @@ const en = {
   '🔭 Abrir Explorador SPHEREx · 102 canales': '🔭 Open SPHEREx Explorer · 102 channels',
   'Preparando el analizador espectral…': 'Preparing the spectral analyzer…',
   'Abriendo el explorador espectral…': 'Opening the spectral explorer…',
+  'RECORRIDO DE MISIÓN · NOVATOS': 'MISSION WALKTHROUGH · BEGINNER',
+  'Terminar explicación': 'Finish explanation',
+  '1 · OBJETIVO DE LA MISIÓN': '1 · MISSION OBJECTIVE',
+  'Ya estamos en el laboratorio. Arriba aparece el objetivo y su posición en el cielo. Primero confirmamos qué región estudiamos; las imágenes que veremos vienen de observaciones reales de SPHEREx.':
+    'We are in the laboratory. The target and its position in the sky appear above. First we confirm the region we are studying; the images come from real SPHEREx observations.',
+  '2 · ELEGIR LOS DATOS': '2 · CHOOSE THE DATA',
+  'Esta fila cambia la fuente de datos. Datasets muestra campos y observaciones disponibles; 102 canales abre el mapa infrarrojo de todo el cielo; y Todo el Cielo presenta la composición panorámica. Voy a abrir ahora el cubo espectral.':
+    'This row changes the data source. Datasets shows available fields and observations; 102 Channels opens the all-sky infrared map; and All Sky displays the panoramic composite. I will open the spectral cube now.',
+  '3 · DETECTORES Y CANALES': '3 · DETECTORS AND CHANNELS',
+  'SPHEREx divide la luz infrarroja en seis detectores. El deslizador recorre 102 canales, desde las longitudes de onda más cortas hasta cinco micras. El detector seleccionado indica qué tramo del espectro estamos examinando.':
+    'SPHEREx divides infrared light across six detectors. The slider moves through 102 channels, from the shortest wavelengths up to five microns. The selected detector shows which part of the spectrum we are examining.',
+  '4 · LEER LA IMAGEN': '4 · READ THE IMAGE',
+  'Aquí comparamos la imagen RGB con cada detector. D1 a D6 separan bandas infrarrojas; ZODI muestra la contribución de luz zodiacal, SNR ayuda a valorar la señal y FLAGS identifica píxeles marcados por calidad. La composición de color sirve para explorar: no es una fotografía óptica.':
+    'Here we compare the RGB image with each detector. D1 to D6 separate infrared bands; ZODI shows zodiacal-light contribution, SNR helps assess the signal, and FLAGS identifies quality-marked pixels. The color composite is for exploration, not an optical photograph.',
+  '5 · COMPARAR OBSERVACIONES': '5 · COMPARE OBSERVATIONS',
+  'Una misión también compara fechas. Este catálogo reúne las observaciones encontradas para el objetivo; cuando hay varias épocas compatibles, podemos recorrerlas o reproducirlas para buscar cambios. La velocidad de reproducción no modifica las fechas reales.':
+    'A mission also compares dates. This catalog gathers observations found for the target; when several compatible epochs exist, we can browse or play them to look for changes. Playback speed does not alter the real dates.',
+  '6 · ANALIZAR Y COMPARAR': '6 · ANALYZE AND COMPARE',
+  'El panel inferior ofrece herramientas de análisis. K-NN agrupa píxeles con señales parecidas; Similitud compara su firma espectral con la región elegida; PCA RGB resume variaciones en tres componentes. Son ayudas de exploración y deben interpretarse junto con los datos y su procedencia.':
+    'The lower panel provides analysis tools. K-NN groups pixels with similar signals; Similarity compares their spectral signature with the selected region; RGB PCA summarizes variation in three components. These are exploration aids and should be interpreted alongside the data and its provenance.',
+  '7 · INSPECCIONAR UN PÍXEL': '7 · INSPECT A PIXEL',
+  'Al hacer clic sobre la imagen, el visor consulta ese píxel y presenta sus valores, coordenadas, calidad y espectro cuando están disponibles. Así completamos el recorrido: objetivo, datos, canales, comparación temporal y análisis. Ahora puedes explorar la misión por tu cuenta.':
+    'Clicking the image queries that pixel and displays its values, coordinates, quality, and spectrum when available. That completes the walkthrough: target, data, channels, time comparison, and analysis. You can now explore the mission on your own.',
   'CAPÍTULO 02 / 04 · INVESTIGACIÓN ESPECTRAL': 'CHAPTER 02 / 04 · SPECTRAL RESEARCH',
   'VISOR ORIGINAL · SPHEREx DR1': 'ORIGINAL VIEWER · SPHEREx DR1',
   'Cubo de 102 canales, mapas HiPS, inspección de píxel y espectro. El visor usa el servidor Python de SphereX para catálogo y productos FITS.':

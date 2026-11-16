@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import originalVisualizerHtml from '../../SphereX-Visualizations-main/kronox_visor_cientifico.html?raw';
+import { t } from '../i18n.js';
 import '../styles/spherexAdvancedExplorer.css';
 
 function scopeCssToVisorRoot(rawCss) {
@@ -36,9 +37,95 @@ function parseVisorDocument(htmlText) {
   return { scopedCss, bodyHtml, scriptCode };
 }
 
-export default function SphereXAdvancedExplorer({ targetName, ra, dec, onClose }) {
+const MISSION_GUIDE_STEPS = [
+  {
+    selector: '#headerObjectTitle',
+    title: '1 · OBJETIVO DE LA MISIÓN',
+    narration:
+      'Ya estamos en el laboratorio. Arriba aparece el objetivo y su posición en el cielo. Primero confirmamos qué región estudiamos; las imágenes que veremos vienen de observaciones reales de SPHEREx.',
+  },
+  {
+    selector: '#explorerSourcePills',
+    title: '2 · ELEGIR LOS DATOS',
+    narration:
+      'Esta fila cambia la fuente de datos. Datasets muestra campos y observaciones disponibles; 102 canales abre el mapa infrarrojo de todo el cielo; y Todo el Cielo presenta la composición panorámica. Voy a abrir ahora el cubo espectral.',
+    after: (root) => root.querySelector('#explorerSourcePills [data-src="cube102"]')?.click(),
+  },
+  {
+    selector: '#cube102Controls',
+    title: '3 · DETECTORES Y CANALES',
+    narration:
+      'SPHEREx divide la luz infrarroja en seis detectores. El deslizador recorre 102 canales, desde las longitudes de onda más cortas hasta cinco micras. El detector seleccionado indica qué tramo del espectro estamos examinando.',
+    enter: (root) => {
+      root.querySelector('#c102DetPills [data-det="2"]')?.click();
+    },
+    animate: (root, schedule) => {
+      const next = root.querySelector('#c102NextCh');
+      for (let i = 1; i <= 5; i += 1) schedule(() => next?.click(), i * 650);
+    },
+  },
+  {
+    selector: '#panel1ModePills',
+    title: '4 · LEER LA IMAGEN',
+    narration:
+      'Aquí comparamos la imagen RGB con cada detector. D1 a D6 separan bandas infrarrojas; ZODI muestra la contribución de luz zodiacal, SNR ayuda a valorar la señal y FLAGS identifica píxeles marcados por calidad. La composición de color sirve para explorar: no es una fotografía óptica.',
+    enter: (root) => root.querySelector('#panel1ModePills [data-p1="D2"]')?.click(),
+    animate: (root, schedule) => {
+      schedule(() => root.querySelector('#panel1ModePills [data-p1="D4"]')?.click(), 900);
+    },
+    after: (root) => root.querySelector('#panel1ModePills [data-p1="ir_cal"]')?.click(),
+  },
+  {
+    selector: '#btnObsCatalogToggle',
+    title: '5 · COMPARAR OBSERVACIONES',
+    narration:
+      'Una misión también compara fechas. Este catálogo reúne las observaciones encontradas para el objetivo; cuando hay varias épocas compatibles, podemos recorrerlas o reproducirlas para buscar cambios. La velocidad de reproducción no modifica las fechas reales.',
+    enter: (root) => root.querySelector('#btnObsCatalogToggle')?.click(),
+    after: (root) => root.querySelector('#btnCloseObsCatalog')?.click(),
+  },
+  {
+    selector: '#panel2ModePills',
+    title: '6 · ANALIZAR Y COMPARAR',
+    narration:
+      'El panel inferior ofrece herramientas de análisis. K-NN agrupa píxeles con señales parecidas; Similitud compara su firma espectral con la región elegida; PCA RGB resume variaciones en tres componentes. Son ayudas de exploración y deben interpretarse junto con los datos y su procedencia.',
+    enter: (root) => root.querySelector('#panel2ModePills [data-p2="sim"]')?.click(),
+    animate: (root, schedule) => {
+      schedule(() => root.querySelector('#panel2ModePills [data-p2="pca"]')?.click(), 1100);
+    },
+    after: (root) => root.querySelector('#panel2ModePills [data-p2="knn"]')?.click(),
+  },
+  {
+    selector: '#canvasIR',
+    title: '7 · INSPECCIONAR UN PÍXEL',
+    narration:
+      'Al hacer clic sobre la imagen, el visor consulta ese píxel y presenta sus valores, coordenadas, calidad y espectro cuando están disponibles. Así completamos el recorrido: objetivo, datos, canales, comparación temporal y análisis. Ahora puedes explorar la misión por tu cuenta.',
+  },
+];
+
+export default function SphereXAdvancedExplorer({
+  targetName,
+  ra,
+  dec,
+  onClose,
+  language = 'es',
+  guidedTutorial = false,
+  narrate,
+  onGuidedComplete,
+}) {
   const visorRootRef = useRef(null);
+  const narrateRef = useRef(narrate);
+  const onGuidedCompleteRef = useRef(onGuidedComplete);
+  const [guideStep, setGuideStep] = useState(-1);
+  const [guideRunning, setGuideRunning] = useState(false);
   const parsedVisor = useMemo(() => parseVisorDocument(originalVisualizerHtml), []);
+  narrateRef.current = narrate;
+  onGuidedCompleteRef.current = onGuidedComplete;
+
+  const finishGuide = useCallback(() => {
+    setGuideRunning(false);
+    setGuideStep(-1);
+    onGuidedCompleteRef.current?.();
+  }, []);
 
   useEffect(() => {
     const rootEl = visorRootRef.current;
@@ -180,6 +267,85 @@ export default function SphereXAdvancedExplorer({ targetName, ra, dec, onClose }
     }
   }, [ra, dec, targetName]);
 
+  useEffect(() => {
+    if (!guidedTutorial) {
+      setGuideRunning(false);
+      setGuideStep(-1);
+      return undefined;
+    }
+
+    const root = visorRootRef.current;
+    if (!root) return undefined;
+    let cancelled = false;
+    const timers = new Set();
+    let activeHighlight = null;
+    root.style.pointerEvents = 'none';
+    setGuideRunning(true);
+
+    const schedule = (callback, delay) => {
+      const timer = window.setTimeout(() => {
+        timers.delete(timer);
+        if (!cancelled) callback();
+      }, delay);
+      timers.add(timer);
+      return timer;
+    };
+
+    const clearHighlight = () => {
+      if (!activeHighlight) return;
+      activeHighlight.classList.remove('kronoxMissionGuideFocus');
+      activeHighlight.removeAttribute('data-kronox-guide-focus');
+      activeHighlight = null;
+    };
+
+    const playStep = (index) => {
+      if (cancelled) return;
+      clearHighlight();
+      if (index >= MISSION_GUIDE_STEPS.length) {
+        finishGuide();
+        return;
+      }
+      const step = MISSION_GUIDE_STEPS[index];
+      setGuideStep(index);
+      const target = root.querySelector(step.selector);
+      if (target) {
+        activeHighlight = target;
+        target.classList.add('kronoxMissionGuideFocus');
+        target.setAttribute('data-kronox-guide-focus', String(index + 1));
+        target.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+      }
+      step.enter?.(root);
+      step.animate?.(root, schedule);
+
+      schedule(() => {
+        if (cancelled) return;
+        let narrationCompleted = false;
+        const continueAfterNarration = () => {
+          if (narrationCompleted || cancelled) return;
+          narrationCompleted = true;
+          schedule(() => {
+            step.after?.(root);
+            playStep(index + 1);
+          }, 500);
+        };
+        schedule(continueAfterNarration, 45000);
+        if (narrateRef.current) {
+          narrateRef.current(t(step.narration, language), continueAfterNarration);
+        } else {
+          continueAfterNarration();
+        }
+      }, index === 0 ? 1100 : 650);
+    };
+
+    schedule(() => playStep(0), 1600);
+    return () => {
+      cancelled = true;
+      timers.forEach((timer) => window.clearTimeout(timer));
+      clearHighlight();
+      root.style.pointerEvents = '';
+    };
+  }, [finishGuide, guidedTutorial, language]);
+
   return (
     <div className="kronoxExpeditionShade kronoxSphereXExplorerShade" role="dialog" aria-modal="true">
       <style data-kronox-visor-style="true">{parsedVisor.scopedCss}</style>
@@ -224,6 +390,19 @@ export default function SphereXAdvancedExplorer({ targetName, ra, dec, onClose }
             data-testid="kronox-native-spherex-visor"
             aria-label="Visor científico SPHEREx: 102 canales y datos DR1"
           />
+          {guidedTutorial && guideRunning && guideStep >= 0 && (
+            <div className="kronoxMissionGuideCard" role="status" aria-live="polite">
+              <div className="kronoxMissionGuideProgress">
+                <span>{t('RECORRIDO DE MISIÓN · NOVATOS', language)}</span>
+                <span>{guideStep + 1} / {MISSION_GUIDE_STEPS.length}</span>
+              </div>
+              <h3>{t(MISSION_GUIDE_STEPS[guideStep].title, language)}</h3>
+              <p>{t(MISSION_GUIDE_STEPS[guideStep].narration, language)}</p>
+              <button type="button" onClick={finishGuide}>
+                {t('Terminar explicación', language)}
+              </button>
+            </div>
+          )}
         </div>
       </section>
     </div>

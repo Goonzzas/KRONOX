@@ -716,7 +716,10 @@ export default function App() {
 
   const speak = (msg, options = {}) => {
     const translated = t(msg, language);
-    if (!translated || !String(translated).trim()) return;
+    if (!translated || !String(translated).trim()) {
+      options.onComplete?.();
+      return;
+    }
     const cleanMsg = String(translated).trim();
     lastSpokenTextRef.current = cleanMsg;
     if (!realTimeIntroActiveRef.current && !options.skipGuide) {
@@ -732,15 +735,22 @@ export default function App() {
         });
       }
     }
-    if (!voiceRef.current) return;
+    if (!voiceRef.current) {
+      options.onComplete?.();
+      return;
+    }
     const master = Number(gameSettingsRef.current?.masterVolume ?? 0.85);
     const vox = Number(gameSettingsRef.current?.voiceVolume ?? 0.95);
     const voiceGain = Math.max(0, Math.min(1, master * vox));
-    if (voiceGain <= 0.001) return;
+    if (voiceGain <= 0.001) {
+      options.onComplete?.();
+      return;
+    }
     if (
       typeof Audio === 'undefined' &&
       (typeof window === 'undefined' || !window.speechSynthesis || !window.SpeechSynthesisUtterance)
     ) {
+      options.onComplete?.();
       return;
     }
     // Voice audio does not forcefully pop open the command drawer;
@@ -826,6 +836,7 @@ export default function App() {
       setSpeaking(false);
       speakingRef.current = false;
       closeKronoxLater();
+      options.onComplete?.();
     };
 
     const voiceStatusNow = fishVoiceStatusRef.current;
@@ -1533,6 +1544,9 @@ export default function App() {
         missionGuideSyncRef.current = null;
         setMissionInitialStage('arrival');
         setMissionOpen(true);
+        const target = SPHEREX_TARGETS.find((item) => item.key === missionTargetKey) || SPHEREX_TARGETS[0];
+        setAdvancedExplorerTarget(target);
+        setAdvancedExplorerOpen(true);
         A().onGuidedMissionStarted?.();
       },
       onNoviceCinematicComplete: () => {
@@ -3737,7 +3751,13 @@ export default function App() {
         targetName: t(advancedExplorerTarget?.name || SPHEREX_TARGETS[0]?.name || 'SPHEREx', language),
         ra: advancedExplorerTarget?.ra,
         dec: advancedExplorerTarget?.dec,
+        language,
+        guidedTutorial: noviceCinematicActiveRef.current,
+        narrate: (text, onComplete) =>
+          speak(text, { interrupt: true, allowBrowserFallback: true, onComplete }),
+        onGuidedComplete: () => A().onNoviceCinematicComplete?.(),
         onClose: () => {
+          if (noviceCinematicActiveRef.current) A().onNoviceCinematicComplete?.();
           setAdvancedExplorerOpen(false);
           setMissionOpen(false);
           if (activeCockpitStation === 'science') {
