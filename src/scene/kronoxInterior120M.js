@@ -2206,6 +2206,48 @@ export function buildKronoxInterior120M() {
     }
   }
 
+  const tutorialPathGroup = new THREE.Group();
+  tutorialPathGroup.name = 'KronoxTutorialPath3D';
+  tutorialPathGroup.visible = false;
+  root.add(tutorialPathGroup);
+  const tutorialPathMaterial = trackExtraMat(
+    new THREE.LineDashedMaterial({
+      color: 0x55eaff,
+      transparent: true,
+      opacity: 0.96,
+      dashSize: 0.38,
+      gapSize: 0.22,
+      depthWrite: false,
+    }),
+  );
+  const tutorialPathMarkerMaterial = trackExtraMat(
+    new THREE.MeshBasicMaterial({ color: 0x9af5ff, transparent: true, opacity: 0.95 }),
+  );
+  function setTutorialPath({ visible = false, points = [], colorHex = 0x55eaff } = {}) {
+    tutorialPathGroup.visible = Boolean(visible && points.length > 1);
+    while (tutorialPathGroup.children.length) {
+      const child = tutorialPathGroup.children[0];
+      tutorialPathGroup.remove(child);
+      child.geometry?.dispose?.();
+    }
+    if (!tutorialPathGroup.visible) return;
+    const vectors = points.map((point) =>
+      point?.isVector3 ? point.clone() : new THREE.Vector3(Number(point?.x) || 0, Number(point?.y) || 0, Number(point?.z) || 0),
+    );
+    vectors.forEach((point) => { point.y += 0.055; });
+    const routeGeometry = new THREE.BufferGeometry().setFromPoints(vectors);
+    const routeLine = new THREE.Line(routeGeometry, tutorialPathMaterial);
+    routeLine.computeLineDistances();
+    tutorialPathGroup.add(routeLine);
+    tutorialPathMaterial.color.setHex(colorHex);
+    for (const point of vectors.slice(1, -1)) {
+      const marker = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.035, 6, 18), tutorialPathMarkerMaterial);
+      marker.rotation.x = Math.PI / 2;
+      marker.position.copy(point);
+      tutorialPathGroup.add(marker);
+    }
+  }
+
   function getStationScreenReadout(stationId, telemetry = {}, repairStage = 0) {
     const target = telemetry.target || null;
     const mechanisms = telemetry.mechanisms || {};
@@ -2874,6 +2916,7 @@ export function buildKronoxInterior120M() {
       }),
     resolveCurrentDeck,
     setTutorialWaypoint,
+    setTutorialPath,
     tutorialWaypointGroup,
     updateStations,
     dispose,

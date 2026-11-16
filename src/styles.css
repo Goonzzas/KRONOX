@@ -1118,6 +1118,34 @@ small {
   border-color: #8beaff;
   background: #48c9ee35;
 }
+.noviceMissionLaunchWindow {
+  z-index: 18;
+  border-color: #8af4ff;
+  box-shadow:
+    0 12px 42px #000b,
+    0 0 0 2px #54e9ff38,
+    0 0 34px #47e8ff75;
+  animation: noviceMissionArrivalPulse 1.25s ease-in-out infinite;
+}
+.noviceMissionLaunchWindow .missionLaunchButton {
+  min-height: 42px;
+  padding: 9px 14px;
+  border-color: #9af7ff;
+  color: #03111d;
+  background: linear-gradient(135deg, #b8fbff, #43d7ff 55%, #83f4d2);
+  box-shadow: 0 0 20px #44dcff88;
+  font-weight: 800;
+  animation: noviceMissionButtonPulse 0.9s ease-in-out infinite alternate;
+}
+@keyframes noviceMissionArrivalPulse {
+  0%,
+  100% { filter: brightness(1); }
+  50% { filter: brightness(1.22); }
+}
+@keyframes noviceMissionButtonPulse {
+  from { transform: scale(1); box-shadow: 0 0 14px #44dcff66; }
+  to { transform: scale(1.055); box-shadow: 0 0 25px #44dcffcc; }
+}
 .deviceModeChoices {
   display: flex;
   align-items: center;

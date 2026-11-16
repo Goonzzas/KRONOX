@@ -372,6 +372,7 @@ export default function App() {
     }
   }, [fr, pv]);
   const missionOfferTimer = useRef(null);
+  const noviceMissionPhaseRef = useRef('');
   const clearMissionOffer = () => {
     clearTimeout(missionOfferTimer.current);
     setMissionLaunchTarget(null);
@@ -1473,6 +1474,7 @@ export default function App() {
           awardInventoryItem('data-spherex-calibration');
           if (!vrPresenting) openSpherexAdvancedExplorer(missionTargetKey);
         } else if (stationId === 'missions') {
+          if (noviceCinematicActiveRef.current) noviceMissionPhaseRef.current = 'selecting';
           if (!vrPresenting) setMissionSelectorOpen(true);
         } else if (stationId === 'bioponics') {
           awardInventoryItem('sample-bioponic-flora');
@@ -1569,7 +1571,10 @@ export default function App() {
         return message.id;
       },
       onGuideObjective: (objective) => setGuideObjective(objective || ''),
-      onGuidedMissionSelectorOpen: () => setMissionSelectorOpen(true),
+      onGuidedMissionSelectorOpen: () => {
+        if (noviceCinematicActiveRef.current) noviceMissionPhaseRef.current = 'selecting';
+        setMissionSelectorOpen(true);
+      },
       onNoviceCinematicSelectDestination: () => {
         const target = SPHEREX_TARGETS.find((item) => item.key === 'barnard') || SPHEREX_TARGETS[0];
         if (target) chooseSpherexTarget(target);
@@ -2186,6 +2191,9 @@ export default function App() {
     },
     chooseSpherexTarget = (target) => {
       if (travelRef.current || missionArrival || !target) return;
+      const noviceMissionChoice =
+        noviceCinematicActiveRef.current && noviceMissionPhaseRef.current === 'selecting';
+      if (noviceMissionChoice) noviceMissionPhaseRef.current = 'in-transit';
       setMissionSelectorOpen(false);
       setMissionTraveling(true);
       clearMissionOffer();
@@ -2219,6 +2227,10 @@ export default function App() {
           A().onGuidedDestinationArrival?.(target);
           if (noviceCinematicActiveRef.current) {
             setMissionArrival(false);
+            if (noviceMissionPhaseRef.current === 'in-transit') {
+              noviceMissionPhaseRef.current = 'arrived';
+              setMissionLaunchTarget(target);
+            }
             return;
           }
           const arrivalNotice =
@@ -2323,6 +2335,7 @@ export default function App() {
       missionGuideSyncRef.current = null;
       A().onGuidedMissionStarted?.();
       setMissionLaunchTarget(null);
+      if (noviceMissionPhaseRef.current === 'arrived') noviceMissionPhaseRef.current = 'active';
       if (!api.current?.getVrState?.()?.presenting) {
         setMissionOpen(true);
         openKronox();
@@ -3646,7 +3659,11 @@ export default function App() {
     missionLaunchTarget &&
     h(
       'div',
-      { className: 'missionLaunchWindow', role: 'dialog', 'aria-live': 'polite' },
+      {
+        className: `missionLaunchWindow${noviceMissionPhaseRef.current === 'arrived' ? ' noviceMissionLaunchWindow' : ''}`,
+        role: 'dialog',
+        'aria-live': 'polite',
+      },
       h('div', { className: 'missionLaunchMark', 'aria-hidden': 'true' }, '✦'),
       h(
         'div',
@@ -3656,7 +3673,9 @@ export default function App() {
         h(
           'span',
           null,
-          'Llegamos. Cambia a velocidad planetaria para explorar con calma. ¿Empezamos?',
+          noviceMissionPhaseRef.current === 'arrived'
+            ? t('Llegamos al destino. Pulsa «Empezar misión» para comenzar la investigación.', language)
+            : t('Llegamos. Cambia a velocidad planetaria para explorar con calma. ¿Empezamos?', language),
         ),
       ),
       h(
@@ -4290,6 +4309,7 @@ export default function App() {
       onPlayUiCue: playCue,
       onStartNewExpedition: ({ explorationMode = 'expert' } = {}) => {
         noviceCinematicActiveRef.current = explorationMode === 'novice';
+        noviceMissionPhaseRef.current = '';
         noviceNarrativeIdsRef.current.clear();
         lastIntroStageKeyRef.current = '';
         ensureGameplayAudioStarted();

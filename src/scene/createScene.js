@@ -4124,7 +4124,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       step,
       stationId,
       active: true,
-      cinematic: guidedTourState.mode === 'novice-cinematic',
+      cinematic: guidedTourState.mode === 'novice-cinematic' && !guidedTourState.playerControlEnabled,
     });
     const objectives = {
       stand_up: 'PASO 1/7 · PUESTO DE MANDO: Pulsa [WASD] o [E] para levantarte del sillón de mando.',
@@ -4136,6 +4136,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       elevator_c02: 'PASO 6/7 · CUBIERTA HABITACIONAL: Toma el Ascensor Central ([E] o tecla [2]) hacia la Cubierta Habitacional.',
       elevator_c03: 'PASO 6/7 · CUBIERTA CIENTÍFICA: Baja en el Ascensor Central a la Cubierta Científica (Nivel 3, tecla [3]).',
       science: 'PASO 6/7 · LABORATORIO SPHEREx: Dirígete al Laboratorio SPHEREx en C03 y pulsa [E].',
+      'novice-mission-console': 'TRASLADO COMPLETADO · Sigue la ruta luminosa hasta la mesa táctica circular y actívala con [E] o haciendo clic.',
+      'novice-select-mission': 'CENTRO DE MISIÓN ACTIVO · Elige una misión en la pantalla y confirma el destino para iniciar el viaje.',
       inventory_hub: 'PASO 7/7 · MANUAL Y OPERACIONES: Abre «Mapa · Guía» para consultar el Manual operativo y completar el tutorial.',
       missions: 'OBJETIVO: Interactúa con la consola de misiones.',
       comms: 'OBJETIVO: Interactúa con la consola de comunicaciones.',
@@ -4523,6 +4525,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.onGuideObjective?.('');
       return;
     }
+    if (
+      guidedTourState.mode === 'novice-cinematic' &&
+      guidedTourState.step === 'novice-mission-console' &&
+      stationId === 'missions'
+    ) {
+      fourDecksInterior?.setTutorialPath?.({ visible: false });
+      fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+      guidedTourState.playerControlEnabled = true;
+      setTourStep('novice-select-mission', 'missions');
+      S.onAiTourNarrative?.(
+        'Centro de misión activo. Elige en pantalla qué misión quieres comenzar; al seleccionar una, KRONOX fijará el destino y preparará el viaje.',
+        'Orientación',
+        'missions',
+        { id: 'novice-mission-select', priority: 9, replace: true, once: false },
+      );
+      S.onGuidedMissionSelectorOpen?.();
+      return;
+    }
     if (guidedTourState.step === 'stand_up') {
       standUpFromBridgeSeat();
     }
@@ -4648,8 +4668,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     if (guidedTourState?.mode === 'novice-cinematic') {
       guidedTourState.targetName = target?.name || target?.key || 'el objetivo seleccionado';
       machineSystems.setRouteTargetVector?.(target?.key);
+      if (guidedTourState.step === 'novice-select-mission') {
+        setTourStep('destination_selected', null);
+        S.onAiTourNarrative?.(
+          'Misión seleccionada. KRONOX fija el nuevo destino y comienza el viaje.',
+          'Orientación',
+          'nav',
+          { id: 'novice-mission-destination', priority: 9, replace: true, once: false },
+        );
+        return;
+      }
       S.onAiTourNarrative?.(
-        `Destino fijado: ${guidedTourState.targetName}. Iniciamos el salto hacia ${guidedTourState.targetName}; al llegar, el astronauta volverá a la cabina y caminará al laboratorio SPHEREx para comenzar la misión.`,
+        'Destino fijado. Iniciamos el viaje hacia el objetivo seleccionado.',
         'Orientación',
         'nav',
         { id: 'novice-cinematic-destination', priority: 9, replace: true, once: false },
@@ -4670,69 +4700,66 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   function onGuidedDestinationArrival(target) {
     if (guidedTourState?.mode === 'novice-cinematic') {
       guidedTourState.targetName = target?.name || guidedTourState.targetName;
-      // The jump is shown from outside the ship. Return to the cabin before the
-      // astronaut starts moving between decks so the viewer sees the walkthrough.
+      if (guidedTourState.step === 'destination_selected') {
+        free = true;
+        ship.visible = false;
+        localCabinWorld.visible = true;
+        noviceCinematicLocked = false;
+        ct.enabled = false;
+        activeCabinStation = null;
+        S.onStationInteract?.(null);
+        applyCameraView(1);
+        S.onViewChange?.(1);
+        setCabinPerspective(false);
+        setTourStep('mission_start', null);
+        S.onAiTourNarrative?.(
+          'Hemos llegado al destino. Mira abajo a la izquierda y pulsa «Empezar misión» para abrir el centro científico.',
+          'Orientación',
+          'science',
+          { id: 'novice-arrival-start-mission', priority: 10, replace: true, once: false },
+        );
+        return;
+      }
+      // The first Barnard arrival is the handoff from the cinematic to player control.
       free = true;
       ship.visible = false;
       localCabinWorld.visible = true;
+      noviceCinematicLocked = false;
+      ct.enabled = false;
       S.fr?.(true);
       activeCabinStation = null;
+      S.onStationInteract?.(null);
+      deckTransitState = null;
       applyCameraView(1);
       S.onViewChange?.(1);
       setCabinPerspective(false);
       currentLockedDeckId = 'deck-01';
-      guidedTourState.step = 'cinematic-walk-elevator';
-      setTourStep('cinematic-walk-elevator', 'elevator');
+      guidedTourState.playerControlEnabled = true;
+      setTourStep('novice-mission-console', 'missions');
+      const deckY = DECK_SPAWNS['deck-01'].pos.y;
+      const missionTableApproach = new V(0, deckY, 3.65);
+      const routePoints = [
+        astronautPos.clone(),
+        new V(3.35, deckY, -5.0),
+        new V(3.35, deckY, -1.2),
+        new V(3.35, deckY, 2.2),
+        new V(2.0, deckY, 3.7),
+        missionTableApproach,
+      ];
+      fourDecksInterior?.setTutorialPath?.({ visible: true, points: routePoints, colorHex: 0x55eaff });
       fourDecksInterior.setTutorialWaypoint({
         visible: true,
-        position: { x: 0, y: 4.25, z: 0 },
-        colorHex: 0x34d399,
+        position: missionTableApproach,
+        colorHex: 0x55eaff,
       });
-      luminousAI.setTargetPosition(new V(0.8, 5.0, 0), 'Ascensor Central');
-      luminousAI.pointAtWorldPosition(new V(0, 4.1, 0), true);
-      deckTransitState = {
-        active: true,
-        targetDeckId: 'deck-01',
-        targetYaw: 0,
-        waypoints: [
-          new V(0, DECK_SPAWNS['deck-01'].pos.y, -4.2),
-          new V(0, DECK_SPAWNS['deck-01'].pos.y, -1.8),
-          new V(0, DECK_SPAWNS['deck-01'].pos.y, 0),
-        ],
-        index: 0,
-        speed: 1.35,
-      };
+      luminousAI.setTargetPosition(new V(0, deckY + 1.75, 5.4), 'Centro de Misión');
+      luminousAI.pointAtWorldPosition(new V(0, deckY + 1.35, 6.0), true);
       S.onAiTourNarrative?.(
-        `Ya llegamos a ${guidedTourState.targetName || 'nuestro objetivo'}. El astronauta volverá a bordo y cruzará hasta el Ascensor Central para bajar a la cubierta científica, donde iniciaremos la misión SPHEREx.`,
+        'Ya llegamos a Barnard. Ahora tienes el control de la cabina. Sigue la línea luminosa hasta la mesa táctica circular, al fondo del puente. Pulsa E o haz clic en la mesa para abrir el Centro de Misión.',
         'Orientación',
-        'elevator',
-        { id: 'novice-cinematic-elevator-walk', priority: 9, replace: true, once: false },
+        'missions',
+        { id: 'novice-arrival-find-mission-table', priority: 10, replace: true, once: false },
       );
-      // If the elevator interaction/state callback gets lost, keep the guided
-      // story moving: bring the astronaut to deck 03, then let them walk to the
-      // SPHEREx telescope station. The normal route still uses the elevator.
-      setTimeout(() => {
-        if (
-          guidedTourState?.mode !== 'novice-cinematic' ||
-          !['cinematic-walk-elevator', 'cinematic-elevator'].includes(guidedTourState.step)
-        ) return;
-        const scienceSpawn = DECK_SPAWNS['deck-03'];
-        if (!scienceSpawn) return;
-        const elevatorSystem = fourDecksInterior?.elevatorSystem;
-        elevatorSystem?.snapToDeck?.('deck-03');
-        if (elevatorSystem?.state) {
-          S.onElevatorStateChange?.({
-            ...elevatorSystem.state,
-            doorOpenByDeck: { ...elevatorSystem.state.doorOpenByDeck },
-          });
-        }
-        astronautPos.copy(scienceSpawn.pos);
-        astronautVel.set(0, 0, 0);
-        microgravityController.setPosition(astronautPos);
-        currentLockedDeckId = 'deck-03';
-        deckTransitState = null;
-        startNoviceScienceWalk();
-      }, 14000);
       return;
     }
     if (guidedTourState?.mode !== 'mission-walkthrough' || guidedTourState.step !== 'destination_selected') return;
