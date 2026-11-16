@@ -5126,7 +5126,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       speed: 1.35,
     };
     S.onAiTourNarrative?.(
-      `Ya estamos en la cubierta científica. El astronauta caminará hasta el telescopio SPHEREx para activarlo e iniciar la misión de ${guidedTourState.targetName || 'Barnard'}.`,
+      'Ya estamos en la cubierta científica. El astronauta caminará hasta el telescopio SPHEREx para activarlo e iniciar la misión.',
       'Orientación',
       'science',
       { id: 'novice-cinematic-science-walk', priority: 9, replace: true, once: false },
