@@ -40,67 +40,65 @@ function parseVisorDocument(htmlText) {
 const MISSION_GUIDE_STEPS = [
   {
     selector: '#headerObjectTitle',
-    title: '1 · OBJETIVO DE LA MISIÓN',
+    title: '1 · LA PREGUNTA DE LA MISIÓN',
     narration:
-      'Ya estamos en el laboratorio. Arriba aparece el objetivo y su posición en el cielo. Primero confirmamos qué región estudiamos; las imágenes que veremos vienen de observaciones reales de SPHEREx.',
+      'La misión es rastrear la Estrella de Barnard, una estrella cercana que se mueve rápido frente al fondo del cielo. Buscaremos su posición y compararemos observaciones de distintas épocas. El mapa es una vista infrarroja del cielo, no un mapa de rutas espaciales.',
   },
   {
-    selector: '#explorerSourcePills',
-    title: '2 · ELEGIR LOS DATOS',
+    selector: '#canvasIR',
+    title: '2 · ORIENTARSE EN EL MAPA',
     narration:
-      'Esta fila cambia la fuente de datos. Datasets muestra campos y observaciones disponibles; 102 canales abre el mapa infrarrojo de todo el cielo; y Todo el Cielo presenta la composición panorámica. Voy a abrir ahora el cubo espectral.',
-    after: (root) => root.querySelector('#explorerSourcePills [data-src="cube102"]')?.click(),
+      'Este es el mapa infrarrojo centrado automáticamente en {target}, en RA {ra} grados y Dec {dec} grados. RA y Dec son coordenadas celestes. Puedes arrastrar el mapa para desplazarte y usar la rueda o los botones más y menos para acercar o alejar. El campo de visión indica cuánto cielo cabe en pantalla.',
+    enter: (root) => root.querySelector('#explorerSourcePills [data-src="cube102"]')?.click(),
   },
   {
     selector: '#cube102Controls',
-    title: '3 · DETECTORES Y CANALES',
+    title: '3 · EJEMPLO: ELEGIR LA BANDA D2',
     narration:
-      'SPHEREx divide la luz infrarroja en seis detectores. El deslizador recorre 102 canales, desde las longitudes de onda más cortas hasta cinco micras. El detector seleccionado indica qué tramo del espectro estamos examinando.',
-    enter: (root) => {
-      root.querySelector('#c102DetPills [data-det="2"]')?.click();
-    },
+      'Hagamos el primer paso de la misión. Seleccionamos el detector D2, que es la banda preferida para el seguimiento de Barnard. El deslizador recorre sus canales espectrales; cada canal muestra una longitud de onda infrarroja distinta. Voy a moverlo para que veas cómo cambia la vista.',
+    enter: (root) => root.querySelector('#c102DetPills [data-det="2"]')?.click(),
     animate: (root, schedule) => {
       const next = root.querySelector('#c102NextCh');
-      for (let i = 1; i <= 5; i += 1) schedule(() => next?.click(), i * 650);
+      for (let i = 1; i <= 3; i += 1) schedule(() => next?.click(), i * 900);
     },
   },
   {
-    selector: '#panel1ModePills',
-    title: '4 · LEER LA IMAGEN',
+    selector: '#canvasIR',
+    title: '4 · CONSULTAR UN PÍXEL',
     narration:
-      'Aquí comparamos la imagen RGB con cada detector. D1 a D6 separan bandas infrarrojas; ZODI muestra la contribución de luz zodiacal, SNR ayuda a valorar la señal y FLAGS identifica píxeles marcados por calidad. La composición de color sirve para explorar: no es una fotografía óptica.',
-    enter: (root) => root.querySelector('#panel1ModePills [data-p1="D2"]')?.click(),
-    animate: (root, schedule) => {
-      schedule(() => root.querySelector('#panel1ModePills [data-p1="D4"]')?.click(), 900);
+      'Ahora consultamos un punto del mapa. Un clic en la imagen actualiza la posición celeste y, cuando hay datos para ese píxel, muestra brillo infrarrojo, cantidad de observaciones y banderas de calidad. En este ejemplo dejamos el centro sobre Barnard y revisamos la lectura antes de sacar una conclusión.',
+    enter: (root) => {
+      const canvas = root.querySelector('#canvasIR');
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const view = root.ownerDocument.defaultView;
+      const point = { bubbles: true, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+      canvas.dispatchEvent(new view.MouseEvent('mousedown', point));
+      view.dispatchEvent(new view.MouseEvent('mouseup', point));
     },
-    after: (root) => root.querySelector('#panel1ModePills [data-p1="ir_cal"]')?.click(),
   },
   {
     selector: '#btnObsCatalogToggle',
-    title: '5 · COMPARAR OBSERVACIONES',
+    title: '5 · COMPARAR ÉPOCAS',
     narration:
-      'Una misión también compara fechas. Este catálogo reúne las observaciones encontradas para el objetivo; cuando hay varias épocas compatibles, podemos recorrerlas o reproducirlas para buscar cambios. La velocidad de reproducción no modifica las fechas reales.',
+      'La pregunta de Barnard se responde comparando su posición en épocas distintas, por ejemplo en los productos QR2 y QR3 disponibles para la misión. Aquí abrimos el catálogo para ver qué observaciones encontró el archivo. Si una época no aparece, no inventamos el dato: se consulta otro producto o se deja constancia de que falta cobertura.',
     enter: (root) => root.querySelector('#btnObsCatalogToggle')?.click(),
     after: (root) => root.querySelector('#btnCloseObsCatalog')?.click(),
   },
   {
-    selector: '#panel2ModePills',
-    title: '6 · ANALIZAR Y COMPARAR',
+    selector: '#headerObjectTitle',
+    title: '6 · YA PUEDES EXPLORAR',
     narration:
-      'El panel inferior ofrece herramientas de análisis. K-NN agrupa píxeles con señales parecidas; Similitud compara su firma espectral con la región elegida; PCA RGB resume variaciones en tres componentes. Son ayudas de exploración y deben interpretarse junto con los datos y su procedencia.',
-    enter: (root) => root.querySelector('#panel2ModePills [data-p2="sim"]')?.click(),
-    animate: (root, schedule) => {
-      schedule(() => root.querySelector('#panel2ModePills [data-p2="pca"]')?.click(), 1100);
-    },
-    after: (root) => root.querySelector('#panel2ModePills [data-p2="knn"]')?.click(),
-  },
-  {
-    selector: '#canvasIR',
-    title: '7 · INSPECCIONAR UN PÍXEL',
-    narration:
-      'Al hacer clic sobre la imagen, el visor consulta ese píxel y presenta sus valores, coordenadas, calidad y espectro cuando están disponibles. Así completamos el recorrido: objetivo, datos, canales, comparación temporal y análisis. Ahora puedes explorar la misión por tu cuenta.',
+      'Ya viste un ejemplo completo: centrar el mapa en Barnard, elegir D2, consultar un píxel y buscar observaciones de distintas épocas. La cabina queda liberada. Ahora puedes recorrer la nave y usar el visor a tu ritmo.',
   },
 ];
+
+function localizedGuideNarration(step, language, targetName, ra, dec) {
+  return t(step.narration, language)
+    .replaceAll('{target}', targetName || 'Estrella de Barnard')
+    .replace('{ra}', Number.isFinite(ra) ? ra.toFixed(4) : '269.4485')
+    .replace('{dec}', Number.isFinite(dec) ? dec.toFixed(4) : '+4.7394');
+}
 
 export default function SphereXAdvancedExplorer({
   targetName,
@@ -117,11 +115,15 @@ export default function SphereXAdvancedExplorer({
   const onGuidedCompleteRef = useRef(onGuidedComplete);
   const [guideStep, setGuideStep] = useState(-1);
   const [guideRunning, setGuideRunning] = useState(false);
+  const guideStepRef = useRef(guideStep);
   const parsedVisor = useMemo(() => parseVisorDocument(originalVisualizerHtml), []);
   narrateRef.current = narrate;
   onGuidedCompleteRef.current = onGuidedComplete;
+  guideStepRef.current = guideStep;
 
   const finishGuide = useCallback(() => {
+    if (guideStepRef.current < MISSION_GUIDE_STEPS.length - 1) return;
+    if (visorRootRef.current) visorRootRef.current.style.pointerEvents = '';
     setGuideRunning(false);
     setGuideStep(-1);
     onGuidedCompleteRef.current?.();
@@ -330,7 +332,10 @@ export default function SphereXAdvancedExplorer({
         };
         schedule(continueAfterNarration, 45000);
         if (narrateRef.current) {
-          narrateRef.current(t(step.narration, language), continueAfterNarration);
+          narrateRef.current(
+            localizedGuideNarration(step, language, targetName, ra, dec),
+            continueAfterNarration,
+          );
         } else {
           continueAfterNarration();
         }
@@ -344,7 +349,7 @@ export default function SphereXAdvancedExplorer({
       clearHighlight();
       root.style.pointerEvents = '';
     };
-  }, [finishGuide, guidedTutorial, language]);
+  }, [finishGuide, guidedTutorial, language, targetName, ra, dec]);
 
   return (
     <div className="kronoxExpeditionShade kronoxSphereXExplorerShade" role="dialog" aria-modal="true">
@@ -397,10 +402,20 @@ export default function SphereXAdvancedExplorer({
                 <span>{guideStep + 1} / {MISSION_GUIDE_STEPS.length}</span>
               </div>
               <h3>{t(MISSION_GUIDE_STEPS[guideStep].title, language)}</h3>
-              <p>{t(MISSION_GUIDE_STEPS[guideStep].narration, language)}</p>
-              <button type="button" onClick={finishGuide}>
-                {t('Terminar explicación', language)}
-              </button>
+              <p>
+                {localizedGuideNarration(
+                  MISSION_GUIDE_STEPS[guideStep],
+                  language,
+                  targetName,
+                  ra,
+                  dec,
+                )}
+              </p>
+              {guideStep === MISSION_GUIDE_STEPS.length - 1 && (
+                <button type="button" onClick={finishGuide}>
+                  {t('Recorrer libremente', language)}
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -154,6 +154,7 @@ export default function KronoxWidget({
   const [listeningMic, setListeningMic] = useState(false);
   const [processingMic, setProcessingMic] = useState(false);
   const [micStatus, setMicStatus] = useState('');
+  const speechSeenForNarrativeRef = useRef(false);
   const recognitionRef = useRef<any>(null);
   const micTimerRef = useRef<any>(null);
 
@@ -180,10 +181,15 @@ export default function KronoxWidget({
   const activeMessageKeyRef = useRef('');
 
   useEffect(() => {
+    speechSeenForNarrativeRef.current = false;
     setTyped('');
     setTextPaused(false);
     setPartIndex(0);
   }, [narrative?.id]);
+
+  useEffect(() => {
+    if (speaking) speechSeenForNarrativeRef.current = true;
+  }, [speaking, narrative?.id]);
 
   useEffect(() => {
     if (textPaused || speechPaused) return undefined;
@@ -227,7 +233,12 @@ export default function KronoxWidget({
       return undefined;
     if (partIndex < interventions.length - 1) {
       const wordCount = Math.max(1, intervention.trim().split(/\s+/).length);
-      const holdMs = cinematic ? 0 : Math.max(1900, Math.min(4400, wordCount * 220));
+      // Without audio, keep cinematic context on screen long enough to read.
+      const holdMs = cinematic
+        ? speechSeenForNarrativeRef.current
+          ? 350
+          : Math.max(1800, Math.min(5200, wordCount * 175))
+        : Math.max(1900, Math.min(4400, wordCount * 220));
       const timer = setTimeout(() => {
         setPartIndex((index) => index + 1);
         setTyped('');
@@ -235,7 +246,12 @@ export default function KronoxWidget({
       return () => clearTimeout(timer);
     }
     if (!speaking) {
-      const timer = setTimeout(() => onMessageComplete?.(narrative.id), cinematic ? 0 : 2300);
+      const holdMs = cinematic
+        ? speechSeenForNarrativeRef.current
+          ? 350
+          : Math.max(1800, Math.min(5200, intervention.trim().split(/\s+/).length * 175))
+        : 2300;
+      const timer = setTimeout(() => onMessageComplete?.(narrative.id), holdMs);
       return () => clearTimeout(timer);
     }
     return undefined;

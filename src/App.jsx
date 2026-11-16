@@ -1556,6 +1556,7 @@ export default function App() {
         setCountdown(null);
         setNavigation(null);
         setMissionOpen(false);
+        setAdvancedExplorerOpen(false);
         A().endGuidedCabinTour?.();
       },
       onGuideStateChange: (st) => {

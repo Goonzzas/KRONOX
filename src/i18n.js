@@ -1541,6 +1541,25 @@ const en = {
   'Abriendo el explorador espectral…': 'Opening the spectral explorer…',
   'RECORRIDO DE MISIÓN · NOVATOS': 'MISSION WALKTHROUGH · BEGINNER',
   'Terminar explicación': 'Finish explanation',
+  'Recorrer libremente': 'Explore freely',
+  '1 · LA PREGUNTA DE LA MISIÓN': '1 · THE MISSION QUESTION',
+  'La misión es rastrear la Estrella de Barnard, una estrella cercana que se mueve rápido frente al fondo del cielo. Buscaremos su posición y compararemos observaciones de distintas épocas. El mapa es una vista infrarroja del cielo, no un mapa de rutas espaciales.':
+    'The mission is to track Barnard’s Star, a nearby star that moves quickly against the background sky. We will locate it and compare observations from different epochs. This is an infrared sky map, not a map of space routes.',
+  '2 · ORIENTARSE EN EL MAPA': '2 · GETTING ORIENTED ON THE MAP',
+  'Este es el mapa infrarrojo centrado automáticamente en {target}, en RA {ra} grados y Dec {dec} grados. RA y Dec son coordenadas celestes. Puedes arrastrar el mapa para desplazarte y usar la rueda o los botones más y menos para acercar o alejar. El campo de visión indica cuánto cielo cabe en pantalla.':
+    'This infrared map is automatically centered on {target}, at RA {ra} degrees and Dec {dec} degrees. RA and Dec are sky coordinates. Drag the map to move around, and use the wheel or plus and minus buttons to zoom. The field of view tells you how much sky fits on screen.',
+  '3 · EJEMPLO: ELEGIR LA BANDA D2': '3 · EXAMPLE: SELECT THE D2 BAND',
+  'Hagamos el primer paso de la misión. Seleccionamos el detector D2, que es la banda preferida para el seguimiento de Barnard. El deslizador recorre sus canales espectrales; cada canal muestra una longitud de onda infrarroja distinta. Voy a moverlo para que veas cómo cambia la vista.':
+    'Let’s take the first mission step. We select detector D2, the preferred band for tracking Barnard’s Star. The slider moves through its spectral channels; each channel shows a different infrared wavelength. I’ll move it so you can see how the view changes.',
+  '4 · CONSULTAR UN PÍXEL': '4 · QUERY A PIXEL',
+  'Ahora consultamos un punto del mapa. Un clic en la imagen actualiza la posición celeste y, cuando hay datos para ese píxel, muestra brillo infrarrojo, cantidad de observaciones y banderas de calidad. En este ejemplo dejamos el centro sobre Barnard y revisamos la lectura antes de sacar una conclusión.':
+    'Now we query a point on the map. Clicking the image updates its sky position and, when data is available for that pixel, shows infrared brightness, observation count, and quality flags. In this example, we keep the center on Barnard and inspect the readout before drawing a conclusion.',
+  '5 · COMPARAR ÉPOCAS': '5 · COMPARE EPOCHS',
+  'La pregunta de Barnard se responde comparando su posición en épocas distintas, por ejemplo en los productos QR2 y QR3 disponibles para la misión. Aquí abrimos el catálogo para ver qué observaciones encontró el archivo. Si una época no aparece, no inventamos el dato: se consulta otro producto o se deja constancia de que falta cobertura.':
+    'We answer the Barnard question by comparing its position at different epochs, for example in the QR2 and QR3 products available for this mission. Here we open the catalog to see which observations the archive found. If an epoch is missing, we do not make up the data: we check another product or note the coverage gap.',
+  '6 · YA PUEDES EXPLORAR': '6 · YOU CAN EXPLORE NOW',
+  'Ya viste un ejemplo completo: centrar el mapa en Barnard, elegir D2, consultar un píxel y buscar observaciones de distintas épocas. La cabina queda liberada. Ahora puedes recorrer la nave y usar el visor a tu ritmo.':
+    'You have seen a complete example: center the map on Barnard, select D2, query a pixel, and look for observations from different epochs. The cabin is now unlocked. You can walk through the ship and use the viewer at your own pace.',
   '1 · OBJETIVO DE LA MISIÓN': '1 · MISSION OBJECTIVE',
   'Ya estamos en el laboratorio. Arriba aparece el objetivo y su posición en el cielo. Primero confirmamos qué región estudiamos; las imágenes que veremos vienen de observaciones reales de SPHEREx.':
     'We are in the laboratory. The target and its position in the sky appear above. First we confirm the region we are studying; the images come from real SPHEREx observations.',
