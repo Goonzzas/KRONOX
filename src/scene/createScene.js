@@ -4708,6 +4708,31 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         'elevator',
         { id: 'novice-cinematic-elevator-walk', priority: 9, replace: true, once: false },
       );
+      // If the elevator interaction/state callback gets lost, keep the guided
+      // story moving: bring the astronaut to deck 03, then let them walk to the
+      // SPHEREx telescope station. The normal route still uses the elevator.
+      setTimeout(() => {
+        if (
+          guidedTourState?.mode !== 'novice-cinematic' ||
+          !['cinematic-walk-elevator', 'cinematic-elevator'].includes(guidedTourState.step)
+        ) return;
+        const scienceSpawn = DECK_SPAWNS['deck-03'];
+        if (!scienceSpawn) return;
+        const elevatorSystem = fourDecksInterior?.elevatorSystem;
+        elevatorSystem?.snapToDeck?.('deck-03');
+        if (elevatorSystem?.state) {
+          S.onElevatorStateChange?.({
+            ...elevatorSystem.state,
+            doorOpenByDeck: { ...elevatorSystem.state.doorOpenByDeck },
+          });
+        }
+        astronautPos.copy(scienceSpawn.pos);
+        astronautVel.set(0, 0, 0);
+        microgravityController.setPosition(astronautPos);
+        currentLockedDeckId = 'deck-03';
+        deckTransitState = null;
+        startNoviceScienceWalk();
+      }, 14000);
       return;
     }
     if (guidedTourState?.mode !== 'mission-walkthrough' || guidedTourState.step !== 'destination_selected') return;
@@ -5061,6 +5086,64 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     );
   }
 
+  function startNoviceScienceWalk() {
+    if (
+      guidedTourState?.mode !== 'novice-cinematic' ||
+      guidedTourState.scienceElevatorArrived ||
+      guidedTourState.scienceMissionOpened
+    ) return false;
+    guidedTourState.scienceElevatorArrived = true;
+    guidedTourState.step = 'cinematic-walk-science';
+    guidedTourState.scienceWalkFinished = false;
+    guidedTourState.scienceWalkNarrationFinished = false;
+    setTourStep('cinematic-walk-science', 'science');
+    const scienceStation = getStationDef('science');
+    if (!scienceStation) {
+      guidedTourState.scienceWalkFinished = true;
+      maybeStartNoviceScienceBeat();
+      return true;
+    }
+    fourDecksInterior.setTutorialWaypoint({
+      visible: true,
+      position: scienceStation.position,
+      colorHex: 0xfbbf24,
+    });
+    luminousAI.setTargetPosition(scienceStation.aiHoverPos, 'Telescopio SPHEREx');
+    luminousAI.pointAtWorldPosition(scienceStation.consolePos, true);
+    deckTransitState = {
+      active: true,
+      targetDeckId: 'deck-03',
+      targetYaw: Math.atan2(
+        -(scienceStation.consolePos.x - scienceStation.position.x),
+        -(scienceStation.consolePos.z - scienceStation.position.z),
+      ),
+      waypoints: [
+        new V(-3.8, DECK_SPAWNS['deck-03'].pos.y, 0),
+        new V(-8.1, DECK_SPAWNS['deck-03'].pos.y, 0),
+        scienceStation.position.clone(),
+      ],
+      index: 0,
+      speed: 1.35,
+    };
+    S.onAiTourNarrative?.(
+      `Ya estamos en la cubierta científica. El astronauta caminará hasta el telescopio SPHEREx para activarlo e iniciar la misión de ${guidedTourState.targetName || 'Barnard'}.`,
+      'Orientación',
+      'science',
+      { id: 'novice-cinematic-science-walk', priority: 9, replace: true, once: false },
+    );
+    setTimeout(() => {
+      if (
+        guidedTourState?.mode === 'novice-cinematic' &&
+        guidedTourState.step === 'cinematic-walk-science' &&
+        !guidedTourState.scienceMissionOpened
+      ) {
+        guidedTourState.scienceWalkFinished = true;
+        maybeStartNoviceScienceBeat();
+      }
+    }, 15000);
+    return true;
+  }
+
   function maybeStartNoviceScienceBeat() {
     if (
       guidedTourState?.mode !== 'novice-cinematic' ||
@@ -5077,6 +5160,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       luminousAI.pointAtWorldPosition(scienceStation.consolePos, true);
     }
     setTourStep('mission_start', 'science');
+    // Activate the same station interaction available to the player, then open
+    // the real mission viewer from that console.
+    S.onStationInteract?.('science');
     // Open the real mission viewer directly when the astronaut reaches the lab.
     // The map walkthrough itself narrates the mission, so it cannot be stranded
     // waiting for a subtitle/audio completion event from another component.
@@ -8089,60 +8175,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               elSys.state.targetDeckId === 'deck-03' &&
               !guidedTourState.scienceElevatorArrived
             ) {
-              guidedTourState.scienceElevatorArrived = true;
-              const scienceStation = getStationDef('science');
-              guidedTourState.step = 'cinematic-walk-science';
-              guidedTourState.scienceWalkFinished = false;
-              guidedTourState.scienceWalkNarrationFinished = false;
-              guidedTourState.scienceMissionOpened = false;
-              setTourStep('cinematic-walk-science', 'science');
-              if (scienceStation) {
-                fourDecksInterior.setTutorialWaypoint({
-                  visible: true,
-                  position: scienceStation.position,
-                  colorHex: 0xfbbf24,
-                });
-                luminousAI.setTargetPosition(scienceStation.aiHoverPos, 'Laboratorio SPHEREx');
-                luminousAI.pointAtWorldPosition(scienceStation.consolePos, true);
-                deckTransitState = {
-                  active: true,
-                  targetDeckId: 'deck-03',
-                  targetYaw: Math.atan2(
-                    -(scienceStation.consolePos.x - scienceStation.position.x),
-                    -(scienceStation.consolePos.z - scienceStation.position.z),
-                  ),
-                  waypoints: [
-                    new V(-3.8, DECK_SPAWNS['deck-03'].pos.y, 0),
-                    new V(-8.1, DECK_SPAWNS['deck-03'].pos.y, 0),
-                    scienceStation.position.clone(),
-                  ],
-                  index: 0,
-                  speed: 1.25,
-                };
-                S.onAiTourNarrative?.(
-                  `Llegamos a la Cubierta Científica. El astronauta caminará hasta la consola SPHEREx para iniciar el análisis de ${guidedTourState.targetName || 'Barnard'}.`,
-                  'Orientación',
-                  'science',
-                  { id: 'novice-cinematic-science-walk', priority: 9, replace: true, once: false },
-                );
-                // Safety net: the map must still appear if a collision or a
-                // missed waypoint prevents the cinematic walk completion event.
-                // The normal path opens it as soon as the astronaut reaches the console.
-                setTimeout(() => {
-                  if (
-                    guidedTourState?.mode === 'novice-cinematic' &&
-                    guidedTourState.step === 'cinematic-walk-science' &&
-                    !guidedTourState.scienceMissionOpened
-                  ) {
-                    guidedTourState.scienceWalkFinished = true;
-                    maybeStartNoviceScienceBeat();
-                  }
-                }, 18000);
-              } else {
-                guidedTourState.scienceWalkFinished = true;
-                guidedTourState.scienceWalkNarrationFinished = true;
-                maybeStartNoviceScienceBeat();
-              }
+              startNoviceScienceWalk();
             }
           }
 
