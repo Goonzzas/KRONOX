@@ -4737,7 +4737,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       guidedTourState.playerControlEnabled = true;
       setTourStep('novice-mission-console', 'missions');
       const deckY = DECK_SPAWNS['deck-01'].pos.y;
-      const missionTableApproach = new V(0, deckY, 3.65);
+      const missionTableApproach = new V(0, deckY, 4.0);
       const routePoints = [
         astronautPos.clone(),
         new V(3.35, deckY, -5.0),
@@ -8445,6 +8445,29 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                   aiHoverPos: { x: 0, y: curFloor.elevationY + 1.75, z: -2.2 },
                 },
                 distance: 0.65,
+              };
+            }
+          }
+
+          // In the novice handoff, keep the tactical table operable with E even
+          // if the gaze ray misses its tilted screen. The tabletop is a broad,
+          // low-contrast target in the 3D cockpit, so proximity is authoritative.
+          if (
+            guidedTourState?.mode === 'novice-cinematic' &&
+            guidedTourState.step === 'novice-mission-console' &&
+            resolveCurrentDeck(astronautPos)?.id === 'deck-01'
+          ) {
+            const missionStation = getStationDef('missions');
+            const missionDistance = missionStation ? astronautPos.distanceTo(missionStation.position) : Infinity;
+            if (missionStation && missionDistance <= 3.2) {
+              nearestCabinStation = {
+                station: {
+                  ...missionStation,
+                  title: 'Centro de Misión · Mesa Táctica',
+                  actionLabel: 'Activar Centro de Misión [E] o clic',
+                },
+                distance: missionDistance,
+                gazeDot: 1,
               };
             }
           }

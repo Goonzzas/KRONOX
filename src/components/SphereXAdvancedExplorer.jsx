@@ -293,7 +293,6 @@ export default function SphereXAdvancedExplorer({
     let cancelled = false;
     const timers = new Set();
     let activeHighlight = null;
-    root.style.pointerEvents = 'none';
     setGuideRunning(true);
 
     const schedule = (callback, delay) => {

@@ -449,8 +449,6 @@ export default function SpherexMission({
   onAskKronox,
   onSfxCue,
   aiHighlightActive = false,
-  cinematicMode = false,
-  onCinematicComplete,
 }) {
   const [navParams] = useState(() => {
     try {
@@ -563,16 +561,6 @@ export default function SpherexMission({
   const [frameB, setFrameB] = useState(null);
   const [loadingFrameA, setLoadingFrameA] = useState(false);
   const [loadingFrameB, setLoadingFrameB] = useState(false);
-
-  useEffect(() => {
-    if (!cinematicMode) return undefined;
-    const timer = setTimeout(() => {
-      if (stage === 'arrival') setStage('explore');
-      else if (stage === 'explore') setStage('compare');
-      else if (stage === 'compare') onCinematicComplete?.();
-    }, stage === 'arrival' ? 15000 : 18000);
-    return () => clearTimeout(timer);
-  }, [cinematicMode, stage]);
 
   // Zoom and Pan
   const [zoom, setZoom] = useState(1.0);
@@ -689,7 +677,7 @@ export default function SpherexMission({
         return;
       }
       try {
-        await collectArchive({
+        const archiveResult = await collectArchive({
           ra: target.ra,
           dec: target.dec,
           signal: controller.signal,
@@ -728,10 +716,30 @@ export default function SpherexMission({
             }
           },
         });
+        if (active && searchToken === searchTokenRef.current && !archiveResult.records.length && target.localRecords?.length) {
+          setArchiveNotice(
+            language === 'en'
+              ? 'IRSA returned no products for this request. Showing versioned, verified SPHEREx FITS products saved with the project; this is a local subset, not the live archive or a full spectral cube.'
+              : 'IRSA no devolvió productos para esta consulta. Se muestran productos FITS SPHEREx verificados y versionados con el proyecto; es un subconjunto local, no el archivo en vivo ni un cubo espectral completo.',
+          );
+          setDataSource('local');
+          setRecordError('');
+          return;
+        }
         setFilterBand('ALL');
       } catch (err) {
         if (active && searchToken === searchTokenRef.current) {
-          setRecordError(err.message || 'Error de conexión con el archivo astronómico.');
+          if (target.localRecords?.length && !controller.signal.aborted) {
+            setArchiveNotice(
+              language === 'en'
+                ? 'IRSA is temporarily unavailable. Showing verified, versioned SPHEREx FITS products saved with the project; live archive results are unavailable.'
+                : 'IRSA no está disponible temporalmente. Se muestran productos FITS SPHEREx verificados y versionados con el proyecto; la consulta en vivo no está disponible.',
+            );
+            setRecordError('');
+            setDataSource('local');
+          } else {
+            setRecordError(err.message || 'Error de conexión con el archivo astronómico.');
+          }
         }
       } finally {
         if (active && searchToken === searchTokenRef.current) {
@@ -1275,7 +1283,6 @@ export default function SpherexMission({
       className="kronoxExpeditionShade"
       role="dialog"
       aria-modal="true"
-      style={cinematicMode ? { pointerEvents: 'none' } : undefined}
     >
       <div className="kronoxExpeditionSheet">
         {/* EXPEDITION HEADER */}

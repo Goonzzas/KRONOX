@@ -3744,10 +3744,9 @@ export default function App() {
         language,
         initialTargetKey: missionTargetKey,
         initialStage: missionInitialStage,
-        cinematicMode: noviceCinematicActiveRef.current,
-        onCinematicComplete: () => A().onNoviceCinematicComplete?.(),
         aiHighlightActive: aiHighlightField,
         onClose: () => {
+          if (noviceCinematicActiveRef.current) A().onNoviceCinematicComplete?.();
           setMissionOpen(false);
           if (activeCockpitStation === 'science') {
             setActiveCockpitStation(null);
