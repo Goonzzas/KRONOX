@@ -413,6 +413,8 @@ export default function App() {
     }
   }, [setActiveCockpitStation]);
   const missionGuideSyncRef = useRef(null);
+  const languageRef = useRef(language);
+  languageRef.current = language;
   const noviceCinematicActiveRef = useRef(false);
   const noviceNarrativeIdsRef = useRef(new Set());
   const lastIntroStageKeyRef = useRef('');
@@ -428,7 +430,7 @@ export default function App() {
   const setGuide = (message, options = {}) => {
     if (typeof message !== 'string')
       throw new TypeError('Narrative channel only accepts text through createNarrativeMessage.');
-    const narrative = createNarrativeMessage(t(message, language), options);
+    const narrative = createNarrativeMessage(t(message, languageRef.current), options);
     if (options.replace) narrativeQueue.replaceActive(narrative);
     else narrativeQueue.enqueue(narrative);
     const cat =
@@ -717,7 +719,7 @@ export default function App() {
   };
 
   const speak = (msg, options = {}) => {
-    const translated = t(msg, language);
+    const translated = t(msg, languageRef.current);
     if (!translated || !String(translated).trim()) {
       options.onComplete?.();
       return;
@@ -758,6 +760,10 @@ export default function App() {
     // Voice audio does not forcefully pop open the command drawer;
     // subtitles display contextually via narrative queue while speaking.
     const shouldInterrupt = Boolean(options.interrupt);
+
+    // Scene callbacks can repeat an identical line with interrupt=true.
+    // Avoid restarting its audio while that line is already playing.
+    if (speakingRef.current && activeSpeechTextRef.current === cleanMsg) return;
 
     if (!shouldInterrupt && (speakingRef.current || voiceAudio.current || voiceQueueRef.current.length > 0)) {
       if (
@@ -945,6 +951,17 @@ export default function App() {
       let fallbackStarted = false;
       const handleSegmentFailure = async (entry) => {
         if (fallbackStarted || token !== voiceToken.current) return;
+        // Some browsers keep a partially decoded source alive after `error`.
+        // Stop it before retrying or switching to browser speech to prevent overlap.
+        fallbackStarted = true;
+        const failedAudio = voiceAudio.current;
+        if (failedAudio) {
+          failedAudio.onended = null;
+          failedAudio.onerror = null;
+          failedAudio.pause();
+          failedAudio.removeAttribute('src');
+          voiceAudio.current = null;
+        }
         // Reintentar primero con los endpoints oficiales (Charon) y almacenar en caché Blob.
         if (
           !entry.retriedFetch &&
@@ -990,6 +1007,9 @@ export default function App() {
                   retryAudio.muted = false;
                   setVoiceFailed(false);
                   setVoiceError('');
+                  // Allow the retry element to report its own failure, while
+                  // the original element's handlers have already been removed.
+                  fallbackStarted = false;
                   attachAndPlay({
                     audio: retryAudio,
                     audioUrl: objUrl,
@@ -1055,7 +1075,6 @@ export default function App() {
           }
         }
         officialVoiceUnavailableRef.current = true;
-        fallbackStarted = true;
         voiceAudio.current = null;
         speakingRef.current = false;
         setSpeaking(false);

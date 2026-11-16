@@ -8125,6 +8125,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                   'science',
                   { id: 'novice-cinematic-science-walk', priority: 9, replace: true, once: false },
                 );
+                // Safety net: the map must still appear if a collision or a
+                // missed waypoint prevents the cinematic walk completion event.
+                // The normal path opens it as soon as the astronaut reaches the console.
+                setTimeout(() => {
+                  if (
+                    guidedTourState?.mode === 'novice-cinematic' &&
+                    guidedTourState.step === 'cinematic-walk-science' &&
+                    !guidedTourState.scienceMissionOpened
+                  ) {
+                    guidedTourState.scienceWalkFinished = true;
+                    maybeStartNoviceScienceBeat();
+                  }
+                }, 18000);
               } else {
                 guidedTourState.scienceWalkFinished = true;
                 guidedTourState.scienceWalkNarrationFinished = true;
