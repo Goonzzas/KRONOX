@@ -1547,7 +1547,6 @@ export default function App() {
         const target = SPHEREX_TARGETS.find((item) => item.key === missionTargetKey) || SPHEREX_TARGETS[0];
         setAdvancedExplorerTarget(target);
         setAdvancedExplorerOpen(true);
-        A().onGuidedMissionStarted?.();
       },
       onNoviceCinematicComplete: () => {
         noviceCinematicActiveRef.current = false;

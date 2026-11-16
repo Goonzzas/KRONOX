@@ -155,6 +155,7 @@ export default function KronoxWidget({
   const [processingMic, setProcessingMic] = useState(false);
   const [micStatus, setMicStatus] = useState('');
   const speechSeenForNarrativeRef = useRef(false);
+  const completionFiredForNarrativeRef = useRef('');
   const recognitionRef = useRef<any>(null);
   const micTimerRef = useRef<any>(null);
 
@@ -182,6 +183,7 @@ export default function KronoxWidget({
 
   useEffect(() => {
     speechSeenForNarrativeRef.current = false;
+    completionFiredForNarrativeRef.current = '';
     setTyped('');
     setTextPaused(false);
     setPartIndex(0);
@@ -246,12 +248,17 @@ export default function KronoxWidget({
       return () => clearTimeout(timer);
     }
     if (!speaking) {
+      if (completionFiredForNarrativeRef.current === narrative.id) return undefined;
       const holdMs = cinematic
         ? speechSeenForNarrativeRef.current
           ? 350
           : Math.max(1800, Math.min(5200, intervention.trim().split(/\s+/).length * 175))
         : 2300;
-      const timer = setTimeout(() => onMessageComplete?.(narrative.id), holdMs);
+      const timer = setTimeout(() => {
+        if (completionFiredForNarrativeRef.current === narrative.id) return;
+        completionFiredForNarrativeRef.current = narrative.id;
+        onMessageComplete?.(narrative.id);
+      }, holdMs);
       return () => clearTimeout(timer);
     }
     return undefined;

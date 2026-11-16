@@ -4673,10 +4673,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       // The jump is shown from outside the ship. Return to the cabin before the
       // astronaut starts moving between decks so the viewer sees the walkthrough.
       free = true;
+      ship.visible = false;
+      localCabinWorld.visible = true;
       S.fr?.(true);
       activeCabinStation = null;
       applyCameraView(1);
+      S.onViewChange?.(1);
       setCabinPerspective(false);
+      currentLockedDeckId = 'deck-01';
       guidedTourState.step = 'cinematic-walk-elevator';
       setTourStep('cinematic-walk-elevator', 'elevator');
       fourDecksInterior.setTutorialWaypoint({
@@ -5084,6 +5088,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
   function onGuidedNarrativeComplete(messageId) {
     if (guidedTourState?.mode === 'novice-cinematic') {
+      guidedTourState.completedCinematicNarratives ||= new Set();
+      if (guidedTourState.completedCinematicNarratives.has(messageId)) return;
+      guidedTourState.completedCinematicNarratives.add(messageId);
       if (messageId === 'novice-cinematic-walk') {
         guidedTourState.walkIntroFinished = true;
         maybeStartNoviceNavigationBeat();

@@ -1551,13 +1551,16 @@ const en = {
   '3 · EJEMPLO: ELEGIR LA BANDA D2': '3 · EXAMPLE: SELECT THE D2 BAND',
   'Hagamos el primer paso de la misión. Seleccionamos el detector D2, que es la banda preferida para el seguimiento de Barnard. El deslizador recorre sus canales espectrales; cada canal muestra una longitud de onda infrarroja distinta. Voy a moverlo para que veas cómo cambia la vista.':
     'Let’s take the first mission step. We select detector D2, the preferred band for tracking Barnard’s Star. The slider moves through its spectral channels; each channel shows a different infrared wavelength. I’ll move it so you can see how the view changes.',
-  '4 · CONSULTAR UN PÍXEL': '4 · QUERY A PIXEL',
+  '4 · FILTROS Y CAPAS DEL MAPA': '4 · MAP FILTERS AND LAYERS',
+  'Esta fila cambia cómo leemos el mapa. RGB combina varias bandas; D1 a D6 muestran un detector por separado. SNR ayuda a distinguir señal de ruido y FLAGS resalta indicadores de calidad. Los voy a alternar y dejaré seleccionada D2 para nuestro ejemplo.':
+    'This row changes how we read the map. RGB combines several bands; D1 to D6 show one detector at a time. SNR helps distinguish signal from noise, and FLAGS highlights quality indicators. I will switch between them and leave D2 selected for our example.',
+  '5 · CONSULTAR UN PÍXEL': '5 · QUERY A PIXEL',
   'Ahora consultamos un punto del mapa. Un clic en la imagen actualiza la posición celeste y, cuando hay datos para ese píxel, muestra brillo infrarrojo, cantidad de observaciones y banderas de calidad. En este ejemplo dejamos el centro sobre Barnard y revisamos la lectura antes de sacar una conclusión.':
     'Now we query a point on the map. Clicking the image updates its sky position and, when data is available for that pixel, shows infrared brightness, observation count, and quality flags. In this example, we keep the center on Barnard and inspect the readout before drawing a conclusion.',
-  '5 · COMPARAR ÉPOCAS': '5 · COMPARE EPOCHS',
+  '6 · COMPARAR ÉPOCAS': '6 · COMPARE EPOCHS',
   'La pregunta de Barnard se responde comparando su posición en épocas distintas, por ejemplo en los productos QR2 y QR3 disponibles para la misión. Aquí abrimos el catálogo para ver qué observaciones encontró el archivo. Si una época no aparece, no inventamos el dato: se consulta otro producto o se deja constancia de que falta cobertura.':
     'We answer the Barnard question by comparing its position at different epochs, for example in the QR2 and QR3 products available for this mission. Here we open the catalog to see which observations the archive found. If an epoch is missing, we do not make up the data: we check another product or note the coverage gap.',
-  '6 · YA PUEDES EXPLORAR': '6 · YOU CAN EXPLORE NOW',
+  '7 · YA PUEDES EXPLORAR': '7 · YOU CAN EXPLORE NOW',
   'Ya viste un ejemplo completo: centrar el mapa en Barnard, elegir D2, consultar un píxel y buscar observaciones de distintas épocas. La cabina queda liberada. Ahora puedes recorrer la nave y usar el visor a tu ritmo.':
     'You have seen a complete example: center the map on Barnard, select D2, query a pixel, and look for observations from different epochs. The cabin is now unlocked. You can walk through the ship and use the viewer at your own pace.',
   '1 · OBJETIVO DE LA MISIÓN': '1 · MISSION OBJECTIVE',

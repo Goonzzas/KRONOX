@@ -63,8 +63,20 @@ const MISSION_GUIDE_STEPS = [
     },
   },
   {
+    selector: '#panel1ModePills',
+    title: '4 · FILTROS Y CAPAS DEL MAPA',
+    narration:
+      'Esta fila cambia cómo leemos el mapa. RGB combina varias bandas; D1 a D6 muestran un detector por separado. SNR ayuda a distinguir señal de ruido y FLAGS resalta indicadores de calidad. Los voy a alternar y dejaré seleccionada D2 para nuestro ejemplo.',
+    enter: (root) => root.querySelector('#panel1ModePills [data-p1="D2"]')?.click(),
+    animate: (root, schedule) => {
+      schedule(() => root.querySelector('#panel1ModePills [data-p1="snr"]')?.click(), 900);
+      schedule(() => root.querySelector('#panel1ModePills [data-p1="flags"]')?.click(), 1800);
+    },
+    after: (root) => root.querySelector('#panel1ModePills [data-p1="D2"]')?.click(),
+  },
+  {
     selector: '#canvasIR',
-    title: '4 · CONSULTAR UN PÍXEL',
+    title: '5 · CONSULTAR UN PÍXEL',
     narration:
       'Ahora consultamos un punto del mapa. Un clic en la imagen actualiza la posición celeste y, cuando hay datos para ese píxel, muestra brillo infrarrojo, cantidad de observaciones y banderas de calidad. En este ejemplo dejamos el centro sobre Barnard y revisamos la lectura antes de sacar una conclusión.',
     enter: (root) => {
@@ -79,7 +91,7 @@ const MISSION_GUIDE_STEPS = [
   },
   {
     selector: '#btnObsCatalogToggle',
-    title: '5 · COMPARAR ÉPOCAS',
+    title: '6 · COMPARAR ÉPOCAS',
     narration:
       'La pregunta de Barnard se responde comparando su posición en épocas distintas, por ejemplo en los productos QR2 y QR3 disponibles para la misión. Aquí abrimos el catálogo para ver qué observaciones encontró el archivo. Si una época no aparece, no inventamos el dato: se consulta otro producto o se deja constancia de que falta cobertura.',
     enter: (root) => root.querySelector('#btnObsCatalogToggle')?.click(),
@@ -87,7 +99,7 @@ const MISSION_GUIDE_STEPS = [
   },
   {
     selector: '#headerObjectTitle',
-    title: '6 · YA PUEDES EXPLORAR',
+    title: '7 · YA PUEDES EXPLORAR',
     narration:
       'Ya viste un ejemplo completo: centrar el mapa en Barnard, elegir D2, consultar un píxel y buscar observaciones de distintas épocas. La cabina queda liberada. Ahora puedes recorrer la nave y usar el visor a tu ritmo.',
   },
@@ -322,20 +334,26 @@ export default function SphereXAdvancedExplorer({
       schedule(() => {
         if (cancelled) return;
         let narrationCompleted = false;
+        let minimumNarrationMs = 2800;
+        let narrationStartedAt = Date.now();
         const continueAfterNarration = () => {
           if (narrationCompleted || cancelled) return;
           narrationCompleted = true;
+          const remaining = Math.max(500, minimumNarrationMs - (Date.now() - narrationStartedAt));
           schedule(() => {
             step.after?.(root);
             playStep(index + 1);
-          }, 500);
+          }, remaining);
         };
         schedule(continueAfterNarration, 45000);
         if (narrateRef.current) {
-          narrateRef.current(
-            localizedGuideNarration(step, language, targetName, ra, dec),
-            continueAfterNarration,
+          const narration = localizedGuideNarration(step, language, targetName, ra, dec);
+          minimumNarrationMs = Math.max(
+            2800,
+            Math.min(7000, narration.trim().split(/\s+/).length * 170),
           );
+          narrationStartedAt = Date.now();
+          narrateRef.current(narration, continueAfterNarration);
         } else {
           continueAfterNarration();
         }
