@@ -4136,7 +4136,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       elevator_c02: 'PASO 6/7 · CUBIERTA HABITACIONAL: Toma el Ascensor Central ([E] o tecla [2]) hacia la Cubierta Habitacional.',
       elevator_c03: 'PASO 6/7 · CUBIERTA CIENTÍFICA: Baja en el Ascensor Central a la Cubierta Científica (Nivel 3, tecla [3]).',
       science: 'PASO 6/7 · LABORATORIO SPHEREx: Dirígete al Laboratorio SPHEREx en C03 y pulsa [E].',
-      'novice-mission-console': 'TRASLADO COMPLETADO · Sigue la ruta luminosa hasta la mesa táctica circular y actívala con [E] o haciendo clic.',
+      'novice-mission-console': 'CENTRO DE MISIÓN · Ya estás frente a la mesa táctica. Pulsa [E] o haz clic para abrirla.',
+      'novice-walk-to-mission-console': 'KRONOX TE GUÍA · El astronauta caminará automáticamente hasta la mesa táctica. Al llegar, pulsa [E] o haz clic en la mesa para abrir el Centro de Misión.',
       'novice-select-mission': 'CENTRO DE MISIÓN ACTIVO · Elige una misión en la pantalla y confirma el destino para iniciar el viaje.',
       inventory_hub: 'PASO 7/7 · MANUAL Y OPERACIONES: Abre «Mapa · Guía» para consultar el Manual operativo y completar el tutorial.',
       missions: 'OBJETIVO: Interactúa con la consola de misiones.',
@@ -4734,8 +4735,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.onViewChange?.(1);
       setCabinPerspective(false);
       currentLockedDeckId = 'deck-01';
-      guidedTourState.playerControlEnabled = true;
-      setTourStep('novice-mission-console', 'missions');
+      guidedTourState.playerControlEnabled = false;
+      setTourStep('novice-walk-to-mission-console', null);
       const deckY = DECK_SPAWNS['deck-01'].pos.y;
       const missionTableApproach = new V(0, deckY, 4.0);
       const routePoints = [
@@ -4752,13 +4753,27 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         position: missionTableApproach,
         colorHex: 0x55eaff,
       });
+      const missionStation = getStationDef('missions');
+      deckTransitState = {
+        active: true,
+        targetDeckId: 'deck-01',
+        targetYaw: missionStation
+          ? Math.atan2(
+              -(missionStation.consolePos.x - missionStation.position.x),
+              -(missionStation.consolePos.z - missionStation.position.z),
+            )
+          : 0,
+        waypoints: routePoints.slice(1),
+        index: 0,
+        speed: 2.0,
+      };
       luminousAI.setTargetPosition(new V(0, deckY + 1.75, 5.4), 'Centro de Misión');
       luminousAI.pointAtWorldPosition(new V(0, deckY + 1.35, 6.0), true);
       S.onAiTourNarrative?.(
-        'Ya llegamos a Barnard. Ahora tienes el control de la cabina. Sigue la línea luminosa hasta la mesa táctica circular, al fondo del puente. Pulsa E o haz clic en la mesa para abrir el Centro de Misión.',
+        'Ya llegamos a Barnard. KRONOX te llevará caminando hasta la mesa táctica del fondo para iniciar la misión. Cuando lleguemos, podrás activar el Centro de Misión con E o haciendo clic en la mesa.',
         'Orientación',
         'missions',
-        { id: 'novice-arrival-find-mission-table', priority: 10, replace: true, once: false },
+        { id: 'novice-arrival-walk-to-mission-table', priority: 10, replace: true, once: false },
       );
       return;
     }
@@ -7782,7 +7797,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             Math.abs(keys.vrMoveVert || 0) > 0.05,
           );
           if (deckTransitState?.active && hasManualThrustInput) {
-            deckTransitState = null;
+            if (
+              guidedTourState?.mode !== 'novice-cinematic' ||
+              guidedTourState.step !== 'novice-walk-to-mission-console'
+            ) {
+              deckTransitState = null;
+            }
           }
           if (astronautSeatedInBridge && hasManualThrustInput) {
             standUpFromBridgeSeat();
@@ -7930,6 +7950,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                 if (guidedTourState?.mode === 'novice-cinematic' && guidedTourState.step === 'cinematic-walk-science') {
                   guidedTourState.scienceWalkFinished = true;
                   maybeStartNoviceScienceBeat();
+                }
+                if (
+                  guidedTourState?.mode === 'novice-cinematic' &&
+                  guidedTourState.step === 'novice-walk-to-mission-console'
+                ) {
+                  guidedTourState.playerControlEnabled = true;
+                  setTourStep('novice-mission-console', 'missions');
+                  S.onAiTourNarrative?.(
+                    'Ya estás frente a la mesa táctica. Pulsa E o haz clic en ella para abrir el Centro de Misión y elegir el destino.',
+                    'Orientación',
+                    'missions',
+                    { id: 'novice-arrived-at-mission-table', priority: 10, replace: true, once: false },
+                  );
                 }
                 if (finishedDeckId && elSys?.snapToDeck && !preserveNoviceElevatorRide) {
                   elSys.snapToDeck(finishedDeckId);
