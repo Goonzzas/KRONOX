@@ -5066,10 +5066,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       guidedTourState?.mode !== 'novice-cinematic' ||
       guidedTourState.step !== 'cinematic-walk-science' ||
       !guidedTourState.scienceWalkFinished ||
-      !guidedTourState.scienceWalkNarrationFinished ||
-      guidedTourState.scienceStationNarrationStarted
+      guidedTourState.scienceMissionOpened
     ) return;
-    guidedTourState.scienceStationNarrationStarted = true;
+    guidedTourState.scienceMissionOpened = true;
     const scienceStation = getStationDef('science');
     if (scienceStation) {
       activeCabinStation = 'science';
@@ -5078,12 +5077,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       luminousAI.pointAtWorldPosition(scienceStation.consolePos, true);
     }
     setTourStep('mission_start', 'science');
-    S.onAiTourNarrative?.(
-      'Cubierta 03 — Ingeniería y Laboratorio SPHEREx. Aquí operan el reactor principal, tanques criogénicos, estación SPHEREx y el banco óptico de calibración.',
-      'Explicación',
-      'science',
-      { id: 'novice-cinematic-science-station', priority: 9, replace: true, once: false },
-    );
+    // Open the real mission viewer directly when the astronaut reaches the lab.
+    // The map walkthrough itself narrates the mission, so it cannot be stranded
+    // waiting for a subtitle/audio completion event from another component.
+    S.onNoviceCinematicOpenMission?.();
   }
 
   function onGuidedNarrativeComplete(messageId) {
@@ -5099,8 +5096,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       } else if (messageId === 'novice-cinematic-science-walk') {
         guidedTourState.scienceWalkNarrationFinished = true;
         maybeStartNoviceScienceBeat();
-      } else if (messageId === 'novice-cinematic-science-station') {
-        S.onNoviceCinematicOpenMission?.();
       }
       return;
     }
@@ -8099,7 +8094,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               guidedTourState.step = 'cinematic-walk-science';
               guidedTourState.scienceWalkFinished = false;
               guidedTourState.scienceWalkNarrationFinished = false;
-              guidedTourState.scienceStationNarrationStarted = false;
+              guidedTourState.scienceMissionOpened = false;
               setTourStep('cinematic-walk-science', 'science');
               if (scienceStation) {
                 fourDecksInterior.setTutorialWaypoint({

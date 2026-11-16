@@ -414,6 +414,8 @@ export default function App() {
   }, [setActiveCockpitStation]);
   const missionGuideSyncRef = useRef(null);
   const noviceCinematicActiveRef = useRef(false);
+  const noviceNarrativeIdsRef = useRef(new Set());
+  const lastIntroStageKeyRef = useRef('');
   const guide = useSyncExternalStore(
     narrativeQueue.subscribe,
     narrativeQueue.getSnapshot,
@@ -1502,15 +1504,28 @@ export default function App() {
       onRestStateChange: (nextRest) => setRestingState(nextRest || null),
       onViewChange: (v) => setPv(v),
       onIntroStageChange: (stageKey, captionText, stageOpts = {}) => {
+        if (lastIntroStageKeyRef.current === stageKey) return;
+        lastIntroStageKeyRef.current = stageKey;
+        realTimeIntroActiveRef.current = true;
         setCinematicStage(stageKey);
         setRealTimeIntroActive(true);
         setRealTimeIntroCaption(captionText);
         // Do NOT enqueue intro prologue into Kronox IA dialogue queue to prevent duplicate speech
         if (voiceRef.current && !stageOpts?.silentVoice) {
-          speak(captionText, { interrupt: false });
+          speak(captionText, { interrupt: false, skipGuide: true });
         }
       },
       onAiTourNarrative: (text, stateName, stationId, opts = {}) => {
+        if (
+          noviceCinematicActiveRef.current &&
+          opts?.id &&
+          noviceNarrativeIdsRef.current.has(opts.id)
+        ) {
+          return opts.id;
+        }
+        if (noviceCinematicActiveRef.current && opts?.id) {
+          noviceNarrativeIdsRef.current.add(opts.id);
+        }
         setAiAvatarState(stateName);
         const intent = /bienvenida/i.test(stateName)
           ? 'welcome'
@@ -1544,7 +1559,8 @@ export default function App() {
         missionGuideSyncRef.current = null;
         setMissionInitialStage('arrival');
         setMissionOpen(true);
-        const target = SPHEREX_TARGETS.find((item) => item.key === missionTargetKey) || SPHEREX_TARGETS[0];
+        const target = SPHEREX_TARGETS.find((item) => item.key === 'barnard') || SPHEREX_TARGETS[0];
+        if (target) setMissionTargetKey(target.key);
         setAdvancedExplorerTarget(target);
         setAdvancedExplorerOpen(true);
       },
@@ -2329,6 +2345,8 @@ export default function App() {
         } else if (act.type === 'PLAY_CINEMATIC_INTRO') {
           actionLabel = 'Intro 3D en tiempo real iniciada';
           setWelcomeOpen(false);
+          lastIntroStageKeyRef.current = '';
+          realTimeIntroActiveRef.current = true;
           setRealTimeIntroActive(true);
           A().startRealTimeIntro?.(() => {
             introSoundtrackRef.current?.fadeOut?.(3.0);
@@ -2667,6 +2685,8 @@ export default function App() {
       onReplayIntro: () => {
         clearMissionOffer();
         setWelcomeOpen(false);
+        lastIntroStageKeyRef.current = '';
+        realTimeIntroActiveRef.current = true;
         setRealTimeIntroActive(true);
         A().startRealTimeIntro?.(() => {
           introSoundtrackRef.current?.fadeOut?.(3.0);
@@ -3472,6 +3492,8 @@ export default function App() {
       },
       onReplayCinematic: () => {
         setWelcomeOpen(false);
+        lastIntroStageKeyRef.current = '';
+        realTimeIntroActiveRef.current = true;
         setRealTimeIntroActive(true);
         A().startRealTimeIntro?.(() => {
           setRealTimeIntroActive(false);
@@ -4062,6 +4084,8 @@ export default function App() {
       },
       onReplayCinematic: () => {
         setWelcomeOpen(false);
+        lastIntroStageKeyRef.current = '';
+        realTimeIntroActiveRef.current = true;
         setRealTimeIntroActive(true);
         A().startRealTimeIntro?.(() => {
           introSoundtrackRef.current?.fadeOut?.(3.0);
@@ -4247,6 +4271,8 @@ export default function App() {
       onPlayUiCue: playCue,
       onStartNewExpedition: ({ explorationMode = 'expert' } = {}) => {
         noviceCinematicActiveRef.current = explorationMode === 'novice';
+        noviceNarrativeIdsRef.current.clear();
+        lastIntroStageKeyRef.current = '';
         ensureGameplayAudioStarted();
         stopVoiceAndClearQueue();
         clearNotices();
@@ -4258,6 +4284,7 @@ export default function App() {
         setMissionTargetKey('barnard');
         setMissionInitialStage('arrival');
         setGuideObjective('');
+        realTimeIntroActiveRef.current = true;
         setRealTimeIntroActive(true);
         A()?.setMainMenuOrbit?.(false);
         A()?.startRealTimeIntro?.(() => {

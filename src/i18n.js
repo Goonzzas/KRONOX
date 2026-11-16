@@ -1543,8 +1543,8 @@ const en = {
   'Terminar explicación': 'Finish explanation',
   'Recorrer libremente': 'Explore freely',
   '1 · LA PREGUNTA DE LA MISIÓN': '1 · THE MISSION QUESTION',
-  'La misión es rastrear la Estrella de Barnard, una estrella cercana que se mueve rápido frente al fondo del cielo. Buscaremos su posición y compararemos observaciones de distintas épocas. El mapa es una vista infrarroja del cielo, no un mapa de rutas espaciales.':
-    'The mission is to track Barnard’s Star, a nearby star that moves quickly against the background sky. We will locate it and compare observations from different epochs. This is an infrared sky map, not a map of space routes.',
+  'Ya estamos en la cubierta científica, nivel 3, frente a la estación SPHEREx. La misión es rastrear la Estrella de Barnard, una estrella cercana que se mueve rápido frente al fondo del cielo. Buscaremos su posición y compararemos observaciones de distintas épocas. El mapa es una vista infrarroja del cielo, no un mapa de rutas espaciales.':
+    'We are now on the science deck, level 3, at the SPHEREx station. The mission is to track Barnard’s Star, a nearby star that moves quickly against the background sky. We will locate it and compare observations from different epochs. This is an infrared sky map, not a map of space routes.',
   '2 · ORIENTARSE EN EL MAPA': '2 · GETTING ORIENTED ON THE MAP',
   'Este es el mapa infrarrojo centrado automáticamente en {target}, en RA {ra} grados y Dec {dec} grados. RA y Dec son coordenadas celestes. Puedes arrastrar el mapa para desplazarte y usar la rueda o los botones más y menos para acercar o alejar. El campo de visión indica cuánto cielo cabe en pantalla.':
     'This infrared map is automatically centered on {target}, at RA {ra} degrees and Dec {dec} degrees. RA and Dec are sky coordinates. Drag the map to move around, and use the wheel or plus and minus buttons to zoom. The field of view tells you how much sky fits on screen.',

@@ -42,7 +42,7 @@ const MISSION_GUIDE_STEPS = [
     selector: '#headerObjectTitle',
     title: '1 · LA PREGUNTA DE LA MISIÓN',
     narration:
-      'La misión es rastrear la Estrella de Barnard, una estrella cercana que se mueve rápido frente al fondo del cielo. Buscaremos su posición y compararemos observaciones de distintas épocas. El mapa es una vista infrarroja del cielo, no un mapa de rutas espaciales.',
+      'Ya estamos en la cubierta científica, nivel 3, frente a la estación SPHEREx. La misión es rastrear la Estrella de Barnard, una estrella cercana que se mueve rápido frente al fondo del cielo. Buscaremos su posición y compararemos observaciones de distintas épocas. El mapa es una vista infrarroja del cielo, no un mapa de rutas espaciales.',
   },
   {
     selector: '#canvasIR',
