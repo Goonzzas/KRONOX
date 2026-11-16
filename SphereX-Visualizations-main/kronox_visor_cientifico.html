@@ -6385,6 +6385,9 @@
         const card = document.createElement('div');
         card.className = 'mosaic-card' + (ds.id === state.activeDatasetId ? ' active' : '');
         card.dataset.id = ds.id;
+        card.setAttribute('role', 'button');
+        card.tabIndex = 0;
+        card.setAttribute('aria-label', `Estudiar ${ds.name || ds.id} con datos SPHEREx`);
         card.dataset.ra = Number.isFinite(Number(ds.ra)) ? Number(ds.ra) : 0;
         card.dataset.dec = Number.isFinite(Number(ds.dec)) ? Number(ds.dec) : 0;
         card.title = `${ds.name || ds.id} · RA ${Number(ds.ra || 0).toFixed(2)}°, Dec ${Number(ds.dec || 0).toFixed(2)}°`;
@@ -6406,9 +6409,44 @@
             <span>${expLbl}</span>
           </div>
         `;
-        card.addEventListener('click', () => {
-          if (cube102.active) setExplorerMode(false);
+        const selectRegion = () => {
+          if (cube102.active && ds.type !== 'real_spherex_ondemand') setExplorerMode(false);
+          state.activeDatasetId = ds.id;
+          updateMosaicActiveHighlight();
+          if (ds.type === 'real_spherex_ondemand') {
+            // Keep every catalog region immediately explorable through the
+            // real all-sky SPHEREx DR1 channel tiles, even before a local FITS
+            // bundle exists for that target. Pixel clicks still query FITS
+            // measurements from IRSA via /api/cube/inspect.
+            cube102.atlasRegion = true;
+            cube102.ra = Number(ds.ra) || 0;
+            cube102.dec = Number(ds.dec) || 0;
+            cube102.fovDeg = Math.max(0.35, Math.min(45, Number(ds.size_deg) || 3.5));
+            state.queryX = Math.floor(state.width / 2);
+            state.queryY = Math.floor(state.height / 2);
+            setOfflineOrErrorState(
+              ds.name || ds.id,
+              `Centro regional RA ${cube102.ra.toFixed(4)}° · Dec ${cube102.dec.toFixed(4)}° · SPHEREx DR1 real; la inspección de píxeles consulta FITS en IRSA.`,
+              'Cargando mapa regional…'
+            );
+            setExplorerMode('cube102');
+            return;
+          }
+          setOfflineOrErrorState(
+            ds.name || ds.id,
+            ds.type === 'real_spherex_ondemand'
+              ? 'Consultando observaciones SPHEREx reales en IRSA para esta región…'
+              : 'Cargando productos SPHEREx reales de esta región…',
+            'Cargando región…'
+          );
           loadRealDataset(ds.id);
+        };
+        card.addEventListener('click', selectRegion);
+        card.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            selectRegion();
+          }
         });
         frag.appendChild(card);
         mosaicObserver.observe(card);

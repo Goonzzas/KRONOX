@@ -455,7 +455,8 @@ def resolve_name(name: str) -> Optional[Tuple[float, float, str]]:
 # ---------------------------------------------------------------------------
 def sia_query(ra: float, dec: float) -> List[Dict[str, Any]]:
     rows: Dict[Tuple[str, int], Dict[str, Any]] = {}
-    for coll in COLLECTIONS:
+
+    def query_collection(coll: str) -> Tuple[str, Optional[str]]:
         params = {
             "COLLECTION": coll,
             "POS": f"circle {ra:.6f} {dec:.6f} 0.002",
@@ -463,16 +464,23 @@ def sia_query(ra: float, dec: float) -> List[Dict[str, Any]]:
         }
         for attempt in range(2):
             try:
-                r = session().get(SIA_URL, params=params, timeout=22)
+                r = session().get(SIA_URL, params=params, timeout=12)
                 r.raise_for_status()
-                break
+                return coll, r.text
             except Exception:
-                if attempt == 1:
-                    r = None
-                time.sleep(0.6 * (attempt + 1))
-        if r is None:
+                if attempt == 0:
+                    time.sleep(0.3)
+        return coll, None
+
+    # Query the four real archive releases concurrently. Serial requests could
+    # consume the whole Vercel function budget before the FITS cutouts are read.
+    with ThreadPoolExecutor(max_workers=len(COLLECTIONS)) as executor:
+        results = executor.map(query_collection, COLLECTIONS)
+        collection_texts = list(results)
+
+    for coll, text in collection_texts:
+        if text is None:
             continue
-        text = r.text
         if not text.startswith("s_ra"):
             continue
         for row in csv.DictReader(io.StringIO(text)):
@@ -983,7 +991,12 @@ def pick_spread(items: List[Dict[str, Any]], k: int) -> List[Dict[str, Any]]:
     return chosen + rest  # el resto queda como reserva si alguna falla
 
 
-def process_target(spec: T, args: argparse.Namespace, resolved_cache: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def process_target(
+    spec: T,
+    args: argparse.Namespace,
+    resolved_cache: Dict[str, Any],
+    coords_override: Optional[Tuple[float, float]] = None,
+) -> Optional[Dict[str, Any]]:
     query, display, category, size_deg = spec
     tid = slugify(query)
     if not getattr(args, "force", False):
@@ -996,6 +1009,12 @@ def process_target(spec: T, args: argparse.Namespace, resolved_cache: Dict[str, 
     meta_path = os.path.join(tdir, "meta.json")
 
     res = resolved_cache.get(query)
+    if coords_override and len(coords_override) == 2:
+        res = {
+            "ra": float(coords_override[0]) % 360.0,
+            "dec": max(-90.0, min(90.0, float(coords_override[1]))),
+            "simbad_name": query,
+        }
     if res is None:
         r = resolve_name(query)
         if r is None:

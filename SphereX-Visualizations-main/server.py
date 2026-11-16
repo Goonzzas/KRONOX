@@ -390,6 +390,9 @@ class DatasetStore:
                     (ds.get("query", ds["name"]), ds["name"], ds.get("category", "galaxy"), ds.get("size_deg", 0.25)),
                     ns,
                     resolved,
+                    coords_override=(float(ds["ra"]), float(ds["dec"]))
+                    if ds.get("ra") is not None and ds.get("dec") is not None
+                    else None,
                 )
                 if not meta:
                     raise RuntimeError(f"Sin exposiciones SPHEREx en IRSA para {ds['name']}")
@@ -1295,6 +1298,7 @@ class VisualizerRequestHandler(BaseHTTPRequestHandler):
             out["releases"] = rels
             out["release_badge"] = "+".join(rels) if rels else "IRSA"
         elif ds["type"] == "real_spherex_ondemand":
+            out["size_deg"] = ds.get("size_deg", 0.25)
             out["releases"] = ["IRSA"]
             out["release_badge"] = "IRSA Live"
         else:
