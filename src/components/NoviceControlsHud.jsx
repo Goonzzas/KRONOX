@@ -18,7 +18,7 @@ export default function NoviceControlsHud({ language = 'en' }) {
             <span className="noviceControlsHudKeys">
               {keys.map((key) => <kbd key={key}>{key}</kbd>)}
             </span>
-            <span>{t(text, language)}</span>
+            <span className="noviceControlsHudDescription">{t(text, language)}</span>
           </div>
         ))}
       </div>
