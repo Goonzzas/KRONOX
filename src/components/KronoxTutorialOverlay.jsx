@@ -21,7 +21,7 @@ const STEP_COPY = {
   look_camera: {
     badge: 'PASO 2 · MOVIMIENTO Y CÁMARA',
     title: 'Camina y alterna perspectivas',
-    body: 'Desplázate con [WASD], apunta con el mouse y prueba Cabina 1P, 3P o vista Exterior arriba (tecla [V]).',
+    body: 'Desplázate con [WASD], apunta con el mouse y prueba Cabina 1P, 3P o vista Exterior arriba (tecla [U]).',
     keys: ['W A S D', 'Mouse', 'V'],
   },
   nav: {
@@ -33,8 +33,8 @@ const STEP_COPY = {
   'novice-mission-console': {
     badge: 'CONTROLES · EXPLORACIÓN LIBRE',
     title: 'Muévete por la nave',
-    body: 'Usa [W], [A], [S] y [D] para caminar. Pulsa [L] para bloquear o liberar el cursor y mirar con el ratón. Pulsa [V] para cambiar la perspectiva del personaje. Cuando quieras iniciar, pulsa [E] o haz clic en la mesa táctica.',
-    keys: ['W A S D', 'L', 'V', 'E'],
+    body: 'Usa [W], [A], [S] y [D] para caminar. Pulsa [L] para bloquear o liberar el cursor y mirar con el ratón. Pulsa [U] para cambiar la perspectiva del personaje. Cuando quieras iniciar, pulsa [E] o haz clic en la mesa táctica.',
+    keys: ['W A S D', 'L', 'U', 'E'],
   },
   bridge: {
     badge: 'PASO 3 · CONSOLAS E INTERACCIÓN',

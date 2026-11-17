@@ -3408,7 +3408,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let targetPitch = 0;
   let vrChaseYaw = 0;
   let vrChasePitch = 0;
-  let cabinFirstPerson = true; // Alternable entre 1P y 3P EVA [V]
+  let cabinFirstPerson = true; // Alternable entre 1P y 3P EVA [U]
   let camViewBlend = 0; // 0 = 1P ojos, 1 = 3P persecución suave
   const getCabinBaseFov = () => THREE.MathUtils.lerp(Math.min(fovBase, 42), Math.min(fovBase, 45), camViewBlend);
   let smooth3PDist = 2.28;
@@ -4128,7 +4128,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     });
     const objectives = {
       stand_up: 'PASO 1/7 · PUESTO DE MANDO: Pulsa [WASD] o [E] para levantarte del sillón de mando.',
-      look_camera: 'PASO 2/7 · CÁMARA Y MOVIMIENTO: Muévete con [WASD], alterna vista 1P/3P con [V] o acércate a Navegación.',
+      look_camera: 'PASO 2/7 · CÁMARA Y MOVIMIENTO: Muévete con [WASD], alterna vista 1P/3P con [U] o acércate a Navegación.',
       bridge: 'PASO 3/7 · CONSOLA DE CONTROL: Acércate a la consola iluminada del Puente de Mando y pulsa [E].',
       nav: 'PASO 3/7 · CONSOLA DE NAVEGACIÓN: Acércate a la consola de navegación en el Puente y úsala con [E].',
       astro_obs: 'PASO 4/7 · EXPLORACIÓN ESPACIAL: Pulsa [T] para usar el Instrumento Óptico o cambia a vista Exterior.',
@@ -4136,7 +4136,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       elevator_c02: 'PASO 6/7 · CUBIERTA HABITACIONAL: Toma el Ascensor Central ([E] o tecla [2]) hacia la Cubierta Habitacional.',
       elevator_c03: 'PASO 6/7 · CUBIERTA CIENTÍFICA: Baja en el Ascensor Central a la Cubierta Científica (Nivel 3, tecla [3]).',
       science: 'PASO 6/7 · LABORATORIO SPHEREx: Dirígete al Laboratorio SPHEREx en C03 y pulsa [E].',
-      'novice-mission-console': 'CONTROLES · EXPLORACIÓN LIBRE: Muévete con [W], [A], [S] y [D]. Pulsa [L] para bloquear o liberar el cursor y mirar con el ratón. Pulsa [V] para cambiar la perspectiva del personaje. Al llegar a la mesa táctica, pulsa [E] o haz clic para abrir el Centro de Misión.',
+      'novice-mission-console': 'CONTROLES · EXPLORACIÓN LIBRE: Muévete con [W], [A], [S] y [D]. Pulsa [L] para bloquear o liberar el cursor y mirar con el ratón. Pulsa [U] para cambiar la perspectiva del personaje. Al llegar a la mesa táctica, pulsa [E] o haz clic para abrir el Centro de Misión.',
       'novice-walk-to-mission-console': 'KRONOX TE GUÍA · El astronauta caminará automáticamente hasta la mesa táctica. Al llegar, pulsa [E] o haz clic en la mesa para abrir el Centro de Misión.',
       'novice-select-mission': 'CENTRO DE MISIÓN ACTIVO · Elige una misión en la pantalla y confirma el destino para iniciar el viaje.',
       inventory_hub: 'PASO 7/7 · MANUAL Y OPERACIONES: Abre «Mapa · Guía» para consultar el Manual operativo y completar el tutorial.',
@@ -5037,7 +5037,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     S.onGuideObjective?.(
       astronautSeatedInBridge
         ? 'PASO 1/7 · PUESTO DE MANDO: Pulsa [WASD] o [E] para levantarte del sillón de mando.'
-        : 'PASO 2/7 · CÁMARA Y MOVIMIENTO: Muévete con [WASD], alterna vista 1P/3P con [V] o acércate a Navegación.',
+        : 'PASO 2/7 · CÁMARA Y MOVIMIENTO: Muévete con [WASD], alterna vista 1P/3P con [U] o acércate a Navegación.',
     );
     S.onAiTourNarrative?.(
       astronautSeatedInBridge ? tourNarratives.stand_up : tourNarratives.look_camera,
@@ -6302,8 +6302,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.onViewChange?.(pv);
       return;
     }
-    // Tecla contextual [V] para alternar cámara 1P (ojos) y 3P (astronauta 3D EVA en cabina)
-    if (k === 'v' && free && pv === 1 && !realTimeIntro && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    // Tecla contextual [U] para alternar cámara 1P (ojos) y 3P (astronauta 3D EVA en cabina)
+    if (k === 'u' && free && pv === 1 && !realTimeIntro && !e.ctrlKey && !e.metaKey && !e.altKey) {
       cabinFirstPerson = !cabinFirstPerson;
       S.onCabinFirstPersonChange?.(cabinFirstPerson);
       return;

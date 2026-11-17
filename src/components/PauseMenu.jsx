@@ -815,7 +815,7 @@ export default function PauseMenu({
                   <div className="kronox-settings-group">
                     <div className="kronox-setting-row">
                       <div>
-                        <strong>Perspectiva de cámara 3D [C / V]</strong>
+                        <strong>Perspectiva de cámara 3D [C / U]</strong>
                         <p>Cambia entre vista en primera persona (ojos del astronauta), tercera persona EVA o inspección exterior de 120 m.</p>
                       </div>
                       <div className="kronox-pause-seg-group" role="group" aria-label="Perspectiva de cámara">
@@ -839,7 +839,7 @@ export default function PauseMenu({
                             onToggleCabinPerspective?.(false);
                           }}
                         >
-                          3P EVA [V]
+                          3P EVA [U]
                         </button>
                         <button
                           type="button"
@@ -896,7 +896,7 @@ export default function PauseMenu({
                     </div>
                     <div className="kronox-setting-row">
                       <div>
-                        <strong>Distancia de cámara en 3ª Persona [V]</strong>
+                        <strong>Distancia de cámara en 3ª Persona</strong>
                         <p>Regula la separación del encuadre orbital tras el hombro del astronauta.</p>
                       </div>
                       <select

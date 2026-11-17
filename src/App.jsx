@@ -34,6 +34,7 @@ import LoadingScreen from './components/LoadingScreen.jsx';
 import RepairMissionModal from './components/RepairMissionModal.jsx';
 import GameInventoryModal from './components/GameInventoryModal.jsx';
 import KronoxTutorialOverlay from './components/KronoxTutorialOverlay.jsx';
+import NoviceControlsHud from './components/NoviceControlsHud.jsx';
 import { SPHEREX_MISSION_TYPES, SPHEREX_TARGETS } from './data/spherexTargets.js';
 import { processKronoxQuery, askKronoxDynamic } from './utils/kronoxAI.js';
 import { loadFindingsFromStorage } from './utils/findingsStorage.js';
@@ -247,6 +248,7 @@ export default function App() {
     [inventoryState, setInventoryState] = useState(() => loadAstronautInventory()),
     [recordedAiMessages, setRecordedAiMessages] = useState(() => loadRecordedAiMessages()),
     [guideState, setGuideState] = useState({ active: false, step: 'free', completed: false }),
+    [noviceAdventureMode, setNoviceAdventureMode] = useState(false),
     [heldToolId, setHeldToolId] = useState(null),
     [interactionFeedback, setInteractionFeedback] = useState(null),
     [voiceFailed, setVoiceFailed] = useState(false),
@@ -4307,6 +4309,7 @@ export default function App() {
       },
       onPlayUiCue: playCue,
       onStartNewExpedition: ({ explorationMode = 'expert' } = {}) => {
+        setNoviceAdventureMode(explorationMode === 'novice');
         noviceCinematicActiveRef.current = explorationMode === 'novice';
         noviceMissionPhaseRef.current = '';
         noviceNarrativeIdsRef.current.clear();
@@ -4339,6 +4342,7 @@ export default function App() {
         });
       },
       onContinueExpedition: (saveData) => {
+        setNoviceAdventureMode(false);
         ensureGameplayAudioStarted();
         stopVoiceAndClearQueue();
         introSoundtrackRef.current?.stop?.();
@@ -4389,6 +4393,8 @@ export default function App() {
         A()?.onGuidedInventoryOpen?.(nextTab);
       },
     }),
+    noviceAdventureMode && !welcomeOpen && !showFullMainMenu && !realTimeIntroActive &&
+      h(NoviceControlsHud, { language }),
     !welcomeOpen &&
     !showFullMainMenu &&
     !realTimeIntroActive &&
