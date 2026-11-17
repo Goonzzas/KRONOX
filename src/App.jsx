@@ -4376,6 +4376,7 @@ export default function App() {
     !guideState?.cinematic &&
     h(KronoxTutorialOverlay, {
       guideState,
+      language,
       onSkipStep: () => A()?.skipGuidedTourStep?.(),
       onDismiss: () => {
         A()?.endGuidedCabinTour?.();

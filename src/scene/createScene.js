@@ -4136,7 +4136,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       elevator_c02: 'PASO 6/7 · CUBIERTA HABITACIONAL: Toma el Ascensor Central ([E] o tecla [2]) hacia la Cubierta Habitacional.',
       elevator_c03: 'PASO 6/7 · CUBIERTA CIENTÍFICA: Baja en el Ascensor Central a la Cubierta Científica (Nivel 3, tecla [3]).',
       science: 'PASO 6/7 · LABORATORIO SPHEREx: Dirígete al Laboratorio SPHEREx en C03 y pulsa [E].',
-      'novice-mission-console': 'CENTRO DE MISIÓN · Ya estás frente a la mesa táctica. Pulsa [E] o haz clic para abrirla.',
+      'novice-mission-console': 'CONTROLES · EXPLORACIÓN LIBRE: Muévete con [W], [A], [S] y [D]. Pulsa [L] para bloquear o liberar el cursor y mirar con el ratón. Pulsa [V] para cambiar la perspectiva del personaje. Al llegar a la mesa táctica, pulsa [E] o haz clic para abrir el Centro de Misión.',
       'novice-walk-to-mission-console': 'KRONOX TE GUÍA · El astronauta caminará automáticamente hasta la mesa táctica. Al llegar, pulsa [E] o haz clic en la mesa para abrir el Centro de Misión.',
       'novice-select-mission': 'CENTRO DE MISIÓN ACTIVO · Elige una misión en la pantalla y confirma el destino para iniciar el viaje.',
       inventory_hub: 'PASO 7/7 · MANUAL Y OPERACIONES: Abre «Mapa · Guía» para consultar el Manual operativo y completar el tutorial.',
@@ -7958,7 +7958,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                   guidedTourState.playerControlEnabled = true;
                   setTourStep('novice-mission-console', 'missions');
                   S.onAiTourNarrative?.(
-                    'Ya estás frente a la mesa táctica. Pulsa E o haz clic en ella para abrir el Centro de Misión y elegir el destino.',
+                    'Ya estás frente a la mesa táctica. Muévete con W, A, S y D; pulsa L para bloquear o liberar el cursor y mirar con el ratón; usa V para cambiar la perspectiva del personaje. Pulsa E o haz clic en la mesa para abrir el Centro de Misión.',
                     'Orientación',
                     'missions',
                     { id: 'novice-arrived-at-mission-table', priority: 10, replace: true, once: false },

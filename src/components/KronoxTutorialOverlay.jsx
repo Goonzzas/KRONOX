@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from '../i18n.js';
 
 const TUTORIAL_PILLARS = [
   { id: 'stand_up', short: '1. Cabina', match: ['stand_up'] },
@@ -28,6 +29,12 @@ const STEP_COPY = {
     title: 'Opera las estaciones del puente',
     body: 'Acércate al timón central o a una consola iluminada del puente y pulsa [E] para usar los sistemas de la nave.',
     keys: ['E'],
+  },
+  'novice-mission-console': {
+    badge: 'CONTROLES · EXPLORACIÓN LIBRE',
+    title: 'Muévete por la nave',
+    body: 'Usa [W], [A], [S] y [D] para caminar. Pulsa [L] para bloquear o liberar el cursor y mirar con el ratón. Pulsa [V] para cambiar la perspectiva del personaje. Cuando quieras iniciar, pulsa [E] o haz clic en la mesa táctica.',
+    keys: ['W A S D', 'L', 'V', 'E'],
   },
   bridge: {
     badge: 'PASO 3 · CONSOLAS E INTERACCIÓN',
@@ -84,6 +91,7 @@ export default function KronoxTutorialOverlay({
   onSkipStep,
   onDismiss,
   onOpenInventoryTab,
+  language = 'es',
 }) {
   if (!guideState?.active || !guideState.step || guideState.step === 'free') {
     return null;
@@ -108,7 +116,7 @@ export default function KronoxTutorialOverlay({
       aria-label="Tutorial interactivo de KRONOX"
     >
       <div className="kronoxTutorialCardHeader">
-        <span className="kronoxTutorialBadge">{stepInfo.badge}</span>
+        <span className="kronoxTutorialBadge">{t(stepInfo.badge, language)}</span>
         <button
           type="button"
           className="kronoxTutorialCloseBtn"
@@ -120,8 +128,8 @@ export default function KronoxTutorialOverlay({
         </button>
       </div>
 
-      <h4 className="kronoxTutorialTitle">{stepInfo.title}</h4>
-      <p className="kronoxTutorialBody">{stepInfo.body}</p>
+      <h4 className="kronoxTutorialTitle">{t(stepInfo.title, language)}</h4>
+      <p className="kronoxTutorialBody">{t(stepInfo.body, language)}</p>
 
       {stepInfo.keys?.length > 0 && (
         <div className="kronoxTutorialKeyRow">
@@ -163,13 +171,13 @@ export default function KronoxTutorialOverlay({
               Abrir Manual operativo
             </button>
           )}
-        <button
+        {guideState.step !== 'novice-mission-console' && <button
           type="button"
           className="kronoxTutorialGhostBtn"
           onClick={onSkipStep}
         >
           Siguiente paso ⏭
-        </button>
+        </button>}
       </div>
     </aside>
   );
