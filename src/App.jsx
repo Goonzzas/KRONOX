@@ -428,6 +428,17 @@ export default function App() {
   languageRef.current = language;
   const noviceCinematicActiveRef = useRef(false);
   const noviceNarrativeIdsRef = useRef(new Set());
+  const openNoviceBarnardMission = () => {
+    const alreadyOpened = missionGuideSyncRef.current === 'novice-barnard-open';
+    A()?.onGuidedMissionStarted?.();
+    if (alreadyOpened) return;
+    missionGuideSyncRef.current = 'novice-barnard-open';
+    if (noviceMissionPhaseRef.current === 'arrived') noviceMissionPhaseRef.current = 'active';
+    clearMissionOffer();
+    setMissionSelectorOpen(false);
+    const target = SPHEREX_TARGETS.find((item) => item.key === 'barnard') || SPHEREX_TARGETS[0];
+    openSpherexAdvancedExplorer(target);
+  };
   const lastIntroStageKeyRef = useRef('');
   const guide = useSyncExternalStore(
     narrativeQueue.subscribe,
@@ -895,7 +906,17 @@ export default function App() {
         advanceQueueOrFinish();
       };
       utterance.onerror = () => {
+        if (token !== voiceToken.current) return;
         browserVoiceActiveRef.current = false;
+        if (options.preferBrowser && !options.browserFallbackAttempted) {
+          speak(cleanMsg, {
+            ...options,
+            preferBrowser: false,
+            browserFallbackAttempted: true,
+            interrupt: true,
+          });
+          return;
+        }
         advanceQueueOrFinish();
       };
       browserVoiceActiveRef.current = true;
@@ -904,6 +925,7 @@ export default function App() {
       setVoiceFailed(false);
       setVoiceError('');
       try {
+        window.speechSynthesis.resume?.();
         window.speechSynthesis.speak(utterance);
       } catch {
         browserVoiceActiveRef.current = false;
@@ -1497,10 +1519,15 @@ export default function App() {
         } else if (stationId === 'missions') {
           const noviceBarnardArrival =
             noviceCinematicActiveRef.current && noviceMissionPhaseRef.current === 'arrived';
-          if (!noviceBarnardArrival) {
-            if (noviceCinematicActiveRef.current) noviceMissionPhaseRef.current = 'selecting';
-            if (!vrPresenting) setMissionSelectorOpen(true);
+          if (noviceBarnardArrival) {
+            // The novice Barnard table is a direct handoff, not a mission picker.
+            // Open here as well as in the guided-scene handler so E, click, and
+            // proximity-based interaction all reach the same mission reliably.
+            openNoviceBarnardMission();
+            return;
           }
+          if (noviceCinematicActiveRef.current) noviceMissionPhaseRef.current = 'selecting';
+          if (!vrPresenting) setMissionSelectorOpen(true);
         } else if (stationId === 'bioponics') {
           awardInventoryItem('sample-bioponic-flora');
         } else if (stationId === 'engineering') {
@@ -1605,13 +1632,7 @@ export default function App() {
         if (target) chooseSpherexTarget(target);
       },
       onNoviceCinematicOpenMission: () => {
-        missionGuideSyncRef.current = null;
-        A()?.onGuidedMissionStarted?.();
-        if (noviceMissionPhaseRef.current === 'arrived') noviceMissionPhaseRef.current = 'active';
-        clearMissionOffer();
-        setMissionSelectorOpen(false);
-        const target = SPHEREX_TARGETS.find((item) => item.key === 'barnard') || SPHEREX_TARGETS[0];
-        openSpherexAdvancedExplorer(target);
+        openNoviceBarnardMission();
       },
       onNoviceCinematicComplete: (keepModalOpen = false) => {
         noviceCinematicActiveRef.current = false;
