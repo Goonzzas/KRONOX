@@ -55,6 +55,7 @@ import { createGameAudio } from './utils/gameAudio.js';
 import { createCinematicSoundtrack } from './utils/cinematicSoundtrack.js';
 import { installFloatingOverlayLayout } from './utils/floatingOverlayLayout.js';
 import { createNarrativeMessage, narrativeQueue } from './state/kronoxMessages.ts';
+import { Analytics } from '@vercel/analytics/react';
 import './styles.css';
 import './styles/cinematicNavigation.css';
 import './styles/flightDeckMenus.css';
@@ -4701,6 +4702,7 @@ export default function App() {
       onComplete: () => setInitialLoadingComplete(true),
     })
       )}
+      <Analytics />
     </LocalizedDom>
   );
 }
