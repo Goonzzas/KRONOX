@@ -106,6 +106,22 @@ test('Vercel configuration maps all SphereX visualizer routes to api/spherex_viz
     const found = rewrites.some((r) => r.source === route && r.destination.includes('/api/spherex_viz'));
     assert.ok(found, `Missing Vercel rewrite for ${route}`);
   }
+
+  const vercelIgnoreRaw = await fs.readFile(path.join(ROOT, '.vercelignore'), 'utf8');
+  const ignoredLines = vercelIgnoreRaw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
+  assert.equal(
+    ignoredLines.some((line) => line.includes('SphereX-Visualizations-main/static')),
+    false,
+    '.vercelignore must not exclude SphereX-Visualizations-main/static needed by Vite and Vercel includeFiles',
+  );
+  assert.equal(
+    ignoredLines.some((line) => line.includes('SphereX-Visualizations-main/SPHEREx_DR1_QR3')),
+    false,
+    '.vercelignore must not exclude SphereX-Visualizations-main/SPHEREx_DR1_QR3 needed by Vercel includeFiles',
+  );
 });
 
 test('Python serverless handler serves real datasets, bundles, resolve, stats, and FITS upload under VERCEL=1', () => {
