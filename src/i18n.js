@@ -261,6 +261,34 @@ const en = {
   'Cambiar la perspectiva del personaje': 'Change the character perspective',
   'Abrir el Centro de Misión al llegar a la mesa': 'Open the Mission Center when you reach the table',
   'o haz clic directamente en la mesa táctica': 'or click directly on the tactical table',
+  'sigue las flechas luminosas o haz clic en la mesa': 'follow the glowing arrows or click the table',
+  'Mando de Misiones SPHEREx': 'SPHEREx Mission Command',
+  'Abrir Misiones SPHEREx': 'Open SPHEREx Missions',
+  'Abrir Misiones SPHEREx [E] o clic': 'Open SPHEREx Missions [E] or click',
+  'Mando de Misiones SPHEREx · Mesa Táctica': 'SPHEREx Mission Command · Tactical Table',
+  'Sigue las flechas luminosas': 'Follow the glowing arrows',
+  'Sigue las flechas luminosas en el suelo': 'Follow the glowing floor arrows',
+  'Gira a la izquierda y sigue las flechas luminosas': 'Turn left and follow the glowing arrows',
+  'Gira a la derecha y sigue las flechas luminosas': 'Turn right and follow the glowing arrows',
+  'Ir caminando': 'Walk there',
+  'BARNARD · GUÍA SPHEREx': 'BARNARD · SPHEREx GUIDE',
+  'Sigue las flechas al Mando de Misiones': 'Follow the arrows to Mission Command',
+  'Camina con [W], [A], [S] y [D] siguiendo las flechas luminosas del puente hasta la mesa holográfica trasera. Pulsa [E] o haz clic en la consola para abrir las misiones SPHEREx.':
+    'Walk with [W], [A], [S], and [D] following the glowing bridge arrows to the aft holographic table. Press [E] or click the console to open SPHEREx missions.',
+  'BARNARD · GUÍA AUTOMÁTICA': 'BARNARD · AUTO GUIDE',
+  'Rumbo al Mando de Misiones SPHEREx': 'Heading to SPHEREx Mission Command',
+  'KRONOX avanza por la ruta iluminada hacia la mesa holográfica. Puedes tomar control manual en cualquier momento con [W A S D].':
+    'KRONOX is following the lit path to the holographic table. You can take manual control anytime with [W A S D].',
+  'DESTINO ALCANZADO (BARNARD) · Sigue las flechas luminosas en el puente hasta el Mando de Misiones SPHEREx (mesa holográfica al fondo) y pulsa [E] o haz clic para abrirlo.':
+    'ARRIVED AT BARNARD · Follow the glowing bridge arrows to the SPHEREx Mission Command table at the back and press [E] or click it.',
+  'KRONOX TE GUÍA · Avanzando por la ruta iluminada hacia el Mando de Misiones SPHEREx. Pulsa [WASD] si prefieres caminar manualmente.':
+    'KRONOX IS LEADING · Walking along the lit path toward SPHEREx Mission Command. Press [WASD] anytime to walk manually.',
+  'Ya llegamos a Barnard. Sigue las flechas luminosas en el puente hasta el mando de misiones SPHEREx al fondo y pulsa E o haz clic en la consola para elegir tu misión.':
+    'We have arrived at Barnard’s Star. Follow the glowing arrows across the bridge to the SPHEREx Mission Command table at the back, and press E or click the console to choose your mission.',
+  'Centro de misión SPHEREx activo. Elige en pantalla qué misión quieres comenzar; al seleccionar una, KRONOX fijará el destino y preparará el viaje.':
+    'SPHEREx Mission Center active. Choose on screen which mission to start; when you select one, KRONOX will lock the destination and prepare the journey.',
+  'Ya estás frente a la mesa táctica. Pulsa E o haz clic en la consola para abrir el Centro de Misión SPHEREx.':
+    'You are now in front of the tactical table. Press E or click the console to open the SPHEREx Mission Center.',
   'Desplázate con [WASD], apunta con el mouse y prueba Cabina 1P, 3P o vista Exterior arriba (tecla [U]).': 'Move with [WASD], aim with the mouse, and try Cockpit 1P, 3P, or Exterior view above (key [U]).',
   'Usa [W], [A], [S] y [D] para caminar. Pulsa [L] para bloquear o liberar el cursor y mirar con el ratón. Pulsa [U] para cambiar la perspectiva del personaje. Cuando quieras iniciar, pulsa [E] o haz clic en la mesa táctica.': 'Use [W], [A], [S], and [D] to walk. Press [L] to lock or release the cursor and look around with the mouse. Press [U] to change the character perspective. When you are ready to begin, press [E] or click the tactical table.',
   'CONTROLES · EXPLORACIÓN LIBRE: Muévete con [W], [A], [S] y [D]. Pulsa [L] para bloquear o liberar el cursor y mirar con el ratón. Pulsa [U] para cambiar la perspectiva del personaje. Al llegar a la mesa táctica, pulsa [E] o haz clic para abrir el Centro de Misión.': 'CONTROLS · FREE EXPLORATION: Move with [W], [A], [S], and [D]. Press [L] to lock or release the cursor and look around with the mouse. Press [U] to change the character perspective. At the tactical table, press [E] or click to open the Mission Center.',

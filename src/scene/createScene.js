@@ -4076,6 +4076,60 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       'Para descifrar esa historia escrita entre anillos planetarios y brazos galácticos, la humanidad puso en marcha el Proyecto Horizonte.',
   };
 
+  function buildBridgeMissionGuidePath(startPos, deckY = DECK_SPAWNS['deck-01'].pos.y) {
+    const origin = startPos?.isVector3
+      ? startPos.clone()
+      : new V(Number(startPos?.x) || 0, deckY, Number(startPos?.z) || -9.2);
+    origin.y = deckY;
+    const missionApproach = new V(0.0, deckY, 3.85);
+    const missionConsoleBase = new V(0.0, deckY, 4.35);
+
+    if (origin.z >= 2.2 && Math.abs(origin.x) <= 2.9) {
+      return [origin, missionApproach, missionConsoleBase];
+    }
+
+    const aisleX = origin.x < -0.5 ? -3.35 : 3.35;
+    const firstTurnZ = Math.max(-7.3, Math.min(-4.6, origin.z + 1.8));
+    return [
+      origin,
+      new V(aisleX * 0.72, deckY, firstTurnZ),
+      new V(aisleX, deckY, -4.4),
+      new V(aisleX, deckY, -0.6),
+      new V(aisleX, deckY, 2.3),
+      new V(aisleX * 0.55, deckY, 3.55),
+      missionApproach,
+      missionConsoleBase,
+    ];
+  }
+
+  function walkNoviceToMissionConsole() {
+    if (!guidedTourState || guidedTourState.mode !== 'novice-cinematic') return false;
+    const deckY = DECK_SPAWNS['deck-01'].pos.y;
+    const missionStation = getStationDef('missions');
+    const routePoints = buildBridgeMissionGuidePath(astronautPos, deckY);
+    fourDecksInterior?.setTutorialPath?.({ visible: true, points: routePoints, colorHex: 0x38bdf8 });
+    fourDecksInterior?.setTutorialWaypoint?.({
+      visible: true,
+      position: { x: 0.0, y: deckY + 0.02, z: 4.35 },
+      colorHex: 0x38bdf8,
+    });
+    const approachPt = routePoints[Math.max(0, routePoints.length - 2)] || new V(0, deckY, 3.85);
+    const lookDest = missionStation?.consolePos || new V(0, deckY + 1.08, 4.52);
+    deckTransitState = {
+      active: true,
+      targetDeckId: 'deck-01',
+      targetYaw: Math.atan2(
+        -(lookDest.x - approachPt.x),
+        -(lookDest.z - approachPt.z),
+      ),
+      waypoints: routePoints.slice(1, -1).concat([new V(0.0, deckY, 3.92)]),
+      index: 0,
+      speed: 2.1,
+    };
+    setTourStep('novice-walk-to-mission-console', 'missions');
+    return true;
+  }
+
   function syncTutorialWaypointForStep(step) {
     if (!fourDecksInterior?.setTutorialWaypoint) return;
     if (step === 'stand_up') {
@@ -4109,6 +4163,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         position: { x: -11.2, y: -3.38, z: -2.2 },
         colorHex: 0xfbbf24,
       });
+    } else if (step === 'novice-walk-to-mission-console' || step === 'novice-mission-console') {
+      const deckY = DECK_SPAWNS['deck-01'].pos.y;
+      fourDecksInterior.setTutorialWaypoint({
+        visible: true,
+        position: { x: 0.0, y: deckY + 0.02, z: 4.35 },
+        colorHex: 0x38bdf8,
+      });
     } else {
       fourDecksInterior.setTutorialWaypoint({ visible: false });
     }
@@ -4136,8 +4197,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       elevator_c02: 'PASO 6/7 · CUBIERTA HABITACIONAL: Toma el Ascensor Central ([E] o tecla [2]) hacia la Cubierta Habitacional.',
       elevator_c03: 'PASO 6/7 · CUBIERTA CIENTÍFICA: Baja en el Ascensor Central a la Cubierta Científica (Nivel 3, tecla [3]).',
       science: 'PASO 6/7 · LABORATORIO SPHEREx: Dirígete al Laboratorio SPHEREx en C03 y pulsa [E].',
-      'novice-mission-console': 'CONTROLES · EXPLORACIÓN LIBRE: Muévete con [W], [A], [S] y [D]. Pulsa [L] para bloquear o liberar el cursor y mirar con el ratón. Pulsa [U] para cambiar la perspectiva del personaje. Al llegar a la mesa táctica, pulsa [E] o haz clic para abrir el Centro de Misión.',
-      'novice-walk-to-mission-console': 'KRONOX TE GUÍA · El astronauta caminará automáticamente hasta la mesa táctica. Al llegar, pulsa [E] o haz clic en la mesa para abrir el Centro de Misión.',
+      'novice-mission-console': 'DESTINO ALCANZADO (BARNARD) · Sigue las flechas luminosas en el puente hasta el Mando de Misiones SPHEREx (mesa holográfica al fondo) y pulsa [E] o haz clic para abrirlo.',
+      'novice-walk-to-mission-console': 'KRONOX TE GUÍA · Avanzando por la ruta iluminada hacia el Mando de Misiones SPHEREx. Pulsa [WASD] si prefieres caminar manualmente.',
       'novice-select-mission': 'CENTRO DE MISIÓN ACTIVO · Elige una misión en la pantalla y confirma el destino para iniciar el viaje.',
       inventory_hub: 'PASO 7/7 · MANUAL Y OPERACIONES: Abre «Mapa · Guía» para consultar el Manual operativo y completar el tutorial.',
       missions: 'OBJETIVO: Interactúa con la consola de misiones.',
@@ -4169,7 +4230,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     guidedTourState.focus = null;
     aiFollowAstronaut = true;
     luminousAI.pointAtWorldPosition(null, false);
+    fourDecksInterior?.setTutorialPath?.({ visible: false });
     fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+    lastMissionWpHudKey = '';
+    missionWpHudWasActive = false;
+    S.onMissionWaypointHud?.(null);
     S.onGuideObjective?.(null);
     S.onGuideStateChange?.({ step: 'free', stationId: null, active: false, completed: true });
     const completionMessage = guidedTourState.mode === 'mission-walkthrough'
@@ -4528,15 +4593,19 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     }
     if (
       guidedTourState.mode === 'novice-cinematic' &&
-      guidedTourState.step === 'novice-mission-console' &&
+      (guidedTourState.step === 'novice-mission-console' || guidedTourState.step === 'novice-walk-to-mission-console') &&
       stationId === 'missions'
     ) {
+      deckTransitState = null;
       fourDecksInterior?.setTutorialPath?.({ visible: false });
       fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+      lastMissionWpHudKey = '';
+      missionWpHudWasActive = false;
+      S.onMissionWaypointHud?.(null);
       guidedTourState.playerControlEnabled = true;
       setTourStep('novice-select-mission', 'missions');
       S.onAiTourNarrative?.(
-        'Centro de misión activo. Elige en pantalla qué misión quieres comenzar; al seleccionar una, KRONOX fijará el destino y preparará el viaje.',
+        'Centro de misión SPHEREx activo. Elige en pantalla qué misión quieres comenzar; al seleccionar una, KRONOX fijará el destino y preparará el viaje.',
         'Orientación',
         'missions',
         { id: 'novice-mission-select', priority: 9, replace: true, once: false },
@@ -4721,7 +4790,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         );
         return;
       }
-      // The first Barnard arrival is the handoff from the cinematic to player control.
+      // The first Barnard arrival is the handoff from the cinematic to guided player control.
       free = true;
       ship.visible = false;
       localCabinWorld.visible = true;
@@ -4735,42 +4804,30 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       S.onViewChange?.(1);
       setCabinPerspective(false);
       currentLockedDeckId = 'deck-01';
-      guidedTourState.playerControlEnabled = false;
-      setTourStep('novice-walk-to-mission-console', null);
       const deckY = DECK_SPAWNS['deck-01'].pos.y;
-      const missionTableApproach = new V(0, deckY, 4.0);
-      const routePoints = [
-        astronautPos.clone(),
-        new V(3.35, deckY, -5.0),
-        new V(3.35, deckY, -1.2),
-        new V(3.35, deckY, 2.2),
-        new V(2.0, deckY, 3.7),
-        missionTableApproach,
-      ];
-      fourDecksInterior?.setTutorialPath?.({ visible: true, points: routePoints, colorHex: 0x55eaff });
-      fourDecksInterior.setTutorialWaypoint({
-        visible: true,
-        position: missionTableApproach,
-        colorHex: 0x55eaff,
+      if (resolveCurrentDeck(astronautPos)?.id !== 'deck-01') {
+        const navSt = getStationDef('nav');
+        if (navSt) astronautPos.copy(navSt.position);
+      }
+      astronautPos.y = deckY;
+      astronautVel.set(0, 0, 0);
+      fourDecksInterior?.clampAstronautPosition?.(astronautPos, undefined, undefined, null, {
+        lockedDeckId: 'deck-01',
       });
-      const missionStation = getStationDef('missions');
-      deckTransitState = {
-        active: true,
-        targetDeckId: 'deck-01',
-        targetYaw: missionStation
-          ? Math.atan2(
-              -(missionStation.consolePos.x - missionStation.position.x),
-              -(missionStation.consolePos.z - missionStation.position.z),
-            )
-          : 0,
-        waypoints: routePoints.slice(1),
-        index: 0,
-        speed: 2.0,
-      };
-      luminousAI.setTargetPosition(new V(0, deckY + 1.75, 5.4), 'Centro de Misión');
-      luminousAI.pointAtWorldPosition(new V(0, deckY + 1.35, 6.0), true);
+      microgravityController.setPosition(astronautPos);
+      guidedTourState.playerControlEnabled = true;
+      const routePoints = buildBridgeMissionGuidePath(astronautPos, deckY);
+      fourDecksInterior?.setTutorialPath?.({ visible: true, points: routePoints, colorHex: 0x38bdf8 });
+      setTourStep('novice-mission-console', 'missions');
+      // Orient gently along the illuminated arrow path so the route and mission console are immediately clear.
+      if (Math.abs(astronautYaw) < 1.15) {
+        targetYaw = astronautPos.x < -0.5 ? -Math.PI * 0.74 : Math.PI * 0.74;
+      }
+      targetPitch = -0.08;
+      luminousAI.setTargetPosition(new V(1.45, deckY + 1.85, 4.85), 'Señalización');
+      luminousAI.pointAtWorldPosition(new V(0, deckY + 1.08, 4.52), true);
       S.onAiTourNarrative?.(
-        'Ya llegamos a Barnard. KRONOX te llevará caminando hasta la mesa táctica del fondo para iniciar la misión. Cuando lleguemos, podrás activar el Centro de Misión con E o haciendo clic en la mesa.',
+        'Ya llegamos a Barnard. Sigue las flechas luminosas en el puente hasta el mando de misiones SPHEREx al fondo y pulsa E o haz clic en la consola para elegir tu misión.',
         'Orientación',
         'missions',
         { id: 'novice-arrival-walk-to-mission-table', priority: 10, replace: true, once: false },
@@ -4832,7 +4889,11 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     noviceCinematicLocked = false;
     aiFollowAstronaut = true;
     luminousAI.pointAtWorldPosition(null, false);
+    fourDecksInterior?.setTutorialPath?.({ visible: false });
     fourDecksInterior?.setTutorialWaypoint?.({ visible: false });
+    lastMissionWpHudKey = '';
+    missionWpHudWasActive = false;
+    S.onMissionWaypointHud?.(null);
     S.onGuideObjective?.(null);
     S.onGuideStateChange?.({ step: 'free', stationId: null, active: false });
   }
@@ -6448,6 +6509,8 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   let lastAiProjKey = '';
   let lastConsoleProjKey = '';
   let consoleProjWasActive = false;
+  let lastMissionWpHudKey = '';
+  let missionWpHudWasActive = false;
   let trailFadeRemaining = 0;
   let warpCanvasEl = null;
   let warpCanvasCtx = null;
@@ -6465,6 +6528,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
   const _aiProjScratch = new V();
   const _consoleWorldPosScratch = new V();
   const _consoleProjScratch = new V();
+  const _missionWpWorldScratch = new V();
+  const _missionWpProjScratch = new V();
+  const _missionWpViewScratch = new V();
+  const _missionWpApproachScratch = new V();
   const _forwardEyeScratch = new V();
   function tick(rafTimestamp, xrFrame = null) {
     if (disposed) return;
@@ -7797,11 +7864,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
             Math.abs(keys.vrMoveVert || 0) > 0.05,
           );
           if (deckTransitState?.active && hasManualThrustInput) {
+            deckTransitState = null;
             if (
-              guidedTourState?.mode !== 'novice-cinematic' ||
-              guidedTourState.step !== 'novice-walk-to-mission-console'
+              guidedTourState?.mode === 'novice-cinematic' &&
+              guidedTourState.step === 'novice-walk-to-mission-console'
             ) {
-              deckTransitState = null;
+              guidedTourState.playerControlEnabled = true;
+              setTourStep('novice-mission-console', 'missions');
             }
           }
           if (astronautSeatedInBridge && hasManualThrustInput) {
@@ -7955,10 +8024,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
                   guidedTourState?.mode === 'novice-cinematic' &&
                   guidedTourState.step === 'novice-walk-to-mission-console'
                 ) {
+                  const deckYNow = DECK_SPAWNS['deck-01'].pos.y;
                   guidedTourState.playerControlEnabled = true;
                   setTourStep('novice-mission-console', 'missions');
+                  luminousAI.setTargetPosition(new V(1.45, deckYNow + 1.85, 4.85), 'Señalización');
+                  luminousAI.pointAtWorldPosition(new V(0, deckYNow + 1.08, 4.52), true);
                   S.onAiTourNarrative?.(
-                    'Ya estás frente a la mesa táctica. Muévete con W, A, S y D; pulsa L para bloquear o liberar el cursor y mirar con el ratón; usa V para cambiar la perspectiva del personaje. Pulsa E o haz clic en la mesa para abrir el Centro de Misión.',
+                    'Ya estás frente a la mesa táctica. Pulsa E o haz clic en la consola para abrir el Centro de Misión SPHEREx.',
                     'Orientación',
                     'missions',
                     { id: 'novice-arrived-at-mission-table', priority: 10, replace: true, once: false },
@@ -8487,17 +8559,23 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           // low-contrast target in the 3D cockpit, so proximity is authoritative.
           if (
             guidedTourState?.mode === 'novice-cinematic' &&
-            guidedTourState.step === 'novice-mission-console' &&
+            (guidedTourState.step === 'novice-mission-console' || guidedTourState.step === 'novice-walk-to-mission-console') &&
             resolveCurrentDeck(astronautPos)?.id === 'deck-01'
           ) {
             const missionStation = getStationDef('missions');
-            const missionDistance = missionStation ? astronautPos.distanceTo(missionStation.position) : Infinity;
-            if (missionStation && missionDistance <= 3.2) {
+            const podiumDist = Math.hypot(astronautPos.x, astronautPos.z - 4.35);
+            const tableDist = Math.hypot(astronautPos.x, astronautPos.z - 6.0);
+            const missionDistance = Math.min(
+              missionStation ? astronautPos.distanceTo(missionStation.position) : Infinity,
+              podiumDist,
+              tableDist,
+            );
+            if (missionStation && missionDistance <= 3.35) {
               nearestCabinStation = {
                 station: {
                   ...missionStation,
-                  title: 'Centro de Misión · Mesa Táctica',
-                  actionLabel: 'Activar Centro de Misión [E] o clic',
+                  title: 'Mando de Misiones SPHEREx · Mesa Táctica',
+                  actionLabel: 'Abrir Misiones SPHEREx [E] o clic',
                 },
                 distance: missionDistance,
                 gazeDot: 1,
@@ -8698,6 +8776,65 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               lastConsoleProjKey = '';
               S.onConsoleScreenProjection(null);
             }
+            if (
+              S.onMissionWaypointHud &&
+              guidedTourState?.mode === 'novice-cinematic' &&
+              (guidedTourState.step === 'novice-mission-console' || guidedTourState.step === 'novice-walk-to-mission-console') &&
+              activeCabinStation !== 'missions' &&
+              !exteriorCameraMode &&
+              pv === 1 &&
+              activeDeckInfo?.id === 'deck-01'
+            ) {
+              const deckYNow = DECK_SPAWNS['deck-01'].pos.y;
+              const vw = Math.max(320, Number(dom?.clientWidth || innerWidth || 1280));
+              const vh = Math.max(240, Number(dom?.clientHeight || innerHeight || 720));
+              _missionWpApproachScratch.set(0, deckYNow, 4.35);
+              const distMeters = Number(
+                Math.max(0, astronautPos.distanceTo(_missionWpApproachScratch)).toFixed(1),
+              );
+              _missionWpWorldScratch.set(0, deckYNow + 1.55, 4.58).applyQuaternion(q);
+              _missionWpViewScratch.copy(_missionWpWorldScratch).applyMatrix4(localCam.matrixWorldInverse);
+              _missionWpProjScratch.copy(_missionWpWorldScratch).project(localCam);
+              const inFront = _missionWpViewScratch.z < -0.15;
+              const rawX = Math.round((_missionWpProjScratch.x * 0.5 + 0.5) * vw);
+              const rawY = Math.round((-_missionWpProjScratch.y * 0.5 + 0.5) * vh);
+              const onScreen =
+                inFront && rawX >= 72 && rawX <= vw - 72 && rawY >= 86 && rawY <= vh - 96;
+              const turnAngleRad = Number(
+                Math.atan2(_missionWpViewScratch.x, Math.max(0.001, -_missionWpViewScratch.z) * (inFront ? 1 : -1) || _missionWpViewScratch.z).toFixed(3),
+              );
+              // Compact 2D pointing angle (radians, 0 = right, -PI/2 = up, +PI/2 = down, +-PI = left)
+              const viewDx = _missionWpViewScratch.x;
+              const viewDy = -_missionWpViewScratch.y;
+              const arrowAngleRad = inFront
+                ? Math.atan2(viewDy, viewDx)
+                : Math.atan2(0, _missionWpViewScratch.x >= 0 ? 1 : -1);
+              const nearReady = distMeters <= 3.35 || nearestCabinStation?.station?.id === 'missions';
+              const autoWalking = Boolean(deckTransitState?.active);
+              const wpKey = `${onScreen ? 1 : 0}|${inFront ? 1 : 0}|${rawX}|${rawY}|${distMeters}|${nearReady ? 1 : 0}|${autoWalking ? 1 : 0}|${Math.round(arrowAngleRad * 20)}`;
+              if (wpKey !== lastMissionWpHudKey) {
+                lastMissionWpHudKey = wpKey;
+                missionWpHudWasActive = true;
+                S.onMissionWaypointHud({
+                  visible: true,
+                  inFront,
+                  onScreen,
+                  x: Math.max(72, Math.min(vw - 72, rawX)),
+                  y: Math.max(86, Math.min(vh - 96, rawY)),
+                  arrowAngleRad: Number(arrowAngleRad.toFixed(3)),
+                  turnSide: _missionWpViewScratch.x >= 0 ? 'right' : 'left',
+                  bearingDeg: Math.round((Math.atan2(_missionWpViewScratch.x, -_missionWpViewScratch.z) * 180) / Math.PI),
+                  distanceMeters: distMeters,
+                  nearReady,
+                  autoWalking,
+                  turnHint: turnAngleRad,
+                });
+              }
+            } else if (S.onMissionWaypointHud && missionWpHudWasActive) {
+              missionWpHudWasActive = false;
+              lastMissionWpHudKey = '';
+              S.onMissionWaypointHud(null);
+            }
             if (vrConsoleOverlay) {
               const nextVrHoverKey =
                 activeCabinStation && vrFrame?.rayHit?.vrAction
@@ -8749,10 +8886,15 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           lastVrHoverButtonKey = null;
           vrConsoleOverlay?.update?.({ presenting: false, inCabin: false });
           localCabinWorld.visible = false;
-          if (nearestCabinStation || lastNearestStationId || activeCabinStation) {
+          if (nearestCabinStation || lastNearestStationId || activeCabinStation || missionWpHudWasActive) {
             nearestCabinStation = null;
             lastNearestStationId = null;
             activeCabinStation = null;
+            if (missionWpHudWasActive) {
+              missionWpHudWasActive = false;
+              lastMissionWpHudKey = '';
+              S.onMissionWaypointHud?.(null);
+            }
             if (!exteriorCameraMode && pv === 1) {
               freeHelmMode = false;
               S.onFreeHelmChange?.(false);
@@ -10504,5 +10646,6 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     },
     handleVrConsoleAction: (action, payload) => handleVrConsoleAction(action, payload),
     getVrConsoleButtonMeshes: () => vrConsoleOverlay?.getInteractiveButtonMeshes?.() || [],
+    walkNoviceToMissionConsole,
   };
 }

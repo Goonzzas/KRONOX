@@ -35,6 +35,7 @@ import RepairMissionModal from './components/RepairMissionModal.jsx';
 import GameInventoryModal from './components/GameInventoryModal.jsx';
 import KronoxTutorialOverlay from './components/KronoxTutorialOverlay.jsx';
 import NoviceControlsHud from './components/NoviceControlsHud.jsx';
+import NoviceMissionWaypointHud from './components/NoviceMissionWaypointHud.jsx';
 import { SPHEREX_MISSION_TYPES, SPHEREX_TARGETS } from './data/spherexTargets.js';
 import { processKronoxQuery, askKronoxDynamic } from './utils/kronoxAI.js';
 import { loadFindingsFromStorage } from './utils/findingsStorage.js';
@@ -249,6 +250,7 @@ export default function App() {
     [recordedAiMessages, setRecordedAiMessages] = useState(() => loadRecordedAiMessages()),
     [guideState, setGuideState] = useState({ active: false, step: 'free', completed: false }),
     [noviceAdventureMode, setNoviceAdventureMode] = useState(false),
+    [missionWaypointHud, setMissionWaypointHud] = useState(null),
     [heldToolId, setHeldToolId] = useState(null),
     [interactionFeedback, setInteractionFeedback] = useState(null),
     [voiceFailed, setVoiceFailed] = useState(false),
@@ -1602,7 +1604,13 @@ export default function App() {
       },
       onGuideStateChange: (st) => {
         setGuideState(st || { active: false, step: 'free', completed: false });
-        if (!st?.active || st?.step === 'free') setGuideObjective('');
+        if (!st?.active || st?.step === 'free') {
+          setGuideObjective('');
+          setMissionWaypointHud(null);
+        }
+      },
+      onMissionWaypointHud: (wp) => {
+        setMissionWaypointHud(wp || null);
       },
       onAiScreenProjection: (proj) => {
         setAiProjection(proj);
@@ -4395,6 +4403,22 @@ export default function App() {
     }),
     noviceAdventureMode && !welcomeOpen && !showFullMainMenu && !realTimeIntroActive &&
       h(NoviceControlsHud, { language }),
+    noviceAdventureMode &&
+      missionWaypointHud?.visible &&
+      !welcomeOpen &&
+      !showFullMainMenu &&
+      !realTimeIntroActive &&
+      !missionSelectorOpen &&
+      !missionOpen &&
+      !advancedExplorerOpen &&
+      !pauseMenuOpen &&
+      !personalHubOpen &&
+      h(NoviceMissionWaypointHud, {
+        waypoint: missionWaypointHud,
+        language,
+        onActivate: () => A()?.activateNearestStation?.(),
+        onWalkToConsole: () => A()?.walkNoviceToMissionConsole?.(),
+      }),
     !welcomeOpen &&
     !showFullMainMenu &&
     !realTimeIntroActive &&

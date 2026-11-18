@@ -23,7 +23,7 @@ export default function NoviceControlsHud({ language = 'en' }) {
         ))}
       </div>
       <div className="noviceControlsHudHint">
-        <span>＋</span> {t('o haz clic directamente en la mesa táctica', language)}
+        <span>＋</span> {t('sigue las flechas luminosas o haz clic en la mesa', language)}
       </div>
     </aside>
   );

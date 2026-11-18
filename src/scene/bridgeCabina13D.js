@@ -959,7 +959,7 @@ export function buildBridgeCabina13D({
   // =========================================================================
   // 5. OBSERVATORIO HOLOGRÁFICO TÁCTICO DE POPA (`missions`, KRONOX (0, 3.4, +6.0))
   // =========================================================================
-  place(parentGroup, holoTurbinePedestalGeo, M.bridgeRibMat, -6.0, f, 0, 'console');
+  const holoPedestalMesh = place(parentGroup, holoTurbinePedestalGeo, M.bridgeRibMat, -6.0, f, 0, 'console');
   // 8 aletas radiales biseladas en la falda de la mesa holográfica
   for (let i = 0; i < 8; i += 1) {
     const a = (i / 8) * Math.PI * 2;
@@ -977,7 +977,7 @@ export function buildBridgeCabina13D({
   const holoTrimRing = place(parentGroup, torus(1.54, 0.045, 10, 42), M.bridgeChampagneMat, -6.0, f + 0.90, 0);
   holoTrimRing.rotation.x = Math.PI / 2;
   place(parentGroup, cyl(1.24, 1.32, 0.036, 28), M.bridgeCopperMat, -6.0, f + 0.91, 0);
-  place(parentGroup, cyl(1.02, 1.02, 0.024, 28), M.bridgeTrenchGlassMat, -6.0, f + 0.93, 0);
+  const holoTrenchGlass = place(parentGroup, cyl(1.02, 1.02, 0.024, 28), M.bridgeTrenchGlassMat, -6.0, f + 0.93, 0);
   const holoGlowRing = place(parentGroup, torus(0.98, 0.018, 8, 36), M.bridgeCyanCoveMat, -6.0, f + 0.945, 0);
   holoGlowRing.rotation.x = Math.PI / 2;
 
@@ -995,7 +995,7 @@ export function buildBridgeCabina13D({
   holoConsoleGroup.position.set(-4.52, f, 0);
   holoConsoleGroup.rotation.y = Math.PI / 2;
   parentGroup.add(holoConsoleGroup);
-  place(holoConsoleGroup, rbox(0.56, 0.10, 0.24, 0.02), M.bridgeRibMat, 0, 0.88, -0.06);
+  const missionsBasePedestal = place(holoConsoleGroup, rbox(0.56, 0.10, 0.24, 0.02), M.bridgeRibMat, 0, 0.88, -0.06);
   const missionsHood = place(holoConsoleGroup, rbox(0.98, 0.46, 0.05, 0.018), M.bridgeCarbonMat, 0, 1.08, -0.08);
   missionsHood.rotation.x = -0.56;
   const missionsScreenMesh = place(
@@ -1030,8 +1030,8 @@ export function buildBridgeCabina13D({
   holoTableOrb.name = 'BridgeHoloProjector';
   holoTableOrb.position.set(-6.0, f + 1.85, 0);
   parentGroup.add(holoTableOrb);
-  place(holoTableOrb, cached('holoIco', () => new THREE.IcosahedronGeometry(0.68, 1)), wfMat, 0, 0, 0);
-  place(holoTableOrb, cached('holoSph', () => new THREE.SphereGeometry(0.56, 20, 14)), holoShaderMat, 0, 0, 0);
+  const holoIcoMesh = place(holoTableOrb, cached('holoIco', () => new THREE.IcosahedronGeometry(0.68, 1)), wfMat, 0, 0, 0);
+  const holoCoreMesh = place(holoTableOrb, cached('holoSph', () => new THREE.SphereGeometry(0.56, 20, 14)), holoShaderMat, 0, 0, 0);
   const holoOrbit = place(holoTableOrb, torus(0.95, 0.022, 8, 40), holoOrbMat, 0, 0, 0);
   holoOrbit.rotation.x = 1.2;
   holoOrbit.userData.dynamicTransform = true;
@@ -1080,7 +1080,16 @@ export function buildBridgeCabina13D({
       comms: commsScreenMesh,
       missions: missionsScreenMesh,
     },
-    extraConsoleScreens,
+    extraConsoleScreens: [
+      ...extraConsoleScreens,
+      { mesh: holoPedestalMesh, stationId: 'missions' },
+      { mesh: holoTrimRing, stationId: 'missions' },
+      { mesh: holoTrenchGlass, stationId: 'missions' },
+      { mesh: missionsBasePedestal, stationId: 'missions' },
+      { mesh: missionsHood, stationId: 'missions' },
+      { mesh: holoIcoMesh, stationId: 'missions' },
+      { mesh: holoCoreMesh, stationId: 'missions' },
+    ],
     setAnisotropy: (v) => localSuite.setAnisotropy(v),
     updateScreens: (telemetry) => localSuite.updateScreens?.(telemetry),
     dispose: () => {

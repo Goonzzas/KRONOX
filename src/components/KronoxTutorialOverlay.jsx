@@ -31,10 +31,16 @@ const STEP_COPY = {
     keys: ['E'],
   },
   'novice-mission-console': {
-    badge: 'CONTROLES · EXPLORACIÓN LIBRE',
-    title: 'Muévete por la nave',
-    body: 'Usa [W], [A], [S] y [D] para caminar. Pulsa [L] para bloquear o liberar el cursor y mirar con el ratón. Pulsa [U] para cambiar la perspectiva del personaje. Cuando quieras iniciar, pulsa [E] o haz clic en la mesa táctica.',
+    badge: 'BARNARD · GUÍA SPHEREx',
+    title: 'Sigue las flechas al Mando de Misiones',
+    body: 'Camina con [W], [A], [S] y [D] siguiendo las flechas luminosas del puente hasta la mesa holográfica trasera. Pulsa [E] o haz clic en la consola para abrir las misiones SPHEREx.',
     keys: ['W A S D', 'L', 'U', 'E'],
+  },
+  'novice-walk-to-mission-console': {
+    badge: 'BARNARD · GUÍA AUTOMÁTICA',
+    title: 'Rumbo al Mando de Misiones SPHEREx',
+    body: 'KRONOX avanza por la ruta iluminada hacia la mesa holográfica. Puedes tomar control manual en cualquier momento con [W A S D].',
+    keys: ['W A S D', 'E'],
   },
   bridge: {
     badge: 'PASO 3 · CONSOLAS E INTERACCIÓN',

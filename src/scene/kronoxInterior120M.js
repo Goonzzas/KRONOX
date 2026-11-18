@@ -984,6 +984,12 @@ export function buildKronoxInterior120M() {
       registerInteractMesh(mesh, stationId, 'panel', 'deck-01');
     }
   });
+  bridgeCabina1Result?.missionsClickTargets?.forEach?.((mesh) => {
+    if (mesh) {
+      mesh.userData.stationId = 'missions';
+      registerInteractMesh(mesh, 'missions', 'panel', 'deck-01');
+    }
+  });
   disposableExtras.push(bridgeCabina1Result);
 
   // ==================== CUBIERTA 2 · HABITACIONAL, BIOPÓNICA Y ESCLUSA (Y = 0.0) ====================
@@ -2187,10 +2193,15 @@ export function buildKronoxInterior120M() {
   const wpLightColumn = add(tutorialWaypointGroup, wpBeamGeo, tutorialWaypointShaderMat, 0, 1.12, 0);
   wpLightColumn.userData.dynamicTransform = true;
 
-  const wpChevronGeo = trackExtraGeo(new THREE.ConeGeometry(0.22, 0.38, 4));
-  const wpChevron = add(tutorialWaypointGroup, wpChevronGeo, tutorialWaypointRingMat, 0, 2.28, 0);
+  const wpChevronGeo = trackExtraGeo(new THREE.ConeGeometry(0.26, 0.44, 4));
+  const wpChevron = add(tutorialWaypointGroup, wpChevronGeo, tutorialWaypointRingMat, 0, 2.34, 0);
   wpChevron.rotation.x = Math.PI;
   wpChevron.userData.dynamicTransform = true;
+
+  const wpUpperChevron = add(tutorialWaypointGroup, wpChevronGeo, tutorialWaypointRingMat, 0, 2.74, 0);
+  wpUpperChevron.rotation.x = Math.PI;
+  wpUpperChevron.scale.setScalar(0.76);
+  wpUpperChevron.userData.dynamicTransform = true;
 
   function setTutorialWaypoint({ visible = false, position = null, colorHex = 0x38bdf8 } = {}) {
     tutorialWaypointGroup.visible = Boolean(visible && position);
@@ -2211,57 +2222,196 @@ export function buildKronoxInterior120M() {
   tutorialPathGroup.visible = false;
   root.add(tutorialPathGroup);
   const tutorialPathMaterial = trackExtraMat(
-    new THREE.LineDashedMaterial({
-      color: 0x55eaff,
+    new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
       transparent: true,
-      opacity: 0.96,
-      dashSize: 0.38,
-      gapSize: 0.22,
+      opacity: 0.92,
       depthWrite: false,
-      depthTest: false,
+      side: THREE.DoubleSide,
     }),
   );
-  const tutorialPathMarkerMaterial = trackExtraMat(
-    new THREE.MeshBasicMaterial({ color: 0x9af5ff, transparent: true, opacity: 0.98, depthTest: false }),
+  const tutorialPathRibbonMaterial = trackExtraMat(
+    new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.28,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
   );
-  const tutorialPathDotGeometry = cachedGeo('tutorialPathDot', () => new THREE.SphereGeometry(0.075, 8, 8));
-  function setTutorialPath({ visible = false, points = [], colorHex = 0x55eaff } = {}) {
-    tutorialPathGroup.visible = Boolean(visible && points.length > 1);
+  const tutorialPathArrowGeometry = cachedGeo('tutorialPathChevronArrow', () => {
+    const s = new THREE.Shape();
+    s.moveTo(0, 0.26);
+    s.lineTo(0.29, -0.14);
+    s.lineTo(0.18, -0.22);
+    s.lineTo(0, 0.05);
+    s.lineTo(-0.18, -0.22);
+    s.lineTo(-0.29, -0.14);
+    s.closePath();
+    const g = new THREE.ExtrudeGeometry(s, {
+      depth: 0.032,
+      bevelEnabled: false,
+    });
+    g.rotateX(Math.PI / 2);
+    return g;
+  });
+  const tutorialPathFloatArrowGeo = cachedGeo('tutorialPathFloatArrow', () => {
+    const s = new THREE.Shape();
+    s.moveTo(0, 0.24);
+    s.lineTo(0.24, -0.06);
+    s.lineTo(0.11, -0.06);
+    s.lineTo(0.11, -0.24);
+    s.lineTo(-0.11, -0.24);
+    s.lineTo(-0.11, -0.06);
+    s.lineTo(-0.24, -0.06);
+    s.closePath();
+    const g = new THREE.ExtrudeGeometry(s, {
+      depth: 0.05,
+      bevelEnabled: false,
+    });
+    g.rotateX(Math.PI / 2);
+    return g;
+  });
+  let tutorialPathDynamicArrows = [];
+  let tutorialPathDynamicMaterials = [];
+  function clearTutorialPathChildren() {
     while (tutorialPathGroup.children.length) {
       const child = tutorialPathGroup.children[0];
       tutorialPathGroup.remove(child);
-      if (child.geometry !== tutorialPathDotGeometry) child.geometry?.dispose?.();
-    }
-    if (!tutorialPathGroup.visible) return;
-    const vectors = points.map((point) =>
-      point?.isVector3 ? point.clone() : new THREE.Vector3(Number(point?.x) || 0, Number(point?.y) || 0, Number(point?.z) || 0),
-    );
-    vectors.forEach((point) => { point.y += 0.24; });
-    const routeGeometry = new THREE.BufferGeometry().setFromPoints(vectors);
-    const routeLine = new THREE.Line(routeGeometry, tutorialPathMaterial);
-    routeLine.computeLineDistances();
-    routeLine.renderOrder = 10000;
-    tutorialPathGroup.add(routeLine);
-    tutorialPathMaterial.color.setHex(colorHex);
-    for (let i = 1; i < vectors.length; i += 1) {
-      const start = vectors[i - 1];
-      const end = vectors[i];
-      const span = end.clone().sub(start);
-      const steps = Math.max(1, Math.floor(span.length() / 0.48));
-      for (let step = 0; step <= steps; step += 1) {
-        const dot = new THREE.Mesh(tutorialPathDotGeometry, tutorialPathMarkerMaterial);
-        dot.position.copy(start).lerp(end, step / steps);
-        dot.renderOrder = 10001;
-        tutorialPathGroup.add(dot);
+      if (
+        child.geometry &&
+        child.geometry !== tutorialPathArrowGeometry &&
+        child.geometry !== tutorialPathFloatArrowGeo
+      ) {
+        child.geometry.dispose?.();
       }
     }
-    for (const point of vectors.slice(1, -1)) {
-      const marker = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.035, 6, 18), tutorialPathMarkerMaterial);
-      marker.rotation.x = Math.PI / 2;
-      marker.position.copy(point);
-      marker.renderOrder = 10002;
-      tutorialPathGroup.add(marker);
+    tutorialPathDynamicMaterials.forEach((m) => m.dispose?.());
+    tutorialPathDynamicMaterials = [];
+    tutorialPathDynamicArrows = [];
+  }
+
+  function resolveGuidePointHeight(x, baseY, z) {
+    if (Math.abs(baseY - 3.4) < 0.7) {
+      const daisDist = Math.hypot(x, z + 5.5);
+      const stepOffset = daisDist <= 2.56 ? 0.40 : daisDist <= 3.12 ? 0.18 : 0.0;
+      return 3.4 + stepOffset + 0.065;
     }
+    return baseY + 0.065;
+  }
+
+  function setTutorialPath({ visible = false, points = [], colorHex = 0x55eaff } = {}) {
+    clearTutorialPathChildren();
+    tutorialPathGroup.visible = Boolean(visible && points.length > 1);
+    if (!tutorialPathGroup.visible) return;
+
+    const rawVectors = points.map((point) => {
+      const px = Number(point?.x) || 0;
+      const py = Number(point?.y) || 0;
+      const pz = Number(point?.z) || 0;
+      return new THREE.Vector3(px, resolveGuidePointHeight(px, py, pz), pz);
+    });
+
+    const curve = new THREE.CatmullRomCurve3(rawVectors, false, 'centripetal', 0.35);
+    const totalLen = Math.max(0.5, curve.getLength());
+    const curveSegments = Math.max(24, Math.min(96, Math.round(totalLen * 6)));
+    const sampled = curve.getPoints(curveSegments).map((pt) => {
+      pt.y = resolveGuidePointHeight(pt.x, pt.y - 0.065, pt.z);
+      return pt;
+    });
+
+    // 1. Cinta luminosa amplia en el suelo + tubo guía central visible en cualquier ángulo
+    tutorialPathMaterial.color.setHex(colorHex);
+    tutorialPathRibbonMaterial.color.setHex(colorHex);
+    const tubeGeo = new THREE.TubeGeometry(curve, curveSegments, 0.034, 8, false);
+    const tubeMesh = new THREE.Mesh(tubeGeo, tutorialPathMaterial);
+    tubeMesh.renderOrder = 22;
+    tutorialPathGroup.add(tubeMesh);
+
+    const ribbonVerts = [];
+    const ribbonIndices = [];
+    const ribbonHalfW = 0.30;
+    for (let i = 0; i < sampled.length; i += 1) {
+      const curr = sampled[i];
+      const next = sampled[Math.min(sampled.length - 1, i + 1)];
+      const prev = sampled[Math.max(0, i - 1)];
+      const tx = next.x - prev.x;
+      const tz = next.z - prev.z;
+      const tLen = Math.hypot(tx, tz) || 1;
+      const nx = -tz / tLen;
+      const nz = tx / tLen;
+      ribbonVerts.push(curr.x + nx * ribbonHalfW, curr.y - 0.015, curr.z + nz * ribbonHalfW);
+      ribbonVerts.push(curr.x - nx * ribbonHalfW, curr.y - 0.015, curr.z - nz * ribbonHalfW);
+      if (i < sampled.length - 1) {
+        const b = i * 2;
+        ribbonIndices.push(b, b + 1, b + 2, b + 1, b + 3, b + 2);
+      }
+    }
+    const ribbonGeo = new THREE.BufferGeometry();
+    ribbonGeo.setAttribute('position', new THREE.Float32BufferAttribute(ribbonVerts, 3));
+    ribbonGeo.setIndex(ribbonIndices);
+    ribbonGeo.computeVertexNormals();
+    const ribbonMesh = new THREE.Mesh(ribbonGeo, tutorialPathRibbonMaterial);
+    ribbonMesh.renderOrder = 20;
+    tutorialPathGroup.add(ribbonMesh);
+
+    // 2. Flechas direccionales 3D en el suelo animadas en ola hacia el destino
+    const floorArrowCount = Math.max(4, Math.min(20, Math.floor(totalLen / 0.85)));
+    for (let i = 0; i <= floorArrowCount; i += 1) {
+      const u = i / floorArrowCount;
+      const pos = curve.getPointAt(u);
+      const tan = curve.getTangentAt(u);
+      const yaw = Math.atan2(tan.x, tan.z);
+      const arrowMat = new THREE.MeshBasicMaterial({
+        color: i % 2 === 0 ? 0x9ef5ff : colorHex,
+        transparent: true,
+        opacity: 0.92,
+        depthWrite: false,
+      });
+      tutorialPathDynamicMaterials.push(arrowMat);
+      const arrowMesh = new THREE.Mesh(tutorialPathArrowGeometry, arrowMat);
+      arrowMesh.position.set(pos.x, resolveGuidePointHeight(pos.x, pos.y - 0.065, pos.z) + 0.035, pos.z);
+      arrowMesh.rotation.y = yaw;
+      arrowMesh.renderOrder = 25;
+      tutorialPathGroup.add(arrowMesh);
+      tutorialPathDynamicArrows.push({
+        mesh: arrowMesh,
+        mat: arrowMat,
+        baseY: arrowMesh.position.y,
+        phaseOffset: u,
+        isFloating: false,
+      });
+    }
+
+    // 3. Flechas flotantes a la altura de la vista (para leer la dirección sin mirar al suelo)
+    const floatFractions = [0.08, 0.34, 0.64, 0.88];
+    floatFractions.forEach((u) => {
+      if (u >= 0.98) return;
+      const pos = curve.getPointAt(u);
+      const tan = curve.getTangentAt(u);
+      const yaw = Math.atan2(tan.x, tan.z);
+      const floatMat = new THREE.MeshBasicMaterial({
+        color: 0xbcf8ff,
+        transparent: true,
+        opacity: 0.88,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      tutorialPathDynamicMaterials.push(floatMat);
+      const floatArrow = new THREE.Mesh(tutorialPathFloatArrowGeo, floatMat);
+      const deckFloorY = rawVectors[0] ? Math.round((rawVectors[0].y - 0.065) / 3.4) * 3.4 : pos.y;
+      floatArrow.position.set(pos.x, deckFloorY + 1.15, pos.z);
+      floatArrow.rotation.y = yaw;
+      floatArrow.renderOrder = 28;
+      tutorialPathGroup.add(floatArrow);
+      tutorialPathDynamicArrows.push({
+        mesh: floatArrow,
+        mat: floatMat,
+        baseY: floatArrow.position.y,
+        phaseOffset: u,
+        isFloating: true,
+      });
+    });
   }
 
   function getStationScreenReadout(stationId, telemetry = {}, repairStage = 0) {
@@ -2605,10 +2755,26 @@ export function buildKronoxInterior120M() {
         tutorialWaypointShaderMat.uniforms.uTime.value = elapsedTime;
       }
       wpOuterRing.rotation.z = elapsedTime * 1.4;
-      const wpPulse = 1.0 + 0.08 * Math.sin(elapsedTime * 3.8);
+      const wpPulse = 1.0 + 0.1 * Math.sin(elapsedTime * 3.8);
       wpInnerRing.scale.setScalar(wpPulse);
-      wpChevron.position.y = 2.24 + 0.12 * Math.sin(elapsedTime * 3.2);
-      wpChevron.rotation.y = elapsedTime * 2.1;
+      wpChevron.position.y = 2.26 + 0.14 * Math.sin(elapsedTime * 3.4);
+      wpChevron.rotation.y = elapsedTime * 2.2;
+      wpUpperChevron.position.y = 2.68 + 0.14 * Math.sin(elapsedTime * 3.4 - 0.5);
+      wpUpperChevron.rotation.y = elapsedTime * 2.2;
+    }
+    if (tutorialPathGroup.visible && tutorialPathDynamicArrows.length > 0) {
+      tutorialPathRibbonMaterial.opacity = 0.24 + 0.10 * Math.sin(elapsedTime * 3.2);
+      for (let i = 0; i < tutorialPathDynamicArrows.length; i += 1) {
+        const item = tutorialPathDynamicArrows[i];
+        const wavePhase = ((elapsedTime * 0.9 - item.phaseOffset) % 1 + 1) % 1;
+        const pulseGlow = Math.pow(Math.max(0, 1 - Math.abs(wavePhase - 0.5) * 3.2), 1.6);
+        item.mat.opacity = (item.isFloating ? 0.52 : 0.45) + 0.52 * pulseGlow;
+        const s = (item.isFloating ? 0.92 : 0.94) + 0.24 * pulseGlow;
+        item.mesh.scale.setScalar(s);
+        if (item.isFloating) {
+          item.mesh.position.y = item.baseY + 0.08 * Math.sin(elapsedTime * 3.0 + item.phaseOffset * 6.28);
+        }
+      }
     }
 
     if (reactorPlasmaCore && reactorPlasmaMat && deckContainers['deck-03']?.visible !== false) {
@@ -2883,6 +3049,7 @@ export function buildKronoxInterior120M() {
   }
 
   const dispose = () => {
+    clearTutorialPathChildren();
     pbrSuite.dispose();
     disposableExtras.forEach((item) => item?.dispose?.());
   };
