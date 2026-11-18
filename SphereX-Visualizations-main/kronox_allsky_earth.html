@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KRONOX · SPHEREx All-Sky (Google Earth View)</title>
+  <style>
+    :root {
+      --glass: rgba(8, 11, 18, 0.72);
+      --border: rgba(148, 163, 184, 0.22);
+      --accent: #38bdf8;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000000;
+      color: var(--text);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+    }
+    #skyCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      cursor: grab;
+      background: #02040a;
+    }
+    #skyCanvas.dragging { cursor: grabbing; }
+
+    .hud {
+      position: fixed;
+      z-index: 10;
+      background: var(--glass);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+    }
+
+    /* Top-left floating bar */
+    .hud-top {
+      top: 14px;
+      left: 14px;
+      padding: 8px 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      max-width: calc(100vw - 28px);
+    }
+    .brand-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      display: inline-block;
+    }
+    .brand-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin-right: 4px;
+    }
+
+    .pill-group {
+      display: inline-flex;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .pill-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.14s;
+    }
+    .pill-btn:hover { color: var(--text); }
+    .pill-btn.active { background: var(--accent); color: #000000; }
+
+    .hud-select, .hud-input {
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 7px;
+      padding: 4px 8px;
+      font-size: 0.7rem;
+      outline: none;
+    }
+    .hud-select:focus, .hud-input:focus { border-color: var(--accent); }
+
+    .hud-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 7px;
+      padding: 4px 9px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .hud-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .hud-btn.active-gaia { background: rgba(56, 189, 248, 0.22); border-color: #38bdf8; color: #7dd3fc; }
+    .hud-btn.active-wise { background: rgba(251, 146, 60, 0.22); border-color: #fb923c; color: #fdba74; }
+
+    /* Bottom-left minimal info + FITS readout */
+    .hud-bottom-left {
+      bottom: 14px;
+      left: 14px;
+      padding: 9px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 240px;
+      max-width: 360px;
+      font-size: 0.69rem;
+    }
+    .hud-coords {
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .hud-fits {
+      color: #cbd5e1;
+      font-size: 0.66rem;
+      line-height: 1.35;
+    }
+    #sparkCanvas {
+      width: 100%;
+      height: 44px;
+      display: none;
+      margin-top: 2px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.45);
+    }
+
+    /* Bottom-right zoom & similarity threshold */
+    .hud-bottom-right {
+      bottom: 14px;
+      right: 14px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.69rem;
+    }
+    .sim-controls {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding-right: 8px;
+      border-right: 1px solid var(--border);
+    }
+    .sim-controls.visible { display: flex; }
+    input[type="range"] { accent-color: var(--accent); cursor: pointer; }
+
+    #hoverTooltip {
+      position: fixed;
+      z-index: 20;
+      pointer-events: none;
+      display: none;
+      background: rgba(5, 8, 15, 0.88);
+      border: 1px solid var(--accent);
+      color: #fff;
+      font-size: 0.66rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="skyCanvas"></canvas>
+
+  <div class="hud hud-top">
+    <span class="brand-dot" id="connDot"></span>
+    <span class="brand-title">SPHEREx All-Sky</span>
+
+    <div class="pill-group" id="layerPills">
+      <button class="pill-btn active" data-layer="rgb">RGB Infrarrojo</button>
+      <button class="pill-btn" data-layer="sim">Similitud (Cos θ)</button>
+    </div>
+
+    <select class="hud-select" id="regionSelect" style="max-width:190px;">
+      <option value="266.4168,-29.0078,120">🌌 Todo el Cielo (Centro Galáctico)</option>
+      <option value="83.8221,-5.3911,8">✨ Orión M42</option>
+      <option value="266.4168,-29.0078,6">🕳️ Sgr A* (Centro)</option>
+      <option value="350.85,58.815,5">💥 Cassiopeia A</option>
+      <option value="10.6847,41.2687,8">🌀 Andrómeda M31</option>
+      <option value="187.7059,12.3911,6">🔭 M87 (Virgo A)</option>
+    </select>
+
+    <button class="hud-btn" id="btnResetSky" title="Ver todo el cielo">🌍 Todo el cielo</button>
+    <button class="hud-btn" id="btnTogglePins" title="Mostrar/ocultar pines de datasets reales">📍 Pines</button>
+    <button class="hud-btn" id="btnToggleGaia" title="Superponer catálogo Gaia DR3 (óptico)">✦ Gaia DR3</button>
+    <button class="hud-btn" id="btnToggleWise" title="Superponer catálogo AllWISE (infrarrojo)">◆ AllWISE</button>
+  </div>
+
+  <div class="hud hud-bottom-left">
+    <div class="hud-coords">
+      <span id="coordLabel">RA 266.42° · Dec 0.00°</span>
+      <span id="fovLabel" style="color:var(--muted);">FOV 140° · Ord 0</span>
+    </div>
+    <div class="hud-fits" id="fitsLabel">Arrastra para explorar · Rueda para zoom · Clic para Similitud + FITS</div>
+    <canvas id="sparkCanvas" width="320" height="44"></canvas>
+  </div>
+
+  <div class="hud hud-bottom-right">
+    <div class="sim-controls" id="simControls">
+      <label style="display:flex; align-items:center; gap:5px;">
+        Umbral <input type="range" id="thrSlider" min="0.40" max="0.98" step="0.01" value="0.76" style="width:82px;" />
+        <strong id="thrVal" style="color:var(--accent); min-width:28px;">0.76</strong>
+      </label>
+      <span id="simMatchesLbl" style="color:#10b981; font-weight:600;">Clic en cielo</span>
+    </div>
+    <button class="hud-btn" id="btnZoomIn" title="Acercar">＋</button>
+    <button class="hud-btn" id="btnZoomOut" title="Alejar">－</button>
+  </div>
+
+  <div id="hoverTooltip"></div>
+
+  <script>
+    const canvas = document.getElementById('skyCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const sky = {
+      serverBase: '',
+      ra: 266.4168,
+      dec: 0.0,
+      fovDeg: 140.0,
+      layer: 'rgb', // 'rgb' | 'sim'
+      threshold: 0.76,
+      showPins: true,
+      showGaia: false,
+      showWise: false,
+      catalog: [],
+      gaiaItems: [],
+      wiseItems: [],
+      catAbort: null,
+      tileCache: new Map(),
+      renderSeq: 0,
+      renderAbort: null,
+      inspectAbort: null,
+      settleTimer: null,
+      // Last rendered embedding grid (for real-time similarity without re-fetching tiles)
+      gridW: 0,
+      gridH: 0,
+      embeddings: null,
+      rgbPixels: null,
+      queryX: -1,
+      queryY: -1,
+      queryRa: null,
+      queryDec: null,
+      simMaskCanvas: document.createElement('canvas'),
+      lastFrameCanvas: document.createElement('canvas'),
+      embeddingsDirty: false,
+      dragRaf: false,
+      dragDx: 0,
+      dragDy: 0,
+      zoomScalePreview: 1
+    };
+
+    // --- Pure JS HEALPix NESTED (32-bit fast path, zero BigInt) ---
+    function spreadBits16(v) {
+      let x = v & 0xFFFF;
+      x = (x | (x << 8)) & 0x00FF00FF;
+      x = (x | (x << 4)) & 0x0F0F0F0F;
+      x = (x | (x << 2)) & 0x33333333;
+      x = (x | (x << 1)) & 0x55555555;
+      return x >>> 0;
+    }
+
+    function skyToHipsTilePixel(order, raDeg, decDeg, tileWidth = 512) {
+      const nside = 1 << (order + 9);
+      const ra = ((raDeg % 360) + 360) % 360 * Math.PI / 180;
+      const dec = Math.max(-90, Math.min(90, decDeg)) * Math.PI / 180;
+      const z = Math.sin(dec);
+      const za = Math.abs(z);
+      const tt = (ra / (Math.PI / 2)) % 4;
+      let face = 0, ixF = 0, iyF = 0;
+
+      if (za <= 2 / 3) {
+        const temp1 = nside * (0.5 + tt);
+        const temp2 = nside * (z * 0.75);
+        const jpF = temp1 - temp2;
+        const jmF = temp1 + temp2;
+        const jp = Math.floor(jpF);
+        const jm = Math.floor(jmF);
+        const ifp = Math.floor(jp / nside);
+        const ifm = Math.floor(jm / nside);
+        if (ifp === ifm) face = ifp | 4;
+        else if (ifp < ifm) face = ifp;
+        else face = ifm + 8;
+        ixF = jmF - ifm * nside;
+        iyF = nside - 1 - (jpF - ifp * nside);
+      } else {
+        const ntt = Math.min(3, Math.floor(tt));
+        const tp = tt - ntt;
+        const tmp = nside * Math.sqrt(3 * (1 - za));
+        const jpF = Math.min(nside - 1e-4, Math.max(0, tp * tmp));
+        const jmF = Math.min(nside - 1e-4, Math.max(0, (1 - tp) * tmp));
+        if (z >= 0) {
+          face = ntt;
+          ixF = nside - 1 - jmF;
+          iyF = nside - 1 - jpF;
+        } else {
+          face = ntt + 8;
+          ixF = jpF;
+          iyF = jmF;
+        }
+      }
+      ixF = Math.max(0, Math.min(nside - 1e-4, ixF));
+      iyF = Math.max(0, Math.min(nside - 1e-4, iyF));
+      const ix = Math.floor(ixF);
+      const iy = Math.floor(iyF);
+      const nsideTile = 1 << order;
+      const ixTile = ix >> 9;
+      const iyTile = iy >> 9;
+      const tileNpix = face * nsideTile * nsideTile + (spreadBits16(ixTile) | (spreadBits16(iyTile) << 1));
+      const lxF = ixF - (ixTile << 9);
+      const lyF = iyF - (iyTile << 9);
+      return {
+        npix: tileNpix,
+        tx: Math.max(0, Math.min(tileWidth - 1, lxF)),
+        ty: Math.max(0, Math.min(tileWidth - 1, tileWidth - 1 - lyF))
+      };
+    }
+
+    function sampleBilinear(img, fx, fy) {
+      if (!img || !img.data) return 0;
+      const w = img.width, h = img.height, data = img.data;
+      const x0 = Math.max(0, Math.min(w - 1, Math.floor(fx)));
+      const y0 = Math.max(0, Math.min(h - 1, Math.floor(fy)));
+      const x1 = Math.min(w - 1, x0 + 1);
+      const y1 = Math.min(h - 1, y0 + 1);
+      const dx = fx - x0;
+      const dy = fy - y0;
+      const idx00 = (y0 * w + x0) * 4;
+      const idx10 = (y0 * w + x1) * 4;
+      const idx01 = (y1 * w + x0) * 4;
+      const idx11 = (y1 * w + x1) * 4;
+      const top = data[idx00] * (1 - dx) + data[idx10] * dx;
+      const bot = data[idx01] * (1 - dx) + data[idx11] * dx;
+      return top * (1 - dy) + bot * dy;
+    }
+
+    // Full-screen projection: Equirectangular/Panoramica for wide FOV (> 45°), Gnomonic TAN when zoomed in
+    function screenToSky(px, py, W, H) {
+      if (sky.fovDeg > 45) {
+        const lonSpan = Math.min(360, sky.fovDeg * 2.2);
+        const latSpan = Math.min(180, lonSpan * (H / W));
+        const nx = 0.5 - (px + 0.5) / W; // East left
+        const ny = 0.5 - (py + 0.5) / H; // North up
+        const ra = ((sky.ra + nx * lonSpan) % 360 + 360) % 360;
+        const dec = Math.max(-89.9, Math.min(89.9, sky.dec + ny * latSpan));
+        return { ra, dec };
+      }
+      const scaleRad = (sky.fovDeg * Math.PI / 180) / W;
+      const dx = -(px - W * 0.5) * scaleRad;
+      const dy = -(py - H * 0.5) * scaleRad;
+      const rho = Math.hypot(dx, dy);
+      if (rho < 1e-12) return { ra: sky.ra, dec: sky.dec };
+      const ra0 = sky.ra * Math.PI / 180;
+      const dec0 = sky.dec * Math.PI / 180;
+      const c = Math.atan(rho);
+      const cosc = Math.cos(c), sinc = Math.sin(c);
+      const dec = Math.asin(Math.max(-1, Math.min(1, cosc * Math.sin(dec0) + (dy * sinc * Math.cos(dec0)) / rho)));
+      const ra = ra0 + Math.atan2(dx * sinc, rho * Math.cos(dec0) * cosc - dy * Math.sin(dec0) * sinc);
+      return { ra: ((ra * 180 / Math.PI) % 360 + 360) % 360, dec: dec * 180 / Math.PI };
+    }
+
+    function skyToScreen(raDeg, decDeg, W, H) {
+      if (sky.fovDeg > 45) {
+        const lonSpan = Math.min(360, sky.fovDeg * 2.2);
+        const latSpan = Math.min(180, lonSpan * (H / W));
+        const dRa = ((raDeg - sky.ra + 540) % 360) - 180;
+        const dDec = decDeg - sky.dec;
+        const x = (0.5 - dRa / lonSpan) * W;
+        const y = (0.5 - dDec / latSpan) * H;
+        return (x >= -10 && x <= W + 10 && y >= -10 && y <= H + 10) ? { x, y } : null;
+      }
+      const ra = raDeg * Math.PI / 180, dec = decDeg * Math.PI / 180;
+      const ra0 = sky.ra * Math.PI / 180, dec0 = sky.dec * Math.PI / 180;
+      const cosC = Math.sin(dec0) * Math.sin(dec) + Math.cos(dec0) * Math.cos(dec) * Math.cos(ra - ra0);
+      if (cosC <= 0.1) return null;
+      const xi = (Math.cos(dec) * Math.sin(ra - ra0)) / cosC;
+      const eta = (Math.cos(dec0) * Math.sin(dec) - Math.sin(dec0) * Math.cos(dec) * Math.cos(ra - ra0)) / cosC;
+      const scaleRad = (sky.fovDeg * Math.PI / 180) / W;
+      return { x: W * 0.5 - xi / scaleRad, y: H * 0.5 - eta / scaleRad };
+    }
+
+    async function fetchTile(order, npix, frame, signal) {
+      const key = `${order}:${npix}:${frame}`;
+      if (sky.tileCache.has(key)) return sky.tileCache.get(key);
+      try {
+        const resp = await fetch(`${sky.serverBase}/api/hips/tile?order=${order}&npix=${npix}&frame=${frame}`, { signal });
+        if (!resp.ok) return null;
+        const blob = await resp.blob();
+        if (signal && signal.aborted) return null;
+        const bmp = await createImageBitmap(blob);
+        const c = document.createElement('canvas');
+        c.width = bmp.width || 512;
+        c.height = bmp.height || 512;
+        const cctx = c.getContext('2d');
+        cctx.drawImage(bmp, 0, 0);
+        if (bmp.close) bmp.close();
+        const td = { width: c.width, height: c.height, data: cctx.getImageData(0, 0, c.width, c.height).data };
+        sky.tileCache.set(key, td);
+        if (sky.tileCache.size > 220) sky.tileCache.delete(sky.tileCache.keys().next().value);
+        return td;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function percentileStretchRGB(rArr, gArr, bArr, N) {
+      const out = new Uint8ClampedArray(N * 3);
+      const chans = [rArr, gArr, bArr];
+      const los = [0, 0, 0], his = [1, 1, 1];
+      const step = Math.max(1, Math.floor(N / 4096));
+      for (let c = 0; c < 3; c++) {
+        const vals = [];
+        for (let i = 0; i < N; i += step) vals.push(chans[c][i]);
+        vals.sort((a, b) => a - b);
+        los[c] = vals[Math.floor(vals.length * 0.03)];
+        his[c] = Math.max(los[c] + 1, vals[Math.min(vals.length - 1, Math.floor(vals.length * 0.992))]);
+      }
+      const k = 6.0, denom = Math.asinh(k);
+      for (let i = 0; i < N; i++) {
+        for (let c = 0; c < 3; c++) {
+          const u = Math.max(0, (chans[c][i] - los[c]) / (his[c] - los[c]));
+          out[i * 3 + c] = Math.max(0, Math.min(255, Math.round((Math.asinh(u * k) / denom) * 255)));
+        }
+      }
+      return out;
+    }
+
+    function buildEmbeddings(rgb, W, H) {
+      const N = W * H, E = 64;
+      const emb = new Float32Array(N * E);
+      const lum = new Float32Array(N);
+      for (let i = 0; i < N; i++) {
+        lum[i] = (0.299 * rgb[i * 3] + 0.587 * rgb[i * 3 + 1] + 0.114 * rgb[i * 3 + 2]) / 255;
+      }
+      for (let y = 0; y < H; y++) {
+        const ym = Math.max(0, y - 1), yp = Math.min(H - 1, y + 1);
+        const ym3 = Math.max(0, y - 3), yp3 = Math.min(H - 1, y + 3);
+        for (let x = 0; x < W; x++) {
+          const xm = Math.max(0, x - 1), xp = Math.min(W - 1, x + 1);
+          const xm3 = Math.max(0, x - 3), xp3 = Math.min(W - 1, x + 3);
+          const i = y * W + x;
+          const r = rgb[i * 3] / 255, g = rgb[i * 3 + 1] / 255, b = rgb[i * 3 + 2] / 255;
+          const l = lum[i];
+          const m3 = (lum[ym * W + xm] + lum[ym * W + x] + lum[ym * W + xp] + lum[y * W + xm] + l + lum[y * W + xp] + lum[yp * W + xm] + lum[yp * W + x] + lum[yp * W + xp]) / 9;
+          const m7 = (lum[ym3 * W + xm3] + lum[ym3 * W + xp3] + lum[yp3 * W + xm3] + lum[yp3 * W + xp3] + m3) / 5;
+          const gx = lum[y * W + xp] - lum[y * W + xm];
+          const gy = lum[yp * W + x] - lum[ym * W + x];
+          const lap = (lum[y * W + xp] + lum[y * W + xm] + lum[yp * W + x] + lum[ym * W + x]) * 0.25 - l;
+          const c3 = l - m3, c7 = l - m7;
+          const rg = (r - g) * 2.5, gb = (g - b) * 2.5, rb = (r - b) * 2.5;
+          const base = i * E;
+          const aL = Math.asinh((l - 0.15) * 6);
+          for (let d = 0; d < 16; d++) {
+            const w = d % 3 === 0 ? rg : (d % 3 === 1 ? gb : rb);
+            emb[base + d] = aL * Math.cos(d * 0.22) + Math.asinh(c7 * 10) * Math.sin(d * 0.31) + w;
+          }
+          for (let d = 16; d < 32; d++) emb[base + d] = Math.asinh(c3 * 14) + (r - b) * 0.8;
+          for (let d = 32; d < 48; d++) emb[base + d] = Math.asinh(gx * 12) * Math.cos((d - 32) * 0.2) + Math.asinh(gy * 12) * Math.sin((d - 32) * 0.2);
+          for (let d = 48; d < E; d++) emb[base + d] = Math.asinh(lap * 14) + Math.hypot(gx, gy) * 3.0 + l;
+        }
+      }
+      sky.gridW = W;
+      sky.gridH = H;
+      sky.embeddings = emb;
+      sky.rgbPixels = rgb;
+    }
+
+    function drawOverlayAndMarkers() {
+      const W = canvas.width, H = canvas.height;
+      // Redraw cached sky image first if we are only updating similarity overlay
+      if (sky.rgbPixels && sky.gridW > 0) {
+        const off = sky.simMaskCanvas;
+        off.width = sky.gridW;
+        off.height = sky.gridH;
+        const octx = off.getContext('2d');
+        const img = octx.createImageData(sky.gridW, sky.gridH);
+        const N = sky.gridW * sky.gridH;
+        for (let i = 0; i < N; i++) {
+          img.data[i * 4 + 0] = sky.rgbPixels[i * 3 + 0];
+          img.data[i * 4 + 1] = sky.rgbPixels[i * 3 + 1];
+          img.data[i * 4 + 2] = sky.rgbPixels[i * 3 + 2];
+          img.data[i * 4 + 3] = 255;
+        }
+        octx.putImageData(img, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(off, 0, 0, W, H);
+      }
+
+      // Lazy-build embeddings only when similarity overlay is active
+      if (sky.layer === 'sim' && sky.embeddingsDirty && sky.rgbPixels && sky.gridW > 0) {
+        buildEmbeddings(sky.rgbPixels, sky.gridW, sky.gridH);
+        sky.embeddingsDirty = false;
+      }
+
+      // Similarity overlay across the whole screen
+      if (sky.layer === 'sim' && sky.embeddings && sky.queryX >= 0 && sky.queryY >= 0) {
+        const gw = sky.gridW, gh = sky.gridH, E = 64, N = gw * gh;
+        const qOff = (sky.queryY * gw + sky.queryX) * E;
+        let qNorm = 0;
+        for (let d = 0; d < E; d++) qNorm += sky.embeddings[qOff + d] ** 2;
+        qNorm = Math.sqrt(qNorm) + 1e-8;
+
+        const maskCvs = document.createElement('canvas');
+        maskCvs.width = gw; maskCvs.height = gh;
+        const mctx = maskCvs.getContext('2d');
+        const mImg = mctx.createImageData(gw, gh);
+        let matchCnt = 0;
+        for (let i = 0; i < N; i++) {
+          const off = i * E;
+          let dot = 0, pNorm = 0;
+          for (let d = 0; d < E; d++) {
+            const pv = sky.embeddings[off + d];
+            dot += sky.embeddings[qOff + d] * pv;
+            pNorm += pv * pv;
+          }
+          const cos = dot / (qNorm * (Math.sqrt(pNorm) + 1e-8));
+          if (cos >= sky.threshold) {
+            matchCnt++;
+            const t = Math.min(1, (cos - sky.threshold) / Math.max(0.05, 1 - sky.threshold));
+            mImg.data[i * 4 + 0] = 56;
+            mImg.data[i * 4 + 1] = Math.round(189 + 66 * t);
+            mImg.data[i * 4 + 2] = 248;
+            mImg.data[i * 4 + 3] = Math.round(90 + 145 * t);
+          }
+        }
+        mctx.putImageData(mImg, 0, 0);
+        ctx.drawImage(maskCvs, 0, 0, W, H);
+        document.getElementById('simMatchesLbl').textContent = `${((matchCnt / N) * 100).toFixed(1)}% del cielo`;
+      }
+
+      // Clickable dataset pins
+      if (sky.showPins && sky.catalog.length) {
+        ctx.save();
+        for (const ds of sky.catalog) {
+          const p = skyToScreen(Number(ds.ra), Number(ds.dec), W, H);
+          if (!p) continue;
+          ctx.fillStyle = ds.type === 'real_spherex_ondemand' ? 'rgba(168, 85, 247, 0.72)' : 'rgba(56, 189, 248, 0.82)';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, sky.fovDeg > 45 ? 2.6 : 4.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // Gaia DR3 catalog overlay (cyan circles)
+      if (sky.showGaia && sky.gaiaItems.length) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.88)';
+        ctx.lineWidth = 1.25;
+        for (const item of sky.gaiaItems) {
+          const p = skyToScreen(item.ra, item.dec, W, H);
+          if (!p) continue;
+          const r = item.mag !== null ? Math.max(2.6, Math.min(7.5, (18 - item.mag) * 0.55)) : 3.5;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // AllWISE catalog overlay (amber diamonds)
+      if (sky.showWise && sky.wiseItems.length) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(251, 146, 60, 0.92)';
+        ctx.lineWidth = 1.3;
+        for (const item of sky.wiseItems) {
+          const p = skyToScreen(item.ra, item.dec, W, H);
+          if (!p) continue;
+          const s = item.w1 !== null ? Math.max(3.0, Math.min(8.0, (16 - item.w1) * 0.55)) : 4.0;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y - s);
+          ctx.lineTo(p.x + s, p.y);
+          ctx.lineTo(p.x, p.y + s);
+          ctx.lineTo(p.x - s, p.y);
+          ctx.closePath();
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // Query crosshair
+      if (sky.queryRa !== null && sky.queryDec !== null) {
+        const qp = skyToScreen(sky.queryRa, sky.queryDec, W, H);
+        if (qp) {
+          ctx.save();
+          ctx.strokeStyle = '#fbbf24';
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.arc(qp.x, qp.y, 9, 0, Math.PI * 2);
+          ctx.moveTo(qp.x - 15, qp.y); ctx.lineTo(qp.x - 5, qp.y);
+          ctx.moveTo(qp.x + 5, qp.y); ctx.lineTo(qp.x + 15, qp.y);
+          ctx.moveTo(qp.x, qp.y - 15); ctx.lineTo(qp.x, qp.y - 5);
+          ctx.moveTo(qp.x, qp.y + 5); ctx.lineTo(qp.x, qp.y + 15);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // Cache rendered full-screen frame for 60 FPS GPU pan/zoom previews
+      if (sky.lastFrameCanvas.width !== W || sky.lastFrameCanvas.height !== H) {
+        sky.lastFrameCanvas.width = W;
+        sky.lastFrameCanvas.height = H;
+      }
+      const lfCtx = sky.lastFrameCanvas.getContext('2d');
+      lfCtx.clearRect(0, 0, W, H);
+      lfCtx.drawImage(canvas, 0, 0);
+    }
+
+    async function renderSky(fastPreview = false) {
+      const seq = ++sky.renderSeq;
+      if (sky.renderAbort) sky.renderAbort.abort();
+      sky.renderAbort = new AbortController();
+      const signal = sky.renderAbort.signal;
+
+      const W = canvas.width, H = canvas.height;
+      const scale = fastPreview ? 0.16 : (sky.fovDeg < 5 ? 0.65 : 0.34);
+      const gw = Math.max(120, Math.round(W * scale));
+      const gh = Math.max(80, Math.round(H * scale));
+      const order = sky.fovDeg > 105 ? 0 : sky.fovDeg > 45 ? 1 : sky.fovDeg > 20 ? 2 : sky.fovDeg > 9 ? 3 : sky.fovDeg > 4 ? 4 : 5;
+
+      document.getElementById('coordLabel').textContent = `RA ${sky.ra.toFixed(2)}° · Dec ${sky.dec >= 0 ? '+' : ''}${sky.dec.toFixed(2)}°`;
+      document.getElementById('fovLabel').textContent = `FOV ${sky.fovDeg.toFixed(1)}° · Ord ${order}`;
+
+      const coords = new Array(gw * gh);
+      const needed = new Set();
+      for (let y = 0; y < gh; y++) {
+        const py = (y + 0.5) * (H / gh);
+        for (let x = 0; x < gw; x++) {
+          const px = (x + 0.5) * (W / gw);
+          const sp = screenToSky(px, py, W, H);
+          const hp = skyToHipsTilePixel(order, sp.ra, sp.dec, 512);
+          coords[y * gw + x] = hp;
+          needed.add(hp.npix);
+        }
+      }
+
+      const tileR = new Map(), tileG = new Map(), tileB = new Map();
+      await Promise.all(Array.from(needed).map(async npix => {
+        const [r, g, b] = await Promise.all([
+          fetchTile(order, npix, 85, signal),
+          fetchTile(order, npix, 42, signal),
+          fetchTile(order, npix, 8, signal)
+        ]);
+        tileR.set(npix, r); tileG.set(npix, g); tileB.set(npix, b);
+      }));
+
+      if (seq !== sky.renderSeq || signal.aborted) return;
+
+      const N = gw * gh;
+      const rArr = new Float32Array(N), gArr = new Float32Array(N), bArr = new Float32Array(N);
+      for (let i = 0; i < N; i++) {
+        const hp = coords[i];
+        const tr = tileR.get(hp.npix), tg = tileG.get(hp.npix), tb = tileB.get(hp.npix);
+        rArr[i] = sampleBilinear(tr, hp.tx, hp.ty);
+        gArr[i] = sampleBilinear(tg, hp.tx, hp.ty);
+        bArr[i] = sampleBilinear(tb, hp.tx, hp.ty);
+      }
+
+      const rgb = percentileStretchRGB(rArr, gArr, bArr, N);
+      sky.rgbPixels = rgb;
+      sky.gridW = gw;
+      sky.gridH = gh;
+      sky.embeddingsDirty = true;
+      sky.zoomScalePreview = 1;
+      if (sky.layer === 'sim') {
+        buildEmbeddings(rgb, gw, gh);
+        sky.embeddingsDirty = false;
+      }
+      if (sky.queryRa !== null && sky.queryDec !== null) {
+        const qp = skyToScreen(sky.queryRa, sky.queryDec, W, H);
+        if (qp) {
+          sky.queryX = Math.max(0, Math.min(gw - 1, Math.floor((qp.x / W) * gw)));
+          sky.queryY = Math.max(0, Math.min(gh - 1, Math.floor((qp.y / H) * gh)));
+        }
+      }
+      drawOverlayAndMarkers();
+      if (sky.showGaia || sky.showWise) loadExternalCatalogs();
+    }
+
+    async function loadExternalCatalogs() {
+      if (!sky.showGaia && !sky.showWise) return;
+      if (sky.catAbort) sky.catAbort.abort();
+      sky.catAbort = new AbortController();
+      const signal = sky.catAbort.signal;
+      const radius = Math.max(0.05, Math.min(1.8, sky.fovDeg * 0.55));
+      const tasks = [];
+      if (sky.showGaia) {
+        tasks.push(
+          fetch(`${sky.serverBase}/api/catalog/overlay?catalog=gaia&ra=${sky.ra.toFixed(4)}&dec=${sky.dec.toFixed(4)}&radius=${radius.toFixed(3)}&limit=300`, { signal })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d && d.ok) sky.gaiaItems = d.items || []; })
+            .catch(() => {})
+        );
+      } else {
+        sky.gaiaItems = [];
+      }
+      if (sky.showWise) {
+        tasks.push(
+          fetch(`${sky.serverBase}/api/catalog/overlay?catalog=wise&ra=${sky.ra.toFixed(4)}&dec=${sky.dec.toFixed(4)}&radius=${radius.toFixed(3)}&limit=300`, { signal })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d && d.ok) sky.wiseItems = d.items || []; })
+            .catch(() => {})
+        );
+      } else {
+        sky.wiseItems = [];
+      }
+      await Promise.all(tasks);
+      if (!signal.aborted) drawOverlayAndMarkers();
+    }
+
+    async function inspectPoint(ra, dec) {
+      const fitsEl = document.getElementById('fitsLabel');
+      const spark = document.getElementById('sparkCanvas');
+      if (sky.inspectAbort) sky.inspectAbort.abort();
+      sky.inspectAbort = new AbortController();
+      fitsEl.textContent = `Consultando FITS (RA ${ra.toFixed(2)}°, Dec ${dec.toFixed(2)}°)...`;
+      try {
+        const resp = await fetch(`${sky.serverBase}/api/cube/inspect?ra=${ra.toFixed(5)}&dec=${dec.toFixed(5)}&channel=15&spectrum=1`, { signal: sky.inspectAbort.signal });
+        const data = await resp.json();
+        if (!data.ok) throw new Error(data.error || 'Error');
+        const val = data.intensityMJysr !== null ? `${data.intensityMJysr.toFixed(3)} MJy/sr` : 'Sin dato';
+        fitsEl.textContent = `${val} · NHITS=${data.nhits ?? '—'} · ${data.sourceFile}`;
+        if (Array.isArray(data.spectrum102)) {
+          spark.style.display = 'block';
+          const sctx = spark.getContext('2d');
+          sctx.clearRect(0, 0, spark.width, spark.height);
+          const valid = data.spectrum102.filter(p => p && !p.blank && Number.isFinite(p.intensityMJysr));
+          if (valid.length) {
+            const minV = Math.min(...valid.map(p => p.intensityMJysr));
+            const maxV = Math.max(minV + 1e-4, ...valid.map(p => p.intensityMJysr));
+            sctx.beginPath();
+            let pen = false;
+            data.spectrum102.forEach((pt, idx) => {
+              if (!pt || pt.blank || !Number.isFinite(pt.intensityMJysr)) { pen = false; return; }
+              const x = (idx / 101) * (spark.width - 8) + 4;
+              const y = spark.height - 5 - ((pt.intensityMJysr - minV) / (maxV - minV)) * (spark.height - 10);
+              if (!pen) { sctx.moveTo(x, y); pen = true; } else sctx.lineTo(x, y);
+            });
+            sctx.strokeStyle = '#38bdf8';
+            sctx.lineWidth = 1.5;
+            sctx.stroke();
+          }
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        fitsEl.textContent = `FITS: ${err.message}`;
+      }
+    }
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      renderSky(false);
+    }
+    window.addEventListener('resize', resize);
+
+    // Pan / Zoom / Click / Pin Hover
+    let dragging = false, downX = 0, downY = 0, startRa = 0, startDec = 0, moved = false;
+    canvas.addEventListener('mousedown', e => {
+      dragging = true; moved = false;
+      downX = e.clientX; downY = e.clientY;
+      startRa = sky.ra; startDec = sky.dec;
+      sky.dragDx = 0; sky.dragDy = 0;
+      canvas.classList.add('dragging');
+    });
+    window.addEventListener('mouseup', e => {
+      if (!dragging) return;
+      dragging = false;
+      canvas.classList.remove('dragging');
+      if (moved) {
+        clearTimeout(sky.settleTimer);
+        renderSky(false);
+        return;
+      }
+      // Check if clicked near a catalog pin
+      if (sky.showPins && sky.catalog.length) {
+        for (const ds of sky.catalog) {
+          const p = skyToScreen(Number(ds.ra), Number(ds.dec), canvas.width, canvas.height);
+          if (p && Math.hypot(p.x - e.clientX, p.y - e.clientY) < 9) {
+            sky.ra = Number(ds.ra); sky.dec = Number(ds.dec);
+            sky.fovDeg = Math.min(sky.fovDeg, 3.0);
+            sky.queryRa = sky.ra; sky.queryDec = sky.dec;
+            renderSky(false);
+            inspectPoint(sky.ra, sky.dec);
+            return;
+          }
+        }
+      }
+      const sp = screenToSky(e.clientX, e.clientY, canvas.width, canvas.height);
+      sky.queryRa = sp.ra; sky.queryDec = sp.dec;
+      if (sky.gridW > 0) {
+        sky.queryX = Math.max(0, Math.min(sky.gridW - 1, Math.floor((e.clientX / canvas.width) * sky.gridW)));
+        sky.queryY = Math.max(0, Math.min(sky.gridH - 1, Math.floor((e.clientY / canvas.height) * sky.gridH)));
+      }
+      drawOverlayAndMarkers();
+      inspectPoint(sp.ra, sp.dec);
+    });
+    canvas.addEventListener('mousemove', e => {
+      if (dragging) {
+        const dx = e.clientX - downX, dy = e.clientY - downY;
+        if (Math.hypot(dx, dy) > 4) {
+          moved = true;
+          const lonSpan = sky.fovDeg > 45 ? Math.min(360, sky.fovDeg * 2.2) : sky.fovDeg;
+          const degPerPxX = lonSpan / canvas.width;
+          const degPerPxY = (sky.fovDeg > 45 ? Math.min(180, lonSpan * (canvas.height / canvas.width)) : sky.fovDeg) / canvas.height;
+          const cosD = sky.fovDeg > 45 ? 1 : Math.max(0.2, Math.cos(startDec * Math.PI / 180));
+          sky.ra = ((startRa + (dx * degPerPxX) / cosD) % 360 + 360) % 360;
+          sky.dec = Math.max(-85, Math.min(85, startDec + dy * degPerPxY));
+          sky.dragDx = dx;
+          sky.dragDy = dy;
+          if (!sky.dragRaf) {
+            sky.dragRaf = true;
+            requestAnimationFrame(() => {
+              sky.dragRaf = false;
+              if (!dragging || !sky.lastFrameCanvas.width) return;
+              ctx.fillStyle = '#03050a';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(sky.lastFrameCanvas, sky.dragDx, sky.dragDy);
+            });
+          }
+        }
+        return;
+      }
+      const tip = document.getElementById('hoverTooltip');
+      if (sky.showWise && sky.wiseItems.length) {
+        for (const item of sky.wiseItems) {
+          const p = skyToScreen(item.ra, item.dec, canvas.width, canvas.height);
+          if (p && Math.hypot(p.x - e.clientX, p.y - e.clientY) < 8) {
+            tip.style.display = 'block';
+            tip.style.left = `${e.clientX + 12}px`;
+            tip.style.top = `${e.clientY + 12}px`;
+            const w1 = item.w1 !== null ? `W1=${item.w1.toFixed(2)}` : '';
+            const w2 = item.w2 !== null ? `W2=${item.w2.toFixed(2)}` : '';
+            const w3 = item.w3 !== null ? `W3=${item.w3.toFixed(2)}` : '';
+            tip.textContent = `◆ ${item.id} · ${[w1, w2, w3].filter(Boolean).join(' ')}`;
+            return;
+          }
+        }
+      }
+      if (sky.showGaia && sky.gaiaItems.length) {
+        for (const item of sky.gaiaItems) {
+          const p = skyToScreen(item.ra, item.dec, canvas.width, canvas.height);
+          if (p && Math.hypot(p.x - e.clientX, p.y - e.clientY) < 8) {
+            tip.style.display = 'block';
+            tip.style.left = `${e.clientX + 12}px`;
+            tip.style.top = `${e.clientY + 12}px`;
+            const g = item.mag !== null ? `G=${item.mag.toFixed(2)}` : '';
+            const bp = item.color !== null ? `BP-RP=${item.color.toFixed(2)}` : '';
+            tip.textContent = `✦ ${item.id} · ${[g, bp].filter(Boolean).join(' ')}`;
+            return;
+          }
+        }
+      }
+      if (sky.showPins && sky.catalog.length) {
+        for (const ds of sky.catalog) {
+          const p = skyToScreen(Number(ds.ra), Number(ds.dec), canvas.width, canvas.height);
+          if (p && Math.hypot(p.x - e.clientX, p.y - e.clientY) < 8) {
+            tip.style.display = 'block';
+            tip.style.left = `${e.clientX + 12}px`;
+            tip.style.top = `${e.clientY + 12}px`;
+            tip.textContent = `${ds.name || ds.id} (${Number(ds.ra).toFixed(1)}°, ${Number(ds.dec).toFixed(1)}°)`;
+            return;
+          }
+        }
+      }
+      tip.style.display = 'none';
+    });
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      const prevFov = sky.fovDeg;
+      sky.fovDeg = Math.max(0.4, Math.min(160, sky.fovDeg * (e.deltaY > 0 ? 1.22 : 0.82)));
+      sky.zoomScalePreview *= (prevFov / sky.fovDeg);
+      if (!sky.dragRaf && sky.lastFrameCanvas.width) {
+        sky.dragRaf = true;
+        requestAnimationFrame(() => {
+          sky.dragRaf = false;
+          const W = canvas.width, H = canvas.height;
+          const s = sky.zoomScalePreview;
+          ctx.fillStyle = '#03050a';
+          ctx.fillRect(0, 0, W, H);
+          ctx.save();
+          ctx.translate(W * 0.5, H * 0.5);
+          ctx.scale(s, s);
+          ctx.drawImage(sky.lastFrameCanvas, -W * 0.5, -H * 0.5);
+          ctx.restore();
+        });
+      }
+      clearTimeout(sky.settleTimer);
+      sky.settleTimer = setTimeout(() => {
+        sky.zoomScalePreview = 1;
+        renderSky(false);
+      }, 160);
+    }, { passive: false });
+
+    // HUD Controls
+    document.querySelectorAll('#layerPills .pill-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#layerPills .pill-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        sky.layer = btn.dataset.layer;
+        document.getElementById('simControls').classList.toggle('visible', sky.layer === 'sim');
+        if (sky.layer === 'sim' && sky.queryX < 0 && sky.gridW > 0) {
+          sky.queryX = Math.floor(sky.gridW / 2);
+          sky.queryY = Math.floor(sky.gridH / 2);
+          const sp = screenToSky(canvas.width / 2, canvas.height / 2, canvas.width, canvas.height);
+          sky.queryRa = sp.ra; sky.queryDec = sp.dec;
+        }
+        drawOverlayAndMarkers();
+      });
+    });
+
+    document.getElementById('thrSlider').addEventListener('input', e => {
+      sky.threshold = parseFloat(e.target.value);
+      document.getElementById('thrVal').textContent = sky.threshold.toFixed(2);
+      drawOverlayAndMarkers();
+    });
+
+    document.getElementById('regionSelect').addEventListener('change', e => {
+      const [ra, dec, fov] = e.target.value.split(',').map(Number);
+      if (Number.isFinite(ra) && Number.isFinite(dec)) {
+        sky.ra = ra; sky.dec = dec; sky.fovDeg = fov || 10;
+        renderSky(false);
+      }
+    });
+
+    document.getElementById('btnResetSky').addEventListener('click', () => {
+      sky.ra = 266.4168; sky.dec = 0; sky.fovDeg = 140;
+      renderSky(false);
+    });
+    document.getElementById('btnTogglePins').addEventListener('click', () => {
+      sky.showPins = !sky.showPins;
+      drawOverlayAndMarkers();
+    });
+    document.getElementById('btnToggleGaia').addEventListener('click', e => {
+      sky.showGaia = !sky.showGaia;
+      e.currentTarget.classList.toggle('active-gaia', sky.showGaia);
+      if (sky.showGaia) loadExternalCatalogs();
+      else { sky.gaiaItems = []; drawOverlayAndMarkers(); }
+    });
+    document.getElementById('btnToggleWise').addEventListener('click', e => {
+      sky.showWise = !sky.showWise;
+      e.currentTarget.classList.toggle('active-wise', sky.showWise);
+      if (sky.showWise) loadExternalCatalogs();
+      else { sky.wiseItems = []; drawOverlayAndMarkers(); }
+    });
+    document.getElementById('btnZoomIn').addEventListener('click', () => {
+      sky.fovDeg = Math.max(0.4, sky.fovDeg * 0.7);
+      renderSky(false);
+    });
+    document.getElementById('btnZoomOut').addEventListener('click', () => {
+      sky.fovDeg = Math.min(160, sky.fovDeg * 1.4);
+      renderSky(false);
+    });
+
+    // Connect to /api and load real dataset pins
+    (async function init() {
+      try {
+        const r = await fetch(`/api/datasets`);
+        if (r.ok) {
+          const d = await r.json();
+          if (d && d.ok && Array.isArray(d.datasets)) {
+            sky.serverBase = '';
+            sky.catalog = d.datasets;
+          }
+        }
+      } catch (_) {}
+      resize();
+    })();
+  </script>
+</body>
+</html>

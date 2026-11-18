@@ -260,6 +260,68 @@ const en = {
   'Bloquear o liberar el cursor para mirar con el ratón': 'Lock or release the cursor to look with the mouse',
   'Cambiar la perspectiva del personaje': 'Change the character perspective',
   'Abrir el Centro de Misión al llegar a la mesa': 'Open the Mission Center when you reach the table',
+  'Bloquear o liberar el ratón': 'Lock or unlock the mouse look',
+  'Cámara 1P/3P (U) y Exterior (V)': '1P/3P camera (U) and Exterior (V)',
+  'Usar mesa SPHEREx o ascensor': 'Use SPHEREx table or elevator',
+  'Abrir Nuevo Visualizador SPHEREx · Barnard y Esfera 360°': 'Open New SPHEREx Visualizer · Barnard & 360° Sphere',
+  'Elige un objetivo (en Modo Novato empezamos por Estrella de Barnard). Kronox trazará el salto y abrirá el nuevo explorador SPHEREx al llegar.':
+    'Choose a target (in Novice Mode we start with Barnard’s Star). Kronox will chart the jump and open the new SPHEREx visualizer on arrival.',
+  'Las posiciones y tamaños 3D usan una escala cartográfica comprimida. Las observaciones infrarrojas se analizan en el nuevo visualizador SPHEREx.':
+    '3D positions and sizes use a compressed cartographic scale. Infrared observations are analyzed in the new SPHEREx visualizer.',
+  'Abriendo el nuevo explorador SPHEREx centrado en la Estrella de Barnard para observar su brillo infrarrojo y movimiento propio.':
+    'Opening the new SPHEREx explorer centered on Barnard’s Star to inspect its infrared brightness and proper motion.',
+  'Llegamos a la Estrella de Barnard. Pulsa «Empezar misión» para analizarla en el nuevo visualizador SPHEREx.':
+    'We have arrived at Barnard’s Star. Press “Start mission” to analyze it in the new SPHEREx visualizer.',
+  'Ya llegamos a la Estrella de Barnard. Sigue las flechas luminosas azules en el puente hasta la mesa táctica trasera y pulsa E o haz clic en ella para iniciar tu misión de Barnard.':
+    'We have reached Barnard’s Star. Follow the glowing blue floor arrows on the bridge to the aft tactical table and press E or click it to start your Barnard mission.',
+  'Mando de misiones SPHEREx abierto. Elige «Estrella de Barnard» para viajar y analizar su movimiento propio en el nuevo visualizador.':
+    'SPHEREx Mission Command open. Select “Barnard’s Star” to travel and analyze its proper motion in the new visualizer.',
+  'Bienvenido a bordo de KRONOX. En esta primera expedición guiada iremos hacia la Estrella de Barnard, una enana roja cercana a 6 años luz que se mueve más rápido en el cielo que ninguna otra estrella.':
+    'Welcome aboard KRONOX. On this first guided expedition we will travel to Barnard’s Star, a nearby red dwarf 6 light-years away that moves across the sky faster than any other star.',
+  'Desde la consola de navegación trazamos el salto hasta la Estrella de Barnard. Observa el trayecto y, al llegar, sigue las flechas luminosas hacia el mando SPHEREx.':
+    'From the navigation console we plot our jump to Barnard’s Star. Watch the transit and, upon arrival, follow the glowing arrows to the SPHEREx command console.',
+  'MISIÓN NOVATO · ESTRELLA DE BARNARD': 'NOVICE MISSION · BARNARD’S STAR',
+  '1 · ESTRELLA DE BARNARD EN SPHEREx': '1 · BARNARD’S STAR IN SPHEREx',
+  '2 · MAPA INFRARROJO CENTRADO EN BARNARD': '2 · INFRARED MAP CENTERED ON BARNARD',
+  '3 · DETECTOR D2 PARA OBSERVAR BARNARD': '3 · D2 DETECTOR FOR BARNARD’S STAR',
+  '4 · RGB, SNR Y BANDERAS FLAGS SOBRE BARNARD': '4 · RGB, SNR & FLAGS OVER BARNARD',
+  '5 · MEDIR UN PÍXEL DE LA ESTRELLA DE BARNARD': '5 · MEASURE A BARNARD PIXEL',
+  '6 · ÉPOCAS DE BARNARD Y ESFERA 360°': '6 · BARNARD EPOCHS & 360° SPHERE',
+  '7 · ¡MISIÓN DE BARNARD COMPLETADA!': '7 · BARNARD MISSION COMPLETE!',
+  'Explorar la nave libremente': 'Explore the ship freely',
+  'Omitir guía y explorar libremente': 'Skip guide and explore freely',
+  'Cargando mapa latente UMAP 3D…': 'Loading 3D UMAP latent map…',
+  'Modos del visualizador SPHEREx': 'SPHEREx Visualizer Modes',
+  'Regresar al espacio 3D': 'Return to 3D space',
+  'Misiones libres de exploración de cubiertas': 'Free deck exploration missions',
+  'EXPLORACIÓN LIBRE · NAVE KRONOX': 'FREE EXPLORATION · KRONOX SHIP',
+  'Cerrar lista de misiones': 'Close mission list',
+  'Recorre las cubiertas de la nave': 'Explore the ship decks',
+  'Ya completaste la guía de Estrella de Barnard. Explora libremente las cabinas o reabre el visualizador SPHEREx cuando quieras:':
+    'You have completed the Barnard’s Star guide. Freely explore every ship deck or reopen the SPHEREx visualizer anytime:',
+  'Abrir Esfera 360° y Barnard': 'Open 360° Sphere & Barnard',
+  'C01 · Puente de Mando': 'C01 · Command Bridge',
+  'Prueba el Telescopio [T] o la consola de misiones': 'Try Telescope [T] or Mission Command',
+  'C02 · Habitabilidad': 'C02 · Habitation Deck',
+  'Entra al Ascensor Central [E] → tecla [2]': 'Enter Central Elevator [E] → key [2]',
+  'C03 · Laboratorio e Ingeniería': 'C03 · Science & Engineering',
+  'Ascensor [E] → tecla [3] · Reactor y SPHEREx': 'Elevator [E] → key [3] · Reactor & SPHEREx',
+  'C04 · Hangar Espacial': 'C04 · Space Hangar',
+  'Ascensor [E] → tecla [4] · Lanzadera': 'Elevator [E] → key [4] · Shuttle',
+  'Aquí tienes {target} (una estrella enana roja vecina a solo 6 años luz). A la izquierda ves sus capturas infrarrojas reales de NASA SPHEREx; la usamos como objetivo principal porque cruza el cielo más rápido que cualquier otra estrella conocida (10.36 segundos de arco por año).':
+    'Here is {target} (a nearby red dwarf only 6 light-years away). On the left are real NASA SPHEREx infrared captures; we use it as our primary target because it crosses the sky faster than any other known star (10.36 arcseconds per year).',
+  'Activamos la vista de 102 canales infrarrojos exactamente sobre {target}, en las coordenadas celestes RA {ra} grados y Dec {dec} grados. Arrastra con el ratón para recorrer el campo alrededor de Barnard o usa la rueda para acercar y alejar.':
+    'Enabling the 102-channel infrared view centered on {target} at RA {ra}° and Dec {dec}°. Drag with the mouse to pan around Barnard or scroll to zoom.',
+  'Para seguir {target} usamos el detector D2 (1.1 a 1.6 micrómetros), donde su brillo infrarrojo se distingue con máxima nitidez. Voy a avanzar unos canales para que observes cómo cambia la estrella al variar la longitud de onda.':
+    'To track {target} we use detector D2 (1.1 to 1.6 µm), where its infrared brightness stands out clearly. Advancing a few spectral channels to show how the star shifts with wavelength.',
+  'Esta barra filtra los datos reales de {target}: RGB combina bandas infrarrojas, SNR mide la claridad de la señal de Barnard frente al fondo y FLAGS marca posibles rayos cósmicos o bordes. Probemos SNR y FLAGS y volvamos a D2.':
+    'This bar filters {target}’s real data: RGB combines bands, SNR measures signal clarity above background, and FLAGS highlights cosmic rays or edges. Let’s toggle SNR and FLAGS and return to D2.',
+  'Hacemos clic justo sobre {target} en el centro de la imagen. Así lees su flujo real en MJy/sr, su espectro infrarrojo y las exposiciones registradas en ese punto exacto del cielo.':
+    'Clicking directly on {target} at the center of the image reads its real infrared flux in MJy/sr, its spectrum, and recorded exposures at this sky location.',
+  'Para comprobar cómo se mueve {target} entre fechas distintas, abre el Catálogo Real (QR2, QR3, DR1 y NASA IRSA). Además, arriba tienes la nueva pestaña Esfera 360° con galaxias, nebulosas y 10 épocas temporales para explorar cuando termines.':
+    'To compare {target} across different dates, open the Real Catalog (QR2, QR3, DR1 & NASA IRSA). You also have the new 360° Sphere tab above with galaxies, nebulae, and 10 temporal epochs to explore anytime.',
+  'Ya sabes ubicar {target}, elegir su detector D2, inspeccionar sus píxeles reales y consultar sus épocas en SPHEREx. Ahora tienes libertad total en el observatorio y en todas las cubiertas de la nave con nuevas misiones opcionales.':
+    'You now know how to locate {target}, select detector D2, inspect real pixels, and check epochs in SPHEREx. You now have full freedom across the observatory and every ship deck with optional exploration missions.',
   'o haz clic directamente en la mesa táctica': 'or click directly on the tactical table',
   'sigue las flechas luminosas o haz clic en la mesa': 'follow the glowing arrows or click the table',
   'Mando de Misiones SPHEREx': 'SPHEREx Mission Command',

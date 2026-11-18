@@ -32,7 +32,7 @@ export default function NavigationDock({
         </button>
       </header>
       <button className="navigationObserve" onClick={onObserve}>
-        Abrir Explorador SPHEREx · 102 canales
+        Abrir Nuevo Observatorio SPHEREx · Esfera 360° y DR1
       </button>
       {expanded && (
         <div className="navigationDockBody">

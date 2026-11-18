@@ -42,6 +42,18 @@ const STEP_COPY = {
     body: 'KRONOX avanza por la ruta iluminada hacia la mesa holográfica. Puedes tomar control manual en cualquier momento con [W A S D].',
     keys: ['W A S D', 'E'],
   },
+  destination_selected: {
+    badge: 'DESTINO · ESTRELLA DE BARNARD',
+    title: 'Salto interestelar en curso',
+    body: 'KRONOX viaja hacia la Estrella de Barnard (~6 años luz) para analizarla con el nuevo explorador SPHEREx.',
+    keys: ['BARNARD'],
+  },
+  mission_start: {
+    badge: 'LLEGADA · ESTRELLA DE BARNARD',
+    title: 'Pulsa «Empezar misión» abajo a la izquierda',
+    body: 'Ya estamos en la Estrella de Barnard. Pulsa «Empezar misión» para abrir el nuevo visualizador SPHEREx centrado en Barnard.',
+    keys: ['Empezar misión'],
+  },
   bridge: {
     badge: 'PASO 3 · CONSOLAS E INTERACCIÓN',
     title: 'Opera las estaciones del puente',
@@ -92,15 +104,77 @@ const STEP_COPY = {
   },
 };
 
+const CABIN_EXPLORE_MISSIONS = [
+  { id: 'deck-01', title: 'C01 · Puente de Mando', hint: 'Prueba el Telescopio [T] o la consola de misiones' },
+  { id: 'deck-02', title: 'C02 · Habitabilidad', hint: 'Entra al Ascensor Central [E] → tecla [2]' },
+  { id: 'deck-03', title: 'C03 · Laboratorio e Ingeniería', hint: 'Ascensor [E] → tecla [3] · Reactor y SPHEREx' },
+  { id: 'deck-04', title: 'C04 · Hangar Espacial', hint: 'Ascensor [E] → tecla [4] · Lanzadera' },
+];
+
 export default function KronoxTutorialOverlay({
   guideState,
+  noviceCabinMissionsOpen = false,
+  visitedDecks = ['deck-01'],
   onSkipStep,
   onDismiss,
+  onDismissCabinMissions,
+  onOpenObservatory,
   onOpenInventoryTab,
   language = 'es',
 }) {
   if (!guideState?.active || !guideState.step || guideState.step === 'free') {
-    return null;
+    if (!noviceCabinMissionsOpen) return null;
+    const completedCount = CABIN_EXPLORE_MISSIONS.filter((m) => visitedDecks.includes(m.id)).length;
+    return (
+      <aside
+        className="kronoxFloatingTutorialCard kronoxFreeCabinMissionsCard"
+        role="region"
+        aria-label={t('Misiones libres de exploración de cubiertas', language)}
+      >
+        <div className="kronoxTutorialCardHeader">
+          <span className="kronoxTutorialBadge">
+            {t('EXPLORACIÓN LIBRE · NAVE KRONOX', language)} ({completedCount}/{CABIN_EXPLORE_MISSIONS.length})
+          </span>
+          <button
+            type="button"
+            className="kronoxTutorialCloseBtn"
+            onClick={onDismissCabinMissions}
+            aria-label={t('Cerrar lista de misiones', language)}
+          >
+            ✕
+          </button>
+        </div>
+        <h4 className="kronoxTutorialTitle">{t('Recorre las cubiertas de la nave', language)}</h4>
+        <p className="kronoxTutorialBody">
+          {t('Ya completaste la guía de Estrella de Barnard. Explora libremente las cabinas o reabre el visualizador SPHEREx cuando quieras:', language)}
+        </p>
+        <ul className="kronoxCabinMissionList">
+          {CABIN_EXPLORE_MISSIONS.map((mission) => {
+            const done = visitedDecks.includes(mission.id);
+            return (
+              <li key={mission.id} className={done ? 'is-done' : ''}>
+                <span className="kronoxCabinMissionCheck" aria-hidden="true">{done ? '✓' : '○'}</span>
+                <div>
+                  <strong>{t(mission.title, language)}</strong>
+                  <small>{t(mission.hint, language)}</small>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        {onOpenObservatory && (
+          <div className="kronoxTutorialActions">
+            <button
+              type="button"
+              className="kronoxTutorialPrimaryBtn"
+              onClick={onOpenObservatory}
+            >
+              {t('Abrir Esfera 360° y Barnard', language)}
+            </button>
+          </div>
+        )}
+      </aside>
+    );
   }
 
   const stepInfo = STEP_COPY[guideState.step] || {

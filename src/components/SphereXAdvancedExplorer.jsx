@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import originalVisualizerHtml from '../../SphereX-Visualizations-main/kronox_visor_cientifico.html?raw';
+import sphere360Html from '../../SphereX-Visualizations-main/static/index.html?raw';
+import sphere360Css from '../../SphereX-Visualizations-main/static/styles.css?raw';
+import sphere360Js from '../../SphereX-Visualizations-main/static/app.js?raw';
+import immersiveSkyHtml from '../../SphereX-Visualizations-main/kronox_cielo_inmersivo.html?raw';
 import { t } from '../i18n.js';
 import '../styles/spherexAdvancedExplorer.css';
 
@@ -8,54 +12,58 @@ function scopeCssToVisorRoot(rawCss) {
   return rawCss
     .replace(/:root\b/g, '.kronoxNativeVisorRoot')
     .replace(/(^|\n)\s*\*\s*\{/g, '$1.kronoxNativeVisorRoot, .kronoxNativeVisorRoot * {')
+    .replace(/html\s*,\s*\r?\n?\s*body\s*\{/g, '.kronoxNativeVisorRoot {')
+    .replace(/(^|\n)\s*html\s*\{/g, '$1.kronoxNativeVisorRoot {')
     .replace(/(^|\n)\s*body\s*\{/g, '$1.kronoxNativeVisorRoot {')
     .replace(/(^|\n)\s*header\s*\{/g, '$1.kronoxNativeVisorRoot > header {')
-    .replace(/min-height:\s*100vh\s*;/g, 'min-height: 100%;');
+    .replace(/min-height:\s*100vh\s*;/g, 'min-height: 100%;')
+    .replace(/height:\s*100vh\s*;/g, 'height: 100%;');
 }
 
-function parseVisorDocument(htmlText) {
+function parseVisorDocument(htmlText, extraCss = '', extraScript = '') {
   const styleMatch = htmlText.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
-  const rawCss = styleMatch ? styleMatch[1] : '';
+  const rawCss = extraCss || (styleMatch ? styleMatch[1] : '');
   const scopedCss = scopeCssToVisorRoot(rawCss);
 
-  const bodyStart = htmlText.search(/<body[^>]*>/i);
-  const scriptStart = htmlText.search(/<script[^>]*>/i);
-  const scriptEnd = htmlText.lastIndexOf('</script>');
+  const bodyMatch = htmlText.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  const rawBody = bodyMatch ? bodyMatch[1] : '';
+  const bodyHtml = rawBody.replace(/<script[\s\S]*?<\/script>/gi, '').trim();
 
-  let bodyHtml = '';
-  if (bodyStart !== -1 && scriptStart !== -1 && scriptStart > bodyStart) {
-    const bodyOpenEnd = htmlText.indexOf('>', bodyStart) + 1;
-    bodyHtml = htmlText.slice(bodyOpenEnd, scriptStart).trim();
-  }
-
-  let scriptCode = '';
-  if (scriptStart !== -1 && scriptEnd !== -1 && scriptEnd > scriptStart) {
-    const scriptOpenEnd = htmlText.indexOf('>', scriptStart) + 1;
-    scriptCode = htmlText.slice(scriptOpenEnd, scriptEnd);
+  let scriptCode = extraScript || '';
+  if (!scriptCode) {
+    const inlineMatches = [...htmlText.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)];
+    scriptCode = inlineMatches.map((m) => m[1]).join('\n');
   }
 
   return { scopedCss, bodyHtml, scriptCode };
 }
 
+const EXPLORER_VIEWS = [
+  { id: 'spectral', label: 'Visor del Objetivo (DR1 · 102 ch)', labelEn: 'Target Visor (DR1 · 102 ch)' },
+  { id: 'sphere360', label: 'Esfera 360° · 10 Épocas y Galaxias', labelEn: '360° Sphere · 10 Epochs & Galaxies' },
+  { id: 'atlas', label: 'Atlas Inmersivo HiPS', labelEn: 'Immersive HiPS Atlas' },
+  { id: 'umap3d', label: 'UMAP 3D (Latente)', labelEn: 'UMAP 3D (Latent)' },
+];
+
 const MISSION_GUIDE_STEPS = [
   {
     selector: '#headerObjectTitle',
-    title: '1 · LA PREGUNTA DE LA MISIÓN',
+    title: '1 · ESTRELLA DE BARNARD EN SPHEREx',
     narration:
-      'Ya estamos en la cubierta científica, nivel 3, frente a la estación SPHEREx. La misión es rastrear la Estrella de Barnard, una estrella cercana que se mueve rápido frente al fondo del cielo. Buscaremos su posición y compararemos observaciones de distintas épocas. El mapa es una vista infrarroja del cielo, no un mapa de rutas espaciales.',
+      'Aquí tienes {target} (una estrella enana roja vecina a solo 6 años luz). A la izquierda ves sus capturas infrarrojas reales de NASA SPHEREx; la usamos como objetivo principal porque cruza el cielo más rápido que cualquier otra estrella conocida (10.36 segundos de arco por año).',
   },
   {
     selector: '#canvasIR',
-    title: '2 · ORIENTARSE EN EL MAPA',
+    title: '2 · MAPA INFRARROJO CENTRADO EN BARNARD',
     narration:
-      'Este es el mapa infrarrojo centrado automáticamente en {target}, en RA {ra} grados y Dec {dec} grados. RA y Dec son coordenadas celestes. Puedes arrastrar el mapa para desplazarte y usar la rueda o los botones más y menos para acercar o alejar. El campo de visión indica cuánto cielo cabe en pantalla.',
+      'Activamos la vista de 102 canales infrarrojos exactamente sobre {target}, en las coordenadas celestes RA {ra} grados y Dec {dec} grados. Arrastra con el ratón para recorrer el campo alrededor de Barnard o usa la rueda para acercar y alejar.',
     enter: (root) => root.querySelector('#explorerSourcePills [data-src="cube102"]')?.click(),
   },
   {
     selector: '#cube102Controls',
-    title: '3 · EJEMPLO: ELEGIR LA BANDA D2',
+    title: '3 · DETECTOR D2 PARA OBSERVAR BARNARD',
     narration:
-      'Hagamos el primer paso de la misión. Seleccionamos el detector D2, que es la banda preferida para el seguimiento de Barnard. El deslizador recorre sus canales espectrales; cada canal muestra una longitud de onda infrarroja distinta. Voy a moverlo para que veas cómo cambia la vista.',
+      'Para seguir {target} usamos el detector D2 (1.1 a 1.6 micrómetros), donde su brillo infrarrojo se distingue con máxima nitidez. Voy a avanzar unos canales para que observes cómo cambia la estrella al variar la longitud de onda.',
     enter: (root) => root.querySelector('#c102DetPills [data-det="2"]')?.click(),
     animate: (root, schedule) => {
       const next = root.querySelector('#c102NextCh');
@@ -64,9 +72,9 @@ const MISSION_GUIDE_STEPS = [
   },
   {
     selector: '#panel1ModePills',
-    title: '4 · FILTROS Y CAPAS DEL MAPA',
+    title: '4 · RGB, SNR Y BANDERAS FLAGS SOBRE BARNARD',
     narration:
-      'Esta fila cambia cómo leemos el mapa. RGB combina varias bandas; D1 a D6 muestran un detector por separado. SNR ayuda a distinguir señal de ruido y FLAGS resalta indicadores de calidad. Los voy a alternar y dejaré seleccionada D2 para nuestro ejemplo.',
+      'Esta barra filtra los datos reales de {target}: RGB combina bandas infrarrojas, SNR mide la claridad de la señal de Barnard frente al fondo y FLAGS marca posibles rayos cósmicos o bordes. Probemos SNR y FLAGS y volvamos a D2.',
     enter: (root) => root.querySelector('#panel1ModePills [data-p1="D2"]')?.click(),
     animate: (root, schedule) => {
       schedule(() => root.querySelector('#panel1ModePills [data-p1="snr"]')?.click(), 900);
@@ -76,9 +84,9 @@ const MISSION_GUIDE_STEPS = [
   },
   {
     selector: '#canvasIR',
-    title: '5 · CONSULTAR UN PÍXEL',
+    title: '5 · MEDIR UN PÍXEL DE LA ESTRELLA DE BARNARD',
     narration:
-      'Ahora consultamos un punto del mapa. Un clic en la imagen actualiza la posición celeste y, cuando hay datos para ese píxel, muestra brillo infrarrojo, cantidad de observaciones y banderas de calidad. En este ejemplo dejamos el centro sobre Barnard y revisamos la lectura antes de sacar una conclusión.',
+      'Hacemos clic justo sobre {target} en el centro de la imagen. Así lees su flujo real en MJy/sr, su espectro infrarrojo y las exposiciones registradas en ese punto exacto del cielo.',
     enter: (root) => {
       const canvas = root.querySelector('#canvasIR');
       if (!canvas) return;
@@ -90,18 +98,18 @@ const MISSION_GUIDE_STEPS = [
     },
   },
   {
-    selector: '#btnObsCatalogToggle',
-    title: '6 · COMPARAR ÉPOCAS',
+    selector: '#btnOpenCatalog',
+    title: '6 · ÉPOCAS DE BARNARD Y ESFERA 360°',
     narration:
-      'La pregunta de Barnard se responde comparando su posición en épocas distintas, por ejemplo en los productos QR2 y QR3 disponibles para la misión. Aquí abrimos el catálogo para ver qué observaciones encontró el archivo. Si una época no aparece, no inventamos el dato: se consulta otro producto o se deja constancia de que falta cobertura.',
-    enter: (root) => root.querySelector('#btnObsCatalogToggle')?.click(),
-    after: (root) => root.querySelector('#btnCloseObsCatalog')?.click(),
+      'Para comprobar cómo se mueve {target} entre fechas distintas, abre el Catálogo Real (QR2, QR3, DR1 y NASA IRSA). Además, arriba tienes la nueva pestaña Esfera 360° con galaxias, nebulosas y 10 épocas temporales para explorar cuando termines.',
+    enter: (root) => root.querySelector('#btnOpenCatalog')?.click(),
+    after: (root) => root.querySelector('#btnCloseCatalog')?.click(),
   },
   {
     selector: '#headerObjectTitle',
-    title: '7 · YA PUEDES EXPLORAR',
+    title: '7 · ¡MISIÓN DE BARNARD COMPLETADA!',
     narration:
-      'Ya viste un ejemplo completo: centrar el mapa en Barnard, elegir D2, consultar un píxel y buscar observaciones de distintas épocas. La cabina queda liberada. Ahora puedes recorrer la nave y usar el visor a tu ritmo.',
+      'Ya sabes ubicar {target}, elegir su detector D2, inspeccionar sus píxeles reales y consultar sus épocas en SPHEREx. Ahora tienes libertad total en el observatorio y en todas las cubiertas de la nave con nuevas misiones opcionales.',
   },
 ];
 
@@ -125,16 +133,31 @@ export default function SphereXAdvancedExplorer({
   const visorRootRef = useRef(null);
   const narrateRef = useRef(narrate);
   const onGuidedCompleteRef = useRef(onGuidedComplete);
+  const [activeView, setActiveView] = useState('spectral');
+  const [umapHtml, setUmapHtml] = useState('');
+  const [umapLoading, setUmapLoading] = useState(false);
   const [guideStep, setGuideStep] = useState(-1);
   const [guideRunning, setGuideRunning] = useState(false);
   const guideStepRef = useRef(guideStep);
-  const parsedVisor = useMemo(() => parseVisorDocument(originalVisualizerHtml), []);
+
+  const parsedVisor = useMemo(() => {
+    if (activeView === 'sphere360') {
+      return parseVisorDocument(sphere360Html, sphere360Css, sphere360Js);
+    }
+    if (activeView === 'atlas') {
+      return parseVisorDocument(immersiveSkyHtml);
+    }
+    if (activeView === 'umap3d') {
+      return umapHtml ? parseVisorDocument(umapHtml) : null;
+    }
+    return parseVisorDocument(originalVisualizerHtml);
+  }, [activeView, umapHtml]);
+
   narrateRef.current = narrate;
   onGuidedCompleteRef.current = onGuidedComplete;
   guideStepRef.current = guideStep;
 
   const finishGuide = useCallback(() => {
-    if (guideStepRef.current < MISSION_GUIDE_STEPS.length - 1) return;
     if (visorRootRef.current) visorRootRef.current.style.pointerEvents = '';
     setGuideRunning(false);
     setGuideStep(-1);
@@ -142,13 +165,29 @@ export default function SphereXAdvancedExplorer({
   }, []);
 
   useEffect(() => {
+    if (activeView !== 'umap3d' || umapHtml) return undefined;
+    const ctrl = new AbortController();
+    setUmapLoading(true);
+    const umapUrl = `${import.meta.env.BASE_URL || '/'}spherex-viz/umap3d.html`;
+    fetch(umapUrl, { signal: ctrl.signal })
+      .then((res) => (res.ok ? res.text() : ''))
+      .then((text) => {
+        if (text) setUmapHtml(text);
+      })
+      .catch(() => {})
+      .finally(() => setUmapLoading(false));
+    return () => ctrl.abort();
+  }, [activeView, umapHtml]);
+
+  useEffect(() => {
     const rootEl = visorRootRef.current;
-    if (!rootEl) return undefined;
+    if (!rootEl || !parsedVisor) return undefined;
 
     rootEl.innerHTML = parsedVisor.bodyHtml;
 
     const winListeners = [];
     const docListeners = [];
+    const domReadyCallbacks = [];
     const activeIntervals = new Set();
     const activeTimeouts = new Set();
 
@@ -178,6 +217,10 @@ export default function SphereXAdvancedExplorer({
         }
         if (prop === 'addEventListener') {
           return (type, listener, options) => {
+            if (type === 'DOMContentLoaded' && typeof listener === 'function') {
+              domReadyCallbacks.push(listener);
+              return undefined;
+            }
             docListeners.push({ type, listener, options });
             return target.addEventListener(type, listener, options);
           };
@@ -195,6 +238,10 @@ export default function SphereXAdvancedExplorer({
         if (prop === 'document') return visorDoc;
         if (prop === 'addEventListener') {
           return (type, listener, options) => {
+            if (type === 'DOMContentLoaded' && typeof listener === 'function') {
+              domReadyCallbacks.push(listener);
+              return undefined;
+            }
             winListeners.push({ type, listener, options });
             return target.addEventListener(type, listener, options);
           };
@@ -237,19 +284,40 @@ export default function SphereXAdvancedExplorer({
       },
     });
 
+    window.__kronoxReturnToSpectralExplorer = () => {
+      setActiveView('spectral');
+    };
+
     try {
+      if (activeView === 'sphere360' && Number.isFinite(ra) && Number.isFinite(dec)) {
+        window.__kronoxPendingSphereTarget = { ra, dec, targetName };
+      }
       const runner = new Function('window', 'document', parsedVisor.scriptCode);
       runner(visorWin, visorDoc);
+      for (const cb of domReadyCallbacks) {
+        try {
+          cb();
+        } catch (cbErr) {
+          console.error('Error ejecutando DOMContentLoaded en visualizador SPHEREx:', cbErr);
+        }
+      }
     } catch (err) {
       console.error('Error inicializando el visor científico SPHEREx integrado:', err);
     }
 
-    if (Number.isFinite(ra) && Number.isFinite(dec)) {
+    if (activeView === 'spectral' && Number.isFinite(ra) && Number.isFinite(dec)) {
       const focusTimer = window.setTimeout(() => {
         if (typeof window.__kronoxVisorFocusRegion === 'function') {
           window.__kronoxVisorFocusRegion(ra, dec, 0.5, targetName);
         }
       }, 80);
+      activeTimeouts.add(focusTimer);
+    } else if (activeView === 'sphere360' && Number.isFinite(ra) && Number.isFinite(dec)) {
+      const focusTimer = window.setTimeout(() => {
+        if (typeof window.__kronoxSphereFocusTarget === 'function') {
+          window.__kronoxSphereFocusTarget(ra, dec, targetName);
+        }
+      }, 120);
       activeTimeouts.add(focusTimer);
     }
 
@@ -267,22 +335,32 @@ export default function SphereXAdvancedExplorer({
         window.clearTimeout(id);
       }
       delete window.__kronoxVisorFocusRegion;
+      delete window.__kronoxSphereFocusTarget;
+      delete window.__kronoxReturnToSpectralExplorer;
       rootEl.innerHTML = '';
     };
-  }, [parsedVisor]);
+  }, [activeView, parsedVisor]);
 
   useEffect(() => {
     if (
+      activeView === 'spectral' &&
       Number.isFinite(ra) &&
       Number.isFinite(dec) &&
       typeof window.__kronoxVisorFocusRegion === 'function'
     ) {
       window.__kronoxVisorFocusRegion(ra, dec, 0.5, targetName);
+    } else if (
+      activeView === 'sphere360' &&
+      Number.isFinite(ra) &&
+      Number.isFinite(dec) &&
+      typeof window.__kronoxSphereFocusTarget === 'function'
+    ) {
+      window.__kronoxSphereFocusTarget(ra, dec, targetName);
     }
-  }, [ra, dec, targetName]);
+  }, [activeView, ra, dec, targetName]);
 
   useEffect(() => {
-    if (!guidedTutorial) {
+    if (!guidedTutorial || activeView !== 'spectral') {
       setGuideRunning(false);
       setGuideStep(-1);
       return undefined;
@@ -349,7 +427,7 @@ export default function SphereXAdvancedExplorer({
           const narration = localizedGuideNarration(step, language, targetName, ra, dec);
           minimumNarrationMs = Math.max(
             2800,
-            Math.min(7000, narration.trim().split(/\s+/).length * 170),
+            Math.min(7200, narration.trim().split(/\s+/).length * 165),
           );
           narrationStartedAt = Date.now();
           narrateRef.current(narration, continueAfterNarration);
@@ -366,11 +444,11 @@ export default function SphereXAdvancedExplorer({
       clearHighlight();
       root.style.pointerEvents = '';
     };
-  }, [finishGuide, guidedTutorial, language, targetName, ra, dec]);
+  }, [activeView, finishGuide, guidedTutorial, language, targetName, ra, dec]);
 
   return (
     <div className="kronoxExpeditionShade kronoxSphereXExplorerShade" role="dialog" aria-modal="true">
-      <style data-kronox-visor-style="true">{parsedVisor.scopedCss}</style>
+      <style data-kronox-visor-style="true">{parsedVisor?.scopedCss || ''}</style>
       <section className="kronoxExpeditionSheet kronoxSphereXExplorerSheet">
         <header className="kronoxExpeditionHeader kronoxSphereXExplorerHeader">
           <div className="kronoxHeaderBadge">
@@ -378,44 +456,65 @@ export default function SphereXAdvancedExplorer({
               ✦
             </span>
             <div className="kronoxHeaderText">
-              <span className="kronoxHeaderSub">ESTACIÓN DE INVESTIGACIÓN · DR1</span>
-              <h2 className="kronoxHeaderTitle">Explorador espectral de todo el cielo</h2>
+              <span className="kronoxHeaderSub">NEW OBSERVATORY · SPHEREx</span>
+              <h2 className="kronoxHeaderTitle">
+                {targetName || 'Estrella de Barnard'}
+              </h2>
             </div>
           </div>
+
+          <nav className="kronoxSphereXViewTabs" aria-label={t('Modos del visualizador SPHEREx', language)}>
+            {EXPLORER_VIEWS.map((view) => (
+              <button
+                key={view.id}
+                type="button"
+                className={`kronoxSphereXViewTab${activeView === view.id ? ' is-active' : ''}`}
+                onClick={() => setActiveView(view.id)}
+              >
+                {language === 'en' ? view.labelEn : view.label}
+              </button>
+            ))}
+          </nav>
+
           <button type="button" className="kronoxCloseButton" onClick={onClose}>
             <span aria-hidden="true">←</span>
-            <span className="kronoxCloseLabel">Regresar al espacio 3D</span>
+            <span className="kronoxCloseLabel">{t('Regresar al espacio 3D', language)}</span>
           </button>
         </header>
 
         <div className="kronoxSphereXExplorerNotice">
-          <span className="kronoxSphereXExplorerTag">NEW OBSERVATORY · SPHEREx DR1 &amp; IRSA (/api)</span>
+          <span className="kronoxSphereXExplorerTag">NEW OBSERVATORY · SPHEREx DR1, ESFERA 360° &amp; IRSA (/api)</span>
           <span>
-            Cubo de 102 canales, mapas HiPS, inspección de píxel, embeddings 64D y FITS reales
-            integrados nativamente en KRONOX mediante funciones serverless <code>/api</code>.
+            Visualizador integrado con Esfera 360° (10 épocas, galaxias y estrellas), cubo de 102 canales DR1,
+            Atlas HiPS y FITS reales de NASA/IPAC IRSA sobre funciones serverless <code>/api</code>.
           </span>
           <details>
             <summary>Procedencia y lectura de los datos</summary>
             <p>
-              Las imágenes y valores inspeccionados proceden de productos del archivo IRSA/SPHEREx.
-              La composición RGB, las escalas de visualización y las capas de análisis son
-              transformaciones para explorar esos datos; los colores no son ópticos y las
-              representaciones de similitud no son resultados oficiales de NASA.
+              Las imágenes y valores inspeccionados proceden de productos reales de NASA/IPAC IRSA/SPHEREx.
+              La composición RGB y capas espectrales son transformaciones en infrarrojo para estudiar esos datos
+              y no equivalen a fotografía óptica visible.
             </p>
           </details>
         </div>
 
         <div className="kronoxSphereXExplorerScreen">
-          <div
-            ref={visorRootRef}
-            className="kronoxNativeVisorRoot"
-            data-testid="kronox-native-spherex-visor"
-            aria-label="Visor científico SPHEREx: 102 canales y datos DR1"
-          />
+          {activeView === 'umap3d' && umapLoading && !parsedVisor ? (
+            <div className="kronoxSphereXLoading" role="status">
+              {t('Cargando mapa latente UMAP 3D…', language)}
+            </div>
+          ) : (
+            <div
+              ref={visorRootRef}
+              className="kronoxNativeVisorRoot"
+              data-testid="kronox-native-spherex-visor"
+              aria-label="Visor científico SPHEREx: Esfera 360°, 102 canales y datos DR1"
+            />
+          )}
           {guidedTutorial && guideRunning && guideStep >= 0 && (
             <div className="kronoxMissionGuideCard" role="status" aria-live="polite">
               <div className="kronoxMissionGuideProgress">
-                <span>{t('RECORRIDO DE MISIÓN · NOVATOS', language)}</span>
+                <span>{t('MISIÓN NOVATO · ESTRELLA DE BARNARD', language)}</span>
                 <span>{guideStep + 1} / {MISSION_GUIDE_STEPS.length}</span>
               </div>
               <h3>{t(MISSION_GUIDE_STEPS[guideStep].title, language)}</h3>
@@ -428,11 +527,17 @@ export default function SphereXAdvancedExplorer({
                   dec,
                 )}
               </p>
-              {guideStep === MISSION_GUIDE_STEPS.length - 1 && (
-                <button type="button" onClick={finishGuide}>
-                  {t('Recorrer libremente', language)}
-                </button>
-              )}
+              <div className="kronoxMissionGuideActions">
+                {guideStep === MISSION_GUIDE_STEPS.length - 1 ? (
+                  <button type="button" className="is-finish" onClick={finishGuide}>
+                    {t('Explorar la nave libremente', language)}
+                  </button>
+                ) : (
+                  <button type="button" onClick={finishGuide}>
+                    {t('Omitir guía y explorar libremente', language)}
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>

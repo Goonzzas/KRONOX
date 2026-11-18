@@ -5,7 +5,7 @@
   "functions": {
     "api/spherex_viz.py": {
       "maxDuration": 60,
-      "includeFiles": "{SphereX-Visualizations-main/*.py,SphereX-Visualizations-main/SPHEREx_REAL/**,SphereX-Visualizations-main/spherex_temporal_bundle.json,public/demo/**}"
+      "includeFiles": "{SphereX-Visualizations-main/*.py,SphereX-Visualizations-main/SPHEREx_REAL/**,SphereX-Visualizations-main/SPHEREx_DR1_QR3/**,SphereX-Visualizations-main/static/**,SphereX-Visualizations-main/spherex_temporal_bundle.json,public/demo/**}"
     }
   },
   "rewrites": [

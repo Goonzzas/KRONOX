@@ -1,4 +1,3 @@
-import { RESEARCH_CATALOG } from '../data/researchCatalog.js';
 import React from 'react';
 import { SPHEREX_MISSION_TYPES, SPHEREX_TARGETS } from '../data/spherexTargets.js';
 import { t } from '../i18n.js';
@@ -24,7 +23,7 @@ export default function SpherexMissionSelector({ onSelect, onDirectOpen, onClose
             <h2 id="spherex-selector-title">{t('¿Qué misión quieres hacer?', language)}</h2>
             <p>
               {t(
-                'Elige un tipo de búsqueda y el objetivo. Kronox fijará el destino y preparará el salto.',
+                'Elige un objetivo (en Modo Novato empezamos por Estrella de Barnard). Kronox trazará el salto y abrirá el nuevo explorador SPHEREx al llegar.',
                 language,
               )}
             </p>
@@ -47,7 +46,7 @@ export default function SpherexMissionSelector({ onSelect, onDirectOpen, onClose
                 onClick={() => onDirectOpen(SPHEREX_TARGETS.find((target) => target.key === 'barnard') || SPHEREX_TARGETS[0])}
               >
                 <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: 'middle' }}><circle cx="12" cy="12" r="7"/><path d="M12 9v6"/><path d="M9 12h6"/><path d="m20 20-3-3"/></svg></span>
-                <span>{t('Abrir Explorador SPHEREx directamente (acceso rápido)', language)}</span>
+                <span>{t('Abrir Nuevo Visualizador SPHEREx · Barnard y Esfera 360°', language)}</span>
               </button>
             )}
           </div>
@@ -114,10 +113,9 @@ export default function SpherexMissionSelector({ onSelect, onDirectOpen, onClose
             </article>
           ))}
         </div>
-        <div className="juanArchiveBanner"><b>Catálogo de trabajo: {RESEARCH_CATALOG.targets.length} objetos clasificados</b><p>{RESEARCH_CATALOG.targets.filter(t=>t.verification==='LOCAL_FITS_VALIDATED').length} destinos con FITS locales y píxeles válidos · 11 con cobertura QR2 en metadatos · 6 pendientes de coordenadas y productos. Cobertura no equivale a detección.</p><details><summary>Ver clasificación y pendientes</summary>{RESEARCH_CATALOG.targets.map(item=><p key={item.key}><b>{item.name}</b> · {item.type} · {item.verification}<br/>{item.question}{item.archiveProduct&&<a href={item.archiveProduct.url} target="_blank" rel="noreferrer"> · producto de archivo</a>}</p>)}</details></div>
         <footer>
           {t(
-            'Las posiciones y tamaños 3D usan una escala cartográfica comprimida. Las observaciones originales permanecen disponibles en cada destino.',
+            'Las posiciones y tamaños 3D usan una escala cartográfica comprimida. Las observaciones infrarrojas se analizan en el nuevo visualizador SPHEREx.',
             language,
           )}
         </footer>

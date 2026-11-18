@@ -3,9 +3,9 @@ import { t } from '../i18n.js';
 
 const CONTROL_ROWS = [
   { keys: ['W', 'A', 'S', 'D'], text: 'Caminar por la nave' },
-  { keys: ['L'], text: 'Bloquear o liberar el cursor para mirar con el ratón' },
-  { keys: ['U'], text: 'Cambiar la perspectiva del personaje' },
-  { keys: ['E'], text: 'Abrir el Centro de Misión al llegar a la mesa' },
+  { keys: ['L'], text: 'Bloquear o liberar el ratón' },
+  { keys: ['U', 'V'], text: 'Cámara 1P/3P (U) y Exterior (V)' },
+  { keys: ['E'], text: 'Usar mesa SPHEREx o ascensor' },
 ];
 
 export default function NoviceControlsHud({ language = 'en' }) {

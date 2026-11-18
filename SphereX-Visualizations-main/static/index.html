@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SPHEREx · Esfera Celeste 360°</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <!-- Minimalist Vantablack Header -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo-dot"></span>
+      <h1>SPHEREx · Esfera 360°</h1>
+      <span class="badge-count" id="imageCountBadge">Cargando 1,032 objetos (216 FITS reales)...</span>
+    </div>
+
+    <div class="actions">
+      <div class="view-switch">
+        <button id="btnSphereView" class="switch-btn active">🌐 Esfera Interior 360°</button>
+        <button id="btnFlatView" class="switch-btn">🖼️ Vista Plana 2D</button>
+      </div>
+
+      <!-- Global GIF Speed Control in Topbar -->
+      <div class="gif-speed-topbar" title="Modificar la velocidad de la animación GIF temporal (T1–T10)">
+        <span class="speed-icon">⚡ Velocidad GIF:</span>
+        <input id="topGifSpeedSlider" type="range" min="50" max="900" step="10" value="210" />
+        <span id="topGifSpeedValue" class="speed-readout">2.0x (210 ms)</span>
+      </div>
+
+      <label class="region-label">
+        <span>Ir a:</span>
+        <select id="datasetSelect" title="Volar hacia uno de los 1,032 objetos astronómicos en la esfera"></select>
+      </label>
+
+      <button id="resetDomeBtn" class="btn" title="Restaurar vista panorámica del domo">Vista Domo</button>
+      <button id="openIrsaBtn" class="btn">Buscar en IRSA</button>
+      <label class="btn" for="fitsUploadInput">
+        Subir FITS
+        <input id="fitsUploadInput" type="file" accept=".fits,.fit,.gz" multiple hidden />
+      </label>
+      <button id="exportPngBtn" class="btn">Guardar PNG</button>
+    </div>
+  </header>
+
+  <!-- Main Vantablack Workspace -->
+  <main class="layout">
+    <!-- Left: Spectral Synthesis Mode & R/G/B Channels -->
+    <aside class="sidebar">
+      <div class="palette-picker">
+        <div class="section-label">Modo de Color Composite</div>
+        <button class="palette-btn active" data-palette="all18">
+          <span class="rainbow-bar"></span>
+          <div>
+            <strong>18 Bandas Integradas</strong>
+            <small>Espectro completo 0.78–4.95 µm</small>
+          </div>
+        </button>
+        <button class="palette-btn" data-palette="jwst_gold">
+          <span class="palette-dots"><i style="background:#ff2a55"></i><i style="background:#ff9f1c"></i><i style="background:#00b4ff"></i></span>
+          <div>
+            <strong>Estilo JWST / NASA</strong>
+            <small>Polvo Rubí · PAH Oro · Gas Cian</small>
+          </div>
+        </button>
+        <button class="palette-btn" data-palette="manual_rgb">
+          <span class="palette-dots"><i style="background:#ff3b3b"></i><i style="background:#2ee66b"></i><i style="background:#3b82f6"></i></span>
+          <div>
+            <strong>3 Canales Manual (R / G / B)</strong>
+            <small>Escoge 3 imágenes individuales</small>
+          </div>
+        </button>
+      </div>
+
+      <div class="channel-picker">
+        <div class="channel-box r-box">
+          <div class="channel-header">
+            <span class="dot dot-r"></span>
+            <label for="selectR">Rojo / Infrarrojo Largo</label>
+          </div>
+          <select id="selectR"></select>
+          <canvas id="thumbR" width="180" height="180"></canvas>
+        </div>
+
+        <div class="channel-box g-box">
+          <div class="channel-header">
+            <span class="dot dot-g"></span>
+            <label for="selectG">Verde / Infrarrojo Medio</label>
+          </div>
+          <select id="selectG"></select>
+          <canvas id="thumbG" width="180" height="180"></canvas>
+        </div>
+
+        <div class="channel-box b-box">
+          <div class="channel-header">
+            <span class="dot dot-b"></span>
+            <label for="selectB">Azul / Infrarrojo Corto</label>
+          </div>
+          <select id="selectB"></select>
+          <canvas id="thumbB" width="180" height="180"></canvas>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center: Pure Vantablack Inside-Sphere 360° Viewport -->
+    <section class="stage" id="stageContainer">
+      <canvas id="sphereCanvas"></canvas>
+      <canvas id="flatCanvas" class="hidden"></canvas>
+
+      <!-- Color Segmentation Legend & Interactive Category Filter -->
+      <div class="category-legend-bar" id="categoryLegendBar">
+        <button class="cat-pill active" data-category="all">
+          <span class="cat-dot" style="background: conic-gradient(#00b4ff, #ffd000, #d946ef, #ff3b5c, #2ee66b, #f8fafc, #00b4ff)"></span>
+          <span>Todos <b>1032</b></span>
+        </button>
+        <button class="cat-pill" data-category="nebula" title="Nebulosas de emisión, reflexión y planetarias">
+          <span class="cat-dot" style="background:#00b4ff; box-shadow:0 0 8px #00b4ff"></span>
+          <span>Nebulosas <b id="count_nebula">240</b></span>
+        </button>
+        <button class="cat-pill" data-category="black_hole" title="Agujeros negros, microcuásares y discos de acreción AGN">
+          <span class="cat-dot" style="background:#ffd000; box-shadow:0 0 8px #ffd000"></span>
+          <span>Agujeros Negros <b id="count_black_hole">160</b></span>
+        </button>
+        <button class="cat-pill" data-category="pulsar" title="Púlsares, magnetares y nebulosas de viento de púlsar">
+          <span class="cat-dot" style="background:#d946ef; box-shadow:0 0 8px #d946ef"></span>
+          <span>Púlsares <b id="count_pulsar">160</b></span>
+        </button>
+        <button class="cat-pill" data-category="snr" title="Remanentes de supernova y frentes de choque">
+          <span class="cat-dot" style="background:#ff3b5c; box-shadow:0 0 8px #ff3b5c"></span>
+          <span>Supernovas <b id="count_snr">140</b></span>
+        </button>
+        <button class="cat-pill" data-category="cluster" title="Cúmulos estelares, protoestrellas y chorros Herbig-Haro">
+          <span class="cat-dot" style="background:#2ee66b; box-shadow:0 0 8px #2ee66b"></span>
+          <span>Cúmulos &amp; Protoestrellas <b id="count_cluster">160</b></span>
+        </button>
+        <button class="cat-pill" data-category="galaxy" title="Galaxias espirales, starburst y campos profundos SPHEREx QR1–DR1">
+          <span class="cat-dot" style="background:#f8fafc; box-shadow:0 0 8px #f8fafc"></span>
+          <span>Galaxias &amp; Espacio Profundo <b id="count_galaxy">172</b></span>
+        </button>
+      </div>
+
+      <!-- Floating clickable labels on the inside of the sphere -->
+      <div id="sphereLabelsContainer" class="sphere-labels"></div>
+
+      <div class="sphere-hint" id="sphereHint">
+        Arrastra para rotar 360° · Haz clic o pasa el ratón sobre un punto para inspeccionarlo en el panel derecho
+      </div>
+
+      <div class="caption" id="compositeCaption"></div>
+    </section>
+
+    <!-- Right: Unified Non-Obstructive Inspector (Temporal Lens, Analytics & 18 SPHEREx Bands) -->
+    <aside class="gallery-panel" id="rightInspectorPanel">
+      <div class="inspector-tabs" id="inspectorTabs">
+        <button class="inspector-tab active" data-tab="all" title="Ver Visor Temporal, Telemetría y Bandas FITS">🧩 Todo</button>
+        <button class="inspector-tab" data-tab="temporal" title="Solo Visor Temporal y Gráficas">🎬 Visor &amp; Tiempo</button>
+        <button class="inspector-tab" data-tab="bands" title="Solo Galería de Bandas FITS (D1–D6)">🎞️ Bandas FITS</button>
+      </div>
+
+      <!-- Live Hover Color-Composite Lens + Temporal Scrubber -->
+      <div id="skyHoverLens" class="sky-hover-lens hidden">
+        <div class="lens-header">
+          <span class="lens-badge" id="lensTypeBadge">NEBULOSA</span>
+          <span class="lens-gif-badge" id="lensEpochBadge">🎬 T1 · QR1-W17</span>
+          <span class="lens-pin-badge hidden" id="lensPinBadge">📌 FIJADO</span>
+          <span class="lens-coords" id="lensCoords">RA 00.0° · Dec +00.0°</span>
+        </div>
+        <div class="lens-canvas-wrap">
+          <canvas id="hoverLensCanvas" width="220" height="220"></canvas>
+          <div class="lens-epoch-overlay" id="lensEpochOverlay">T1/10 · QR1 (2025-W17)</div>
+          <div class="lens-transient-overlay" id="lensTransientOverlay">Frente de ionización + YSO</div>
+        </div>
+        <div class="lens-title" id="lensTitle">Punto del Cielo</div>
+        <div class="lens-subtitle" id="lensSubtitle">10 Épocas Reales SPHEREx (T1–T10: 2025-W17 → 2026-W25)</div>
+
+        <!-- SPHEREx Detectors Badge Strip inside Hover Lens -->
+        <div class="lens-detectors-box">
+          <div class="lens-detectors-title">
+            <span>🛰️ Detectores SPHEREx:</span>
+            <strong id="lensDominantDetectors">D1 · D2 · D3 · D4 · D5 · D6</strong>
+          </div>
+          <div class="lens-detectors-pills" id="lensDetectorsPills"></div>
+        </div>
+
+        <!-- GIF Speed & Playback Controls -->
+        <div class="temporal-controls-row">
+          <button id="toggleGifPlayBtn" class="btn-gif-toggle active" title="Pausar o reanudar animación GIF temporal">⏸ GIF Activo</button>
+          <div class="speed-presets" id="speedPresetsBar">
+            <button class="speed-chip" data-ms="600" title="Velocidad lenta (0.5x)">0.5x</button>
+            <button class="speed-chip" data-ms="360" title="Velocidad normal (1x)">1x</button>
+            <button class="speed-chip active" data-ms="210" title="Velocidad rápida (2x)">2x</button>
+            <button class="speed-chip" data-ms="110" title="Velocidad muy rápida (4x)">4x</button>
+            <button class="speed-chip" data-ms="60" title="Velocidad ultra-rápida (8x)">8x</button>
+          </div>
+        </div>
+
+        <div class="lens-speed-slider-row">
+          <span>Velocidad:</span>
+          <input id="lensGifSpeedSlider" type="range" min="50" max="900" step="10" value="210" />
+          <span id="lensGifSpeedLabel">4.8 fps (210 ms)</span>
+        </div>
+
+        <!-- User-Modulable Time Evolution Scrubber -->
+        <div class="lens-time-scrubber" id="timeScrubberRow">
+          <div class="scrubber-top">
+            <span>🕒 Evolución temporal:</span>
+            <strong id="epochScrubberLabel">T1/1 · --</strong>
+          </div>
+          <div class="scrubber-controls">
+            <button id="prevEpochBtn" class="btn-step" title="Época anterior">◀</button>
+            <input id="epochScrubberSlider" type="range" min="0" max="0" step="1" value="0" title="Desliza para modular la evolución temporal" />
+            <button id="nextEpochBtn" class="btn-step" title="Época siguiente">▶</button>
+          </div>
+        </div>
+
+        <!-- DR1 & QR3 Observation Count Verification -->
+        <div class="lens-archive-verify" id="lensArchiveVerifyRow">
+          <span id="lensArchiveVerifyText">DR1: -- · QR3: --</span>
+          <button id="verifyRegionIrsaBtn" class="btn-verify-irsa" title="Consultar en vivo a NASA/IPAC IRSA SIA v2 las observaciones DR1 y QR3 sobre esta región">🔍 IRSA</button>
+        </div>
+
+        <!-- 10-Frame Pure Temporal Filmstrip (T1..T10 across QR1, QR2, QR3, DR1) -->
+        <div class="temporal-strip" id="temporalStrip">
+          <div class="temporal-frame active" data-epoch="0" title="T1 · QR1 (2025-W17)">
+            <canvas id="epochThumb0" width="56" height="56"></canvas>
+            <span>T1·W17</span>
+          </div>
+          <div class="temporal-frame" data-epoch="1" title="T2 · DR1 (2025-W18)">
+            <canvas id="epochThumb1" width="56" height="56"></canvas>
+            <span>T2·W18</span>
+          </div>
+          <div class="temporal-frame" data-epoch="2" title="T3 · QR2 (2025-W19)">
+            <canvas id="epochThumb2" width="56" height="56"></canvas>
+            <span>T3·W19</span>
+          </div>
+          <div class="temporal-frame" data-epoch="3" title="T4 · QR2 (2025-W20)">
+            <canvas id="epochThumb3" width="56" height="56"></canvas>
+            <span>T4·W20</span>
+          </div>
+          <div class="temporal-frame" data-epoch="4" title="T5 · QR2 (2025-W21)">
+            <canvas id="epochThumb4" width="56" height="56"></canvas>
+            <span>T5·W21</span>
+          </div>
+          <div class="temporal-frame" data-epoch="5" title="T6 · DR1 (2025-W22)">
+            <canvas id="epochThumb5" width="56" height="56"></canvas>
+            <span>T6·W22</span>
+          </div>
+          <div class="temporal-frame" data-epoch="6" title="T7 · QR3 (2026-W20)">
+            <canvas id="epochThumb6" width="56" height="56"></canvas>
+            <span>T7·W20</span>
+          </div>
+          <div class="temporal-frame" data-epoch="7" title="T8 · QR3 (2026-W21)">
+            <canvas id="epochThumb7" width="56" height="56"></canvas>
+            <span>T8·W21</span>
+          </div>
+          <div class="temporal-frame" data-epoch="8" title="T9 · QR3 (2026-W22)">
+            <canvas id="epochThumb8" width="56" height="56"></canvas>
+            <span>T9·W22</span>
+          </div>
+          <div class="temporal-frame" data-epoch="9" title="T10 · QR3 (2026-W25)">
+            <canvas id="epochThumb9" width="56" height="56"></canvas>
+            <span>T10·W25</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right-Bottom Dock: Real-Time Temporal Differentiating Factors Graphs & SPHEREx Detectors (D1-D6) -->
+      <div id="temporalAnalyticsDock" class="temporal-analytics-dock hidden">
+        <div class="analytics-header">
+          <div class="analytics-title-group">
+            <span class="analytics-tag">📈 TELEMETRÍA TEMPORAL SPHEREx</span>
+            <strong id="analyticsObjectTitle">Objeto Astronómico</strong>
+          </div>
+          <span class="analytics-epoch-pill" id="analyticsEpochPill">T1 · 2025-W17</span>
+        </div>
+
+        <!-- SPHEREx 6 HgCdTe LVF Detectors Matrix (D1..D6) -->
+        <div class="detectors-matrix-box">
+          <div class="detectors-matrix-header">
+            <span>🛰️ Detectores Utilizados SPHEREx (Focal Plane D1–D6 · LVF 0.75–5.00 µm)</span>
+            <b id="activeDetectorsModeLabel">6 Detectores Activos (D1–D6)</b>
+          </div>
+          <div class="detectors-grid" id="spherexDetectorsGrid"></div>
+        </div>
+
+        <!-- KPI Metrics Row for Current Epoch -->
+        <div class="temporal-kpi-row">
+          <div class="kpi-box">
+            <span class="kpi-label">Brillo Actual</span>
+            <strong id="kpiBrightnessVal">142.0 MJy/sr</strong>
+          </div>
+          <div class="kpi-box">
+            <span class="kpi-label">Cambio ΔBrillo</span>
+            <strong id="kpiDeltaVal">+38.5%</strong>
+          </div>
+          <div class="kpi-box">
+            <span class="kpi-label">Color IR (D6/D1)</span>
+            <strong id="kpiColorRatioVal">1.45</strong>
+          </div>
+          <div class="kpi-box">
+            <span class="kpi-label">Pico / Cinemática</span>
+            <strong id="kpiKinematicVal">T3 · +18.4″</strong>
+          </div>
+        </div>
+
+        <!-- Graph 1: Multi-Detector Brightness Light Curve (T1..T10) -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <span class="chart-title">1. Evolución Temporal del Brillo [MJy/sr] (Clic para ir a época)</span>
+            <div class="chart-legend">
+              <span><i style="background:#ffffff"></i>Total</span>
+              <span><i style="background:#00b4ff"></i>D1–D2 Corto</span>
+              <span><i style="background:#2ee66b"></i>D3–D4 Medio</span>
+              <span><i style="background:#ff3b5c"></i>D5–D6 Largo</span>
+            </div>
+          </div>
+          <canvas id="brightnessChartCanvas" width="380" height="106"></canvas>
+        </div>
+
+        <!-- Graph 2: Differentiating Temporal Factors (Variability %, IR Color D6/D1, Expansion) -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <span class="chart-title">2. Factores Diferenciadores en el Tiempo (T1–T10)</span>
+            <div class="chart-legend">
+              <span><i style="background:#ffd000"></i>ΔBrillo (%)</span>
+              <span><i style="background:#d946ef"></i>Color D6/D1</span>
+              <span><i style="background:#00e5c3"></i>Expansión/Jet</span>
+            </div>
+          </div>
+          <canvas id="factorsChartCanvas" width="380" height="102"></canvas>
+          <div class="factor-signature-note" id="factorSignatureNote">
+            Firma diferenciadora: Frente de fotoionización y destellos protostelares YSO
+          </div>
+        </div>
+      </div>
+
+      <div class="gallery-bands-section" id="galleryBandsSection">
+        <div class="gallery-top-row">
+          <div class="gallery-title" id="galleryHeaderTitle">18 Bandas · Detectores D1–D6</div>
+          <button id="selectAllBandsBtn" class="btn-mini">Integrar Las 18</button>
+        </div>
+        <div class="gallery-detector-summary" id="galleryDetectorSummary">
+          Cámara NIR Corta: <b>D1, D2, D3</b> (0.75–2.42 µm) · Cámara IR Larga: <b>D4, D5, D6</b> (2.42–5.00 µm)
+        </div>
+        <div class="gallery-grid" id="imageGallery"></div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Simple Modal to Fetch from NASA/IPAC IRSA -->
+  <div class="modal-backdrop hidden" id="irsaModal">
+    <div class="modal">
+      <div class="modal-top">
+        <h2>Buscar imágenes SPHEREx en NASA/IPAC IRSA</h2>
+        <button id="closeIrsaModalBtn" class="btn-close">✕</button>
+      </div>
+
+      <div class="modal-search">
+        <input type="text" id="irsaTargetInput" placeholder="Objeto o coordenadas (ej. M42, Carina, NGC 7023, 83.82 -5.39)" value="M42" />
+        <button id="searchIrsaBtn" class="btn btn-light">Buscar</button>
+      </div>
+
+      <div id="irsaStatusBox" class="modal-status">
+        Escribe el nombre de un objeto astronómico o coordenadas para buscar imágenes en el archivo IRSA.
+      </div>
+
+      <div id="irsaResultsList" class="modal-list"></div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

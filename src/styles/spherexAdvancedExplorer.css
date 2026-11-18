@@ -9,7 +9,52 @@
 
 .kronoxSphereXExplorerHeader {
   flex: 0 0 auto;
-  min-height: 68px;
+  min-height: 64px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.kronoxSphereXViewTabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.kronoxSphereXViewTab {
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  background: rgba(15, 23, 42, 0.72);
+  color: #cbd5e1;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.kronoxSphereXViewTab:hover {
+  border-color: rgba(56, 189, 248, 0.65);
+  color: #f8fafc;
+}
+
+.kronoxSphereXViewTab.is-active {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.32), rgba(56, 189, 248, 0.2));
+  border-color: #38bdf8;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.28);
+}
+
+.kronoxSphereXLoading {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: #7dd3fc;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .kronoxSphereXExplorerHeader .kronoxCompassIcon {
@@ -148,19 +193,32 @@
   line-height: 1.5;
 }
 
+.kronoxMissionGuideActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .kronoxMissionGuideCard button {
-  display: block;
-  margin: 12px 0 0 auto;
-  padding: 6px 11px;
+  display: inline-block;
+  margin: 0;
+  padding: 6px 12px;
   border: 1px solid rgba(103, 232, 249, 0.42);
   border-radius: 7px;
-  background: rgba(8, 145, 178, 0.18);
+  background: rgba(8, 145, 178, 0.2);
   color: #cffafe;
   font: inherit;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   pointer-events: auto;
+}
+
+.kronoxMissionGuideCard button.is-finish {
+  border-color: rgba(52, 211, 153, 0.72);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.34), rgba(8, 145, 178, 0.3));
+  color: #ecfdf5;
 }
 
 .kronoxMissionGuideCard button:hover {

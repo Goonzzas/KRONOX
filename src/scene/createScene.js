@@ -4197,6 +4197,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       active: true,
       cinematic: guidedTourState.mode === 'novice-cinematic' && !guidedTourState.playerControlEnabled,
     });
+    const targetLabel = guidedTourState?.targetName || 'Estrella de Barnard';
     const objectives = {
       stand_up: 'PASO 1/7 · PUESTO DE MANDO: Pulsa [WASD] o [E] para levantarte del sillón de mando.',
       look_camera: 'PASO 2/7 · CÁMARA Y MOVIMIENTO: Muévete con [WASD], alterna vista 1P/3P con [U] o acércate a Navegación.',
@@ -4209,16 +4210,16 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       science: 'PASO 6/7 · LABORATORIO SPHEREx: Dirígete al Laboratorio SPHEREx en C03 y pulsa [E].',
       'novice-mission-console': 'DESTINO ALCANZADO (BARNARD) · Sigue las flechas luminosas en el puente hasta el Mando de Misiones SPHEREx (mesa holográfica al fondo) y pulsa [E] o haz clic para abrirlo.',
       'novice-walk-to-mission-console': 'KRONOX TE GUÍA · Avanzando por la ruta iluminada hacia el Mando de Misiones SPHEREx. Pulsa [WASD] si prefieres caminar manualmente.',
-      'novice-select-mission': 'CENTRO DE MISIÓN ACTIVO · Elige una misión en la pantalla y confirma el destino para iniciar el viaje.',
+      'novice-select-mission': 'CENTRO DE MISIÓN ACTIVO · Elige «Estrella de Barnard» para iniciar la observación en el nuevo visualizador SPHEREx.',
       inventory_hub: 'PASO 7/7 · MANUAL Y OPERACIONES: Abre «Mapa · Guía» para consultar el Manual operativo y completar el tutorial.',
       missions: 'OBJETIVO: Interactúa con la consola de misiones.',
       comms: 'OBJETIVO: Interactúa con la consola de comunicaciones.',
       windows: 'OBJETIVO: Acércate al mirador o interactúa con él.',
-      select_destination: 'PASO 2/4 · DESTINO: En la consola de navegación, abre la selección de objetivos y elige un destino científico.',
-      destination_selected: 'PASO 3/4 · TRÁNSITO: Observa el salto de KRONOX. Al llegar, iniciaremos la misión desde el panel de destino.',
-      mission_start: 'PASO 3/4 · PANEL DE MISIÓN: Pulsa «Empezar misión» en el aviso del objetivo alcanzado.',
-      mission_arrival: 'PASO 4/4 · BRIEFING: Revisa el objetivo y pulsa «Abrir primera observación infrarroja».',
-      mission_explore: 'PASO 4/4 · ANÁLISIS: Examina la imagen y pulsa «Comparar con otra fecha».',
+      select_destination: 'PASO 2/4 · DESTINO: En la consola de navegación, abre la selección de objetivos y elige Estrella de Barnard.',
+      destination_selected: `TRÁNSITO A ${targetLabel.toUpperCase()} · Observa el salto de KRONOX hacia ${targetLabel}.`,
+      mission_start: `LLEGADA A ${targetLabel.toUpperCase()} · Pulsa «Empezar misión» abajo a la izquierda para abrir el visualizador SPHEREx.`,
+      mission_arrival: `EXPLORADOR SPHEREx · Observando ${targetLabel} en infrarrojo (detector D2 y 102 canales DR1).`,
+      mission_explore: `ESFERA 360° Y ÉPOCAS · Explora ${targetLabel}, galaxias y 10 épocas temporales desde el nuevo visualizador.`,
     };
     S.onGuideObjective?.(objectives[step] || '');
     if (stationId) {
@@ -4615,7 +4616,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       guidedTourState.playerControlEnabled = true;
       setTourStep('novice-select-mission', 'missions');
       S.onAiTourNarrative?.(
-        'Centro de misión SPHEREx activo. Elige en pantalla qué misión quieres comenzar; al seleccionar una, KRONOX fijará el destino y preparará el viaje.',
+        'Mando de misiones SPHEREx abierto. Elige «Estrella de Barnard» para viajar y analizar su movimiento propio en el nuevo visualizador.',
         'Orientación',
         'missions',
         { id: 'novice-mission-select', priority: 9, replace: true, once: false },
@@ -4746,12 +4747,13 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
 
   function onGuidedDestinationSelected(target) {
     if (guidedTourState?.mode === 'novice-cinematic') {
-      guidedTourState.targetName = target?.name || target?.key || 'el objetivo seleccionado';
+      const chosenName = target?.name || target?.key || 'la Estrella de Barnard';
+      guidedTourState.targetName = chosenName;
       machineSystems.setRouteTargetVector?.(target?.key);
       if (guidedTourState.step === 'novice-select-mission') {
         setTourStep('destination_selected', null);
         S.onAiTourNarrative?.(
-          'Misión seleccionada. KRONOX fija el nuevo destino y comienza el viaje.',
+          `Has elegido ${chosenName}. KRONOX traza el rumbo y prepara el salto para observarla con SPHEREx.`,
           'Orientación',
           'nav',
           { id: 'novice-mission-destination', priority: 9, replace: true, once: false },
@@ -4759,7 +4761,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         return;
       }
       S.onAiTourNarrative?.(
-        'Destino fijado. Iniciamos el viaje hacia el objetivo seleccionado.',
+        `Rumbo fijado hacia ${chosenName}. Comenzamos el salto interestelar para estudiarla desde KRONOX.`,
         'Orientación',
         'nav',
         { id: 'novice-cinematic-destination', priority: 9, replace: true, once: false },
@@ -4810,8 +4812,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
         S.onViewChange?.(1);
         setCabinPerspective(false);
         setTourStep('mission_start', null);
+        const arrivedLabel = guidedTourState.targetName || 'la Estrella de Barnard';
         S.onAiTourNarrative?.(
-          'Hemos llegado al destino. Mira abajo a la izquierda y pulsa «Empezar misión» para abrir el centro científico.',
+          `Hemos llegado a ${arrivedLabel}. Pulsa «Empezar misión» abajo a la izquierda para analizarla en el nuevo visualizador SPHEREx.`,
           'Orientación',
           'science',
           { id: 'novice-arrival-start-mission', priority: 10, replace: true, once: false },
@@ -4855,7 +4858,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       luminousAI.setTargetPosition(new V(1.45, deckY + 1.85, 4.85), 'Señalización');
       luminousAI.pointAtWorldPosition(new V(0, deckY + 1.08, 4.52), true);
       S.onAiTourNarrative?.(
-        'Ya llegamos a Barnard. Sigue las flechas luminosas en el puente hasta el mando de misiones SPHEREx al fondo y pulsa E o haz clic en la consola para elegir tu misión.',
+        'Ya llegamos a la Estrella de Barnard. Sigue las flechas luminosas azules en el puente hasta la mesa táctica trasera y pulsa E o haz clic en ella para iniciar tu misión de Barnard.',
         'Orientación',
         'missions',
         { id: 'novice-arrival-walk-to-mission-table', priority: 10, replace: true, once: false },
@@ -5165,7 +5168,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     localCabinWorld.visible = true;
     S.onCabinFirstPersonChange?.(false);
     S.onGuideStateChange?.({ step: 'cinematic-walk', stationId: null, active: true, cinematic: true });
-    S.onGuideObjective?.('RECORRIDO CINEMÁTICO · KRONOX te mostrará la nave y una misión completa.');
+    S.onGuideObjective?.('EXPEDICIÓN NOVATO · Rumbo guiado hacia la Estrella de Barnard (~6 años luz).');
 
     const navStation = getStationDef('nav');
     if (navStation) {
@@ -5186,7 +5189,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       guidedTourState.walkFinished = true;
     }
     S.onAiTourNarrative?.(
-      tourNarratives.bridge,
+      'Bienvenido a bordo de KRONOX. En esta primera expedición guiada iremos hacia la Estrella de Barnard, una enana roja cercana a 6 años luz que se mueve más rápido en el cielo que ninguna otra estrella.',
       'Orientación',
       'nav',
       { id: 'novice-cinematic-walk', priority: 9, replace: true, once: false },
@@ -5210,7 +5213,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       luminousAI.pointAtWorldPosition(navStation.consolePos, true);
     }
     S.onAiTourNarrative?.(
-      tourNarratives.astro_obs,
+      'Desde la consola de navegación trazamos el salto hasta la Estrella de Barnard. Observa el trayecto y, al llegar, sigue las flechas luminosas hacia el mando SPHEREx.',
       'Explicación',
       'nav',
       { id: 'novice-cinematic-navigation', priority: 9, replace: true, once: false },
@@ -8850,12 +8853,18 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               if (wpKey !== lastMissionWpHudKey) {
                 lastMissionWpHudKey = wpKey;
                 missionWpHudWasActive = true;
+                const safePinX = Math.max(150, Math.min(vw - 150, rawX));
+                const safePinYBase = Math.max(92, Math.min(vh - 135, rawY));
+                const safePinY =
+                  safePinX > vw - 360 && safePinYBase < 275
+                    ? Math.min(vh - 135, 275)
+                    : safePinYBase;
                 S.onMissionWaypointHud({
                   visible: true,
                   inFront,
                   onScreen,
-                  x: Math.max(72, Math.min(vw - 72, rawX)),
-                  y: Math.max(86, Math.min(vh - 96, rawY)),
+                  x: safePinX,
+                  y: safePinY,
                   arrowAngleRad: Number(arrowAngleRad.toFixed(3)),
                   turnSide: _missionWpViewScratch.x >= 0 ? 'right' : 'left',
                   bearingDeg: Math.round((Math.atan2(_missionWpViewScratch.x, -_missionWpViewScratch.z) * 180) / Math.PI),

@@ -11,6 +11,11 @@
 !/spherex_api_real.py
 !/kronox_visor_cientifico.html
 !/kronox_cielo_inmersivo.html
+!/kronox_allsky_earth.html
+!/static/
+!/static/**
+!/SPHEREx_DR1_QR3/
+!/SPHEREx_DR1_QR3/**
 !/spherex_v2_interactive_bundle.json
 !/spherex_temporal_bundle.json
 !/requirements.txt

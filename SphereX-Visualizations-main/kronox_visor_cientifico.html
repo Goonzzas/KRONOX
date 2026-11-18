@@ -1541,7 +1541,18 @@
         renderAllSkyModalMap();
         renderModalTilesList();
 
+        const matchTarget = pendingAtlasRegion
+          ? state.catalog.find(d => {
+              if (!Number.isFinite(Number(d.ra)) || !Number.isFinite(Number(d.dec))) return false;
+              const dRa = Math.abs(((Number(d.ra) - Number(pendingAtlasRegion.ra) + 540) % 360) - 180);
+              const dDec = Math.abs(Number(d.dec) - Number(pendingAtlasRegion.dec));
+              return Math.hypot(dRa * Math.cos(Number(pendingAtlasRegion.dec) * Math.PI / 180), dDec) <= 0.35;
+            })
+          : null;
+
         const preferred =
+          (matchTarget && matchTarget.type !== 'real_spherex_ondemand' ? matchTarget : null) ||
+          state.catalog.find(d => d.id === 'kronox_real_barnard') ||
           state.catalog.find(d => d.type === 'real_spherex_multiepoch') ||
           state.catalog.find(d => d.type === 'real_spherex_fits') ||
           state.catalog[0];
@@ -7137,6 +7148,7 @@
 
     function handleAtlasRegionFocus(ra, dec, fov, target, channel) {
       if (!Number.isFinite(ra) || !Number.isFinite(dec)) return;
+      pendingAtlasRegion = { ra, dec, fov, target, channel };
       const match = (state.catalog || []).find(ds => {
         if (!Number.isFinite(Number(ds.ra)) || !Number.isFinite(Number(ds.dec))) return false;
         const dRa = Math.abs(((Number(ds.ra) - ra + 540) % 360) - 180);
@@ -7144,16 +7156,24 @@
         return Math.hypot(dRa * Math.cos(dec * Math.PI / 180), dDec) <= 0.35;
       });
       if (match && match.type !== 'real_spherex_ondemand') {
-        loadRealDataset(match.id);
+        if (state.activeDatasetId !== match.id) {
+          loadRealDataset(match.id);
+        }
+        cube102.atlasRegion = true;
+        cube102.ra = ((ra % 360) + 360) % 360;
+        cube102.dec = Math.max(-90, Math.min(90, dec));
+        if (Number.isFinite(fov)) cube102.fovDeg = Math.max(0.35, Math.min(45, fov));
+        if (Number.isFinite(channel)) cube102.channel = Math.max(0, Math.min(101, channel - 1));
+      } else {
+        cube102.atlasRegion = true;
+        cube102.ra = ((ra % 360) + 360) % 360;
+        cube102.dec = Math.max(-90, Math.min(90, dec));
+        if (Number.isFinite(fov)) cube102.fovDeg = Math.max(0.35, Math.min(45, fov));
+        if (Number.isFinite(channel)) cube102.channel = Math.max(0, Math.min(101, channel - 1));
+        setExplorerMode('cube102');
       }
-      cube102.atlasRegion = true;
-      cube102.ra = ((ra % 360) + 360) % 360;
-      cube102.dec = Math.max(-90, Math.min(90, dec));
-      if (Number.isFinite(fov)) cube102.fovDeg = Math.max(0.35, Math.min(45, fov));
-      if (Number.isFinite(channel)) cube102.channel = Math.max(0, Math.min(101, channel - 1));
-      setExplorerMode('cube102');
       const metaEl = document.getElementById('headerObjectMeta');
-      if (metaEl && target) metaEl.textContent = `Región Atlas: ${target} (RA ${ra.toFixed(4)}°, Dec ${dec.toFixed(4)}°)`;
+      if (metaEl && target) metaEl.textContent = `${target} (RA ${ra.toFixed(4)}°, Dec ${dec.toFixed(4)}°) · SPHEREx DR1 & FITS reales`;
     }
 
     window.__kronoxVisorFocusRegion = handleAtlasRegionFocus;

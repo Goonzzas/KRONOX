@@ -116,6 +116,7 @@ class DatasetStore:
                 "folder": "m101",
                 "name": "Galaxia del Molinete (M101 · NGC 5457)",
                 "collection": "spherex_dr1",
+                "category": "galaxy",
                 "ra": 210.8024,
                 "dec": 54.3488,
             },
@@ -124,6 +125,7 @@ class DatasetStore:
                 "folder": "rw-aurigae",
                 "name": "RW Aurigae (Estrella T Tauri Variable)",
                 "collection": "spherex_dr1",
+                "category": "cluster",
                 "ra": 76.9565,
                 "dec": 30.4014,
             },
@@ -132,14 +134,16 @@ class DatasetStore:
                 "folder": "barnard",
                 "name": "Estrella de Barnard (Alto Movimiento Propio)",
                 "collection": "spherex_dr1",
-                "ra": 269.4521,
-                "dec": 4.6934,
+                "category": "cluster",
+                "ra": 269.448503,
+                "dec": 4.73942,
             },
             {
                 "id": "kronox_real_m31",
                 "folder": "m31",
                 "name": "Galaxia de Andrómeda (M31 · NGC 224)",
                 "collection": "spherex_dr1",
+                "category": "galaxy",
                 "ra": 10.6847,
                 "dec": 41.2687,
             },
@@ -242,6 +246,27 @@ class DatasetStore:
     def _register_real_dr1_cube_suite(
         self, field: Dict[str, Any], fits_files: List[str]
     ) -> None:
+        width, height = field.get("crop_size", 220), field.get("crop_size", 220)
+        self.datasets[field["id"]] = {
+            "id": field["id"],
+            "name": f"🛰️ {field['name']}",
+            "type": "real_spherex_fits",
+            "category": field.get("category"),
+            "ra": field["ra"],
+            "dec": field["dec"],
+            "width": width,
+            "height": height,
+            "description": f"Datos FITS reales descargados de NASA/IRSA ({field['collection']}, 18 canales de 0.78 a 4.95 µm).",
+            "source": f"NASA/IRSA {field['collection']}",
+            "_lazy_mode": "dr1_cube",
+            "_lazy_meta": dict(field),
+            "_lazy_files": list(fits_files),
+            "encoded_planes": None,
+        }
+
+    def _decode_dr1_cube_planes(
+        self, field: Dict[str, Any], fits_files: List[str]
+    ) -> Tuple[Dict[str, Dict[str, Any]], int, int]:
         encoded_planes: Dict[str, Dict[str, Any]] = {}
         width, height = field.get("crop_size", 220), field.get("crop_size", 220)
 
@@ -253,7 +278,6 @@ class DatasetStore:
             hdu = hdus[0]
             width, height = hdu["width"], hdu["height"]
 
-            # Match channel ID from filename (e.g. ch01_078um)
             fname = os.path.basename(fpath)
             matched_band = None
             for b in SPHEREX_BANDS:
@@ -280,23 +304,32 @@ class DatasetStore:
                     "float32_b64": base64.b64encode(hdu["float_bytes"]).decode("ascii"),
                 }
             }
-
-        self.datasets[field["id"]] = {
-            "id": field["id"],
-            "name": f"🛰️ {field['name']}",
-            "type": "real_spherex_fits",
-            "ra": field["ra"],
-            "dec": field["dec"],
-            "width": width,
-            "height": height,
-            "description": f"Datos FITS reales descargados de NASA/IRSA ({field['collection']}, 18 canales de 0.78 a 4.95 µm).",
-            "source": f"NASA/IRSA {field['collection']}",
-            "encoded_planes": encoded_planes,
-        }
+        return encoded_planes, width, height
 
     def _register_real_level2_suite(
         self, l2set: Dict[str, Any], fits_files: List[str]
     ) -> None:
+        width, height = l2set.get("crop_size", 220), l2set.get("crop_size", 220)
+        self.datasets[l2set["id"]] = {
+            "id": l2set["id"],
+            "name": f"🛰️ {l2set['name']}",
+            "type": "real_spherex_fits",
+            "category": l2set.get("category"),
+            "ra": l2set["ra"],
+            "dec": l2set["dec"],
+            "width": width,
+            "height": height,
+            "description": f"Exposición Level-2 real descargada de NASA/IRSA ({l2set['collection']}, Detectores D1–D6).",
+            "source": f"NASA/IRSA {l2set['collection']}",
+            "_lazy_mode": "level2",
+            "_lazy_meta": dict(l2set),
+            "_lazy_files": list(fits_files),
+            "encoded_planes": None,
+        }
+
+    def _decode_level2_planes(
+        self, l2set: Dict[str, Any], fits_files: List[str]
+    ) -> Tuple[Dict[str, Dict[str, Any]], int, int]:
         encoded_planes: Dict[str, Dict[str, Any]] = {}
         width, height = l2set.get("crop_size", 220), l2set.get("crop_size", 220)
         det_chromas = {
@@ -340,19 +373,7 @@ class DatasetStore:
                     "float32_b64": base64.b64encode(hdu["float_bytes"]).decode("ascii"),
                 }
             }
-
-        self.datasets[l2set["id"]] = {
-            "id": l2set["id"],
-            "name": f"🛰️ {l2set['name']}",
-            "type": "real_spherex_fits",
-            "ra": l2set["ra"],
-            "dec": l2set["dec"],
-            "width": width,
-            "height": height,
-            "description": f"Exposición Level-2 real descargada de NASA/IRSA ({l2set['collection']}, Detectores D1–D6).",
-            "source": f"NASA/IRSA {l2set['collection']}",
-            "encoded_planes": encoded_planes,
-        }
+        return encoded_planes, width, height
 
     def get_bundle_planes(self, dataset_id: str) -> Dict[str, Dict[str, Any]]:
         self.ensure_initialized()
@@ -463,6 +484,15 @@ class DatasetStore:
                     }
                 }
             return encoded_planes
+
+        if ds.get("encoded_planes") is None and ds.get("_lazy_files"):
+            if ds.get("_lazy_mode") == "dr1_cube":
+                planes, w, h = self._decode_dr1_cube_planes(ds["_lazy_meta"], ds["_lazy_files"])
+            else:
+                planes, w, h = self._decode_level2_planes(ds["_lazy_meta"], ds["_lazy_files"])
+            ds["encoded_planes"] = planes
+            ds["width"] = w
+            ds["height"] = h
 
         return ds["encoded_planes"]
 
@@ -1480,7 +1510,11 @@ class VisualizerRequestHandler(BaseHTTPRequestHandler):
         })
 
     def _handle_upload_fits(self, payload: Dict[str, Any]) -> None:
-        files = payload.get("files", [])
+        files = payload.get("files") or (
+            [{"filename": payload.get("filename", "uploaded.fits"), "content_b64": payload["content_b64"]}]
+            if payload.get("content_b64")
+            else []
+        )
         if not files:
             self._send_error_json("No FITS files provided.", status=400)
             return

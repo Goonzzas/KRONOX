@@ -4,24 +4,28 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>KRONOX · Atlas Inmersivo de Todo el Cielo (Aladin Lite v3 · WISE · 2MASS · DSS2 · Gaia DR3 · SPHEREx DR1)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #05070d;
-      --panel: rgba(11, 15, 25, 0.92);
-      --border: #1e293b;
-      --accent: #38bdf8;
-      --amber: #fbbf24;
-      --green: #34d399;
-      --rose: #fb7185;
-      --text: #e2e8f0;
-      --muted: #94a3b8;
+      --bg: #03060c;
+      --panel: rgba(4, 10, 22, 0.08);
+      --border: rgba(0, 240, 255, 0.32);
+      --accent: #00f0ff;
+      --amber: #ffbe0b;
+      --green: #00f5a0;
+      --rose: #ff3e7f;
+      --text: #e6fbff;
+      --muted: #9dd9eb;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       width: 100%; height: 100%;
       background: var(--bg);
       color: var(--text);
-      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+      letter-spacing: 0.25px;
       overflow: hidden;
     }
     #aladin-lite-div {
@@ -69,7 +73,9 @@
     .mini-canvas-box canvas { display: block; width: 96px; height: 96px; image-rendering: pixelated; }
     header {
       position: fixed; top: 0; left: 0; right: 0; height: 54px;
-      background: rgba(7, 10, 18, 0.96);
+      background: rgba(4, 10, 22, 0.14);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
       border-bottom: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between;
       padding: 0 12px; gap: 10px; z-index: 20;
@@ -91,7 +97,7 @@
       #searchObjInput { width: 165px !important; }
     }
     .btn, .input-box, select {
-      background: #0f172a;
+      background: rgba(4, 10, 22, 0.12);
       color: var(--text);
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -99,78 +105,141 @@
       font-size: 0.72rem;
     }
     .btn { cursor: pointer; font-weight: 600; transition: border-color 0.15s, background 0.15s; white-space: nowrap; }
-    .btn:hover { border-color: var(--accent); background: #162038; }
-    .btn-primary { background: rgba(56, 189, 248, 0.18); border-color: rgba(56, 189, 248, 0.55); color: #e0f2fe; }
-    .btn-analyze { background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(56, 189, 248, 0.25)); border-color: #34d399; color: #ecfdf5; font-weight: 700; }
-    .btn.active { border-color: var(--accent); background: #1d273f; color: #fff; }
+    .btn:hover { border-color: var(--accent); background: rgba(0, 240, 255, 0.14); }
+    .btn-primary { background: rgba(0, 240, 255, 0.12); border-color: rgba(0, 240, 255, 0.55); color: #e0f2fe; }
+    .btn-analyze { background: linear-gradient(135deg, rgba(0, 245, 160, 0.16), rgba(0, 240, 255, 0.16)); border-color: rgba(0, 245, 160, 0.65); color: #ecfdf5; font-weight: 700; }
+    .btn.active { border-color: var(--accent); background: rgba(0, 240, 255, 0.18); color: #fff; box-shadow: 0 0 10px rgba(0, 240, 255, 0.25); }
     .side-panel {
-      position: fixed; top: 64px; left: 12px; width: 325px; max-height: calc(100vh - 110px);
-      background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+      position: fixed; top: 64px; left: 12px; width: 315px; max-height: calc(100vh - 110px);
+      background: var(--panel); border: 1px solid rgba(0, 240, 255, 0.42); border-radius: 10px;
       padding: 10px 11px; overflow-y: auto; z-index: 15;
       display: flex; flex-direction: column; gap: 9px;
-      backdrop-filter: blur(8px);
-      font-size: 0.72rem;
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.16), inset 0 0 8px rgba(0, 240, 255, 0.04);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+      font-size: 0.76rem;
     }
+    .side-panel::-webkit-scrollbar { width: 4px; }
+    .side-panel::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, 0.35); border-radius: 4px; }
     .side-panel.collapsed { max-height: 38px; overflow: hidden; width: auto; }
     .sec {
-      border-top: 1px solid #172033;
+      border-top: 1px solid rgba(0, 240, 255, 0.18);
       padding-top: 7px;
       display: flex; flex-direction: column; gap: 5px;
     }
     .sec:first-child { border-top: none; padding-top: 0; }
     .sec-title {
-      font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
-      color: var(--accent); display: flex; justify-content: space-between; align-items: center;
+      font-family: 'Orbitron', 'Rajdhani', sans-serif;
+      font-size: 0.67rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.9px;
+      color: var(--accent); text-shadow: 0 0 8px rgba(0, 240, 255, 0.55);
+      display: flex; justify-content: space-between; align-items: center;
     }
+    .brand h1, .badge { font-family: 'Orbitron', 'Rajdhani', sans-serif; letter-spacing: 0.7px; }
     .row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
     .telemetry-box {
-      background: #050811; border: 1px solid #1b2436; border-radius: 6px; padding: 6px 8px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.67rem; line-height: 1.45;
+      background: rgba(4, 10, 22, 0.12); border: 1px solid rgba(0, 240, 255, 0.22); border-radius: 6px; padding: 6px 8px;
+      font-family: 'Share Tech Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.68rem; line-height: 1.42;
+    }
+    /* Neon Tron Sliders */
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none;
+      background: transparent; cursor: pointer; height: 18px;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 4px; border-radius: 999px;
+      background: linear-gradient(90deg, rgba(0, 240, 255, 0.22), rgba(0, 240, 255, 0.72));
+      border: 1px solid rgba(0, 240, 255, 0.45);
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.35);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 13px; height: 13px; margin-top: -5px;
+      border-radius: 3px; transform: rotate(45deg);
+      background: #041224;
+      border: 2px solid #00f0ff;
+      box-shadow: 0 0 8px #00f0ff, 0 0 14px rgba(0, 240, 255, 0.75);
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+    input[type="range"]:hover::-webkit-slider-thumb {
+      transform: rotate(45deg) scale(1.16);
+      background: #00f0ff;
+      box-shadow: 0 0 12px #00f0ff, 0 0 22px rgba(0, 240, 255, 0.95);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 4px; border-radius: 999px;
+      background: linear-gradient(90deg, rgba(0, 240, 255, 0.22), rgba(0, 240, 255, 0.72));
+      border: 1px solid rgba(0, 240, 255, 0.45);
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.35);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 12px; height: 12px; border-radius: 3px; transform: rotate(45deg);
+      background: #041224; border: 2px solid #00f0ff;
+      box-shadow: 0 0 8px #00f0ff, 0 0 14px rgba(0, 240, 255, 0.75);
     }
     .warn-note {
-      background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.35);
+      background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.35);
       color: #fde68a; border-radius: 6px; padding: 5px 7px; font-size: 0.66rem; line-height: 1.35;
     }
     .err-note {
-      background: rgba(244, 63, 94, 0.14); border: 1px solid rgba(244, 63, 94, 0.45);
+      background: rgba(244, 63, 94, 0.12); border: 1px solid rgba(244, 63, 94, 0.45);
       color: #fecdd3; border-radius: 6px; padding: 5px 7px; font-size: 0.66rem; line-height: 1.35;
     }
-    .right-hud {
-      position: fixed; top: 64px; right: 12px; width: 280px; max-height: calc(100vh - 110px);
-      background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-      padding: 9px 10px; z-index: 15; font-size: 0.7rem; overflow-y: auto;
-      display: flex; flex-direction: column; gap: 7px; backdrop-filter: blur(8px);
-    }
-    .right-hud.collapsed { max-height: 36px; overflow: hidden; width: auto; }
     footer {
       position: fixed; bottom: 0; left: 0; right: 0; height: 34px;
-      background: rgba(7, 10, 18, 0.96); border-top: 1px solid var(--border);
+      background: rgba(4, 10, 22, 0.14);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      border-top: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between;
       padding: 0 12px; font-size: 0.67rem; color: var(--muted); z-index: 20;
     }
     .chip-btn {
       padding: 3px 6px; font-size: 0.65rem; border-radius: 5px;
-      background: #0b1220; border: 1px solid #1e293b; color: #cbd5e1; cursor: pointer;
+      background: rgba(4, 10, 22, 0.12); border: 1px solid var(--border); color: #e2e8f0; cursor: pointer;
     }
     .chip-btn:hover { border-color: var(--accent); color: #fff; }
+    .chip-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0, 240, 255, 0.16); box-shadow: 0 0 8px rgba(0, 240, 255, 0.28); }
+    .layer-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+    .toggle-pill {
+      position: relative;
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 999px; font-size: 0.68rem; font-weight: 600;
+      background: rgba(4, 10, 22, 0.14); border: 1px solid var(--border); color: #cbd5e1; cursor: pointer;
+      user-select: none; transition: border-color 0.15s, background 0.15s, box-shadow 0.15s, color 0.15s;
+    }
+    .toggle-pill:hover { border-color: var(--accent); color: #fff; }
+    .toggle-pill input {
+      position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; margin: 0;
+    }
+    .toggle-pill:has(input:checked) {
+      border-color: var(--accent);
+      background: rgba(0, 240, 255, 0.26);
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.55), inset 0 0 8px rgba(0, 240, 255, 0.22);
+    }
+    details.info-tip { font-size: 0.63rem; color: var(--muted); }
+    details.info-tip summary { cursor: pointer; color: #94a3b8; list-style: none; display: inline-flex; align-items: center; gap: 4px; }
+    details.info-tip summary:hover { color: var(--accent); }
+    details.info-tip .warn-note { margin-top: 4px; }
   </style>
 </head>
 <body>
   <header>
     <div class="brand">
-      <span class="badge">KRONOX · ATLAS 360°</span>
+      <span class="badge">🌌 KRONOX 360°</span>
       <div>
-        <h1>Cielo Completo Inmersivo · Astrometría Real (ICRS/J2000 &amp; Galáctico)</h1>
-        <p id="atlasSubtitle">Sondeos HiPS multirresolución reales (AllWISE, 2MASS, DSS2, Gaia DR3, SPHEREx DR1) · Sin generación sintética</p>
+        <h1>Atlas Celeste Real · ICRS &amp; Galáctico</h1>
+        <p id="atlasSubtitle">HiPS Reales: AllWISE · 2MASS · DSS2 · Gaia DR3 · SPHEREx DR1</p>
       </div>
     </div>
     <div class="top-actions">
-      <input type="text" id="searchObjInput" class="input-box" placeholder="Objeto o RA, Dec (ej: Sgr A*, IC 1805)" style="width:190px;" />
-      <button class="btn btn-primary" id="btnSearchObj">🔍 Ir</button>
-      <button class="btn" id="btnSelectRegion" title="Seleccionar una región del cielo para consultar observaciones SPHEREx, embeddings, KNN y evolución temporal">🎯 SELECCIONAR REGIÓN</button>
-      <button class="btn" id="btnFullscreen" title="Alternar pantalla completa">⛶ Pantalla completa</button>
-      <button class="btn btn-analyze" id="btnAnalyzeInKronox">🔬 ABRIR ANÁLISIS COMPLETO EN KRONOX</button>
+      <input type="text" id="searchObjInput" class="input-box" placeholder="Objeto o RA, Dec (Sgr A*, Cas A)" style="width:185px;" title="Buscar objeto astronómico o coordenadas RA, Dec" />
+      <button class="btn btn-primary" id="btnSearchObj" title="Ir al objeto o coordenadas">🔍 Ir</button>
+      <button class="btn" id="btnSelectRegion" title="Seleccionar una región del cielo para consultar observaciones SPHEREx, embeddings, KNN y evolución temporal">🎯 Región</button>
+      <button class="btn" id="btnFullscreen" title="Alternar pantalla completa">⛶</button>
+      <button class="btn btn-analyze" id="btnAnalyzeInKronox" title="Abrir análisis completo en Kronox">🔬 Kronox</button>
     </div>
   </header>
 
@@ -189,44 +258,38 @@
   <aside class="side-panel" id="controlsPanel">
     <div class="sec">
       <div class="sec-title">
-        <span>1. Proyección y Sistema Celeste</span>
-        <button class="chip-btn" id="btnToggleControls">▾</button>
+        <span>🧭 1. Proyección</span>
+        <button class="chip-btn" id="btnToggleControls" title="Contraer/expandir panel">▾</button>
       </div>
       <div class="grid2">
-        <button class="btn active" id="btnModeInmersiva" data-proj="ZEA" title="Vista direccional tipo planetario desde el interior de la esfera celeste">🌐 VISTA INMERSIVA</button>
-        <button class="btn" id="btnModeEcuatorial" data-proj="AIT" title="Mapa completo de la esfera celeste en proyección Aitoff">🗺️ MAPA ECUATORIAL</button>
+        <button class="btn active" id="btnModeInmersiva" data-proj="ZEA" title="Vista direccional tipo planetario desde el interior de la esfera celeste">🌐 Inmersiva</button>
+        <button class="btn" id="btnModeEcuatorial" data-proj="AIT" title="Mapa completo de la esfera celeste en proyección Aitoff">🗺️ Ecuatorial</button>
       </div>
-      <div class="row">
-        <label style="color:var(--muted); font-size:0.68rem;">Proyección:</label>
-        <select id="projDetailSelect" style="flex:1;">
-          <option value="ZEA" selected>ZEA · Acimutal Inmersiva (Planetario)</option>
-          <option value="STG">STG · Estereográfica (Campo ultra amplio)</option>
-          <option value="SIN">SIN · Ortográfica / Esfera</option>
-          <option value="TAN">TAN · Gnomónica (Campo local)</option>
-          <option value="AIT">AIT · Aitoff (Mapa Ecuatorial completo)</option>
-          <option value="MOL">MOL · Mollweide (Mapa Ecuatorial)</option>
+      <div class="grid2">
+        <select id="projDetailSelect" title="Proyección cartográfica">
+          <option value="ZEA" selected>ZEA · Planetario</option>
+          <option value="STG">STG · Estereográfica</option>
+          <option value="SIN">SIN · Ortográfica</option>
+          <option value="TAN">TAN · Gnomónica</option>
+          <option value="AIT">AIT · Aitoff</option>
+          <option value="MOL">MOL · Mollweide</option>
         </select>
-      </div>
-      <div class="row">
-        <label style="color:var(--muted); font-size:0.68rem;">Coordenadas:</label>
-        <select id="cooFrameSelect" style="flex:1;">
-          <option value="ICRSd" selected>Ecuatorial ICRS / J2000 (grados)</option>
+        <select id="cooFrameSelect" title="Sistema de coordenadas">
+          <option value="ICRSd" selected>ICRS / J2000 (°)</option>
           <option value="galactic">Galácticas (l, b)</option>
         </select>
       </div>
       <div class="row">
-        <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+        <label class="toggle-pill" title="Mostrar cuadrícula celeste (ICRS / Galáctica)">
           <input type="checkbox" id="chkCooGrid" />
-          <span>Mostrar cuadrícula celeste (ICRS / Galáctica)</span>
+          <span>▦ Cuadrícula</span>
         </label>
-      </div>
-      <div class="row">
-        <label style="color:var(--muted); font-size:0.68rem;">Orientación PA:</label>
+        <label style="color:var(--muted); font-size:0.65rem;" title="Orientación PA">↻ PA</label>
         <input type="range" id="paSlider" min="-180" max="180" value="0" style="flex:1;" />
-        <span id="paValLbl" style="font-family:monospace; width:38px; text-align:right;">0°</span>
+        <span id="paValLbl" style="font-family:monospace; width:34px; text-align:right;">0°</span>
       </div>
       <div class="row">
-        <label style="color:var(--muted); font-size:0.68rem;">Zoom FOV:</label>
+        <label style="color:var(--muted); font-size:0.65rem;" title="Campo de visión (FOV)">🔭 FOV</label>
         <button class="chip-btn" data-fov="180">180°</button>
         <button class="chip-btn" data-fov="60">60°</button>
         <button class="chip-btn" data-fov="12">12°</button>
@@ -236,144 +299,147 @@
     </div>
 
     <div class="sec">
-      <div class="sec-title"><span>2. Capas Astronómicas Reales</span></div>
+      <div class="sec-title"><span>🛰️ 2. Capas &amp; IA 64D</span></div>
       <div class="row">
-        <label style="color:var(--muted); font-size:0.68rem;">Sondeo base:</label>
-        <select id="baseSurveySelect" style="flex:1;">
-          <option value="ALLWISE" selected>WISE · AllWISE Color (IR 3.4–22 µm, falso color W4/W2/W1)</option>
-          <option value="2MASS">2MASS · Infrarrojo Cercano (falso color J, H, K)</option>
-          <option value="DSS2">DSS2 · Óptico Visible (Palomar / UKST)</option>
-          <option value="SPHEREx">SPHEREx DR1 · Cubo 102 Canales (IRSA HiPS)</option>
+        <label style="color:var(--muted); font-size:0.65rem;">Base</label>
+        <select id="baseSurveySelect" style="flex:1;" title="Sondeo astronómico base">
+          <option value="ALLWISE" selected>WISE · AllWISE (3.4–22 µm)</option>
+          <option value="2MASS">2MASS · NIR (J, H, K)</option>
+          <option value="DSS2">DSS2 · Óptico Visible</option>
+          <option value="SPHEREx">SPHEREx DR1 · 102 ch</option>
         </select>
       </div>
       <div id="hipsNetworkErrorBanner" class="err-note" style="display:none;"></div>
-      <div class="row">
-        <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+      <div class="layer-pills">
+        <label class="toggle-pill" title="Superponer SPHEREx DR1 sobre base (comparación visual)">
           <input type="checkbox" id="chkSpherexOverlay" />
-          <span>Superponer SPHEREx DR1 sobre base (comparación visual)</span>
+          <span>＋ SPHEREx</span>
         </label>
-      </div>
-      <div class="row">
-        <label style="color:var(--muted); font-size:0.68rem;">Opacidad overlay:</label>
-        <input type="range" id="overlayOpacitySlider" min="0" max="100" value="45" style="flex:1;" />
-        <span id="overlayOpacityVal" style="font-family:monospace; width:34px; text-align:right;">45%</span>
-      </div>
-      <div class="row">
-        <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+        <label class="toggle-pill" title="Catálogo astrométrico Gaia DR3 (posiciones/Gmag/μ)">
           <input type="checkbox" id="chkGaiaCatalog" />
-          <span>Catálogo astrométrico <b>Gaia DR3</b> (posiciones/Gmag/μ)</span>
+          <span>＋ Gaia DR3</span>
         </label>
-      </div>
-      <div class="row" style="border-top:1px solid #172033; padding-top:6px;">
-        <label style="display:flex; align-items:center; gap:5px; cursor:pointer; color:var(--accent); font-weight:700;">
+        <label class="toggle-pill" title="Similitud del coseno y K-NN en TODO EL CIELO (64D)" style="color:var(--accent);">
           <input type="checkbox" id="chkAllSkyCosine" />
-          <span>🌌 Similitud del coseno en TODO EL CIELO</span>
+          <span>🌌 IA 64D</span>
         </label>
       </div>
-      <div id="allSkyCosControls" style="display:none; flex-direction:column; gap:5px;">
+      <div class="row">
+        <label style="color:var(--muted); font-size:0.65rem;" title="Opacidad overlay SPHEREx">◐ Opac.</label>
+        <input type="range" id="overlayOpacitySlider" min="0" max="100" value="45" style="flex:1;" />
+        <span id="overlayOpacityVal" style="font-family:monospace; width:32px; text-align:right;">45%</span>
+      </div>
+      <div id="allSkyCosControls" style="display:none; flex-direction:column; gap:5px; border-top:1px solid #172033; padding-top:6px;">
         <div class="row" id="allSkyModePills" style="gap:4px;">
-          <button class="chip-btn active" data-allsky-mode="cos" style="flex:1;">Similitud Coseno</button>
-          <button class="chip-btn" data-allsky-mode="knn" style="flex:1;">Clasificación K-NN</button>
+          <button class="chip-btn active" data-allsky-mode="cos" style="flex:1;" title="Similitud del coseno respecto al prototipo">≈ Coseno</button>
+          <button class="chip-btn" data-allsky-mode="knn" style="flex:1;" title="Clasificación K-NN en todo el cielo">◈ K-NN</button>
         </div>
-        <div style="display:flex; flex-direction:column; gap:3px;">
-          <span style="color:var(--muted); font-size:0.62rem;">Subespacio de embeddings (64D):</span>
-          <div class="row" id="allSkySubspacePills" style="gap:3px; flex-wrap:wrap;">
-            <button class="chip-btn active" data-allsky-sub="all" title="Todas las 64 dimensiones (0–63)">Todo (64D)</button>
-            <button class="chip-btn" data-allsky-sub="sed" title="Primeras 32 componentes (0–31: Color/Histograma)">32D Color</button>
-            <button class="chip-btn" data-allsky-sub="morph" title="Siguientes 24 componentes (32–55: Morfología/Anillos)">24D Morf.</button>
-            <button class="chip-btn" data-allsky-sub="flux" title="Últimas 8 componentes (56–63: Flujo/Interacción)">8D Flujo</button>
-          </div>
+        <div class="row" id="allSkySubspacePills" style="gap:3px; flex-wrap:wrap;" title="Subespacio de embeddings 64D">
+          <button class="chip-btn active" data-allsky-sub="all" title="Todas las 64 dimensiones (0–63)">64D</button>
+          <button class="chip-btn" data-allsky-sub="sed" title="Primeras 32 componentes (0–31: Color/Histograma)">32D Color</button>
+          <button class="chip-btn" data-allsky-sub="morph" title="Siguientes 24 componentes (32–55: Morfología/Anillos)">24D Morf.</button>
+          <button class="chip-btn" data-allsky-sub="flux" title="Últimas 8 componentes (56–63: Flujo/Interacción)">8D Flujo</button>
         </div>
         <div class="row" id="allSkyKnnRow" style="display:none;">
-          <label style="color:var(--muted); font-size:0.67rem;">Clases K-NN:</label>
+          <label style="color:var(--muted); font-size:0.65rem;">◈ K</label>
           <input type="range" id="allSkyKnnSlider" min="2" max="10" step="1" value="5" style="flex:1;" />
           <span id="allSkyKnnKVal" style="font-family:monospace; color:var(--accent); width:22px; text-align:right; font-weight:700;">5</span>
         </div>
         <div id="allSkyCosThreshRow" style="display:flex; flex-direction:column; gap:4px;">
           <div class="row">
-            <label style="color:var(--muted); font-size:0.67rem;">Umbral centro:</label>
+            <label style="color:var(--muted); font-size:0.65rem;" title="Umbral de similitud coseno">⚖ Umbral</label>
             <input type="range" id="allSkyCosThreshSlider" min="50" max="99" value="78" style="flex:1;" />
             <span id="allSkyCosThreshVal" style="font-family:monospace; width:34px; text-align:right;">0.78</span>
           </div>
-          <div style="display:flex; align-items:center; gap:5px; font-size:0.62rem; color:var(--muted);">
-            <span style="color:#60a5fa; font-weight:700;">Baja (Azul)</span>
-            <div style="flex:1; height:8px; border-radius:4px; background:linear-gradient(90deg, #2563eb 0%, rgba(248,250,252,0.25) 50%, #ef4444 100%); border:1px solid #334155;"></div>
-            <span style="color:#f87171; font-weight:700;">Alta (Rojo)</span>
+          <div style="display:flex; align-items:center; gap:5px; font-size:0.60rem; color:var(--muted);">
+            <span style="color:#60a5fa; font-weight:700;">Baja</span>
+            <div style="flex:1; height:7px; border-radius:4px; background:linear-gradient(90deg, #2563eb 0%, rgba(248,250,252,0.25) 50%, #ef4444 100%); border:1px solid #334155;"></div>
+            <span style="color:#f87171; font-weight:700;">Alta</span>
           </div>
         </div>
         <div id="allSkyKnnLegend" style="display:none; flex-wrap:wrap; gap:4px; font-size:0.60rem;"></div>
         <div class="row">
-          <button class="chip-btn" id="btnPickAllSkyProto">🎯 Clic directo en el cielo</button>
-          <button class="chip-btn" id="btnResetAllSkyProto">Centro</button>
-          <button class="chip-btn" id="btnRecomputeAllSkyCos" title="Recalcular sobre el campo actual manteniendo el mismo prototipo">↻ Recalcular vista</button>
+          <button class="chip-btn" id="btnPickAllSkyProto" title="Elegir prototipo haciendo clic en el cielo">🎯 Punto</button>
+          <button class="chip-btn" id="btnResetAllSkyProto" title="Usar centro actual como prototipo">⌖ Centro</button>
+          <button class="chip-btn" id="btnRecomputeAllSkyCos" title="Recalcular sobre el campo actual manteniendo el mismo prototipo">↻ Recalcular</button>
         </div>
         <div id="allSkyCosProgressWrap" style="display:none; flex-direction:column; gap:2px;">
           <div style="display:flex; justify-content:space-between; font-size:0.61rem; color:var(--accent);">
-            <span id="allSkyCosProgressLbl">Calculando similitud 64D...</span>
+            <span id="allSkyCosProgressLbl">Calculando...</span>
             <span id="allSkyCosProgressPct" style="font-family:monospace;">0%</span>
           </div>
           <div style="height:6px; background:#050811; border-radius:4px; overflow:hidden; border:1px solid #1e293b;">
             <div id="allSkyCosProgressBar" style="height:100%; width:0%; background:linear-gradient(90deg, #2563eb, #ef4444); transition:width 0.08s linear;"></div>
           </div>
         </div>
-        <div id="allSkyCosStatus" class="telemetry-box" style="font-size:0.63rem;">Haz clic en cualquier punto del cielo para calcular similitud coseno o K-NN en el subespacio elegido.</div>
+        <div id="allSkyCosStatus" class="telemetry-box" style="font-size:0.62rem;">Clic en el cielo para similitud coseno o K-NN.</div>
       </div>
-      <div class="warn-note">
-        Gaia DR3 es un catálogo estelar discreto (I/355/gaiadr3), no una imagen RGB continua. La superposición WISE ↔ SPHEREx es puramente visual en coordenadas compartidas (sin equivalencia fotométrica ni identificación química automática).
-      </div>
+      <details class="info-tip">
+        <summary>ℹ️ Notas de capas</summary>
+        <div class="warn-note">
+          Gaia DR3 es un catálogo estelar discreto (I/355/gaiadr3), no una imagen RGB continua. La superposición WISE ↔ SPHEREx es puramente visual en coordenadas compartidas (sin equivalencia fotométrica ni identificación química automática).
+        </div>
+      </details>
     </div>
 
     <div class="sec">
-      <div class="sec-title"><span>3. Espectroscopía SPHEREx DR1 (102 Canales)</span></div>
+      <div class="sec-title"><span>🌈 3. SPHEREx (102 ch)</span></div>
       <div class="row">
-        <button class="chip-btn" id="btnSpxPrev">◀</button>
+        <button class="chip-btn" id="btnSpxPrev" title="Canal anterior">◀</button>
         <input type="range" id="spxChSlider" min="1" max="102" value="16" style="flex:1;" />
-        <button class="chip-btn" id="btnSpxNext">▶</button>
+        <button class="chip-btn" id="btnSpxNext" title="Canal siguiente">▶</button>
         <span id="spxChReadout" style="font-family:monospace; color:var(--accent);">C16</span>
       </div>
       <div id="spxWaveInfo" class="telemetry-box">Canal 16/102 · D1 · λ ≈ 0.898 µm</div>
       <div id="spxUnavailableBanner" class="err-note" style="display:none;">
         Canales 51 y 52 no disponibles en SPHEREx DR1 (sin datos publicados; no se interpola).
       </div>
-      <div class="warn-note">
-        Las teselas HiPS PNG son para navegación visual rápida sin reiniciar orientación; para fotometría cuantitativa usa FITS en Kronox.
-      </div>
+      <details class="info-tip">
+        <summary>ℹ️ Nota HiPS</summary>
+        <div class="warn-note">
+          Las teselas HiPS PNG son para navegación visual rápida sin reiniciar orientación; para fotometría cuantitativa usa FITS en Kronox.
+        </div>
+      </details>
     </div>
 
     <div class="sec">
-      <div class="sec-title"><span>4. Navegación Rápida y Pruebas</span></div>
+      <div class="sec-title"><span>⚡ 4. Ir rápido</span></div>
       <div class="row">
         <button class="chip-btn" data-goto="38.2171,61.4767,2.2,IC 1805">IC 1805</button>
         <button class="chip-btn" data-goto="6.0236,-72.0813,1.5,NGC 104">NGC 104</button>
         <button class="chip-btn" data-goto="350.85,58.815,1.2,Cassiopeia A">Cas A</button>
         <button class="chip-btn" data-goto="10.6847,41.2687,4.0,M31">M31</button>
         <button class="chip-btn" data-goto="266.4168,-29.0078,12.0,Centro Galáctico">Centro Gal.</button>
-        <button class="chip-btn" data-goto="0.0,90.0,35.0,Polo Norte Celeste">Polo N (+90°)</button>
-        <button class="chip-btn" data-goto="0.0,-90.0,35.0,Polo Sur Celeste">Polo S (-90°)</button>
-        <button class="chip-btn" data-goto="0.0,15.0,25.0,Cruce RA 0°">Cruce RA=0°</button>
+        <button class="chip-btn" data-goto="0.0,90.0,35.0,Polo Norte Celeste">Polo N</button>
+        <button class="chip-btn" data-goto="0.0,-90.0,35.0,Polo Sur Celeste">Polo S</button>
+        <button class="chip-btn" data-goto="0.0,15.0,25.0,Cruce RA 0°">RA=0°</button>
       </div>
     </div>
-  </aside>
 
-  <aside class="right-hud" id="rightHudPanel">
-    <div class="sec-title">
-      <span>Telemetría &amp; Procedencia</span>
-      <button class="chip-btn" id="btnToggleHud">▾</button>
-    </div>
-    <div class="telemetry-box" id="hudCenterCoords">Centro: esperando Aladin Lite v3...</div>
-    <div class="telemetry-box" id="hudCursorCoords">Cursor: mueve el puntero sobre el cielo</div>
-    <div class="telemetry-box" id="hudSelectedObj">Objeto / Estrella: clic en el cielo o en Gaia DR3</div>
-    <div class="telemetry-box" id="hudSurveyStatus">
-      Estado capas:<br/>
-      • Motor: Aladin Lite v3.8.2<br/>
-      • SPHEREx HiPS: ivo://IPAC/P/SPHEREx/DR1/cube<br/>
-      • Atribución: NASA/IPAC IRSA, CDS Strasbourg<br/>
-      • DOIs DR1/QR3: 10.26131/IRSA678 · IRSA679 · IRSA662
-    </div>
-    <div class="telemetry-box" id="hudTilePerf">
-      Rendimiento HiPS &amp; Caché:<br/>
-      • LRU Teselas: 0/64 · Solicitudes: 0<br/>
-      • HTTP 200: 0 · 404/5xx: 0
+    <div class="sec">
+      <details open>
+        <summary class="sec-title" style="cursor:pointer; list-style:none;">
+          <span>📡 5. Telemetría</span>
+          <span style="font-size:0.65rem; color:var(--muted);">▾</span>
+        </summary>
+        <div style="display:flex; flex-direction:column; gap:5px; margin-top:6px;">
+          <div class="telemetry-box" id="hudCenterCoords">Centro: esperando Aladin Lite v3...</div>
+          <div class="telemetry-box" id="hudCursorCoords">Cursor: mueve el puntero sobre el cielo</div>
+          <div class="telemetry-box" id="hudSelectedObj">Objeto / Estrella: clic en el cielo o en Gaia DR3</div>
+          <div class="telemetry-box" id="hudSurveyStatus">
+            Estado capas:<br/>
+            • Motor: Aladin Lite v3.8.2<br/>
+            • SPHEREx HiPS: ivo://IPAC/P/SPHEREx/DR1/cube<br/>
+            • Atribución: NASA/IPAC IRSA, CDS Strasbourg<br/>
+            • DOIs DR1/QR3: 10.26131/IRSA678 · IRSA679 · IRSA662
+          </div>
+          <div class="telemetry-box" id="hudTilePerf">
+            Rendimiento HiPS &amp; Caché:<br/>
+            • LRU Teselas: 0/64 · Solicitudes: 0<br/>
+            • HTTP 200: 0 · 404/5xx: 0
+          </div>
+        </div>
+      </details>
     </div>
   </aside>
 
@@ -619,6 +685,12 @@
         }
       }
 
+      function applySpxCubeFrame(hips, ch0) {
+        if (!hips) return;
+        if (typeof hips.setCubeFrame === 'function') hips.setCubeFrame(ch0);
+        else if (typeof hips.setSlice === 'function') hips.setSlice(ch0);
+      }
+
       function createSpherexHiPS(aladin, opacity) {
         const ch0 = atlasState.spxChannel - 1;
         const hipsUrl = SURVEY_CATALOG.SPHEREx.url;
@@ -627,13 +699,11 @@
             id: `irsa_spherex_c${atlasState.spxChannel}`,
             name: `SPHEREx DR1 (C${atlasState.spxChannel})`,
             imgFormat: 'png',
-            opacity: opacity
+            opacity: opacity,
+            startSlice: ch0
           });
-          if (hips && typeof hips.setCubeFrame === 'function') {
-            hips.setCubeFrame(ch0);
-          } else if (hips && typeof hips.setSlice === 'function') {
-            hips.setSlice(ch0);
-          }
+          applySpxCubeFrame(hips, ch0);
+          setTimeout(() => applySpxCubeFrame(hips, atlasState.spxChannel - 1), 450);
           return hips;
         } catch (err) {
           console.warn('SPHEREx HiPS fallback:', err);
@@ -659,8 +729,14 @@
         verifyHiPSService(cfg.url, cfg.name);
         try {
           if (atlasState.baseSurvey === 'SPHEREx') {
-            a.setBaseImageLayer(cfg.url);
             try { if (typeof a.removeImageLayer === 'function') a.removeImageLayer('overlay'); } catch (_) {}
+            const spxBase = createSpherexHiPS(a, 1.0);
+            if (spxBase) {
+              atlasState.spxSurveyObj = spxBase;
+              a.setBaseImageLayer(spxBase);
+            } else {
+              a.setBaseImageLayer(cfg.url);
+            }
           } else {
             a.setBaseImageLayer(cfg.url);
             if (atlasState.overlayActive && !atlasState.blankChannels.has(atlasState.spxChannel - 1)) {
@@ -908,8 +984,15 @@
       document.getElementById('projDetailSelect').addEventListener('change', e => setProjectionMode(e.target.value));
       document.getElementById('chkCooGrid')?.addEventListener('change', e => {
         atlasState.cooGridEnabled = e.target.checked;
-        if (atlasState.aladin && typeof atlasState.aladin.showCooGrid === 'function') {
-          atlasState.aladin.showCooGrid(atlasState.cooGridEnabled);
+        const aladin = atlasState.aladin;
+        if (!aladin) return;
+        if (atlasState.cooGridEnabled) {
+          if (typeof aladin.showCooGrid === 'function') aladin.showCooGrid();
+          else if (typeof aladin.setCooGrid === 'function') aladin.setCooGrid({ enabled: true });
+        } else {
+          if (typeof aladin.hideCooGrid === 'function') aladin.hideCooGrid();
+          else if (typeof aladin.setCooGrid === 'function') aladin.setCooGrid({ enabled: false });
+          else if (typeof aladin.showCooGrid === 'function') aladin.showCooGrid(false);
         }
       });
       document.getElementById('cooFrameSelect').addEventListener('change', e => {
@@ -1063,7 +1146,18 @@
       });
 
       document.getElementById('btnAnalyzeInKronox').addEventListener('click', () => {
-        const url = new URL(`${SERVER_BASE}/kronox_visor_cientifico.html`);
+        if (typeof window.__kronoxReturnToSpectralExplorer === 'function') {
+          window.__kronoxReturnToSpectralExplorer({
+            ra: atlasState.ra,
+            dec: atlasState.dec,
+            fov: Math.min(45, Math.max(0.25, atlasState.fov)),
+            target: atlasState.targetName || '',
+            channel: atlasState.spxChannel,
+          });
+          return;
+        }
+        const originBase = window.location.origin;
+        const url = new URL(`${originBase}/kronox_visor_cientifico.html`);
         url.searchParams.set('ra', atlasState.ra.toFixed(5));
         url.searchParams.set('dec', atlasState.dec.toFixed(5));
         url.searchParams.set('fov', Math.min(45, Math.max(0.25, atlasState.fov)).toFixed(3));
@@ -1093,8 +1187,7 @@
             }, window.location.origin);
           } catch (_) {}
         }
-        if (window.parent !== window) window.location.assign(url.toString());
-        else window.open(url.toString(), 'kronox_lab');
+        window.open(url.toString(), 'kronox_lab');
       });
 
       // =====================================================================
@@ -1743,6 +1836,9 @@
         pickingProto: false,
         mode: 'cos', // 'cos' | 'knn'
         knnK: 5,
+        selectedClasses: new Set(),
+        lastKnnLabels: null,
+        lastKnnCounts: null,
         subspaceMode: 'all', // 'all' | 'sed' | 'morph' | 'flux'
         thresh: 0.78,
         protoRa: null,
@@ -2479,17 +2575,36 @@
           syncCosineOverlayDuringMove();
 
           const legendEl = document.getElementById('allSkyKnnLegend');
-          if (legendEl) {
-            if (allSkyCosState.mode === 'knn' && centroids) {
-              let tot = 0;
-              for (let c = 0; c < K; c++) tot += knnCounts[c];
-              let html = '';
-              for (let c = 0; c < K; c++) {
-                const rgb = ALLSKY_KNN_PALETTE[c % ALLSKY_KNN_PALETTE.length];
-                const pct = tot > 0 ? ((knnCounts[c] / tot) * 100).toFixed(1) : '0.0';
-                html += `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;background:#0f172a;border:1px solid #334155;"><span style="width:8px;height:8px;border-radius:2px;background:rgb(${rgb[0]},${rgb[1]},${rgb[2]});display:inline-block;"></span>C${c + 1} ${pct}%</span>`;
+          if (isKnnMode) {
+            // Save labels for instant class-chip filtering without recomputing embeddings
+            const labelsBuf = new Int16Array(ew * eh).fill(-1);
+            for (let y = 0; y < eh; y++) {
+              for (let x = 0; x < ew; x++) {
+                const i4 = (y * ew + x) * 4;
+                if (out[i4 + 3] === 0) continue;
+                const r = out[i4], g = out[i4 + 1], b = out[i4 + 2];
+                for (let c = 0; c < K; c++) {
+                  const prgb = ALLSKY_KNN_PALETTE[c % ALLSKY_KNN_PALETTE.length];
+                  if (prgb[0] === r && prgb[1] === g && prgb[2] === b) { labelsBuf[y * ew + x] = c; break; }
+                }
               }
-              legendEl.innerHTML = html;
+            }
+            allSkyCosState.lastKnnLabels = labelsBuf;
+            allSkyCosState.lastKnnCounts = knnCounts;
+            // Apply class filter if user selected specific classes
+            if (allSkyCosState.selectedClasses.size > 0) {
+              for (let p = 0; p < ew * eh; p++) {
+                const cls = labelsBuf[p];
+                if (cls >= 0 && !allSkyCosState.selectedClasses.has(cls)) out[p * 4 + 3] = 0;
+              }
+              sctx.putImageData(imgData, 0, 0);
+              sctx.putImageData(imgData, ew, 0);
+              syncCosineOverlayDuringMove();
+            }
+          }
+          if (legendEl) {
+            if (isKnnMode) {
+              renderAllSkyKnnLegend(K, knnCounts);
               legendEl.style.display = 'flex';
             } else {
               legendEl.style.display = 'none';
@@ -2554,11 +2669,72 @@
           if (allSkyCosState.enabled) computeAllSkyCosineOverlay();
         });
       });
+      function repaintAllSkyKnnFromCache() {
+        const labels = allSkyCosState.lastKnnLabels;
+        const simCanvas = allSkyCosState.simCanvas;
+        if (!labels || !simCanvas) return;
+        const ew = allSkyCosState.equiW, eh = allSkyCosState.equiH;
+        const sctx = simCanvas.getContext('2d');
+        const imgData = sctx.createImageData(ew, eh);
+        const out = imgData.data;
+        const sel = allSkyCosState.selectedClasses;
+        const hasFilter = sel && sel.size > 0;
+        for (let p = 0; p < ew * eh; p++) {
+          const cls = labels[p];
+          if (cls < 0 || (hasFilter && !sel.has(cls))) continue;
+          const rgb = ALLSKY_KNN_PALETTE[cls % ALLSKY_KNN_PALETTE.length];
+          const i4 = p * 4;
+          out[i4] = rgb[0];
+          out[i4 + 1] = rgb[1];
+          out[i4 + 2] = rgb[2];
+          out[i4 + 3] = 170;
+        }
+        sctx.putImageData(imgData, 0, 0);
+        sctx.putImageData(imgData, ew, 0);
+        syncCosineOverlayDuringMove();
+      }
+
+      function renderAllSkyKnnLegend(K, knnCounts) {
+        const legendEl = document.getElementById('allSkyKnnLegend');
+        if (!legendEl || !knnCounts) return;
+        let tot = 0;
+        for (let c = 0; c < K; c++) tot += knnCounts[c];
+        const sel = allSkyCosState.selectedClasses;
+        let html = `<button type="button" class="chip-btn${sel.size === 0 ? ' active' : ''}" data-allsky-cls="all" style="font-size:0.58rem;padding:1px 5px;">Todas</button>`;
+        for (let c = 0; c < K; c++) {
+          const rgb = ALLSKY_KNN_PALETTE[c % ALLSKY_KNN_PALETTE.length];
+          const pct = tot > 0 ? ((knnCounts[c] / tot) * 100).toFixed(1) : '0.0';
+          const isSel = sel.has(c);
+          const dimStyle = (sel.size > 0 && !isSel) ? 'opacity:0.45;' : '';
+          html += `<button type="button" class="chip-btn${isSel ? ' active' : ''}" data-allsky-cls="${c}" style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;font-size:0.58rem;${dimStyle}"><span style="width:8px;height:8px;border-radius:2px;background:rgb(${rgb[0]},${rgb[1]},${rgb[2]});display:inline-block;"></span>C${c + 1} ${pct}%</button>`;
+        }
+        legendEl.innerHTML = html;
+        legendEl.querySelectorAll('[data-allsky-cls]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const v = btn.dataset.allskyCls;
+            if (v === 'all') {
+              sel.clear();
+            } else {
+              const cls = parseInt(v, 10);
+              if (sel.has(cls)) sel.delete(cls);
+              else sel.add(cls);
+            }
+            renderAllSkyKnnLegend(K, knnCounts);
+            repaintAllSkyKnnFromCache();
+          });
+        });
+      }
+
+      let allSkyKnnTimer = null;
       document.getElementById('allSkyKnnSlider')?.addEventListener('input', e => {
         allSkyCosState.knnK = parseInt(e.target.value, 10) || 5;
+        allSkyCosState.selectedClasses.clear();
         const valEl = document.getElementById('allSkyKnnKVal');
         if (valEl) valEl.textContent = String(allSkyCosState.knnK);
-        if (allSkyCosState.enabled && allSkyCosState.mode === 'knn') computeAllSkyCosineOverlay();
+        if (allSkyCosState.enabled && allSkyCosState.mode === 'knn') {
+          clearTimeout(allSkyKnnTimer);
+          allSkyKnnTimer = setTimeout(() => computeAllSkyCosineOverlay(), 80);
+        }
       });
       document.getElementById('allSkyCosThreshSlider')?.addEventListener('input', e => {
         allSkyCosState.thresh = (parseInt(e.target.value, 10) || 88) / 100;

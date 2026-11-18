@@ -23,8 +23,6 @@ import { NearbyGalaxyControls, NearbyGalaxyInfoModal } from './components/Nearby
 import { NEARBY_GALAXIES } from './data/nearbyGalaxies.js';
 import MobileFlightControls from './components/MobileFlightControls.jsx';
 import SpherexDocumentary from './components/SpherexDocumentary.jsx';
-const SpherexMission = React.lazy(() => import('./components/SpherexMission.jsx'));
-import './styles/evidenceLab.css';
 import SpherexMissionSelector from './components/SpherexMissionSelector.jsx';
 import SpaceshipCockpit from './components/SpaceshipCockpit.jsx';
 import PauseMenu from './components/PauseMenu.jsx';
@@ -250,6 +248,8 @@ export default function App() {
     [recordedAiMessages, setRecordedAiMessages] = useState(() => loadRecordedAiMessages()),
     [guideState, setGuideState] = useState({ active: false, step: 'free', completed: false }),
     [noviceAdventureMode, setNoviceAdventureMode] = useState(false),
+    [noviceCabinMissionsOpen, setNoviceCabinMissionsOpen] = useState(false),
+    [visitedDecks, setVisitedDecks] = useState(['deck-01']),
     [missionWaypointHud, setMissionWaypointHud] = useState(null),
     [heldToolId, setHeldToolId] = useState(null),
     [interactionFeedback, setInteractionFeedback] = useState(null),
@@ -375,6 +375,11 @@ export default function App() {
       setActiveCockpitStation(null);
     }
   }, [fr, pv]);
+  useEffect(() => {
+    const deckId = astronautSectorState?.deckId;
+    if (!deckId) return;
+    setVisitedDecks((prev) => (prev.includes(deckId) ? prev : [...prev, deckId]));
+  }, [astronautSectorState?.deckId]);
   const missionOfferTimer = useRef(null);
   const noviceMissionPhaseRef = useRef('');
   const clearMissionOffer = () => {
@@ -1585,22 +1590,26 @@ export default function App() {
       },
       onNoviceCinematicOpenMission: () => {
         missionGuideSyncRef.current = null;
-        setMissionInitialStage('arrival');
-        setMissionOpen(true);
         const target = SPHEREX_TARGETS.find((item) => item.key === 'barnard') || SPHEREX_TARGETS[0];
-        if (target) setMissionTargetKey(target.key);
-        setAdvancedExplorerTarget(target);
-        setAdvancedExplorerOpen(true);
+        openSpherexAdvancedExplorer(target);
       },
-      onNoviceCinematicComplete: () => {
+      onNoviceCinematicComplete: (keepModalOpen = false) => {
         noviceCinematicActiveRef.current = false;
         setMissionArrival(false);
         setMissionTraveling(false);
         setCountdown(null);
         setNavigation(null);
-        setMissionOpen(false);
-        setAdvancedExplorerOpen(false);
         A().endGuidedCabinTour?.();
+        if (!keepModalOpen) {
+          setAdvancedExplorerOpen(false);
+          setMissionOpen(false);
+          setNoviceCabinMissionsOpen(true);
+          setGuideObjective(
+            'EXPLORACIÓN LIBRE · Recorre las cubiertas C01–C04 con [WASD] y el Ascensor Central o reabre SPHEREx.',
+          );
+        } else {
+          setNoviceCabinMissionsOpen(true);
+        }
       },
       onGuideStateChange: (st) => {
         setGuideState(st || { active: false, step: 'free', completed: false });
@@ -2336,21 +2345,18 @@ export default function App() {
     startSelectedMission = () => {
       const target = missionLaunchTarget;
       if (!target) return;
-      const objective = t(
-        SPHEREX_MISSION_TYPES.find((mission) => mission.key === target.mission)?.objective ||
-        'explorar este objetivo a través del tiempo.',
-        language,
-      );
-      const instruction = t(`Tu misión: ${objective}`, language);
+      const instruction =
+        target.key === 'barnard'
+          ? t(
+              'Abriendo el nuevo explorador SPHEREx centrado en la Estrella de Barnard para observar su brillo infrarrojo y movimiento propio.',
+              language,
+            )
+          : t(`Explorando ${t(target.name, language)} en el nuevo visualizador SPHEREx.`, language);
       missionGuideSyncRef.current = null;
       A().onGuidedMissionStarted?.();
       setMissionLaunchTarget(null);
       if (noviceMissionPhaseRef.current === 'arrived') noviceMissionPhaseRef.current = 'active';
-      if (!api.current?.getVrState?.()?.presenting) {
-        setMissionOpen(true);
-        openKronox();
-      }
-      setMissionTargetKey(target.key);
+      openSpherexAdvancedExplorer(target);
       say(instruction);
       speak(instruction);
     },
@@ -2487,17 +2493,10 @@ export default function App() {
           A().focusNearbyGalaxy(act.galaxyKey);
           setFr(false);
           setSpec(false);
-        } else if (act.type === 'OPEN_OBSERVATORY') {
-          actionLabel = `Explorador espectral SPHEREx: ${act.targetKey}`;
+        } else if (act.type === 'OPEN_OBSERVATORY' || act.type === 'OPEN_MISSION_STAGE') {
+          actionLabel = `Explorador espectral SPHEREx: ${act.targetKey || 'barnard'}`;
           A().moveAiToStation?.('science', 'Explicación');
-          if (!api.current?.getVrState?.()?.presenting) openSpherexAdvancedExplorer(act.targetKey);
-        } else if (act.type === 'OPEN_MISSION_STAGE') {
-          actionLabel = `Etapa activa: ${act.stage}`;
-          setAdvancedExplorerOpen(false);
-          setMissionTargetKey(act.targetKey);
-          setMissionInitialStage(act.stage);
-          A().moveAiToStation?.('science', 'Explicación');
-          if (!api.current?.getVrState?.()?.presenting) setMissionOpen(true);
+          openSpherexAdvancedExplorer(act.targetKey || 'barnard');
         } else if (act.type === 'SELECT_OBJECT') {
           actionLabel = `Señalando en cosmos 3D: ${act.key}`;
           setSelectedObject({ kind: act.kind, key: act.key });
@@ -3410,12 +3409,12 @@ export default function App() {
           'section',
           { className: 'missionMenuCard' },
           h('div', { className: 'missionLaunchMark', 'aria-hidden': 'true' }, '✦'),
-          h('small', null, 'ESTACIÓN DE INVESTIGACIÓN · DR1'),
-          h('h2', null, 'Explorador espectral de todo el cielo'),
+          h('small', null, 'NEW OBSERVATORY · SPHEREx'),
+          h('h2', null, 'Esfera 360° y Explorador DR1'),
           h(
             'p',
             null,
-            'Explora el mapa HiPS de SPHEREx, recorre sus 102 canales de DR1 y consulta productos disponibles en IRSA.',
+            'Explora la Estrella de Barnard, galaxias y 10 épocas temporales en la Esfera Celeste 360° junto al cubo de 102 canales DR1 e IRSA.',
           ),
           h(
             'div',
@@ -3429,10 +3428,10 @@ export default function App() {
                   borderColor: '#60a5fa',
                 },
                 onClick: () => {
-                  openSpherexAdvancedExplorer('wise-0855');
+                  openSpherexAdvancedExplorer('barnard');
                 },
               },
-              'Abrir Explorador · DR1 102 canales',
+              'Abrir Explorador SPHEREx · Barnard & Esfera 360°',
             ),
           ),
         ),
@@ -3683,8 +3682,11 @@ export default function App() {
         h(
           'span',
           null,
-          noviceMissionPhaseRef.current === 'arrived'
-            ? t('Llegamos al destino. Pulsa «Empezar misión» para comenzar la investigación.', language)
+          noviceMissionPhaseRef.current === 'arrived' || missionLaunchTarget?.key === 'barnard'
+            ? t(
+                'Llegamos a la Estrella de Barnard. Pulsa «Empezar misión» para analizarla en el nuevo visualizador SPHEREx.',
+                language,
+              )
             : t('Llegamos. Cambia a velocidad planetaria para explorar con calma. ¿Empezamos?', language),
         ),
       ),
@@ -3736,76 +3738,9 @@ export default function App() {
       },
       onSelect: chooseSpherexTarget,
       onDirectOpen: (target) => {
-        openSpherexAdvancedExplorer(target || 'wise-0855');
+        openSpherexAdvancedExplorer(target || 'barnard');
       },
     }),
-    missionOpen &&
-    !advancedExplorerOpen &&
-    h(
-      React.Suspense,
-      {
-        fallback: h(
-          'div',
-          { className: 'juanLoadingMission', role: 'status' },
-          'Abriendo la expedición científica…',
-        ),
-      },
-      h(SpherexMission, {
-        language,
-        initialTargetKey: missionTargetKey,
-        initialStage: missionInitialStage,
-        aiHighlightActive: aiHighlightField,
-        onClose: () => {
-          if (noviceCinematicActiveRef.current) A().onNoviceCinematicComplete?.();
-          setMissionOpen(false);
-          if (activeCockpitStation === 'science') {
-            setActiveCockpitStation(null);
-            A().setActiveCabinStation?.(null);
-          }
-        },
-        onStateSync: ({ targetKey, stage, records, findings, scienceContext }) => {
-          setMissionScienceSync(scienceContext || null);
-          if (targetKey && targetKey !== missionTargetKey) setMissionTargetKey(targetKey);
-          if (stage) setMissionStageSync(stage);
-          if (records) setMissionRecordsSync(records);
-          if (findings) setMissionFindingsSync(findings);
-          const nextGuideSync = {
-            stage: stage || 'arrival',
-            findingCount: Array.isArray(findings) ? findings.length : 0,
-          };
-          const previousGuideSync = missionGuideSyncRef.current;
-          missionGuideSyncRef.current = nextGuideSync;
-          if (
-            previousGuideSync &&
-            (previousGuideSync.stage !== nextGuideSync.stage ||
-              previousGuideSync.findingCount < nextGuideSync.findingCount)
-          ) {
-            if (previousGuideSync.findingCount < nextGuideSync.findingCount) {
-              playCue('evidence-ok');
-            } else if (previousGuideSync.stage !== nextGuideSync.stage) {
-              playCue('scan');
-            }
-            A().onGuidedScienceAction?.(nextGuideSync);
-          }
-          try {
-            const prog = {
-              targetKey: targetKey || missionTargetKey,
-              stage: stage || missionStageSync,
-              findingsCount: Array.isArray(findings)
-                ? findings.length
-                : missionFindingsSync.length,
-              updatedAt: Date.now(),
-            };
-            localStorage.setItem('kronox-expedition-progress', JSON.stringify(prog));
-            setSavedExpedition(prog);
-          } catch {
-            /* ignore */
-          }
-        },
-        onAskKronox: (q) => handleKronoxCommand(q),
-        onSfxCue: playCue,
-      }),
-    ),
     advancedExplorerOpen &&
     h(
       React.Suspense,
@@ -3813,22 +3748,23 @@ export default function App() {
         fallback: h(
           'div',
           { className: 'juanLoadingMission', role: 'status' },
-          'Abriendo el explorador espectral…',
+          'Abriendo el nuevo explorador SPHEREx…',
         ),
       },
       h(SphereXAdvancedExplorer, {
-        targetName: t(advancedExplorerTarget?.name || SPHEREX_TARGETS[0]?.name || 'SPHEREx', language),
+        targetName: t(advancedExplorerTarget?.name || SPHEREX_TARGETS[0]?.name || 'Estrella de Barnard', language),
         ra: advancedExplorerTarget?.ra,
         dec: advancedExplorerTarget?.dec,
         language,
         guidedTutorial: noviceCinematicActiveRef.current,
         narrate: (text, onComplete) =>
           speak(text, { interrupt: true, allowBrowserFallback: true, onComplete }),
-        onGuidedComplete: () => A().onNoviceCinematicComplete?.(),
+        onGuidedComplete: (keepModalOpen = false) => A().onNoviceCinematicComplete?.(Boolean(keepModalOpen)),
         onClose: () => {
-          if (noviceCinematicActiveRef.current) A().onNoviceCinematicComplete?.();
+          const wasNovice = noviceCinematicActiveRef.current;
           setAdvancedExplorerOpen(false);
           setMissionOpen(false);
+          if (wasNovice) A().onNoviceCinematicComplete?.(false);
           if (activeCockpitStation === 'science') {
             setActiveCockpitStation(null);
             A().setActiveCabinStation?.(null);
@@ -4186,9 +4122,7 @@ export default function App() {
       activeObjectiveText: guideObjective,
       activeMissionId: missionTargetKey,
       onOpenMissionFromObjective: (target) => {
-        if (target?.key) setMissionTargetKey(target.key);
-        setMissionInitialStage('explore');
-        setMissionOpen(true);
+        openSpherexAdvancedExplorer(target || missionTargetKey || 'barnard');
       },
       onToggleVisualProfile: () => {
         const next = visualProfile === 'scientific' ? 'cinematic' : 'scientific';
@@ -4264,9 +4198,9 @@ export default function App() {
       onToggleVr: handleToggleVr,
       onRecenterVr: () => api.current?.recenterVr?.(),
       onOpenMissionTarget: (targetKey) => {
-        setMissionTargetKey(targetKey);
-        setMissionInitialStage('investigate');
-        setMissionOpen(true);
+        setPauseMenuOpen(false);
+        api.current?.setSimulationPaused?.(false);
+        openSpherexAdvancedExplorer(targetKey || 'barnard');
       },
     }),
     h(RepairMissionModal, {
@@ -4318,6 +4252,8 @@ export default function App() {
       onPlayUiCue: playCue,
       onStartNewExpedition: ({ explorationMode = 'expert' } = {}) => {
         setNoviceAdventureMode(explorationMode === 'novice');
+        setNoviceCabinMissionsOpen(false);
+        setVisitedDecks(['deck-01']);
         noviceCinematicActiveRef.current = explorationMode === 'novice';
         noviceMissionPhaseRef.current = '';
         noviceNarrativeIdsRef.current.clear();
@@ -4351,6 +4287,7 @@ export default function App() {
       },
       onContinueExpedition: (saveData) => {
         setNoviceAdventureMode(false);
+        setNoviceCabinMissionsOpen(false);
         ensureGameplayAudioStarted();
         stopVoiceAndClearQueue();
         introSoundtrackRef.current?.stop?.();
@@ -4383,17 +4320,23 @@ export default function App() {
     !showFullMainMenu &&
     !realTimeIntroActive &&
     !missionOpen &&
+    !advancedExplorerOpen &&
     !pauseMenuOpen &&
     !personalHubOpen &&
     !guideState?.cinematic &&
     h(KronoxTutorialOverlay, {
       guideState,
+      noviceCabinMissionsOpen,
+      visitedDecks,
       language,
       onSkipStep: () => A()?.skipGuidedTourStep?.(),
       onDismiss: () => {
         A()?.endGuidedCabinTour?.();
+        setNoviceCabinMissionsOpen(false);
         setGuideObjective('');
       },
+      onDismissCabinMissions: () => setNoviceCabinMissionsOpen(false),
+      onOpenObservatory: () => openSpherexAdvancedExplorer('barnard'),
       onOpenInventoryTab: (tabId) => {
         const nextTab = !tabId || tabId === 'inventory' ? 'map' : tabId;
         setPersonalHubTab(nextTab);

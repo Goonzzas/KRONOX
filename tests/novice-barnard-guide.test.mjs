@@ -1,8 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { createSceneHarness } from '../scripts/test-support/sceneHarness.mjs';
 import { SHIP_INTERIOR_STATIONS } from '../src/scene/kronoxInteriorSpatialModel.js';
 import { buildKronoxInterior120M } from '../src/scene/kronoxInterior120M.js';
+
+const ROOT = path.resolve(import.meta.dirname, '..');
 
 test('Station definition for missions separates approach pad from podium consolePos (+Z)', () => {
   const missions = SHIP_INTERIOR_STATIONS.find((s) => s.id === 'missions');
@@ -99,7 +103,57 @@ test('Novice mode Barnard arrival enables player control, projects Mission Comma
     assert.equal(selectorOpened, true, 'Activating missions station must open SpherexMissionSelector');
     assert.equal(latestGuide?.step, 'novice-select-mission');
     assert.equal(latestWaypoint, null, 'Waypoint HUD must hide once Mission Command is opened');
+
+    // Selecting Barnard, arriving, starting mission, and completing novice guide unlocks free ship exploration
+    api.onGuidedDestinationSelected({ key: 'barnard', name: 'Estrella de Barnard' });
+    api.onGuidedDestinationArrival({ key: 'barnard', name: 'Estrella de Barnard' });
+    harness.stepFrames(5);
+    assert.equal(latestGuide?.step, 'mission_start');
+    assert.match(latestObjective, /BARNARD|Estrella de Barnard/i);
+
+    api.endGuidedCabinTour();
+    harness.stepFrames(3);
+    assert.equal(latestGuide?.step, 'free');
   } finally {
     await harness.close();
   }
+});
+
+test('Legacy galaxies/epochs/stars visualizer is completely removed and Extantword SphereX views + Barnard + transparent subtitles are wired', async () => {
+  for (const removed of [
+    'src/components/SpherexMission.jsx',
+    'src/components/EvidenceLab.jsx',
+    'src/components/ObservationGallery.jsx',
+    'src/components/SpectrumPlot.jsx',
+    'src/styles/observatory.css',
+    'src/styles/evidenceLab.css',
+  ]) {
+    let exists = true;
+    try {
+      await fs.access(path.join(ROOT, removed));
+    } catch {
+      exists = false;
+    }
+    assert.equal(exists, false, `${removed} must be deleted`);
+  }
+
+  const appSrc = await fs.readFile(path.join(ROOT, 'src', 'App.jsx'), 'utf8');
+  assert.equal(/SpherexMission\.jsx|EvidenceLab|ObservationGallery|SpectrumPlot/.test(appSrc), false);
+  assert.match(appSrc, /noviceCabinMissionsOpen/);
+
+  const explorerSrc = await fs.readFile(path.join(ROOT, 'src', 'components', 'SphereXAdvancedExplorer.jsx'), 'utf8');
+  assert.match(explorerSrc, /static\/index\.html\?raw/);
+  assert.match(explorerSrc, /static\/app\.js\?raw/);
+  assert.match(explorerSrc, /import\.meta\.env\.BASE_URL/);
+  assert.match(explorerSrc, /1 · ESTRELLA DE BARNARD EN SPHEREx/);
+  assert.equal(/<iframe\b/i.test(explorerSrc), false);
+
+  await fs.access(path.join(ROOT, 'public', 'spherex-viz', 'umap3d.html'));
+  await fs.access(path.join(ROOT, 'SphereX-Visualizations-main', 'static', 'index.html'));
+
+  const stylesCss = await fs.readFile(path.join(ROOT, 'src', 'styles.css'), 'utf8');
+  assert.match(stylesCss, /\.kronoxFilmSubtitleText\s*\{[\s\S]*?background:\s*transparent/);
+
+  const cinCss = await fs.readFile(path.join(ROOT, 'src', 'styles', 'cinematicNavigation.css'), 'utf8');
+  assert.match(cinCss, /\.kronoxFloatingTutorialCard\s*\{[\s\S]*?left:\s*16px/);
 });
