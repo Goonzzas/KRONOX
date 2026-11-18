@@ -128,6 +128,8 @@ export default function SphereXAdvancedExplorer({
   language = 'es',
   guidedTutorial = false,
   narrate,
+  voiceEnabled = true,
+  onEnableNarration,
   onGuidedComplete,
 }) {
   const visorRootRef = useRef(null);
@@ -528,6 +530,26 @@ export default function SphereXAdvancedExplorer({
                 )}
               </p>
               <div className="kronoxMissionGuideActions">
+                <button
+                  type="button"
+                  className="is-listen"
+                  aria-label={t('Escuchar explicación de esta misión', language)}
+                  onClick={() => {
+                    if (!voiceEnabled) onEnableNarration?.();
+                    narrateRef.current?.(
+                      localizedGuideNarration(
+                        MISSION_GUIDE_STEPS[guideStep],
+                        language,
+                        targetName,
+                        ra,
+                        dec,
+                      ),
+                    );
+                  }}
+                >
+                  <span aria-hidden="true">{voiceEnabled ? '🔊' : '🔈'}</span>{' '}
+                  {t('Escuchar explicación', language)}
+                </button>
                 {guideStep === MISSION_GUIDE_STEPS.length - 1 ? (
                   <button type="button" className="is-finish" onClick={finishGuide}>
                     {t('Explorar la nave libremente', language)}

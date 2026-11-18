@@ -195,7 +195,9 @@
 
 .kronoxMissionGuideActions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
   gap: 8px;
   margin-top: 10px;
 }
@@ -219,6 +221,17 @@
   border-color: rgba(52, 211, 153, 0.72);
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.34), rgba(8, 145, 178, 0.3));
   color: #ecfdf5;
+}
+
+.kronoxMissionGuideCard button.is-listen {
+  margin-right: auto;
+  border-color: rgba(103, 232, 249, 0.68);
+  background: rgba(8, 145, 178, 0.32);
+  color: #ecfeff;
+}
+
+.kronoxMissionGuideCard button.is-listen span {
+  margin-right: 3px;
 }
 
 .kronoxMissionGuideCard button:hover {
