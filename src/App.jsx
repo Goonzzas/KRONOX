@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 42868)
-Total output lines: 4682
-
 import { installFlightPanelLayout } from './utils/flightPanelLayout.js';
 import StellarCatalogPanel from './components/StellarCatalogPanel.jsx';
 import NavigationDock from './components/NavigationDock.jsx';
@@ -1269,7 +1266,1937 @@ export default function App() {
       setIntroPaused(nextPaused);
       api.current?.pauseRealTimeIntro?.(nextPaused);
       if (nextPaused) {
-        if (voiceAudio.current && !voiceAudio.curr…17868 tokens truncated…ocedurales.',
+        if (voiceAudio.current && !voiceAudio.current.paused) voiceAudio.current.pause?.();
+        if (typeof window !== 'undefined' && window.speechSynthesis?.speaking) {
+          try {
+            window.speechSynthesis.pause?.();
+          } catch { }
+        }
+        if (introMusicElementRef.current && !introMusicElementRef.current.paused) {
+          introMusicElementRef.current.pause?.();
+        }
+      } else {
+        if (voiceAudio.current && voiceAudio.current.paused) {
+          voiceAudio.current.play?.()?.catch?.(() => { });
+        }
+        if (typeof window !== 'undefined' && window.speechSynthesis?.paused) {
+          try {
+            window.speechSynthesis.resume?.();
+          } catch { }
+        }
+        if (introMusicElementRef.current && introMusicElementRef.current.paused) {
+          introMusicElementRef.current.play?.()?.catch?.(() => { });
+        }
+      }
+    },
+    skipIntroAndEnterCabin = () => {
+      stopVoiceAndClearQueue();
+      clearNotices();
+      introPausedRef.current = false;
+      setIntroPaused(false);
+      introSoundtrackRef.current?.fadeOut?.(1.8);
+      setRealTimeIntroActive(false);
+      api.current?.skipRealTimeIntro?.();
+      setFr(true);
+      setPv(1);
+      setMissionTargetKey('barnard');
+      setAiAvatarState('Bienvenida');
+    },
+    say = (msg, opts = {}) => {
+      kronoxDialogHiddenRef.current = false;
+      setKronoxDialogHidden(false);
+      setGuide(msg, { replace: true, once: false, ...opts });
+    },
+    showNextNotice = () => {
+      const item = noticeQueue.current.shift();
+      if (!item) {
+        noticeRef.current = null;
+        return;
+      }
+      noticeRef.current = item;
+      setNotice(item);
+      const duration = Math.min(14000, Math.max(6500, item.text.split(/\s+/).length * 380));
+      noticeTimer.current = setTimeout(() => {
+        setNotice(null);
+        noticeRef.current = null;
+        showNextNotice();
+      }, duration);
+    },
+    notify = (text, title = 'Aviso', planet = null) => {
+      if (planet && (mainMenuVisibleRef.current || realTimeIntroActiveRef.current)) return;
+      noticeQueue.current.push({
+        id: Date.now() + Math.random(),
+        text: t(text, language),
+        title: t(title, language),
+        planet,
+      });
+      if (!noticeRef.current) showNextNotice();
+    },
+    clearNotices = () => {
+      noticeQueue.current = [];
+      clearTimeout(noticeTimer.current);
+      noticeRef.current = null;
+      setNotice(null);
+    };
+  useEffect(() => {
+    const handleGestureUnlock = () => {
+      if (realTimeIntroActive) {
+        introSoundtrackRef.current?.unlock();
+      }
+      resumeSharedAudioContext();
+
+      if (
+        voiceBlockedByAutoplayRef.current ||
+        introMusicBlocked ||
+        (realTimeIntroActive && !speakingRef.current)
+      ) {
+        unlockAndReplayVoice();
+      }
+    };
+
+    window.addEventListener('pointerdown', handleGestureUnlock);
+    window.addEventListener('keydown', handleGestureUnlock);
+    window.addEventListener('click', handleGestureUnlock);
+    return () => {
+      window.removeEventListener('pointerdown', handleGestureUnlock);
+      window.removeEventListener('keydown', handleGestureUnlock);
+      window.removeEventListener('click', handleGestureUnlock);
+    };
+  }, [realTimeIntroActive, introMusicBlocked, voiceBlockedByAutoplay]);
+  const vrHandlersRef = useRef({});
+  const vrSpeechRecRef = useRef(null);
+  const lastNonEmptyGuideTextRef = useRef('');
+  useEffect(() => {
+    if (guide?.text) lastNonEmptyGuideTextRef.current = guide.text;
+    api.current?.syncVrContext?.({
+      findingsCount: missionFindingsSync.length,
+      lastKronoxReply: guide?.text || lastNonEmptyGuideTextRef.current || '',
+      voiceEnabled: voice,
+      activeTargetKey: missionTargetKey,
+      visualProfile,
+    });
+  }, [guide?.text, missionFindingsSync.length, voice, missionTargetKey, visualProfile]);
+  useEffect(() => {
+    api.current = setupScene(el.current, {
+      quality,
+      graphicsSettings: gameSettingsRef.current?.graphics,
+      vrSettings: normalizeVrSettings(gameSettingsRef.current?.vr),
+      onSceneReady: () => setSceneReady(true),
+      onGraphicsStateChange: (info) => setGraphicsRuntime(info),
+      onPerformanceWarning: (info) => setPerformanceWarning(info),
+      onVrStateChange: (nextVr) => {
+        if (nextVr) setVrState(nextVr);
+        if (nextVr?.presenting) {
+          setPauseMenuOpen(false);
+          api.current?.setSimulationPaused?.(false);
+        }
+        if (nextVr && !nextVr.presenting && vrSpeechRecRef.current) {
+          try {
+            vrSpeechRecRef.current.stop();
+          } catch { }
+          vrSpeechRecRef.current = null;
+        }
+      },
+      onVrAction: (action, payload) => vrHandlersRef.current?.[action]?.(payload),
+      onSfxCue: playCue,
+      onAudioEnvironment: (env) => gameAudioRef.current?.setEnvironmentState?.(env),
+      onVrPauseRequest: (opts) => {
+        if (opts?.resumeOnly || pauseMenuOpenRef.current || api.current?.isSimulationPaused?.()) {
+          setPauseMenuOpen(false);
+          api.current?.setSimulationPaused?.(false);
+          return;
+        }
+        if (api.current?.getVrState?.()?.presenting) {
+          api.current?.recenterVr?.();
+          return;
+        }
+        if (
+          !pauseMenuOpenRef.current &&
+          !mainMenuVisibleRef.current &&
+          !realTimeIntroActiveRef.current &&
+          !missionOpenRef.current
+        ) {
+          setPauseMenuSection('save');
+          setPauseMenuOpen(true);
+          api.current?.setSimulationPaused?.(true);
+        }
+      },
+      onPointerLockChange: (st) => {
+        if (st) setPointerLockState(st);
+      },
+      onPointerLockEscape: () => {
+        if (api.current?.getVrState?.()?.presenting) return;
+        if (
+          !pauseMenuOpenRef.current &&
+          !activeCockpitStationRef.current &&
+          !mainMenuVisibleRef.current &&
+          !realTimeIntroActiveRef.current &&
+          !missionOpenRef.current
+        ) {
+          setPauseMenuSection('save');
+          setPauseMenuOpen(true);
+          api.current?.setSimulationPaused?.(true);
+        }
+      },
+      onAssetLoadingState: (st) => setAssetLoadingState(st || null),
+      onNavigationScale: setNavigationScale,
+      onNearbyMapChange: setNearbyMapActive,
+      reducedMotion: () => reducedMotion,
+      voiceEnabled: () => voiceRef.current,
+      // Deja que termine la locución de cada capítulo antes del corte, con límite de seguridad para que
+      // una petición de audio atascada nunca pueda dejar la introducción congelada indefinidamente.
+      shouldHoldIntroStage: (_stageKey, stageElapsed = 0) => {
+        const narrationBusy = Boolean(
+          speakingRef.current || voiceAudio.current || voiceQueueRef.current.length > 0,
+        );
+        return Boolean(
+          introPausedRef.current ||
+          (voiceRef.current && narrationBusy && stageElapsed < 14),
+        );
+      },
+      onNearbyGalaxySelect: (key) => {
+        setNearbyGalaxyKey(key);
+        clearMissionOffer();
+        setNearbyGalaxyInfoKey(key);
+      },
+      onObjectSelect: (obj) => {
+        setSelectedObject(obj);
+        if (obj) {
+          clearMissionOffer();
+          recordJournalActivity({
+            type: 'INSPECT_OBJECT',
+            title: `Objeto inspeccionado: ${obj.key}`,
+            detail: `Categoría: ${obj.kind}`,
+            objectKey: obj.key,
+            objectKind: obj.kind,
+          });
+        }
+      },
+      onNearestStationChange: (st) => {
+        setNearestCabinStation(st);
+      },
+      onStationInteract: (stationId) => {
+        setActiveCockpitStation(stationId);
+        if (!stationId && !A()?.isFreeHelmActive?.()) setFreeHelmMode(false);
+        const vrPresenting = Boolean(api.current?.getVrState?.()?.presenting);
+        const awardInventoryItem = (id) => {
+          const res = grantInventoryItem(id);
+          if (res?.inventory) setInventoryState(res.inventory);
+        };
+        if (stationId === 'comms') {
+          if (!vrPresenting) {
+            kronoxDialogHiddenRef.current = false;
+            setKronoxDialogHidden(false);
+            setKronoxOpen(true);
+          }
+        } else if (stationId === 'science') {
+          awardInventoryItem('data-spherex-calibration');
+          if (!vrPresenting) openSpherexAdvancedExplorer(missionTargetKey);
+        } else if (stationId === 'missions') {
+          const noviceBarnardArrival =
+            noviceCinematicActiveRef.current && noviceMissionPhaseRef.current === 'arrived';
+          if (!noviceBarnardArrival) {
+            if (noviceCinematicActiveRef.current) noviceMissionPhaseRef.current = 'selecting';
+            if (!vrPresenting) setMissionSelectorOpen(true);
+          }
+        } else if (stationId === 'bioponics') {
+          awardInventoryItem('sample-bioponic-flora');
+        } else if (stationId === 'engineering') {
+          awardInventoryItem('sample-cryo-he3');
+        } else if (stationId === 'storage-c02' || stationId === 'galley') {
+          awardInventoryItem('eva-ration-pack');
+        } else if (stationId === 'optical-bench' || stationId === 'sensor-calibration') {
+          awardInventoryItem('optical-coupler');
+        }
+      },
+      onToolCollected: (toolId) => {
+        setHeldToolId(toolId || null);
+        if (toolId) {
+          const itemKey =
+            toolId === 'multitool'
+              ? 'multitool'
+              : toolId === 'scanner'
+                ? 'scanner'
+                : 'optical-coupler';
+          const res = grantInventoryItem(itemKey);
+          if (res?.inventory) setInventoryState(res.inventory);
+        }
+      },
+      onInteractionFeedback: (fb) => {
+        setInteractionFeedback(fb || null);
+        clearTimeout(interactionFeedbackTimerRef.current);
+        if (fb) {
+          interactionFeedbackTimerRef.current = setTimeout(() => {
+            setInteractionFeedback(null);
+          }, 3200);
+        }
+      },
+      onSeatedStateChange: (seated) =>
+        setAstronautSectorState((prev) => ({ ...prev, seated: Boolean(seated) })),
+      onFreeHelmChange: (enabled) => setFreeHelmMode(Boolean(enabled)),
+      onCabinFirstPersonChange: (firstP) => setCabinFirstPerson(Boolean(firstP)),
+      onMicrogravityStateChange: (mg) => {
+        if (!mg) return;
+        setAstronautSectorState((prev) => ({
+          ...prev,
+          microgravityMode: mg.mode || prev.microgravityMode,
+          anchoredRailId: mg.anchored ? (mg.anchoredRailId || 'rail') : null,
+        }));
+      },
+      onElevatorStateChange: (elState) => setElevatorState(elState || null),
+      onMechanismsChange: (mechState) => setMechanismsState(mechState || null),
+      onRestStateChange: (nextRest) => setRestingState(nextRest || null),
+      onViewChange: (v) => setPv(v),
+      onIntroStageChange: (stageKey, captionText, stageOpts = {}) => {
+        if (lastIntroStageKeyRef.current === stageKey) return;
+        lastIntroStageKeyRef.current = stageKey;
+        realTimeIntroActiveRef.current = true;
+        setCinematicStage(stageKey);
+        setRealTimeIntroActive(true);
+        setRealTimeIntroCaption(captionText);
+        // Do NOT enqueue intro prologue into Kronox IA dialogue queue to prevent duplicate speech
+        if (voiceRef.current && !stageOpts?.silentVoice) {
+          speak(captionText, { interrupt: false, skipGuide: true });
+        }
+      },
+      onAiTourNarrative: (text, stateName, stationId, opts = {}) => {
+        if (
+          noviceCinematicActiveRef.current &&
+          opts?.id &&
+          noviceNarrativeIdsRef.current.has(opts.id)
+        ) {
+          return opts.id;
+        }
+        if (noviceCinematicActiveRef.current && opts?.id) {
+          noviceNarrativeIdsRef.current.add(opts.id);
+        }
+        setAiAvatarState(stateName);
+        const intent = /bienvenida/i.test(stateName)
+          ? 'welcome'
+          : /confirm/i.test(stateName)
+            ? 'confirmation'
+            : /orient/i.test(stateName)
+              ? 'orientation'
+              : 'explanation';
+        const message = setGuide(text, {
+          intent,
+          once: opts?.once !== undefined ? Boolean(opts.once) : true,
+          id: opts?.id,
+          priority: opts?.priority ?? 0,
+          replace: Boolean(opts?.replace),
+        });
+        if (voiceRef.current) {
+          speak(text, {
+            interrupt: Boolean(opts?.replace),
+            allowBrowserFallback: noviceCinematicActiveRef.current,
+          });
+        }
+        return message.id;
+      },
+      onGuideObjective: (objective) => setGuideObjective(objective || ''),
+      onGuidedMissionSelectorOpen: () => {
+        if (noviceCinematicActiveRef.current) noviceMissionPhaseRef.current = 'selecting';
+        setMissionSelectorOpen(true);
+      },
+      onNoviceCinematicSelectDestination: () => {
+        const target = SPHEREX_TARGETS.find((item) => item.key === 'barnard') || SPHEREX_TARGETS[0];
+        if (target) chooseSpherexTarget(target);
+      },
+      onNoviceCinematicOpenMission: () => {
+        missionGuideSyncRef.current = null;
+        A()?.onGuidedMissionStarted?.();
+        if (noviceMissionPhaseRef.current === 'arrived') noviceMissionPhaseRef.current = 'active';
+        clearMissionOffer();
+        setMissionSelectorOpen(false);
+        const target = SPHEREX_TARGETS.find((item) => item.key === 'barnard') || SPHEREX_TARGETS[0];
+        openSpherexAdvancedExplorer(target);
+      },
+      onNoviceCinematicComplete: (keepModalOpen = false) => {
+        noviceCinematicActiveRef.current = false;
+        setMissionArrival(false);
+        setMissionTraveling(false);
+        setCountdown(null);
+        setNavigation(null);
+        A().endGuidedCabinTour?.();
+        if (!keepModalOpen) {
+          setAdvancedExplorerOpen(false);
+          setMissionOpen(false);
+          setNoviceCabinMissionsOpen(true);
+          setGuideObjective(
+            'EXPLORACIÓN LIBRE · Recorre las cubiertas C01–C04 con [WASD] y el Ascensor Central o reabre SPHEREx.',
+          );
+        } else {
+          setNoviceCabinMissionsOpen(true);
+        }
+      },
+      onGuideStateChange: (st) => {
+        setGuideState(st || { active: false, step: 'free', completed: false });
+        if (!st?.active || st?.step === 'free') {
+          setGuideObjective('');
+          setMissionWaypointHud(null);
+        }
+      },
+      onMissionWaypointHud: (wp) => {
+        setMissionWaypointHud(wp || null);
+      },
+      onAiScreenProjection: (proj) => {
+        setAiProjection(proj);
+        if (proj && proj.state) {
+          setAiAvatarState(proj.state);
+        }
+        if (proj && Number.isFinite(proj.astronautX)) {
+          setAstronautCoords({ x: proj.astronautX, z: proj.astronautZ });
+          setCabinFirstPerson(Boolean(proj.cabinFirstPerson));
+        }
+        if (proj?.deckId) {
+          setAstronautSectorState((prev) => ({
+            ...prev,
+            deckId: proj.deckId,
+            deckName: proj.deckName || prev.deckName,
+            microgravityMode: proj.microgravityMode || prev.microgravityMode,
+            anchoredRailId: proj.anchoredRailId ?? null,
+          }));
+        }
+      },
+      onConsoleScreenProjection: (proj) => {
+        setConsoleProjection(proj);
+        if (api.current?.getObservationMode) {
+          const obsInfo = api.current.getObservationMode();
+          setObservationModeInfo(obsInfo);
+          if (obsInfo?.opticalMagnification > 1 && api.current?.getPlanetaryObservationalTelemetry) {
+            setPlanetaryTelemetry(
+              api.current.getPlanetaryObservationalTelemetry(
+                obsInfo.opticalTargetBody || f || near || 'Júpiter',
+              ),
+            );
+          } else {
+            setPlanetaryTelemetry(null);
+          }
+        }
+      },
+      onSceneDirectorEvent: (eventName, payload, nextState) => {
+        if (nextState) setDirectorState({ ...nextState });
+      },
+      onNavigation: (status) => {
+        setNavigation((current) => {
+          if (!status) {
+            if (current && current.phase !== 'countdown') travelRef.current = false;
+            return current?.phase === 'countdown' ? current : null;
+          }
+          const progress = Math.round(status.progress * 100);
+          if (
+            current?.phase === status.phase &&
+            Math.round((current.progress || 0) * 100) === progress
+          )
+            return current;
+          return { ...status, label: current?.label || '' };
+        });
+      },
+      f: setF,
+      near: (n) => {
+        setNear(n);
+        if (
+          n &&
+          INFO[n] &&
+          !cockpitInsideRef.current &&
+          !mainMenuVisibleRef.current &&
+          !realTimeIntroActiveRef.current
+        )
+          notify(
+            t('Nos acercamos a ', language) +
+            t(n, language) +
+            '. ' +
+            t(INFO[n].intro, language) +
+            ' ' +
+            t(INFO[n].temperatura, language) +
+            ' ' + t('Si quieres saber más, pulsa el botón.', language),
+            t('Información del planeta', language),
+            n,
+          );
+      },
+      speedNotice: (v) =>
+        notify(
+          'Velocidad de nave ajustada a ' +
+          (v >= 1000 ? (v / 1000).toFixed(1) + ' mil' : v.toFixed(1)) +
+          ' unidades por segundo.',
+          'Cambio de velocidad',
+        ),
+      fr: setFr,
+      fv: setFv,
+      intro: setIn,
+      speed: spR,
+      pause: paR,
+      fl: flR,
+      day: (d) => {
+        const x = dayRef.current;
+        if (x && document.activeElement !== x)
+          x.value = new Date(Date.UTC(2000, 0, 1, 12) + d * 864e5).toISOString().slice(0, 10);
+      },
+      d: (au) => {
+        if (distRef.current)
+          distRef.current.textContent = au
+            ? 'Distancia actual al Sol: ' +
+            au.toFixed(3) +
+            ' UA (' +
+            (au * 149.6).toFixed(1) +
+            ' millones de km)'
+            : '';
+      },
+    });
+    // Ordinary page loads own the full intro, including links that only hide the welcome menu.
+    // Direct science links and explicit menu/cabin choices keep their requested destination.
+    try {
+      if (typeof window !== 'undefined') window.__kronoxSceneApi = api.current;
+      if (api.current?.isSceneReady?.()) {
+        setSceneReady(true);
+      }
+      if (startupMode === 'intro') {
+        setRealTimeIntroActive(true);
+        setIntroPaused(false);
+        api.current.startRealTimeIntro(() => {
+          introSoundtrackRef.current?.fadeOut?.(2.8);
+          setRealTimeIntroActive(false);
+          setIntroPaused(false);
+          setFr(true);
+          setPv(1);
+          setMissionTargetKey('barnard');
+          setAiAvatarState('Bienvenida');
+        });
+      } else if (startupMode === 'cabin') {
+        api.current.skipRealTimeIntro();
+        setFr(true);
+        setPv(1);
+      } else {
+        setFr(true);
+        setPv(3);
+        api.current.setMainMenuOrbit?.(true);
+      }
+      if (typeof window !== 'undefined') {
+        window.__KRONOX_API__ = api.current;
+        window.__KRONOX_OPEN_STATION__ = (id) => setActiveCockpitStation(id);
+      }
+    } catch (error) {
+      if (import.meta.env.DEV) console.error('KRONOX scene initialization failed:', error);
+    }
+    return () => {
+      api.current?.dispose?.();
+      api.current = null;
+    };
+  }, []);
+  useEffect(() => () => countTimers.current.forEach(clearTimeout), []);
+  useEffect(() => {
+    const soundtrack = createCinematicSoundtrack({
+      src: import.meta.env.BASE_URL + 'audio/intro-score.mp3',
+      audioFactory: () => introMusicElementRef.current,
+      onBlocked: setIntroMusicBlocked,
+    });
+    introSoundtrackRef.current = soundtrack;
+    const unlock = () => soundtrack?.unlock();
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      soundtrack?.dispose();
+      introSoundtrackRef.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    if (realTimeIntroActive) {
+      if (!introPaused) introSoundtrackRef.current?.start();
+      // Precarga escalonada de las 10 locuciones (concurrencia acotada y caché WAV en servidor)
+      if (
+        typeof Audio !== 'undefined' &&
+        typeof fetch === 'function' &&
+        typeof window !== 'undefined' &&
+        !window.__KRONOX_SCENE_HARNESS__
+      ) {
+        const introTexts = [
+          'Durante siglos, contemplamos el universo desde un pequeño mundo azul, buscando respuestas sobre nuestro origen entre millones de estrellas.',
+          'Misiones reales como el telescopio espacial NASA SPHEREx abrieron una nueva ventana infrarroja al cosmos, revelando luces ocultas al ojo humano.',
+          'En cada longitud de onda infrarroja detectamos hielos primordiales, viveros de estrellas y enigmas gravitacionales más allá de los gigantes gaseosos.',
+          'Para descifrar esa historia escrita entre anillos planetarios y brazos galácticos, la humanidad puso en marcha el Proyecto Horizonte.',
+          'El Proyecto Horizonte construyó KRONOX Aurora-120: un crucero científico modular de ciento veinte metros diseñado para explorar desde la órbita hasta el espacio profundo.',
+          'En el puente de mando coordinamos la astrometría J2000, el rumbo interestelar y los sistemas de observación de toda la expedición.',
+          'La cubierta científica combina espectroscopía inspirada en NASA SPHEREx y bancos ópticos de calibración para investigar cada archivo real sin conjeturas.',
+          'El módulo de habitabilidad mantiene a la tripulación en microgravedad durante largas travesías con soporte vital de ciclo cerrado y gravedad anular asistida.',
+          'En ingeniería, el reactor toroidal de fusión y sus propulsores magnetoplasmadinámicos suministran la energía limpia que impulsa a KRONOX entre mundos.',
+          'Soy KRONOX IA, tu inteligencia de a bordo. El puente es tuyo, comandante: calibra tus instrumentos y comienza tu primera investigación espacial.',
+        ].map((text) => t(text, language));
+        const selectedVoice = 'Charon';
+        (async () => {
+          for (let idx = 0; idx < introTexts.length; idx += 3) {
+            if (!voiceRef.current || !realTimeIntroActiveRef.current) break;
+            const batch = introTexts.slice(idx, idx + 3);
+            await Promise.allSettled(
+              batch.map((text) =>
+                fetch(
+                  voiceProvider.audioUrl({
+                    text,
+                    language: voiceAccentRef.current,
+                    voiceId: selectedVoice,
+                  }),
+                ).catch(() => { }),
+              ),
+            );
+          }
+        })();
+      }
+    } else {
+      introSoundtrackRef.current?.fadeOut?.(2.5);
+    }
+  }, [realTimeIntroActive]);
+  useEffect(() => {
+    if (
+      !(welcomeOpen || showFullMainMenu) ||
+      !voiceRef.current ||
+      typeof Audio === 'undefined' ||
+      typeof fetch !== 'function' ||
+      typeof window === 'undefined' ||
+      window.__KRONOX_SCENE_HARNESS__
+    ) {
+      return undefined;
+    }
+    const warmupTexts = [
+      'Durante siglos, contemplamos el universo desde un pequeño mundo azul, buscando respuestas sobre nuestro origen entre millones de estrellas.',
+      'Misiones reales como el telescopio espacial NASA SPHEREx abrieron una nueva ventana infrarroja al cosmos, revelando luces ocultas al ojo humano.',
+    ];
+    const selectedVoice = 'Charon';
+    const timer = setTimeout(() => {
+      warmupTexts.forEach((text) => {
+        fetch(
+          voiceProvider.audioUrl({
+            text,
+            language: voiceAccentRef.current,
+            voiceId: selectedVoice,
+          }),
+        ).catch(() => { });
+      });
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [welcomeOpen, showFullMainMenu]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('kronox-game-settings-v1', JSON.stringify(gameSettings));
+    } catch {
+      /* ignore */
+    }
+    const master = Number(gameSettings.masterVolume ?? 0.85);
+    const music = Number(gameSettings.musicVolume ?? 0.38);
+    const sfx = Number(gameSettings.sfxVolume ?? 0.65);
+    const vox = Number(gameSettings.voiceVolume ?? 0.95);
+    introSoundtrackRef.current?.setSpeaking(speaking);
+    introSoundtrackRef.current?.setVolume(Math.max(0, Math.min(1, master * music)));
+    gameAudioRef.current?.setMix?.({ master, music, sfx });
+    gameAudioRef.current?.setMusicSuppressed?.(realTimeIntroActive);
+    gameAudioRef.current?.setSpeaking?.(speaking);
+    gameAudioRef.current?.setPaused?.(pauseMenuOpen);
+    gameAudioRef.current?.setEnvironmentState?.({
+      zone:
+        welcomeOpen || showFullMainMenu
+          ? 'menu'
+          : !fr
+            ? 'map'
+            : pv == 3
+              ? 'exterior'
+              : 'cabin',
+      deckId: astronautSectorState?.deckId || 'deck-01',
+      missionOpen: Boolean(missionOpen),
+      paused: Boolean(pauseMenuOpen),
+      sleeping: Boolean(restingState?.sleeping),
+      resting: Boolean(restingState?.active),
+      elevatorMoving: Boolean(elevatorState?.moving),
+      hyperspacePhase: navigation?.phase || null,
+    });
+    if (gameAudioRef.current && ambientEnabled) {
+      gameAudioRef.current.setEnabled(master * sfx > 0.005 || master * music > 0.005);
+    }
+    if (voiceAudio.current) {
+      voiceAudio.current.volume = voice ? Math.max(0, Math.min(1, master * vox)) : 0;
+    }
+    api.current?.setCameraSettings?.({
+      sensitivity: gameSettings.cameraSensitivity || 'normal',
+      distance3P: gameSettings.cameraDistance3P || 'normal',
+    });
+    api.current?.setVrSettings?.(normalizeVrSettings(gameSettings.vr));
+    if (gameSettings.microgravityMode && prevSettingMgRef.current !== gameSettings.microgravityMode) {
+      prevSettingMgRef.current = gameSettings.microgravityMode;
+      api.current?.setMicrogravityMode?.(gameSettings.microgravityMode);
+    }
+  }, [
+    speaking,
+    voice,
+    gameSettings,
+    ambientEnabled,
+    realTimeIntroActive,
+    welcomeOpen,
+    showFullMainMenu,
+    pauseMenuOpen,
+    missionOpen,
+    astronautSectorState?.deckId,
+    restingState?.sleeping,
+    restingState?.active,
+    elevatorState?.moving,
+    navigation?.phase,
+    fr,
+    pv,
+  ]);
+  useEffect(() => {
+    const levelSum = audioLevels.reduce((acc, v) => acc + v, 0);
+    const normLevel = speaking
+      ? Math.max(0.18, Math.min(1.0, levelSum / Math.max(1, audioLevels.length) / 2.2))
+      : 0.08;
+    api.current?.setAiLuminousState?.(realTimeIntroActive ? null : aiAvatarState, speaking, normLevel);
+  }, [speaking, aiAvatarState, audioLevels, realTimeIntroActive]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(voiceProvider.statusUrl()).then(response => response.json()).then(status => {
+      if (!cancelled) {
+        fishVoiceStatusRef.current = status;
+        setFishVoiceStatus(status);
+      }
+    }).catch(() => { });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Limpiar automáticamente paneles de cuerpos celestes (Luna/planetas) al recorrer cubiertas interiores (C02..C04)
+  useEffect(() => {
+    const isInteriorDeckWithoutTelescope =
+      fr &&
+      pv == 1 &&
+      astronautSectorState.deckId !== 'deck-01' &&
+      (observationModeInfo?.opticalMagnification || 1) <= 1;
+    if (isInteriorDeckWithoutTelescope) {
+      if (selectedObject) setSelectedObject(null);
+      if (more) setMore(null);
+      if (reticleTarget) setReticleTarget(null);
+      if (notice?.planet) clearNotices();
+    }
+  }, [
+    fr,
+    pv,
+    astronautSectorState.deckId,
+    observationModeInfo?.opticalMagnification,
+    selectedObject,
+    more,
+    reticleTarget,
+    notice,
+  ]);
+
+  useEffect(() => {
+    const handleKeyShortcuts = (event) => {
+      const tag = event.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (welcomeOpen || showFullMainMenu || realTimeIntroActive) return;
+
+      if (event.key === 'k' || event.key === 'K') {
+        event.preventDefault();
+        kronoxDialogHiddenRef.current = false;
+        setKronoxDialogHidden(false);
+        setKronoxOpen((prev) => !prev);
+        return;
+      }
+    };
+    window.addEventListener('keydown', handleKeyShortcuts);
+    return () => window.removeEventListener('keydown', handleKeyShortcuts);
+  }, [welcomeOpen, showFullMainMenu, realTimeIntroActive]);
+
+  useEffect(() => {
+    const handleEscKey = (event) => {
+      if (event.key !== 'Escape') return;
+      if (guideState?.cinematic) return;
+      const tag = event.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (personalHubOpen) {
+        setPersonalHubOpen(false);
+        return;
+      }
+      if (kronoxOpen) {
+        setKronoxOpen(false);
+        if (activeCockpitStation === 'comms') {
+          setActiveCockpitStation(null);
+          api.current?.setActiveCabinStation?.(null);
+        }
+        return;
+      }
+      if (pauseMenuOpen) {
+        setPauseMenuOpen(false);
+        api.current?.setSimulationPaused?.(false);
+        return;
+      }
+      if (api.current?.isFreeHelmActive?.()) {
+        api.current?.setFreeHelmMode?.(false);
+        setFreeHelmMode(false);
+        return;
+      }
+      if (activeCockpitStation) {
+        setActiveCockpitStation(null);
+        api.current?.setActiveCabinStation?.(null);
+        return;
+      }
+      if (selectedObject) {
+        setSelectedObject(null);
+        return;
+      }
+      if (missionSelectorOpen) {
+        setMissionSelectorOpen(false);
+        if (activeCockpitStation === 'missions') {
+          setActiveCockpitStation(null);
+          api.current?.setActiveCabinStation?.(null);
+        }
+        return;
+      }
+      if (more) {
+        setMore(null);
+        return;
+      }
+      if (open) {
+        setOpen(false);
+        return;
+      }
+      if (
+        !welcomeOpen &&
+        !showFullMainMenu &&
+        !realTimeIntroActive &&
+        !missionOpen &&
+        !api.current?.getVrState?.()?.presenting
+      ) {
+        setPauseMenuSection('save');
+        setPauseMenuOpen(true);
+        api.current?.setSimulationPaused?.(true);
+      }
+    };
+    window.addEventListener('keydown', handleEscKey);
+    return () => window.removeEventListener('keydown', handleEscKey);
+  }, [
+    personalHubOpen,
+    kronoxOpen,
+    pauseMenuOpen,
+    activeCockpitStation,
+    selectedObject,
+    missionSelectorOpen,
+    more,
+    open,
+    welcomeOpen,
+    showFullMainMenu,
+    realTimeIntroActive,
+    missionOpen,
+    guideState?.cinematic,
+  ]);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (
+        (typeof document !== 'undefined' && document.hidden) ||
+        mainMenuVisibleRef.current ||
+        realTimeIntroActiveRef.current
+      ) {
+        setReticleTarget((prev) => (prev ? null : prev));
+        return;
+      }
+      const next = api.current?.identifyTargetUnderCrosshair?.() || null;
+      setReticleTarget((prev) => {
+        if (prev === next) return prev;
+        if (
+          prev &&
+          next &&
+          prev.key === next.key &&
+          prev.name === next.name &&
+          prev.category === next.category &&
+          prev.distanceDesc === next.distanceDesc &&
+          prev.hasSpherex === next.hasSpherex
+        ) {
+          return prev;
+        }
+        return next;
+      });
+    }, 250);
+    return () => clearInterval(timer);
+  }, []);
+  useEffect(
+    () => () => {
+      clearTimeout(noticeTimer.current);
+      clearTimeout(missionTravelTipTimer.current);
+      clearTimeout(kronoxCloseTimer.current);
+      stopVoiceAndClearQueue();
+      gameAudioRef.current?.dispose();
+      audioContextRef.current?.close().catch(() => { });
+    },
+    [],
+  );
+  const A = () => api.current,
+    nm = {
+      orb: 'Órbitas',
+      lab: 'Mostrar nombres',
+      ax: 'Ejes',
+      vel: 'Velocidad',
+      gal: 'Movimiento galáctico',
+    },
+    startTravel = (run, label, afterArrival, awaitSceneArrival = false) => {
+      const vrPresentingNow = Boolean(api.current?.getVrState?.()?.presenting);
+      // In WebXR, travel switches cleanly to the exterior ship camera (pv = 3) so the player watches
+      // the KRONOX fly toward the destination instead of locking inside the bridge or an invisible DOM countdown.
+      const travelView = vrPresentingNow ? 3 : (fr ? pv : 3);
+      if (vrPresentingNow) {
+        setPauseMenuOpen(false);
+        api.current?.setSimulationPaused?.(false);
+        setActiveCockpitStation(null);
+        api.current?.setActiveCabinStation?.(null);
+        setMissionSelectorOpen(false);
+        setKronoxOpen(false);
+      }
+      if (spec) {
+        A().board();
+        setSpec(false);
+      } else if (!fr) {
+        A().free(true, false);
+      }
+      setFr(true);
+      setPv(travelView);
+      A().view(travelView);
+      A().clearAstronomicalHologram?.();
+      playCue('travel');
+      setNavigation({
+        label: t(label, language),
+        phase: vrPresentingNow ? 'PREPARING' : 'countdown',
+        progress: 0,
+      });
+      clearTimeout(missionTravelTipTimer.current);
+      travelRef.current = true;
+      countTimers.current.forEach(clearTimeout);
+      clearTimeout(noticeTimer.current);
+      noticeQueue.current = [];
+      noticeRef.current = null;
+      setNotice(null);
+      const launchJump = () => {
+        setCountdown(null);
+        notify('¡Salto iniciado! Rumbo a ' + t(label, language) + '.', 'Viaje rápido');
+        if (awaitSceneArrival) {
+          const started = run(() => {
+            travelRef.current = false;
+            playCue('arrival');
+            setNavigation(null);
+            clearTimeout(missionTravelTipTimer.current);
+            if (afterArrival) afterArrival();
+          });
+          if (started === false) {
+            travelRef.current = false;
+            setNavigation(null);
+            setMissionTraveling(false);
+          }
+        } else {
+          const started = run();
+          if (started === false) {
+            travelRef.current = false;
+            setNavigation(null);
+            setMissionTraveling(false);
+            return;
+          }
+          setTimeout(
+            () => {
+              if (!api.current?.navigationActive?.()) {
+                travelRef.current = false;
+                playCue('arrival');
+                setNavigation(null);
+              }
+              if (afterArrival) afterArrival();
+            },
+            afterArrival ? 1900 : 1200,
+          );
+        }
+      };
+      if (vrPresentingNow) {
+        setCountdown(null);
+        say('Iniciando viaje exterior en la nave KRONOX hacia ' + t(label, language) + '.');
+        countTimers.current = [setTimeout(launchJump, 120)];
+        return;
+      }
+      setCountdown(3);
+      say('Preparando viaje rápido hacia ' + t(label, language) + '. Cuenta atrás: 3, 2, 1.');
+      if (!awaitSceneArrival) speak('Tres.');
+      let n = 3;
+      const tick = () => {
+        if (n === 1) {
+          launchJump();
+          return;
+        }
+        n--;
+        setCountdown(n);
+        if (!awaitSceneArrival) speak(n === 2 ? 'Dos.' : 'Uno.');
+        countTimers.current.push(setTimeout(tick, 850));
+      };
+      countTimers.current = [setTimeout(tick, 850)];
+    },
+    chooseSpherexTarget = (target) => {
+      if (travelRef.current || missionArrival || !target) return;
+      const noviceMissionChoice =
+        noviceCinematicActiveRef.current && noviceMissionPhaseRef.current === 'selecting';
+      if (noviceMissionChoice) noviceMissionPhaseRef.current = 'in-transit';
+      setMissionSelectorOpen(false);
+      setMissionTraveling(true);
+      clearMissionOffer();
+      setMissionArrivalName(target.name);
+      setMissionTargetKey(target.key);
+      A().onGuidedDestinationSelected?.(target);
+      if (noviceCinematicActiveRef.current) {
+        A().setCinematicMissionDestination?.(target.key);
+      }
+      const destMsg =
+        'Destino fijado: ' +
+        t(target.name, language) +
+        '. Prepararé el salto hasta su posición en el vecindario galáctico.';
+      if (!noviceCinematicActiveRef.current) {
+        say(destMsg);
+        if (voiceRef.current) speak(destMsg, { interrupt: true });
+      }
+      startTravel(
+        (onArrive) => {
+          if (spec) {
+            A().board();
+            setSpec(false);
+          }
+          return A().missionTarget(target.key, onArrive);
+        },
+        target.name,
+        () => {
+          setMissionTraveling(false);
+          setMissionArrival(true);
+          A().setArrivedTarget?.(target);
+          A().onGuidedDestinationArrival?.(target);
+          if (noviceCinematicActiveRef.current) {
+            setMissionArrival(false);
+            if (noviceMissionPhaseRef.current === 'in-transit') {
+              noviceMissionPhaseRef.current = 'arrived';
+              setMissionLaunchTarget(target);
+            }
+            return;
+          }
+          const arrivalNotice =
+            'Hemos llegado a ' +
+            t(target.name, language) +
+            '. Para explorar con calma, cambia la velocidad a planetaria en Nave espacial.';
+          notify(arrivalNotice, 'Objetivo alcanzado');
+          if (voiceRef.current) speak(arrivalNotice, { interrupt: false });
+          missionOfferTimer.current = setTimeout(() => {
+            setMissionArrival(false);
+            if (api.current?.getVrState?.()?.presenting) {
+              setMissionLaunchTarget(null);
+              const vrReadyMsg =
+                'Objetivo SPHEREx listo en ' +
+                t(target.name, language) +
+                '. Pulsa [A] en tu mando cuando quieras regresar a la cabina.';
+              say(vrReadyMsg);
+              if (voiceRef.current) speak(vrReadyMsg, { interrupt: false });
+              api.current?.syncVrContext?.({
+                activeTargetKey: target.key,
+                lastKronoxReply: vrReadyMsg,
+              });
+            } else {
+              setMissionLaunchTarget(target);
+            }
+          }, 1900);
+        },
+        true,
+      );
+    },
+    travelToPlanet = (planetName) => {
+      if (!planetName || travelRef.current || api.current?.navigationActive?.()) return false;
+      setSelectedObject(null);
+      setMissionSelectorOpen(false);
+      if (missionArrival) setMissionArrival(false);
+      setMissionTraveling(false);
+      startTravel(
+        (onArrive) => {
+          if (spec) {
+            A().board?.();
+            setSpec(false);
+          }
+          return A().focus?.(planetName, null, onArrive);
+        },
+        planetName,
+        () => {
+          const presentingVr = Boolean(api.current?.getVrState?.()?.presenting);
+          const planetLabel = t(planetName, language);
+          const arrivalMsg = presentingVr
+            ? `Has llegado a ${planetLabel}. Pulsa [A] en tu mando cuando quieras regresar a la cabina.`
+            : `Has llegado a la órbita de ${planetLabel}.`;
+          notify(arrivalMsg, 'Destino alcanzado');
+          say(arrivalMsg);
+          if (voiceRef.current) speak(arrivalMsg, { interrupt: false });
+          if (presentingVr) {
+            api.current?.syncVrContext?.({ lastKronoxReply: arrivalMsg });
+          }
+        },
+        true,
+      );
+      return true;
+    },
+    travelToQuickTarget = (key, label) => {
+      if (!key || travelRef.current || api.current?.navigationActive?.()) return false;
+      setSelectedObject(null);
+      if (missionArrival) setMissionArrival(false);
+      setMissionTraveling(false);
+      startTravel(
+        (onArrive) => {
+          if (spec) {
+            A().board?.();
+            setSpec(false);
+          }
+          return A().quick?.(key, onArrive);
+        },
+        label || key,
+        () => {
+          const presentingVr = Boolean(api.current?.getVrState?.()?.presenting);
+          const destLabel = t(label || key, language);
+          const arrivalMsg = presentingVr
+            ? `Has llegado a ${destLabel}. Pulsa [A] en tu mando cuando quieras regresar a la cabina.`
+            : `Has llegado a ${destLabel}.`;
+          notify(arrivalMsg, 'Destino alcanzado');
+          say(arrivalMsg);
+          if (presentingVr) {
+            api.current?.syncVrContext?.({ lastKronoxReply: arrivalMsg });
+          }
+        },
+        true,
+      );
+      return true;
+    },
+    startSelectedMission = () => {
+      const target = missionLaunchTarget;
+      if (!target) return;
+      const instruction =
+        target.key === 'barnard'
+          ? t(
+              'Abriendo el nuevo explorador SPHEREx centrado en la Estrella de Barnard para observar su brillo infrarrojo y movimiento propio.',
+              language,
+            )
+          : t(`Explorando ${t(target.name, language)} en el nuevo visualizador SPHEREx.`, language);
+      missionGuideSyncRef.current = null;
+      A().onGuidedMissionStarted?.();
+      setMissionLaunchTarget(null);
+      if (noviceMissionPhaseRef.current === 'arrived') noviceMissionPhaseRef.current = 'active';
+      openSpherexAdvancedExplorer(target);
+      say(instruction);
+      speak(instruction);
+    },
+    handleKronoxCommand = (query) => {
+      const ctx = {
+        activeTargetKey: missionTargetKey,
+        missionOpen,
+        missionStage: missionStageSync,
+        focusedPlanet: f,
+        nearPlanet: near,
+        selectedObject,
+        findings: missionFindingsSync,
+        records: missionRecordsSync,
+        scienceContext: missionScienceSync,
+        cockpitActive: fr && pv == 1,
+        observationMode: observationModeInfo?.mode?.id || 'naked-eye',
+        observationModeLabel: observationModeInfo?.mode?.label || 'Simple vista (1×)',
+        activeStation: activeCockpitStation || 'Puente de mando',
+        activeObjective: guideObjective || 'Exploración científica libre',
+      };
+      const result = processKronoxQuery(query, ctx);
+      if (result.role) setAiRole(result.role);
+      if (result.avatarState) setAiAvatarState(result.avatarState);
+      if (result.pointDirection) setAiPointDirection(result.pointDirection);
+      if (result.epistemicCategory) setAiEpistemicCategory(result.epistemicCategory);
+      let actionLabel = '';
+      const act = result.action;
+      if (act) {
+        if (act.type === 'PLAY_SPHEREX_DOCUMENTARY') {
+          actionLabel = 'Documental interactivo SPHEREx iniciado';
+          setMissionOpen(false);
+          setMissionSelectorOpen(false);
+          setSpherexDocOpen(true);
+        } else if (act.type === 'PLAY_CINEMATIC_INTRO') {
+          actionLabel = 'Intro 3D en tiempo real iniciada';
+          setWelcomeOpen(false);
+          lastIntroStageKeyRef.current = '';
+          realTimeIntroActiveRef.current = true;
+          setRealTimeIntroActive(true);
+          A().startRealTimeIntro?.(() => {
+            introSoundtrackRef.current?.fadeOut?.(3.0);
+            setRealTimeIntroActive(false);
+            setFr(true);
+            setPv(1);
+          });
+        } else if (act.type === 'HIGHLIGHT_FIELD_REGION') {
+          actionLabel = 'Región señalada en campo';
+          setAiHighlightField(true);
+          A().moveAiToStation?.('science', 'Señalización');
+        } else if (act.type === 'ENTER_COCKPIT') {
+          actionLabel = 'Puente habitable 3D activado';
+          setMissionOpen(false);
+          setMissionSelectorOpen(false);
+          if (spec) {
+            A().board();
+            setSpec(false);
+          }
+          if (!fr) {
+            setFr(true);
+            A().free(true, false);
+          }
+          setPv(1);
+          A().view(1);
+          A().setAiFollowAstronaut?.(true);
+        } else if (act.type === 'SET_VIEW_MODE') {
+          actionLabel = act.view === 3 ? 'Cámara exterior activada' : 'Vista cabina 3D activada';
+          setMissionOpen(false);
+          if (!fr) {
+            setFr(true);
+            A().free(true, false);
+          }
+          setPv(act.view);
+          A().view(act.view);
+        } else if (act.type === 'SET_OPTICAL_TELESCOPE') {
+          actionLabel = act.enabled
+            ? `Telescopio Óptico activado (${act.magnification}×)`
+            : 'Observación a simple vista (1×)';
+          const obsRes = A().setOpticalTelescope?.(
+            Boolean(act.enabled),
+            act.magnification || 150,
+            f || near || 'Júpiter',
+          );
+          if (obsRes) setObservationModeInfo(obsRes);
+        } else if (act.type === 'OPEN_MISSION_SELECTOR') {
+          actionLabel = 'Consola de misiones activa';
+          setMissionOpen(false);
+          A().moveAiToStation?.('missions', 'Explicación');
+          setMissionSelectorOpen(true);
+        } else if (act.type === 'TRAVEL_SPHEREX' && act.target) {
+          actionLabel = `Viaje iniciado hacia ${act.target.name}`;
+          setMissionOpen(false);
+          setMissionSelectorOpen(false);
+          setSelectedObject(null);
+          setMissionTargetKey(act.targetKey);
+          A().moveAiToStation?.('nav', 'Desplazamiento');
+          recordJournalActivity({
+            type: 'TRAVEL_SPHEREX',
+            title: `Salto interestelar hacia ${act.target.name}`,
+            detail: `Distancia: ${act.target.distanceLabel} · Banda: ${act.target.preferredBand}`,
+            objectKey: act.targetKey,
+            objectKind: 'spherex',
+            objectLabel: act.target.name,
+          });
+          try {
+            const prog = { targetKey: act.targetKey, stage: 'arrival', updatedAt: Date.now() };
+            localStorage.setItem('kronox-expedition-progress', JSON.stringify(prog));
+            setSavedExpedition(prog);
+          } catch {
+            /* ignore */
+          }
+          chooseSpherexTarget(act.target);
+        } else if (act.type === 'TRAVEL_PLANET' && act.planetName) {
+          actionLabel = `Rumbo fijado a ${act.planetName}`;
+          setMissionOpen(false);
+          setMissionSelectorOpen(false);
+          setSelectedObject(null);
+          A().moveAiToStation?.('nav', 'Desplazamiento');
+          recordJournalActivity({
+            type: 'TRAVEL_PLANET',
+            title: `Tránsito planetario hacia ${act.planetName}`,
+            detail: 'Navegación en Sistema Solar (Época J2000.0)',
+            objectKey: act.planetName,
+            objectKind: 'planet',
+            objectLabel: act.planetName,
+          });
+          travelToPlanet(act.planetName);
+        } else if (act.type === 'TRAVEL_GALAXY' && act.galaxyKey) {
+          actionLabel = `Mapa intergaláctico: ${act.galaxyKey}`;
+          setMissionOpen(false);
+          setMissionSelectorOpen(false);
+          A().nearbyMap();
+          setNearbyMapActive(true);
+          setNearbyGalaxyKey(act.galaxyKey);
+          A().focusNearbyGalaxy(act.galaxyKey);
+          setFr(false);
+          setSpec(false);
+        } else if (act.type === 'OPEN_OBSERVATORY' || act.type === 'OPEN_MISSION_STAGE') {
+          actionLabel = `Explorador espectral SPHEREx: ${act.targetKey || 'barnard'}`;
+          A().moveAiToStation?.('science', 'Explicación');
+          openSpherexAdvancedExplorer(act.targetKey || 'barnard');
+        } else if (act.type === 'SELECT_OBJECT') {
+          actionLabel = `Señalando en cosmos 3D: ${act.key}`;
+          setSelectedObject({ kind: act.kind, key: act.key });
+          A().pointAiAtExternalObject?.(act.kind, act.key);
+        }
+      }
+
+      if (result.isFallback && !act) {
+        askKronoxDynamic(query, ctx).then((dynRes) => {
+          const finalReply = dynRes?.reply || result.reply;
+          if (dynRes?.role) setAiRole(dynRes.role);
+          if (dynRes?.avatarState) setAiAvatarState(dynRes.avatarState);
+          if (dynRes?.epistemicCategory) setAiEpistemicCategory(dynRes.epistemicCategory);
+          setAiHistory((prev) => [...prev.slice(-4), { query, actionLabel }]);
+          kronoxDialogHiddenRef.current = false;
+          setKronoxDialogHidden(false);
+          setGuide(finalReply, {
+            id: `reply-${Date.now()}`,
+            intent: 'response',
+            replace: true,
+          });
+          clearTimeout(kronoxCloseTimer.current);
+          if (voiceRef.current) speak(finalReply, { interrupt: true });
+        });
+        return;
+      }
+
+      setAiHistory((prev) => [...prev.slice(-4), { query, actionLabel }]);
+      kronoxDialogHiddenRef.current = false;
+      setKronoxDialogHidden(false);
+      setGuide(result.reply, {
+        id: `reply-${Date.now()}`,
+        intent: 'response',
+        replace: true,
+      });
+      clearTimeout(kronoxCloseTimer.current);
+      if (voiceRef.current) speak(result.reply, { interrupt: true });
+    },
+    tg = (k) =>
+      h(
+        'button',
+        {
+          key: k,
+          className: fl[k] ? 'on' : '',
+          onClick: () => {
+            const enabling = !fl[k];
+            setFl({ ...fl, [k]: enabling ? 1 : 0 });
+            if (enabling && ['ax', 'vel', 'gal'].includes(k))
+              notify(
+                k === 'ax'
+                  ? 'Ejes de rotación activados.'
+                  : k === 'vel'
+                    ? 'Vectores de velocidad activados.'
+                    : 'Modo galáctico activado.',
+                'Control activado',
+              );
+          },
+        },
+        nm[k],
+      ),
+    pi = f && P.find((x) => x.n == f);
+  vrHandlersRef.current = {
+    'travel-planet': (payload) => {
+      travelToPlanet(payload?.planetName);
+    },
+    'travel-spherex': (payload) => {
+      const key = payload?.targetKey;
+      const target = SPHEREX_TARGETS.find((tgt) => tgt.key === key) || SPHEREX_TARGETS[0];
+      if (!target) return;
+      setSelectedObject(null);
+      chooseSpherexTarget(target);
+    },
+    'quick-travel': (payload) => {
+      travelToQuickTarget(payload?.key, payload?.label || payload?.key);
+    },
+    'kronox-query': (payload) => {
+      const query = String(payload?.query || '').trim();
+      if (query) handleKronoxCommand(query);
+    },
+    'start-tour': () => {
+      A()?.startGuidedTour?.();
+    },
+    'repeat-voice': () => {
+      setSpeechPaused(false);
+      const lastMessage = narrativeQueue.repeat();
+      if (lastMessage) {
+        if (voiceRef.current) speak(lastMessage.text, { interrupt: true });
+        api.current?.syncVrContext?.({ lastKronoxReply: lastMessage.text });
+      }
+    },
+    'toggle-voice': () => {
+      const next = !voiceRef.current;
+      voiceRef.current = next;
+      setVoice(next);
+      if (!next) {
+        stopVoiceAndClearQueue();
+        say('Voz silenciada. Mis mensajes seguirán activos en consola VR.');
+      } else {
+        say('Voz de KRONOX IA reactivada.');
+        speak('Voz de KRONOX IA reactivada.', { interrupt: true });
+      }
+    },
+    'toggle-mic': async () => {
+      if (vrSpeechRecRef.current) {
+        try {
+          vrSpeechRecRef.current.stop();
+        } catch { }
+        vrSpeechRecRef.current = null;
+        api.current?.syncVrContext?.({ lastKronoxReply: 'Escucha de micrófono detenida.' });
+        return;
+      }
+      const SpeechRecognitionCtor =
+        typeof window !== 'undefined'
+          ? window.SpeechRecognition || window.webkitSpeechRecognition
+          : null;
+      if (!SpeechRecognitionCtor) {
+        const msg = 'Reconocimiento de voz no disponible en este navegador VR.';
+        say(msg);
+        api.current?.syncVrContext?.({ lastKronoxReply: msg });
+        return;
+      }
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach((tr) => tr.stop());
+        } catch {
+          const msg = 'Permiso de micrófono denegado en el visor VR.';
+          say(msg);
+          api.current?.syncVrContext?.({ lastKronoxReply: msg });
+          return;
+        }
+      }
+      try {
+        const recognition = new SpeechRecognitionCtor();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = language === 'en' ? 'en-US' : 'es-ES';
+        vrSpeechRecRef.current = recognition;
+        let finalTranscript = '';
+        recognition.onstart = () => {
+          api.current?.syncVrContext?.({
+            lastKronoxReply: '🎙️ Escuchando a través del micrófono... Habla ahora con KRONOX IA.',
+          });
+        };
+        recognition.onresult = (event) => {
+          let interim = '';
+          for (let i = event.resultIndex; i < event.results.length; i += 1) {
+            const textChunk = event.results[i]?.[0]?.transcript || '';
+            if (event.results[i].isFinal) finalTranscript += `${textChunk} `;
+            else interim += textChunk;
+          }
+          const preview = (finalTranscript || interim).trim();
+          if (preview) {
+            api.current?.syncVrContext?.({ lastKronoxReply: `🎙️ "${preview}"` });
+          }
+        };
+        recognition.onerror = () => {
+          vrSpeechRecRef.current = null;
+          api.current?.syncVrContext?.({
+            lastKronoxReply: 'No se pudo capturar audio. Intenta hablar de nuevo.',
+          });
+        };
+        recognition.onend = () => {
+          vrSpeechRecRef.current = null;
+          const clean = finalTranscript.trim();
+          if (clean) handleKronoxCommand(clean);
+        };
+        recognition.start();
+      } catch {
+        vrSpeechRecRef.current = null;
+      }
+    },
+    'toggle-visual-profile': (payload) => {
+      const next = payload?.profile || (visualProfile === 'scientific' ? 'cinematic' : 'scientific');
+      setVisualProfile(next);
+      A()?.setVisualProfile?.(next);
+    },
+    'scientific-scan': (payload) => {
+      const targetKey = payload?.targetKey || missionTargetKey || 'barnard';
+      const tgt = SPHEREX_TARGETS.find((item) => item.key === targetKey) || SPHEREX_TARGETS[0];
+      setMissionTargetKey(targetKey);
+      const res = grantInventoryItem('data-spherex-calibration');
+      if (res?.inventory) setInventoryState(res.inventory);
+      const msg = `Escaneo espectral infrarrojo SPHEREx iniciado sobre ${tgt?.name || targetKey} (${tgt?.preferredBand || 'SPHEREx'}).`;
+      say(msg);
+      if (voiceRef.current) speak(msg, { interrupt: true });
+    },
+  };
+  return (
+    <LocalizedDom language={language}>
+      {h(
+    'div',
+    {
+      className: `app ${deviceMode === 'mobile' ? 'mobileMode' : ''} ${fr ? 'flightMode' : ''} ${nearbyMapActive ? 'nearbyMapMode' : ''} ${realTimeIntroActive || navigation || guideState?.cinematic ? 'cinematicActive' : ''}`,
+    },
+    h('div', { ref: el, style: { position: 'absolute', inset: 0 } }),
+    h('audio', { ref: introMusicElementRef, 'data-kronox-intro-music': true, preload: 'auto', 'aria-hidden': true, style: { display: 'none' } }),
+    performanceWarning &&
+    h(
+      'aside',
+      {
+        className: 'kronox-performance-warning',
+        role: 'status',
+        'aria-live': 'polite',
+      },
+      h('div', { className: 'kronox-performance-warning__icon', 'aria-hidden': true }, '⚡'),
+      h(
+        'div',
+        { className: 'kronox-performance-warning__content' },
+        h('strong', null, language === 'es' ? '¿Va lento el juego?' : 'Is the game running slowly?'),
+        h(
+          'p',
+          null,
+          language === 'es'
+            ? `Detectamos rendimiento bajo (aprox. ${performanceWarning.fps} FPS). Puedes bajar los gráficos para ganar fluidez.`
+            : `Low performance detected (about ${performanceWarning.fps} FPS). Lower graphics for smoother play.`,
+        ),
+        h(
+          'div',
+          { className: 'kronox-performance-warning__actions' },
+          h(
+            'button',
+            {
+              type: 'button',
+              className: 'kronox-performance-warning__accept',
+              onClick: () => {
+                setQuality('low');
+                setPerformanceWarning(null);
+              },
+            },
+            language === 'es' ? 'Reducir gráficos al mínimo' : 'Set graphics to minimum',
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              className: 'kronox-performance-warning__dismiss',
+              onClick: () => setPerformanceWarning(null),
+            },
+            language === 'es' ? 'Ahora no' : 'Not now',
+          ),
+        ),
+      ),
+    ),
+    !welcomeOpen &&
+    !missionOpen &&
+    !realTimeIntroActive &&
+    !guideState?.cinematic &&
+    !fr &&
+    h(NavigationDock, {
+      context: navigationScale,
+      travelActive: !!navigation && navigation.phase !== 'countdown',
+      onScale: (id) => {
+        if (A()?.setNavigationScale?.(id)) {
+          setFr(false);
+          setMissionTraveling(false);
+          clearMissionOffer();
+          setSelectedObject(null);
+          setNearbyGalaxyInfoKey(null);
+        }
+      },
+      onObserve: () => {
+        clearMissionOffer();
+        const key =
+          selectedObject?.key ||
+          (nearbyMapActive ? nearbyGalaxyKey : navigationScale.targetKey) ||
+          missionTargetKey;
+        if (!SPHEREX_TARGETS.some((t) => t.key === key)) {
+          setMissionSelectorOpen(true);
+          return;
+        }
+        openSpherexAdvancedExplorer(key);
+      },
+      onReplayIntro: () => {
+        clearMissionOffer();
+        setWelcomeOpen(false);
+        lastIntroStageKeyRef.current = '';
+        realTimeIntroActiveRef.current = true;
+        setRealTimeIntroActive(true);
+        A().startRealTimeIntro?.(() => {
+          introSoundtrackRef.current?.fadeOut?.(3.0);
+          setRealTimeIntroActive(false);
+          setFr(true);
+          setPv(1);
+        });
+      },
+      onReenter: () => {
+        countTimers.current.forEach(clearTimeout);
+        clearTimeout(missionTravelTipTimer.current);
+        travelRef.current = false;
+        setCountdown(null);
+        setNavigation(null);
+        setMissionTraveling(false);
+        A()?.reenterCabin?.();
+        setFr(true);
+        setPv(1);
+        setKronoxDialogHidden(false);
+      },
+      onStop: () => {
+        countTimers.current.forEach(clearTimeout);
+        clearTimeout(missionTravelTipTimer.current);
+        travelRef.current = false;
+        setCountdown(null);
+        setNavigation(null);
+        A()?.stopAndInspect?.();
+        setFr(false);
+        setMissionTraveling(false);
+      },
+      onView: () => {
+        A()?.free?.(true);
+        A()?.view?.(3);
+        setFr(true);
+        setPv(3);
+      },
+      onMissions: () => setMissionSelectorOpen(true),
+      onMap: () => {
+        const currentId = navigationScale?.id || 'stellar';
+        const targetScale = ['regional', 'stellar', 'extragalactic', 'milkyway', 'solar'].includes(currentId)
+          ? currentId
+          : 'stellar';
+        if (A()?.setNavigationScale?.(targetScale)) {
+          setFr(false);
+          setNearbyMapActive(targetScale === 'extragalactic');
+          setSelectedObject(null);
+          clearMissionOffer();
+        }
+      },
+      onSettings: () => setOpen(true),
+      onStartPerformance: () => {
+        A()?.startPerformanceCapture?.();
+        setPerformanceReport(null);
+      },
+      onPerformance: () => setPerformanceReport(A()?.performanceSnapshot?.()),
+      performanceReport,
+    }),
+    !welcomeOpen &&
+    !missionOpen &&
+    !realTimeIntroActive &&
+    !fr &&
+    !selectedObject &&
+    ['stellar', 'regional'].includes(navigationScale.id) &&
+    h(StellarCatalogPanel, {
+      mode: navigationScale.id,
+      selectedKey: navigationScale.targetKey,
+      onFocus: (key) => A()?.focusContextStar?.(key),
+    }),
+    nearbyMapActive &&
+    h(NearbyGalaxyControls, {
+      language,
+      selectedKey: nearbyGalaxyKey,
+      onSelect: (key) => {
+        setNearbyGalaxyKey(key);
+        clearMissionOffer();
+        A().focusNearbyGalaxy(key);
+      },
+      onFocus: (key) => A().focusNearbyGalaxy(key),
+      onFocusSolarSystem: () => {
+        setNearbyGalaxyKey('milky-way');
+        A().setNavigationScale?.('solar');
+        setFr(false);
+        setNearbyMapActive(false);
+        setSelectedObject(null);
+      },
+      onInfo: setNearbyGalaxyInfoKey,
+      onReturn: () => {
+        A().returnFromNearbyMap();
+        setNearbyMapActive(false);
+        setNearbyGalaxyInfoKey(null);
+      },
+    }),
+    open &&
+    h(
+      'div',
+      {
+        className: 'pn panelOpen kronoxSecondarySettingsModal',
+        role: 'dialog',
+        'aria-label': 'Interfaz de navegación',
+      },
+      h(
+        'div',
+        { className: 'panelHeading' },
+        h('h1', null, 'Interfaz de navegación'),
+        h('button', { onClick: () => setOpen(false) }, 'Cerrar ×'),
+      ),
+      h(
+        'div',
+        { className: 'menuContent' },
+        h(
+          'nav',
+          { className: 'menuTabs', 'aria-label': 'Secciones del menú' },
+          [
+            ['interface', 'Interfaz'],
+            ['spaceship', 'Nave espacial'],
+            ['mission', 'Misión espacial'],
+          ].map(([id, label]) =>
+            h(
+              'button',
+              {
+                key: id,
+                className: menuSection === id ? 'active' : '',
+                onClick: () => setMenuSection(id),
+                'aria-current': menuSection === id ? 'page' : undefined,
+              },
+              label,
+            ),
+          ),
+        ),
+        menuSection === 'interface' &&
+        h(
+          'div',
+          { className: 'menuSectionBody' },
+          h(
+            'label',
+            { className: 'languageChoice' },
+            h('span', null, language === 'es' ? 'Idioma' : 'Language'),
+            h(
+              'select',
+              {
+                value: language,
+                onChange: (event) => chooseLanguage(event.target.value),
+                'aria-label':
+                  language === 'es' ? 'Idioma de la interfaz' : 'Interface language',
+              },
+              LANGUAGES.map((option) =>
+                h('option', { key: option.code, value: option.code }, option.native),
+              ),
+            ),
+          ),
+          h(
+            'div',
+            { className: 'deviceModeChoices' },
+            h('small', null, 'Interfaz'),
+            h(
+              'button',
+              {
+                className: deviceMode === 'mobile' ? 'on' : '',
+                onClick: () => setDeviceMode('mobile'),
+              },
+              'Móvil',
+            ),
+            h(
+              'button',
+              {
+                className: deviceMode === 'desktop' ? 'on' : '',
+                onClick: () => setDeviceMode('desktop'),
+              },
+              'PC',
+            ),
+          ),
+          h(
+            'section',
+            {
+              className: 'playPreferences',
+              'aria-label': language === 'es' ? 'Preferencias de juego' : 'Game preferences',
+            },
+            h('b', null, language === 'es' ? 'Experiencia' : 'Experience'),
+            h(
+              'label',
+              { className: 'preferenceRow' },
+              h('span', null, language === 'es' ? 'Calidad gráfica' : 'Graphics quality'),
+              h(
+                'select',
+                {
+                  value: quality,
+                  onChange: (event) => setQuality(event.target.value),
+                  'aria-label': language === 'es' ? 'Calidad gráfica' : 'Graphics quality',
+                },
+                h('option', { value: 'auto' }, language === 'es' ? 'Automática' : 'Automatic'),
+                h(
+                  'option',
+                  { value: 'low' },
+                  language === 'es' ? 'Bajo (Fluidez)' : 'Low (Performance)',
+                ),
+                h(
+                  'option',
+                  { value: 'medium' },
+                  language === 'es' ? 'Medio (Equilibrado)' : 'Medium (Balanced)',
+                ),
+                h(
+                  'option',
+                  { value: 'high' },
+                  language === 'es' ? 'Alto (Máxima calidad)' : 'High (Best quality)',
+                ),
+              ),
+            ),
+            h(
+              'label',
+              { className: 'preferenceToggle' },
+              h('input', {
+                type: 'checkbox',
+                checked: reducedMotion,
+                onChange: (event) => setReducedMotion(event.target.checked),
+              }),
+              h(
+                'span',
+                null,
+                language === 'es'
+                  ? 'Reducir animaciones y movimiento'
+                  : 'Reduce animations and motion',
+              ),
+            ),
+            h(
+              'label',
+              { className: 'preferenceToggle' },
+              h('input', {
+                type: 'checkbox',
+                checked: highContrast,
+                onChange: (event) => setHighContrast(event.target.checked),
+              }),
+              h('span', null, language === 'es' ? 'Aumentar contraste' : 'Increase contrast'),
+            ),
+            h(
+              'div',
+              { className: 'soundPreference' },
+              h(
+                'button',
+                {
+                  type: 'button',
+                  disabled: !window.AudioContext && !window.webkitAudioContext,
+                  className: ambientEnabled ? 'on' : '',
+                  'aria-pressed': ambientEnabled,
+                  onClick: toggleAmbient,
+                },
+                ambientEnabled
+                  ? language === 'es'
+                    ? '♫ Ambiente activado'
+                    : '♫ Ambience on'
+                  : language === 'es'
+                    ? '♫ Activar ambiente'
+                    : '♫ Enable ambience',
+              ),
+              h(
+                'label',
+                { className: 'preferenceRow' },
+                h('span', null, language === 'es' ? 'Volumen' : 'Volume'),
+                h('input', {
+                  type: 'range',
+                  min: 0,
+                  max: 1,
+                  step: 0.01,
+                  value: soundVolume,
+                  disabled: !gameAudioRef.current,
+                  onChange: (event) => {
+                    const value = Number(event.target.value);
+                    setSoundVolume(value);
+                    gameAudioRef.current?.setVolume(value);
+                  },
+                  'aria-label': language === 'es' ? 'Volumen del juego' : 'Game volume',
+                }),
+              ),
+            ),
+          ),
+          h('small', null, 'Nivel de escala cósmica'),
+          h(
+            'div',
+            { className: 'r' },
+            ['Tierra y Luna', 'Sistema solar', 'Brazo de Orión', 'Vía Láctea'].map((t, i) =>
+              h(
+                'button',
+                {
+                  key: t,
+                  onClick: () => {
+                    if (spec) {
+                      A().exitSpectator();
+                      setSpec(false);
+                    }
+                    notify('Cambiando nivel de vista a ' + t + '.', 'Cambio de vista');
+                    setReal(false);
+                    A().lvl(i);
+                  },
+                },
+                t,
+              ),
+            ),
+          ),
+          h(
+            'div',
+            { className: 'r' },
+            h(
+              'button',
+              {
+                className: real ? '' : 'on',
+                onClick: () => {
+                  if (spec) {
+                    A().exitSpectator();
+                    setSpec(false);
+                  }
+                  notify('Activando escala visual.', 'Cambio de escala');
+                  setReal(false);
+                  A().mode(false);
+                },
+              },
+              'Escala visual',
+            ),
+            h(
+              'button',
+              {
+                className: real ? 'on' : '',
+                onClick: () => {
+                  if (spec) {
+                    A().exitSpectator();
+                    setSpec(false);
+                  }
+                  notify('Activando escala física.', 'Cambio de escala');
+                  setReal(true);
+                  A().mode(true);
+                },
+              },
+              'Escala física',
+            ),
+          ),
+          h(
+            'small',
+            null,
+            real
+              ? 'Escala física: 1 unidad = 1 millón de km. Radios y distancias a escala real.'
+              : 'Escala visual: radios exagerados y distancias comprimidas (d = 14 + 16·a^0,62). Se conservan la forma, la excentricidad y la inclinación de cada órbita.',
+          ),
+          h(
+            'small',
+            null,
+            'Velocidad: ' + Math.pow(10, sp).toFixed(sp < 0 ? 2 : 0) + ' días por segundo',
+          ),
+          h('input', {
+            type: 'range',
+            min: -1,
+            max: 3,
+            step: 0.05,
+            value: sp,
+            onChange: (e) => setSp(+e.target.value),
+          }),
+          h(
+            'div',
+            { className: 'r' },
+            h('button', { onClick: () => setPause(!pause) }, pause ? 'Reanudar' : 'Pausar'),
+            h(
+              'button',
+              {
+                onClick: () => {
+                  A().reset();
+                  setPause(false);
+                  setSp(-1);
+                },
+              },
+              'Restablecer',
+            ),
+          ),
+          h(
+            'div',
+            { className: 'r' },
+            h('small', null, 'Fecha simulada'),
+            h('input', {
+              type: 'date',
+              ref: dayRef,
+              style: {
+                colorScheme: 'dark',
+                background: '#ffffff12',
+                color: 'inherit',
+                border: '1px solid #ffffff2a',
+                borderRadius: 7,
+                padding: '4px 6px',
+              },
+              onChange: (e) => {
+                const t = Date.parse(e.target.value);
+                if (!isNaN(t)) A().setDay((t - Date.UTC(2000, 0, 1, 12)) / 864e5);
+              },
+            }),
+          ),
+          h('div', { className: 'r' }, ['orb', 'lab', 'ax', 'vel', 'gal'].map(tg)),
+          fl.gal
+            ? h(
+              'small',
+              null,
+              'Esquema: el Sol queda fijo en el centro y la galaxia se mueve respecto a él. Tiempo galáctico ×10⁶ (una vuelta = 230 millones de años; el Sol viaja a ~230 km/s). Mira desde «Brazo de Orión» o «Vía Láctea».',
+            )
+            : null,
+          h('button', { onClick: () => setSrc(!src) }, 'Fuentes y metodología'),
+          src &&
+          h(
+            'small',
+            { style: { marginTop: 6 } },
+            'Datos físicos: NASA Solar System Exploration. Posiciones: elementos keplerianos aproximados de JPL (Standish, válidos 1800–2050) resueltos con la ecuación de Kepler; son aproximaciones, no efemérides de JPL Horizons. La Luna usa una órbita circular simplificada y rotación sincronizada. Todos los ejes apuntan al mismo lado del espacio (simplificación). A alta velocidad la rotación se limita visualmente. Orientación: el plano galáctico está inclinado ~60° respecto a la eclíptica y el centro galáctico queda hacia Sagitario (λ≈266°, β≈−5,6°); el Sol orbita en sentido horario visto desde el polo norte galáctico. Vía Láctea: modelo esquemático, no una fotografía; Sol a unos 26.000 años luz del centro, en el Espolón de Orión; las texturas son procedurales.',
           ),
         ),
         menuSection === 'spaceship' &&
