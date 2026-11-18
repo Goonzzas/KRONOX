@@ -4272,3 +4272,99 @@ small {
   text-transform: uppercase;
   font-family: 'Oxanium', 'Rajdhani', sans-serif;
 }
+
+.kronox-performance-warning {
+  position: fixed;
+  z-index: 100010;
+  top: calc(18px + env(safe-area-inset-top, 0px));
+  right: max(18px, env(safe-area-inset-right, 0px));
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(440px, calc(100vw - 32px));
+  padding: 16px;
+  color: #e9f5ff;
+  background: linear-gradient(145deg, rgba(8, 22, 39, 0.97), rgba(9, 14, 31, 0.97));
+  border: 1px solid rgba(65, 190, 255, 0.55);
+  border-radius: 16px;
+  box-shadow: 0 12px 38px rgba(0, 0, 0, 0.52), 0 0 24px rgba(28, 148, 226, 0.15);
+  backdrop-filter: blur(14px);
+  animation: kronoxPerformancePromptIn 220ms ease-out;
+}
+
+.kronox-performance-warning__icon {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: #071625;
+  background: linear-gradient(135deg, #9de9ff, #55b8ff);
+  border-radius: 11px;
+  font-size: 20px;
+}
+
+.kronox-performance-warning__content {
+  min-width: 0;
+}
+
+.kronox-performance-warning__content strong {
+  display: block;
+  color: #fff;
+  font: 700 14px 'Oxanium', 'Rajdhani', sans-serif;
+}
+
+.kronox-performance-warning__content p {
+  margin: 6px 0 12px;
+  color: #c4d2e1;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.kronox-performance-warning__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.kronox-performance-warning__actions button {
+  min-height: 36px;
+  padding: 8px 11px;
+  border: 1px solid rgba(148, 177, 205, 0.35);
+  border-radius: 9px;
+  color: #dbe8f5;
+  background: rgba(255, 255, 255, 0.06);
+  font: 600 11px 'Oxanium', 'Rajdhani', sans-serif;
+  cursor: pointer;
+}
+
+.kronox-performance-warning__actions .kronox-performance-warning__accept {
+  color: #061725;
+  background: linear-gradient(135deg, #a4edff, #52baff);
+  border-color: transparent;
+}
+
+.kronox-performance-warning__actions button:hover {
+  filter: brightness(1.1);
+}
+
+@keyframes kronoxPerformancePromptIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 540px) {
+  .kronox-performance-warning {
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
+    width: min(400px, calc(100vw - 20px));
+    padding: 13px;
+  }
+}

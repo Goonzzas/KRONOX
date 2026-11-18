@@ -255,6 +255,7 @@ export default function App() {
     [interactionFeedback, setInteractionFeedback] = useState(null),
     [voiceFailed, setVoiceFailed] = useState(false),
     [graphicsRuntime, setGraphicsRuntime] = useState(null),
+    [performanceWarning, setPerformanceWarning] = useState(null),
     [pointerLockState, setPointerLockState] = useState({
       supported: true,
       active: false,
@@ -652,6 +653,14 @@ export default function App() {
   activeCockpitStationRef.current = activeCockpitStation;
   missionOpenRef.current = missionOpen;
   gameSettingsRef.current = gameSettings;
+  useEffect(() => {
+    const graphics = {
+      ...DEFAULT_GRAPHICS_SETTINGS,
+      ...(gameSettings.graphics || {}),
+      preset: normalizeGraphicsPreset(gameSettings.graphics?.preset ?? quality, 'auto'),
+    };
+    api.current?.setGraphicsSettings?.(graphics);
+  }, [gameSettings.graphics, quality]);
   useEffect(() => {
     if (personalHubOpen) {
       api.current?.onGuidedJournalOpen?.();
@@ -1374,6 +1383,7 @@ export default function App() {
       vrSettings: normalizeVrSettings(gameSettingsRef.current?.vr),
       onSceneReady: () => setSceneReady(true),
       onGraphicsStateChange: (info) => setGraphicsRuntime(info),
+      onPerformanceWarning: (info) => setPerformanceWarning(info),
       onVrStateChange: (nextVr) => {
         if (nextVr) setVrState(nextVr);
         if (nextVr?.presenting) {
@@ -2694,6 +2704,53 @@ export default function App() {
     },
     h('div', { ref: el, style: { position: 'absolute', inset: 0 } }),
     h('audio', { ref: introMusicElementRef, 'data-kronox-intro-music': true, preload: 'auto', 'aria-hidden': true, style: { display: 'none' } }),
+    performanceWarning &&
+    h(
+      'aside',
+      {
+        className: 'kronox-performance-warning',
+        role: 'status',
+        'aria-live': 'polite',
+      },
+      h('div', { className: 'kronox-performance-warning__icon', 'aria-hidden': true }, '⚡'),
+      h(
+        'div',
+        { className: 'kronox-performance-warning__content' },
+        h('strong', null, language === 'es' ? '¿Va lento el juego?' : 'Is the game running slowly?'),
+        h(
+          'p',
+          null,
+          language === 'es'
+            ? `Detectamos rendimiento bajo (aprox. ${performanceWarning.fps} FPS). Puedes bajar los gráficos para ganar fluidez.`
+            : `Low performance detected (about ${performanceWarning.fps} FPS). Lower graphics for smoother play.`,
+        ),
+        h(
+          'div',
+          { className: 'kronox-performance-warning__actions' },
+          h(
+            'button',
+            {
+              type: 'button',
+              className: 'kronox-performance-warning__accept',
+              onClick: () => {
+                setQuality('low');
+                setPerformanceWarning(null);
+              },
+            },
+            language === 'es' ? 'Reducir gráficos al mínimo' : 'Set graphics to minimum',
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              className: 'kronox-performance-warning__dismiss',
+              onClick: () => setPerformanceWarning(null),
+            },
+            language === 'es' ? 'Ahora no' : 'Not now',
+          ),
+        ),
+      ),
+    ),
     !welcomeOpen &&
     !missionOpen &&
     !realTimeIntroActive &&

@@ -308,6 +308,9 @@ export function setupScene(el, S) {
   const destinationResources = createDestinationResources();
   sharedPointMap = destinationResources.softMap;
   let qualityMode = S.quality || 'auto';
+  let performanceWindowStartedAt = null;
+  let performanceWindowFrames = 0;
+  let performanceWarningIssued = false;
   const preHardwareDetection = detectHardwareCapabilities({
     navigatorObj: globalThis.navigator,
     windowObj: globalThis.window,
@@ -6577,6 +6580,33 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return;
     }
     lastRenderedFrameAt = frameNow;
+    const performanceWatchEligible =
+      !IS_NODE_SCENE_HARNESS &&
+      !xrActiveNow &&
+      !simulationPaused &&
+      !mainMenuOrbitActive &&
+      !realTimeIntro &&
+      !(typeof document !== 'undefined' && document.visibilityState === 'hidden');
+    if (!performanceWatchEligible) {
+      performanceWindowStartedAt = null;
+      performanceWindowFrames = 0;
+    } else if (graphicsUserSettings.preset !== 'low' && effectiveGraphics.preset !== 'low') {
+      if (performanceWindowStartedAt === null) {
+        performanceWindowStartedAt = frameNow;
+        performanceWindowFrames = 0;
+      }
+      performanceWindowFrames += 1;
+      const sampleDuration = frameNow - performanceWindowStartedAt;
+      if (sampleDuration >= 5000) {
+        const measuredFps = (performanceWindowFrames * 1000) / sampleDuration;
+        if (measuredFps < 24 && !performanceWarningIssued) {
+          performanceWarningIssued = true;
+          S.onPerformanceWarning?.({ fps: Math.round(measuredFps), suggestedPreset: 'low' });
+        }
+        performanceWindowStartedAt = frameNow;
+        performanceWindowFrames = 0;
+      }
+    }
     if (frameTiming.active && frameTiming.last !== null) { frameTiming.values.push(frameNow - frameTiming.last); if (frameTiming.values.length >= 600) frameTiming.active = false; }
     frameTiming.last = frameNow;
     const rawDelta = clk.getDelta();
