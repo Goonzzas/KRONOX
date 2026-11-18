@@ -4680,3 +4680,6 @@ export default function App() {
       onComplete: () => setInitialLoadingComplete(true),
     })
       )}
+    </LocalizedDom>
+  );
+}
