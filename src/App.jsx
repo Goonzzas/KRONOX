@@ -1493,8 +1493,12 @@ export default function App() {
           awardInventoryItem('data-spherex-calibration');
           if (!vrPresenting) openSpherexAdvancedExplorer(missionTargetKey);
         } else if (stationId === 'missions') {
-          if (noviceCinematicActiveRef.current) noviceMissionPhaseRef.current = 'selecting';
-          if (!vrPresenting) setMissionSelectorOpen(true);
+          const noviceBarnardArrival =
+            noviceCinematicActiveRef.current && noviceMissionPhaseRef.current === 'arrived';
+          if (!noviceBarnardArrival) {
+            if (noviceCinematicActiveRef.current) noviceMissionPhaseRef.current = 'selecting';
+            if (!vrPresenting) setMissionSelectorOpen(true);
+          }
         } else if (stationId === 'bioponics') {
           awardInventoryItem('sample-bioponic-flora');
         } else if (stationId === 'engineering') {
@@ -1600,6 +1604,10 @@ export default function App() {
       },
       onNoviceCinematicOpenMission: () => {
         missionGuideSyncRef.current = null;
+        A()?.onGuidedMissionStarted?.();
+        if (noviceMissionPhaseRef.current === 'arrived') noviceMissionPhaseRef.current = 'active';
+        clearMissionOffer();
+        setMissionSelectorOpen(false);
         const target = SPHEREX_TARGETS.find((item) => item.key === 'barnard') || SPHEREX_TARGETS[0];
         openSpherexAdvancedExplorer(target);
       },

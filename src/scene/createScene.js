@@ -4617,14 +4617,14 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       missionWpHudWasActive = false;
       S.onMissionWaypointHud?.(null);
       guidedTourState.playerControlEnabled = true;
-      setTourStep('novice-select-mission', 'missions');
+      setTourStep('mission_start', 'science');
       S.onAiTourNarrative?.(
-        'Mando de misiones SPHEREx abierto. Elige «Estrella de Barnard» para viajar y analizar su movimiento propio en el nuevo visualizador.',
+        'Mando de misiones SPHEREx abierto. Ya estamos en la Estrella de Barnard; abriré directamente su misión para comenzar el análisis.',
         'Orientación',
         'missions',
-        { id: 'novice-mission-select', priority: 9, replace: true, once: false },
+        { id: 'novice-barnard-mission-open', priority: 9, replace: true, once: false },
       );
-      S.onGuidedMissionSelectorOpen?.();
+      S.onNoviceCinematicOpenMission?.();
       return;
     }
     if (guidedTourState.step === 'stand_up') {
