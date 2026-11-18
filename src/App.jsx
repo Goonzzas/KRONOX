@@ -869,12 +869,14 @@ export default function App() {
     const voiceStatusNow = fishVoiceStatusRef.current;
     const officialVoiceUnavailable =
       voiceStatusNow?.configured === false && !voiceStatusNow.geminiTts?.configured;
-    const canUseLocalSpeech =
-      !voiceProvider.staticAudioUrl?.({ text: cleanMsg }) &&
-      officialVoiceUnavailable &&
+    const browserSpeechAvailable =
       typeof window !== 'undefined' &&
       window.speechSynthesis &&
       window.SpeechSynthesisUtterance;
+    const canUseLocalSpeech =
+      browserSpeechAvailable &&
+      (options.preferBrowser ||
+        (!voiceProvider.staticAudioUrl?.({ text: cleanMsg }) && officialVoiceUnavailable));
 
     if (canUseLocalSpeech) {
       const utterance = new window.SpeechSynthesisUtterance(cleanMsg);
@@ -3827,11 +3829,12 @@ export default function App() {
           voiceRef.current = true;
           setVoice(true);
         },
-        narrate: (text, onComplete) =>
+        narrate: (text, onComplete, narrationOptions = {}) =>
           speak(text, {
             interrupt: true,
             allowBrowserFallback: true,
             skipGuide: true,
+            ...narrationOptions,
             onComplete,
           }),
         onGuidedComplete: (keepModalOpen = false) => A().onNoviceCinematicComplete?.(Boolean(keepModalOpen)),
@@ -4677,6 +4680,3 @@ export default function App() {
       onComplete: () => setInitialLoadingComplete(true),
     })
       )}
-    </LocalizedDom>
-  );
-}

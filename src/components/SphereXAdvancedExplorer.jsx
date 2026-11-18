@@ -544,6 +544,8 @@ export default function SphereXAdvancedExplorer({
                         ra,
                         dec,
                       ),
+                      undefined,
+                      { preferBrowser: true },
                     );
                   }}
                 >
