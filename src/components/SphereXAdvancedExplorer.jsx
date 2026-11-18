@@ -332,7 +332,17 @@ export default function SphereXAdvancedExplorer({
   const [guideStep, setGuideStep] = useState(-1);
   const [guideRunning, setGuideRunning] = useState(false);
   const [moduleGuide, setModuleGuide] = useState(null);
+  const seenGuideViewsRef = useRef(null);
   const guideStepRef = useRef(guideStep);
+
+  if (seenGuideViewsRef.current === null) {
+    try {
+      const storedViews = JSON.parse(window.localStorage.getItem('kronox:spherex-mode-guide-seen:v1') || '[]');
+      seenGuideViewsRef.current = new Set(Array.isArray(storedViews) ? storedViews : []);
+    } catch {
+      seenGuideViewsRef.current = new Set();
+    }
+  }
 
   const parsedVisor = useMemo(() => {
     if (activeView === 'sphere360') {
@@ -360,6 +370,12 @@ export default function SphereXAdvancedExplorer({
 
   const openModuleGuide = useCallback((viewId = activeView) => {
     const view = EXPLORER_VIEWS.some((item) => item.id === viewId) ? viewId : 'spectral';
+    seenGuideViewsRef.current.add(view);
+    try {
+      window.localStorage.setItem('kronox:spherex-mode-guide-seen:v1', JSON.stringify([...seenGuideViewsRef.current]));
+    } catch {
+      // The guide remains available for this visit when browser storage is disabled.
+    }
     setActiveView(view);
     setModuleGuide({ view, step: 0 });
   }, [activeView]);
@@ -694,7 +710,15 @@ export default function SphereXAdvancedExplorer({
                 className={`kronoxSphereXViewTab${activeView === view.id ? ' is-active' : ''}`}
                 onClick={() => {
                   setActiveView(view.id);
-                  setModuleGuide((current) => current ? { view: view.id, step: 0 } : null);
+                  const guideAlreadyOpen = Boolean(moduleGuide);
+                  const firstVisit = !seenGuideViewsRef.current.has(view.id);
+                  if (guideAlreadyOpen || firstVisit) setModuleGuide({ view: view.id, step: 0 });
+                  seenGuideViewsRef.current.add(view.id);
+                  try {
+                    window.localStorage.setItem('kronox:spherex-mode-guide-seen:v1', JSON.stringify([...seenGuideViewsRef.current]));
+                  } catch {
+                    // The guide still works for the current session without storage.
+                  }
                 }}
               >
                 {language === 'en' ? view.labelEn : view.label}
