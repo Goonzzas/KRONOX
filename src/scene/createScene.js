@@ -4767,6 +4767,24 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
     );
   }
 
+  function setCabinPerspective(firstPerson) {
+    cabinFirstPerson = Boolean(firstPerson);
+    if (articulatedAstronaut) {
+      articulatedAstronaut.root.visible = !cabinFirstPerson || pv === 3 || exteriorCameraMode;
+    }
+    S.onCabinFirstPersonChange?.(cabinFirstPerson);
+    if (guidedTourState && guidedTourState.step === 'look_camera') {
+      setTourStep('nav', 'nav');
+      S.onAiTourNarrative?.(tourNarratives.nav, 'Orientación', 'nav', {
+        id: 'tut-step-nav',
+        priority: 8,
+        replace: true,
+        once: false,
+      });
+    }
+    return cabinFirstPerson;
+  }
+
   function onGuidedDestinationArrival(target) {
     if (guidedTourState?.mode === 'novice-cinematic') {
       guidedTourState.targetName = target?.name || guidedTourState.targetName;
@@ -10031,23 +10049,7 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       }
       return cabinFirstPerson;
     },
-    setCabinPerspective: (firstPerson) => {
-      cabinFirstPerson = Boolean(firstPerson);
-      if (articulatedAstronaut) {
-        articulatedAstronaut.root.visible = !cabinFirstPerson || pv === 3 || exteriorCameraMode;
-      }
-      S.onCabinFirstPersonChange?.(cabinFirstPerson);
-      if (guidedTourState && guidedTourState.step === 'look_camera') {
-        setTourStep('nav', 'nav');
-        S.onAiTourNarrative?.(tourNarratives.nav, 'Orientación', 'nav', {
-          id: 'tut-step-nav',
-          priority: 8,
-          replace: true,
-          once: false,
-        });
-      }
-      return cabinFirstPerson;
-    },
+    setCabinPerspective,
     setFreeHelmMode: (enabled) => applyFreeHelmMode(enabled),
     getCabinFirstPerson: () => cabinFirstPerson,
     getAstronautPosition: () => {
