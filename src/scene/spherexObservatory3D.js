@@ -32,6 +32,129 @@ export const SPHEREX_ORBIT_SPEC = Object.freeze({
   simulationNotice: 'Órbita polar heliosíncrona simulada (~650 km, 98 min) basada en parámetros nominales de misión NASA/JPL.',
 });
 
+function createSurfaceTexture(draw, repeatX = 1, repeatY = 1) {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  draw(ctx, canvas.width, canvas.height);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(repeatX, repeatY);
+  texture.anisotropy = 8;
+  texture.encoding = THREE.sRGBEncoding;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function createSpherexSurfaceTextures() {
+  const foil = createSurfaceTexture((ctx, w, h) => {
+    const base = ctx.createLinearGradient(0, 0, w, h);
+    base.addColorStop(0, '#795015');
+    base.addColorStop(0.18, '#dfad43');
+    base.addColorStop(0.34, '#9a671d');
+    base.addColorStop(0.52, '#f1ce71');
+    base.addColorStop(0.72, '#a87324');
+    base.addColorStop(1, '#d7a647');
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, w, h);
+    // Overlapping MLI strips and delicate folded foil creases.
+    for (let row = 0; row < 12; row++) {
+      const y = row * 43;
+      ctx.fillStyle = row % 2 ? 'rgba(255,226,145,.13)' : 'rgba(64,38,7,.18)';
+      ctx.fillRect(0, y, w, 3);
+      ctx.strokeStyle = 'rgba(255,245,196,.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, y + 7);
+      ctx.bezierCurveTo(w * 0.28, y + 19, w * 0.63, y - 3, w, y + 15);
+      ctx.stroke();
+    }
+    for (let i = 0; i < 260; i++) {
+      const x = (i * 97) % w;
+      const y = (i * 193) % h;
+      ctx.strokeStyle = i % 3 ? 'rgba(255,244,201,.12)' : 'rgba(69,43,13,.16)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + 7 + (i % 17), y + ((i % 9) - 4));
+      ctx.stroke();
+    }
+  }, 2, 2);
+
+  const shield = createSurfaceTexture((ctx, w, h) => {
+    const base = ctx.createLinearGradient(0, 0, w, 0);
+    base.addColorStop(0, '#8997a5');
+    base.addColorStop(0.16, '#e6edf2');
+    base.addColorStop(0.42, '#aebbc4');
+    base.addColorStop(0.7, '#f6f8f6');
+    base.addColorStop(1, '#9aa8b4');
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, w, h);
+    // Fine reflective brushed-metal lines and subtle segmented seams.
+    for (let y = 0; y < h; y += 3) {
+      ctx.fillStyle = y % 9 === 0 ? 'rgba(255,255,255,.19)' : 'rgba(40,59,73,.045)';
+      ctx.fillRect(0, y, w, 1);
+    }
+    for (let x = 0; x < w; x += 128) {
+      ctx.fillStyle = 'rgba(44,61,75,.11)';
+      ctx.fillRect(x, 0, 2, h);
+      ctx.fillStyle = 'rgba(255,255,255,.23)';
+      ctx.fillRect(x + 3, 0, 1, h);
+    }
+    for (let y = 34; y < h; y += 86) {
+      for (let x = 24; x < w; x += 64) {
+        ctx.fillStyle = 'rgba(53,68,79,.32)';
+        ctx.beginPath();
+        ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.72)';
+        ctx.beginPath();
+        ctx.arc(x - 0.7, y - 0.7, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }, 1, 2);
+
+  const solar = createSurfaceTexture((ctx, w, h) => {
+    ctx.fillStyle = '#07172e';
+    ctx.fillRect(0, 0, w, h);
+    const cellW = w / 8;
+    const cellH = h / 4;
+    for (let row = 0; row < 4; row++) {
+      for (let col = 0; col < 8; col++) {
+        const x = col * cellW;
+        const y = row * cellH;
+        const grad = ctx.createLinearGradient(x, y, x + cellW, y + cellH);
+        grad.addColorStop(0, (row + col) % 3 ? '#123a66' : '#164575');
+        grad.addColorStop(0.5, '#0b2a50');
+        grad.addColorStop(1, '#071c39');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x + 2, y + 2, cellW - 4, cellH - 4);
+        ctx.strokeStyle = 'rgba(102,190,255,.42)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 2, y + 2, cellW - 4, cellH - 4);
+        ctx.strokeStyle = 'rgba(164,220,255,.2)';
+        ctx.beginPath();
+        ctx.moveTo(x + cellW / 2, y + 4);
+        ctx.lineTo(x + cellW / 2, y + cellH - 4);
+        ctx.stroke();
+      }
+    }
+    const sheen = ctx.createLinearGradient(0, 0, w, h);
+    sheen.addColorStop(0, 'rgba(120,205,255,.17)');
+    sheen.addColorStop(0.4, 'rgba(20,80,140,0)');
+    sheen.addColorStop(1, 'rgba(2,10,24,.24)');
+    ctx.fillStyle = sheen;
+    ctx.fillRect(0, 0, w, h);
+  }, 1, 1);
+
+  return { foil, shield, solar };
+}
+
 export function createSpherexObservatory3D() {
   const root = new THREE.Group();
   root.name = 'SPHEREx_Observatory_3D';
@@ -46,24 +169,37 @@ export function createSpherexObservatory3D() {
   const modelGroup = new THREE.Group();
   root.add(modelGroup);
 
+  // Texturas procedurales locales: MLI arrugado, escudos metálicos y células solares.
+  // Solo afectan el acabado; la geometría y escala del modelo permanecen intactas.
+  const surfaceTextures = createSpherexSurfaceTextures();
+
   // Materiales principales optimizados
   const outerShieldMat = new THREE.MeshStandardMaterial({
     color: 0xdce6f2,
     metalness: 0.62,
     roughness: 0.28,
     side: THREE.DoubleSide,
+    map: surfaceTextures?.shield ?? null,
+    bumpMap: surfaceTextures?.shield ?? null,
+    bumpScale: 0.012,
   });
   const midShieldMat = new THREE.MeshStandardMaterial({
     color: 0xeaf2fc,
     metalness: 0.74,
     roughness: 0.22,
     side: THREE.DoubleSide,
+    map: surfaceTextures?.shield ?? null,
+    bumpMap: surfaceTextures?.shield ?? null,
+    bumpScale: 0.009,
   });
   const innerShieldMat = new THREE.MeshStandardMaterial({
     color: 0xf5f9ff,
     metalness: 0.82,
     roughness: 0.16,
     side: THREE.DoubleSide,
+    map: surfaceTextures?.shield ?? null,
+    bumpMap: surfaceTextures?.shield ?? null,
+    bumpScale: 0.006,
   });
   const shieldRimMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -82,6 +218,9 @@ export function createSpherexObservatory3D() {
     emissiveIntensity: 0.18,
     metalness: 0.82,
     roughness: 0.32,
+    map: surfaceTextures?.foil ?? null,
+    bumpMap: surfaceTextures?.foil ?? null,
+    bumpScale: 0.018,
   });
   const busStructureMat = new THREE.MeshStandardMaterial({
     color: 0x243042,
@@ -114,6 +253,9 @@ export function createSpherexObservatory3D() {
     emissiveIntensity: 0.25,
     metalness: 0.58,
     roughness: 0.24,
+    map: surfaceTextures?.solar ?? null,
+    bumpMap: surfaceTextures?.solar ?? null,
+    bumpScale: 0.006,
   });
   const solarFrameMat = new THREE.MeshStandardMaterial({
     color: 0x9fb0c7,
