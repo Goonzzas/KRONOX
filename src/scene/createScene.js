@@ -4088,15 +4088,25 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       return [origin, missionApproach, missionConsoleBase];
     }
 
-    const aisleX = origin.x < -0.5 ? -3.35 : 3.35;
-    const firstTurnZ = Math.max(-7.3, Math.min(-4.6, origin.z + 1.8));
+    const aisleX = origin.x < -0.25 ? -2.45 : 2.45;
+    if (origin.z >= -2.9 && Math.abs(origin.x) >= 1.9) {
+      return [
+        origin,
+        ...(origin.z < -0.2 ? [new V(aisleX * 1.04, deckY, 0.0)] : []),
+        ...(origin.z < 2.0 ? [new V(aisleX, deckY, 2.25)] : []),
+        missionApproach,
+        missionConsoleBase,
+      ];
+    }
+
     return [
       origin,
-      new V(aisleX * 0.72, deckY, firstTurnZ),
-      new V(aisleX, deckY, -4.4),
-      new V(aisleX, deckY, -0.6),
-      new V(aisleX, deckY, 2.3),
-      new V(aisleX * 0.55, deckY, 3.55),
+      ...(origin.z < -8.8 ? [new V(0.0, deckY, -8.5)] : []),
+      ...(origin.z < -6.2 ? [new V(0.0, deckY, -5.5)] : []),
+      ...(origin.z < -3.1 ? [new V(0.0, deckY, -2.85)] : []),
+      new V(aisleX, deckY, -2.45),
+      new V(aisleX * 1.04, deckY, 0.0),
+      new V(aisleX, deckY, 2.25),
       missionApproach,
       missionConsoleBase,
     ];
@@ -4838,10 +4848,10 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
       fourDecksInterior?.setTutorialPath?.({ visible: true, points: routePoints, colorHex: 0x38bdf8 });
       setTourStep('novice-mission-console', 'missions');
       // Orient gently along the illuminated arrow path so the route and mission console are immediately clear.
-      if (Math.abs(astronautYaw) < 1.15) {
-        targetYaw = astronautPos.x < -0.5 ? -Math.PI * 0.74 : Math.PI * 0.74;
+      if (Math.abs(astronautYaw) < 1.35) {
+        targetYaw = astronautPos.x < -0.25 ? Math.PI * 0.92 : -Math.PI * 0.92;
       }
-      targetPitch = -0.08;
+      targetPitch = -0.06;
       luminousAI.setTargetPosition(new V(1.45, deckY + 1.85, 4.85), 'Señalización');
       luminousAI.pointAtWorldPosition(new V(0, deckY + 1.08, 4.52), true);
       S.onAiTourNarrative?.(
@@ -7995,7 +8005,9 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
           } else if (deckTransitState?.active) {
             const wp = deckTransitState.waypoints[deckTransitState.index];
             const toWp = new V().subVectors(wp, astronautPos);
-            const distToWp = toWp.length();
+            const sameDeckWalk = Math.abs(toWp.y) < 1.2;
+            if (sameDeckWalk) toWp.y = 0;
+            const distToWp = sameDeckWalk ? Math.hypot(toWp.x, toWp.z) : toWp.length();
             const stepDist = deckTransitState.speed * Math.max(0.008, Math.min(0.05, dt));
             footstepDistance += Math.min(stepDist, distToWp);
             if (footstepDistance >= 0.72) {
@@ -8003,7 +8015,12 @@ float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;gl_FragColor=vec4(vC,pow(1.-
               footstepDistance %= 0.72;
             }
             if (distToWp <= stepDist + 0.04) {
-              astronautPos.copy(wp);
+              if (sameDeckWalk) {
+                astronautPos.x = wp.x;
+                astronautPos.z = wp.z;
+              } else {
+                astronautPos.copy(wp);
+              }
               deckTransitState.index += 1;
               if (deckTransitState.index >= deckTransitState.waypoints.length) {
                 const finishedDeckId = deckTransitState.targetDeckId;
