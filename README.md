@@ -6,7 +6,7 @@
 
 **Explora el sistema solar · Sigue las señales · Descubre el cielo infrarrojo**
 
-[ Abrir KRONOX](https://kronox-three.vercel.app) · [ Guía de usuario](docs/GUIA_USUARIO.md) · [ Arquitectura](docs/ARQUITECTURA.md) · [ Wiki del proyecto](docs/wiki/README.md)
+[🚀 Abrir KRONOX](https://astralsentinels.earth) · [📖 Guía de usuario](docs/GUIA_USUARIO.md) · [🧭 Arquitectura](docs/ARQUITECTURA.md) · [📚 Wiki del proyecto](docs/wiki/README.md)
 
 <img src="docs/kronox-badges.svg" alt="React 18 · Vite 8 · Three.js · SPHEREx con alineación WCS · API Vercel · español e inglés · WebGL" width="100%" />
 
@@ -166,9 +166,9 @@ La salida se genera en `dist/`. `npm run format` aplica Prettier y modifica los 
 
 ## ☁️ Publicación
 
-El frontend se puede servir como sitio estático. Para habilitar consultas SPHEREx, sugerencia regional de idioma y voz se deben desplegar también las funciones de `api/` en Vercel; `vercel.json` configura Vite y la salida `dist`.
+**Sitio oficial:** [astralsentinels.earth](https://astralsentinels.earth). El proyecto se publica en Vercel desde la rama `main` del repositorio [Goonzzas/KRONOX](https://github.com/Goonzzas/KRONOX). Vercel compila Vite y publica `dist`, además de las funciones serverless de `api/`.
 
-Vite usa la ruta base `/` en Vercel y `/KRONOX/` en otros entornos, configuración prevista para GitHub Pages. Sin funciones serverless, la escena 3D sigue disponible, pero las consultas de misión y los endpoints de voz/localización no tienen backend.
+Vite usa la ruta base `/` en producción y `/KRONOX/` en otros entornos, configuración prevista para GitHub Pages. Sin las funciones serverless, la escena 3D sigue disponible, pero las consultas de misión y los endpoints de voz/localización no tienen backend. Para detalles de publicación y configuración, consulta [Despliegue en Vercel](docs/DEPLOY_VERCEL.md).
 
 
 ## 📚 Documentación

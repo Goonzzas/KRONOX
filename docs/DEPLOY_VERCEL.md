@@ -1,9 +1,10 @@
 # KRONOX en Vercel
 
-Sitio público: **https://kronox-three.vercel.app**.
+Sitio oficial: **[https://astralsentinels.earth](https://astralsentinels.earth)**. `www.astralsentinels.earth` también dirige al sitio oficial.
 
 - Equipo y proyecto: Astral Sentinels / kronox.
-- Rama: `codex/kronox-actual-voz-musica-2026-11-11` en Goonzzas/KRONOX.
+- Repositorio: [Goonzzas/KRONOX](https://github.com/Goonzzas/KRONOX).
+- Rama de producción: `main`.
 - Framework: Vite; raíz del repositorio; `npm run build`; salida `dist`.
 - Vite usa `/` cuando `VERCEL=1`.
 - Endpoints: `/api/fish-tts`, `/api/voice`, `/api/spherex` y `/api/locale`. Los auxiliares están en `api/_lib/` y no se publican como funciones.
@@ -31,6 +32,6 @@ Las cachés de voz y archivo usan el directorio temporal del servidor en Vercel.
 
 Se verificaron las 170 pruebas, TypeScript y la compilación de producción. Las comprobaciones HTTP confirmaron la voz con `X-Kronox-TTS-Provider: fish-audio`, la música original, 252 productos de Barnard y un recorte FITS real válido. La auditoría de recursos compara archivos publicados con originales mediante SHA-256. Las capturas y reportes de ejecución se conservan fuera del repositorio.
 
-Para actualizar, despliega esta rama en `astral-sentinels/kronox`, verifica el resultado y promuévelo a la dirección pública. `.vercel/`, los tokens de acceso y `.env.local` no se versionan. Los cambios de variables requieren un nuevo despliegue.
+Para publicar cambios, integra el commit en `main`; la conexión Git de Vercel inicia el despliegue de producción. Confirma que el despliegue quede en estado **Ready** y que los alias de producción incluyan `astralsentinels.earth`. `.vercel/`, los tokens de acceso y `.env.local` no se versionan. Los cambios de variables requieren un nuevo despliegue.
 
 Referencias oficiales: [variables de entorno](https://vercel.com/docs/environment-variables), [auxiliares de API](https://vercel.com/docs/functions/configuring-functions/advanced-configuration), [despliegues](https://vercel.com/docs/deployments).

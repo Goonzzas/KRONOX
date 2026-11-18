@@ -1,12 +1,12 @@
 # 🪐 Primeros pasos y navegación
 
-[← Volver a la Wiki](README.md) · [Abrir KRONOX](https://kronox-delta.vercel.app)
+[← Volver a la Wiki](README.md) · [Abrir KRONOX](https://astralsentinels.earth)
 
 ---
 
 ## Antes de empezar
 
-Abre [KRONOX](https://kronox-delta.vercel.app) en un navegador moderno con WebGL. La escena 3D funciona en escritorio y móvil; las consultas SPHEREx y algunos recursos necesitan conexión a internet.
+Abre [KRONOX](https://astralsentinels.earth) en un navegador moderno con WebGL. La escena 3D funciona en escritorio y móvil; las consultas SPHEREx y algunos recursos necesitan conexión a internet.
 
 Al inicio puedes escoger el idioma. KRONOX puede sugerirlo según el idioma del navegador o la región disponible, y permite cambiarlo desde la interfaz.
 

@@ -1,6 +1,6 @@
 # 🔭 Misión SPHEREx · Ecos en infrarrojo
 
-[← Volver a la Wiki](README.md) · [Abrir KRONOX](https://kronox-delta.vercel.app)
+[← Volver a la Wiki](README.md) · [Abrir KRONOX](https://astralsentinels.earth)
 
 ---
 

@@ -6,7 +6,7 @@
 
 **Guía central para explorar, comprender y desarrollar KRONOX.**
 
-[🚀 Abrir KRONOX](https://kronox-delta.vercel.app) · [📖 Guía de usuario](../GUIA_USUARIO.md) · [🧭 Arquitectura](../ARQUITECTURA.md)
+[🚀 Abrir KRONOX](https://astralsentinels.earth) · [📖 Guía de usuario](../GUIA_USUARIO.md) · [🧭 Arquitectura](../ARQUITECTURA.md)
 
 </div>
 
@@ -36,7 +36,7 @@ KRONOX combina una exploración espacial en 3D con una misión educativa basada 
 ## Navegación rápida
 
 - [Repositorio](https://github.com/Goonzzas/KRONOX)
-- [Aplicación pública](https://kronox-delta.vercel.app)
+- [Aplicación pública](https://astralsentinels.earth)
 - [Registro de cambios](../../CHANGELOG.md)
 - [Fuentes y limitaciones](../FUENTES_Y_LIMITACIONES.md)
 
